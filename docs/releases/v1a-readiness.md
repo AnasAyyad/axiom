@@ -18,10 +18,10 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | Field                              | Value   |
 | ---------------------------------- | ------- |
 | Candidate version                  | `0.1.0-a1` local A1 candidate |
-| Source commit                      | `30889cdf55c01258559531f474b3ea40df8382fa` |
+| Source commit                      | `d028115a3b61521d5be06af2601c181111179ec5` |
 | Clean-tree proof                   | Local fresh-clone proof recorded; hosted proof pending |
 | Build/toolchain identity           | Local A1 identity recorded; hosted proof pending |
-| Image digest and SBOM              | Local image digest recorded; CI SBOM pending |
+| Image digest and SBOM              | Local image/reproducibility digests recorded; CI SBOM pending |
 | Configuration/safety-manifest hash | Pending |
 | Dataset/soak manifest              | Pending |
 | Reference machine/load profile     | Pending |
@@ -61,7 +61,7 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | Phase | Owner                           | Entry dependency                      | Gate status | Evidence bundle                    |
 | ----- | ------------------------------- | ------------------------------------- | ----------- | ---------------------------------- |
 | A0    | Product, Architecture, Security | Authoritative spec and plan available | Verified    | [A0 review](evidence/a0-review.md) |
-| A1    | Platform Engineering            | A0 verified                           | In progress | Pending                            |
+| A1    | Platform Engineering            | A0 verified                           | In progress | [Local candidate](evidence/a1-local-validation.md) |
 | A2    | Domain Engineering              | A1 verified                           | Not started | Pending                            |
 | A3    | Runtime/Platform Engineering    | A2 verified                           | Not started | Pending                            |
 | A4    | Storage/Accounting              | A3 verified                           | Not started | Pending                            |
@@ -95,19 +95,18 @@ Evidence register: [A0 architecture and safety review](evidence/a0-review.md).
 
 Requirements: all `AX-V1A-A01-*` IDs. Entry: A0 verified.
 
-- [ ] Clean builds prove the pinned Go/React toolchains and platform commands.
-- [ ] Backend/frontend health applications start and dependency-aware readiness
+- [x] Clean builds prove the pinned Go/React toolchains and platform commands.
+- [x] Backend/frontend health applications start and dependency-aware readiness
       behaves truthfully.
-- [ ] Every Compose profile renders with safe placeholders and no authenticated
+- [x] Every Compose profile renders with safe placeholders and no authenticated
       or real-trading service, setting, mount, or port.
 - [ ] CI positive run and seeded-negative fixtures prove every governance gate.
-- [ ] Runtime image is minimal, non-root, and contains the intended embedded UI.
+- [x] Runtime image is minimal, non-root, and contains the intended embedded UI.
 - [ ] Setup/governance documentation passes a clean-machine walkthrough.
 
 Evidence register: [immutable-candidate local A1 validation](evidence/a1-local-validation.md).
-This is local evidence only; hosted CI, retained supply-chain artifacts, a
-clean-machine walkthrough, and the reproducibility disposition remain open, so
-the A1 gate remains open.
+This is local evidence only; hosted CI, retained supply-chain artifacts, and a
+separate clean-machine walkthrough remain open, so the A1 gate remains open.
 
 ## A2
 

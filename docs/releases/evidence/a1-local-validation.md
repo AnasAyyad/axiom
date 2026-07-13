@@ -6,30 +6,47 @@ mark A1 verified.
 
 ## Validation identity
 
-| Field             | Value                                                              |
-| ----------------- | ------------------------------------------------------------------ |
-| Validation end    | 2026-07-13T11:42:41Z                                               |
-| Candidate version | `0.1.0-a1`                                                         |
-| Source commit     | `30889cdf55c01258559531f474b3ea40df8382fa`                         |
-| Source checkout   | Fresh clone at the candidate commit                                |
-| Clean-tree proof  | Empty tracked status and diffs before and after `make verify`       |
-| Go                | 1.26.5                                                             |
-| Node              | 24.18.0                                                            |
-| pnpm              | 11.12.0 through Corepack                                           |
-| PostgreSQL        | `postgres:18.4-alpine` in an ephemeral local container             |
-| Image build time  | 2026-07-13T11:38:04Z                                               |
-| Local image index | `sha256:5841ce948dbb11b91fb20b5995d24c0f1472bdbe0ed3554ba74412d6fb545320` |
+| Field                     | Value                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| Validation end            | 2026-07-13T12:21:48Z                                                                 |
+| Candidate version         | `0.1.0-a1`                                                                           |
+| Source commit             | `d028115a3b61521d5be06af2601c181111179ec5`                                           |
+| Source checkout           | Fresh detached checkout at the candidate commit                                      |
+| Clean-tree proof          | Empty tracked status and diffs after `make verify`                                    |
+| Go                        | 1.26.5                                                                               |
+| Node                      | 24.18.0                                                                              |
+| pnpm                      | 11.12.0 through Corepack                                                             |
+| PostgreSQL                | `postgres:18.4-alpine` in ephemeral Compose projects                                  |
+| Image build time          | 2026-07-13T12:18:53Z                                                                 |
+| Local image index         | `sha256:5292e2607ade0eb8e04af457c43e12469d94435294b2c775ab6b2b36ecb1bacf`           |
+| Runtime manifest          | `sha256:94aa334f4daf0616b4f3c658ca741a26c3b79c0d5095398c119893a0ab45339c`           |
+| Runtime config            | `sha256:51fc2cb952936fd7c6a4e7bce4953225aa9230efe14f768130eb1f0472529d9a`           |
+| Runtime descriptor digest | `sha256:11ea24b88ffc2f14c3d5bc9f52d0540b7eee98939bb483a3c72148c486c0423d`           |
 
-The checkout was cloned from the repository after the source-only embedded
-asset marker fix. Dependency installation used the committed Go and pnpm lock
-files. No generated or tracked file changed during validation.
+The checkout was cloned from the repository and detached at the full commit
+above. Go, Node, pnpm, PostgreSQL, and application dependency pins matched the
+committed manifests. The JavaScript dependency tree was installed with:
+
+```text
+CI=true corepack pnpm install --offline --frozen-lockfile \
+  --store-dir=/tmp/axiom-pnpm-store
+```
+
+This reused a verified content-addressed store because approval for a new
+network download timed out. The candidate and previously network-installed
+candidate had byte-identical `go.mod`, `go.sum`, root/web package manifests, and
+`pnpm-lock.yaml`. The production image independently fetched the same locked
+dependencies in its isolated build stages. This is immutable-candidate proof,
+not a substitute for the still-pending separate clean-machine walkthrough.
 
 ## Passing local checks
 
-The complete repository-local gate ran from the fresh checkout:
+With `GO`, `NODE`, and `COREPACK` set to the exact toolchains above and the
+offline pnpm store identity propagated, the complete repository-local gate ran
+from the fresh checkout:
 
 ```text
-make verify
+CI=true pnpm_config_store_dir=/tmp/axiom-pnpm-store make verify
 ```
 
 Observed results:
@@ -42,7 +59,8 @@ Observed results:
 - the execution-mode fuzz smoke ran for three seconds and passed;
 - frontend type checking/build, embedded-asset generation, and platform build
   passed;
-- all 32 active Compose profile combinations rendered safely;
+- all 32 active Compose profile combinations rendered safely and the exact
+  image-entrypoint command contract passed;
 - reserved `testnet` and `demo` profile placeholders remained inert;
 - secret and prohibited-capability scans plus their seeded negative self-tests
   passed;
@@ -52,26 +70,50 @@ Observed results:
   and
 - the pinned `govulncheck` reported no known vulnerabilities.
 
-An exact-commit production image was built with `DIRTY=false`, the candidate
-commit, version, and UTC build time embedded. `scripts/inspect-image.sh` proved
-numeric non-root user `10001:70`, the exact platform entrypoint, no shell,
-read-only execution, no credential-like environment key, and a working embedded
-binary.
+The exact-commit production image was built twice with `DIRTY=false`, the full
+candidate commit, version, and UTC build time embedded:
 
-A second build used identical source and build arguments. Both builds produced
-the same runtime manifest `sha256:ca973535315d20108a0ecda1b6340ae359da666210eb06b929e28a47bf3c722e`,
-config `sha256:48fea8c9c8a3381b494cc7977434935b555c06f9fdb89f6e16fec9b25aa2bbfd`,
-three layer digests, 3,859,997-byte size, entrypoint, and user. Their top-level
-OCI index digests differed because BuildKit generated a new detached provenance
-attestation: the first was the local image index above and the second was
-`sha256:7001a89b229a0c9d9922817553e7717d9a6bbde10b2aeff08e775d6d3b811d87`.
-The runtime payload comparison passed; byte-identical provenance-envelope
-reproduction remains unresolved.
+```text
+make image-reproducibility \
+  IMAGE=axiom:a1-d028115 \
+  REBUILD_IMAGE=axiom:a1-d028115-rebuild \
+  VERSION=0.1.0-a1 \
+  COMMIT=d028115a3b61521d5be06af2601c181111179ec5 \
+  BUILT_AT=2026-07-13T12:18:53Z \
+  DIRTY=false
+```
 
-Finally, an ephemeral PostgreSQL instance passed the migration,
-API/worker/recorder/shadow process, dependency-up/down readiness,
-forbidden-mode, exact-command, embedded-UI, and graceful-shutdown smoke suite.
-The test database container was removed afterward.
+The two builds had identical complete Docker runtime configuration, root
+filesystem layers, byte size, architecture, and operating system, producing the
+runtime descriptor digest above. Both used the same runtime manifest and config.
+`scripts/inspect-image.sh` proved numeric non-root user `10001:70`, the exact
+platform entrypoint, no shell, read-only execution, no credential-like
+environment key, and a working embedded binary.
+
+BuildKit retained a detached provenance attestation. Its timestamped envelope
+made the rebuild's top-level OCI index
+`sha256:9339eb99f61c4d659fd5868493987f7ce1daf4945a0c91d5cdaace8da17a5a56`
+different from the candidate index while leaving the runtime manifest, config,
+layers, and descriptor digest identical. CI now retains both the final candidate
+index and the runtime reproducibility result; provenance was not disabled to
+manufacture a byte-identical envelope.
+
+The exact image then passed the full deployment walkthrough:
+
+```text
+make compose-smoke IMAGE=axiom:a1-d028115
+```
+
+The ephemeral project initialized PostgreSQL roles from file-backed secrets,
+completed the least-privilege migration, and started healthy API, shadow engine,
+recorder, and worker containers. The smoke verified dependency-aware readiness,
+the embedded UI, and `real_trading_enabled:false`. It removed its containers,
+networks, volumes, secret files, and temporary market-data directory afterward.
+
+The source-level PostgreSQL integration suite also passed migration,
+dependency-up/down readiness, forbidden-mode, exact-command, embedded-UI, and
+graceful-shutdown checks as part of the earlier candidate validation; its source
+and lockfiles are unchanged in this candidate.
 
 ## Open A1 evidence
 
@@ -83,10 +125,9 @@ The test database container was removed afterward.
 - Docker Scout was not used as a substitute because that path can transmit
   private local-image metadata to a third party and was not authorized.
 - A separate clean-machine setup and governance-document walkthrough has not
-  been executed; a fresh clone on the current host is not equivalent.
-- The BuildKit provenance envelope is not byte-identical across otherwise
-  identical local builds, as documented above.
+  been executed. CI now automates the locked build and full image-backed setup,
+  but the workflow has not run on a fresh hosted runner.
 
-Phase A1 remains **In progress** until hosted CI, retained supply-chain evidence,
-the clean-machine walkthrough, and the remaining reproducibility disposition are
-complete for an immutable candidate.
+Phase A1 remains **In progress** until hosted CI, its retained supply-chain
+evidence, and the separate clean-machine walkthrough complete for an immutable
+candidate.
