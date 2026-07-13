@@ -22,4 +22,7 @@ if [[ "${actual}" != "${expected}" ]]; then
   exit 1
 fi
 
+docker compose --env-file .env.example --profile '*' config --format json | \
+  node scripts/check-compose-command-contract.mjs
+
 printf 'all %d active Compose profile combinations render safely\n' "${combinations}"

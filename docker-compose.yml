@@ -135,7 +135,7 @@ services:
     <<: *app-base
     profiles: [app, record, workers]
     restart: "no"
-    command: ["/app/platform", "admin", "migrate"]
+    command: ["admin", "migrate"]
     environment:
       <<: *runtime-environment
       DB_USER: ${POSTGRES_MIGRATOR_USER:-axiom_migrator}
@@ -151,7 +151,7 @@ services:
   api:
     <<: *app-base
     profiles: [app]
-    command: ["/app/platform", "api"]
+    command: ["api"]
     environment:
       <<: *runtime-environment
     secrets:
@@ -177,7 +177,7 @@ services:
   engine-shadow:
     <<: *app-base
     profiles: [app]
-    command: ["/app/platform", "trader", "--mode=shadow"]
+    command: ["trader", "--mode=shadow"]
     environment:
       <<: *runtime-environment
       EXECUTION_MODE: shadow
@@ -208,7 +208,7 @@ services:
   recorder:
     <<: *app-base
     profiles: [record]
-    command: ["/app/platform", "recorder"]
+    command: ["recorder"]
     environment:
       <<: *runtime-environment
       EXECUTION_MODE: shadow
@@ -256,7 +256,7 @@ services:
   backtest-worker:
     <<: *app-base
     profiles: [workers]
-    command: ["/app/platform", "worker"]
+    command: ["worker"]
     environment:
       <<: *runtime-environment
     secrets:

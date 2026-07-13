@@ -49,27 +49,31 @@ make generate
 make verify
 ```
 
-Use the deployment guide to prepare `.env` and private database secret files.
-Start PostgreSQL, run the empty A1 migration baseline, then start the API and
-Vite health applications:
+Use the deployment guide to prepare `.env`, the private database secret files,
+and writable directory ownership. Build the image, then start PostgreSQL, the
+one-shot A1 migration, API, and public-data shadow engine through the reviewed
+image-based Compose profile:
 
 ```bash
-docker compose --env-file .env up -d postgres
-DB_USER=axiom_migrator \
-  DB_PASSWORD_FILE="$(pwd)/.secrets/postgres_migrator_password" make migrate
-DB_USER=axiom_app \
-  DB_PASSWORD_FILE="$(pwd)/.secrets/postgres_runtime_password" make dev-api
-# In another terminal:
-make dev-web
+make image
+APP_IMAGE=axiom:local APP_PULL_POLICY=never \
+  docker compose --env-file .env --profile app up -d --wait
 ```
+
+For frontend development, run `make dev-web` in another terminal; Vite proxies
+API requests to the loopback-published Compose API. `make compose-smoke` runs an
+ephemeral full A1 application-profile walkthrough after an image has been built.
 
 The API exposes `/health/live`, `/health/ready`, `/api/v1/system/version`,
 `/api/v1/system/build`, and `/api/v1/system/status`. Readiness pings PostgreSQL;
 it never mirrors liveness. The UI always displays `REAL TRADING DISABLED`.
 
 Build the embedded binary or minimal `scratch` image with `make build` or
-`make image`. The image runs as numeric non-root user `10001:70` and contains no
-shell or package manager.
+`make image`. `make image-reproducibility` rebuilds and compares the complete
+runtime configuration and filesystem descriptors while retaining BuildKit's
+provenance envelope. The image runs as numeric non-root user `10001:70` and
+contains no shell or package manager. Stop the local application with
+`docker compose --env-file .env --profile app down`.
 
 ## Release sequence
 

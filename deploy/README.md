@@ -86,9 +86,19 @@ A4 adds versioned SQL migrations and transactional schema validation. An extra
 `up` argument is intentionally rejected so deployment and binary command
 surfaces cannot drift.
 
-## 4. Enable application profiles later
+## 4. Enable application profiles
 
-After CI builds, scans, signs, and publishes the real application image, set `APP_IMAGE` to an immutable digest where possible.
+For local A1 validation, build the reviewed Dockerfile and keep Compose from
+pulling a mutable or unrelated image:
+
+```bash
+make image
+APP_IMAGE=axiom:local APP_PULL_POLICY=never \
+  docker compose --env-file .env --profile app up -d --wait
+```
+
+For a server, use an image that CI has built, scanned, signed, and published;
+set `APP_IMAGE` to its immutable digest where possible.
 
 Typical public shadow stack:
 

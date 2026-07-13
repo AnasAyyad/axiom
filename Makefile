@@ -9,7 +9,14 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke build build-backend build-frontend compose-validate security-static vulnerability verify dev-api dev-web migrate image
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate image image-reproducibility
+
+IMAGE ?= axiom:local
+REBUILD_IMAGE ?= $(IMAGE)-rebuild
+VERSION ?= dev
+COMMIT ?= unknown
+BUILT_AT ?= unknown
+DIRTY ?= true
 
 help: ## List stable repository commands.
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -77,6 +84,9 @@ compose-validate: ## Render every active Compose profile combination safely.
 	@scripts/check-compose.sh
 	@tests/integration/check-unavailable-profiles.sh
 
+compose-smoke: ## Start the image-backed A1 app, recorder, and worker profiles.
+	@tests/integration/smoke-compose-app.sh "$(IMAGE)"
+
 security-static: ## Run secret and prohibited-capability scans with negative tests.
 	@scripts/check-secret-patterns.sh
 	@scripts/test-check-secret-patterns.sh
@@ -98,4 +108,12 @@ migrate: ## Run the exact A1 migration command surface.
 	@$(GO) run ./cmd/platform admin migrate
 
 image: ## Build the pinned minimal Axiom image.
-	@docker build --file deploy/docker/Dockerfile --tag axiom:local .
+	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \
+		--build-arg "VERSION=$(VERSION)" \
+		--build-arg "COMMIT=$(COMMIT)" \
+		--build-arg "BUILT_AT=$(BUILT_AT)" \
+		--build-arg "DIRTY=$(DIRTY)" .
+
+image-reproducibility: image ## Rebuild and compare the complete runtime image payload.
+	@VERSION="$(VERSION)" COMMIT="$(COMMIT)" BUILT_AT="$(BUILT_AT)" DIRTY="$(DIRTY)" \
+		scripts/check-image-reproducibility.sh "$(IMAGE)" "$(REBUILD_IMAGE)"
