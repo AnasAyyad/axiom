@@ -1,0 +1,81 @@
+# Axiom
+
+Axiom is a professional, spot-only cryptocurrency research platform for historical backtesting, deterministic replay, live public-market shadow trading, realistic execution simulation, and carefully controlled exchange sandbox integration.
+
+## Safety boundary
+
+Axiom V1A-V1D never submits real-money production orders. It does not support withdrawals, transfers, margin, leverage, futures, borrowing, lending, staking, or short selling.
+
+Binance Spot Testnet and Bybit Demo are planned only for later virtual-fund integration validation. They are not evidence that a strategy is profitable.
+
+## Current repository state
+
+A0 is verified. A1 is in progress and now contains the pinned Go/React health
+skeleton, OpenAPI-generated model types, single platform command surface,
+production Dockerfile, Compose contract, and CI governance. Trading, recording,
+replay, accounting, risk, and strategy behavior remain unavailable until their
+own phases pass.
+
+- Product and release specification: [crypto_bot_v1_codex_spec.md](crypto_bot_v1_codex_spec.md)
+- Agent instructions: [AGENTS.md](AGENTS.md)
+- Local/server deployment guide: [deploy/README.md](deploy/README.md)
+- Safe configuration template: [.env.example](.env.example)
+- Compose deployment contract: [docker-compose.yml](docker-compose.yml)
+- A0 review evidence: [docs/releases/evidence/a0-review.md](docs/releases/evidence/a0-review.md)
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Coding standards: [docs/coding-standards.md](docs/coding-standards.md)
+
+## Exact toolchains
+
+- Go `1.26.5`
+- Node.js `24.18.0`
+- pnpm `11.12.0` through Corepack
+- PostgreSQL `18.4-alpine`
+- React `19.2.7`, TypeScript `7.0.2`, and Vite `8.1.4`
+
+Run `make preflight` after installing Go, Node, Docker/Compose, and ripgrep. Go
+tools are pinned in `go.mod`; JavaScript tools are pinned in `pnpm-lock.yaml`, so
+no global linter, generator, or test runner is required.
+
+## Local A1 setup
+
+Install dependencies, generate contracts, and run the full local gate:
+
+```bash
+corepack enable
+corepack install --global pnpm@11.12.0
+pnpm install --frozen-lockfile
+make generate
+make verify
+```
+
+Use the deployment guide to prepare `.env` and private database secret files.
+Start PostgreSQL, run the empty A1 migration baseline, then start the API and
+Vite health applications:
+
+```bash
+docker compose --env-file .env up -d postgres
+DB_USER=axiom_migrator \
+  DB_PASSWORD_FILE="$(pwd)/.secrets/postgres_migrator_password" make migrate
+DB_USER=axiom_app \
+  DB_PASSWORD_FILE="$(pwd)/.secrets/postgres_runtime_password" make dev-api
+# In another terminal:
+make dev-web
+```
+
+The API exposes `/health/live`, `/health/ready`, `/api/v1/system/version`,
+`/api/v1/system/build`, and `/api/v1/system/status`. Readiness pings PostgreSQL;
+it never mirrors liveness. The UI always displays `REAL TRADING DISABLED`.
+
+Build the embedded binary or minimal `scratch` image with `make build` or
+`make image`. The image runs as numeric non-root user `10001:70` and contains no
+shell or package manager.
+
+## Release sequence
+
+- **V1A:** deterministic public-data research core and first live-shadow strategy
+- **V1B:** Binance/Bybit multi-exchange strategy research
+- **V1C:** authenticated virtual-fund Binance Testnet and Bybit Demo integration
+- **V1D:** complete dashboard, reporting, operations, and readiness certification
+
+Release gates are cumulative: later work cannot weaken earlier safety, accounting, replay, or risk controls.

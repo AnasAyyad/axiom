@@ -1,0 +1,154 @@
+openapi: 3.0.3
+info:
+  title: Axiom V1A API
+  version: 0.1.0
+  description: >-
+    Public health and build-information contract for the A1 skeleton. Axiom V1A
+    is research and simulation software; real trading is disabled.
+servers:
+  - url: /
+tags:
+  - name: Health
+  - name: System
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      tags: [Health]
+      summary: Report whether the process loop can respond
+      responses:
+        "200":
+          description: Process is live
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /health/ready:
+    get:
+      operationId: getReadiness
+      tags: [Health]
+      summary: Report whether required A1 dependencies are available
+      responses:
+        "200":
+          description: Process is ready for its A1 skeleton role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: A required dependency is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/system/version:
+    get:
+      operationId: getVersion
+      tags: [System]
+      summary: Return the application version
+      responses:
+        "200":
+          description: Version identity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionResponse"
+  /api/v1/system/build:
+    get:
+      operationId: getBuildInformation
+      tags: [System]
+      summary: Return non-secret build identity
+      responses:
+        "200":
+          description: Build identity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildInformation"
+  /api/v1/system/status:
+    get:
+      operationId: getSystemStatus
+      tags: [System]
+      summary: Return the A1 skeleton safety and lifecycle state
+      responses:
+        "200":
+          description: Current system status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatus"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, role, phase]
+      properties:
+        status:
+          type: string
+          enum: [live, ready, not_ready]
+        role:
+          type: string
+          minLength: 1
+        phase:
+          type: string
+          enum: [A1]
+        reason_code:
+          type: string
+          minLength: 1
+    VersionResponse:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: string
+          minLength: 1
+    BuildInformation:
+      type: object
+      additionalProperties: false
+      required: [version, commit, built_at, go_version, dirty]
+      properties:
+        version:
+          type: string
+          minLength: 1
+        commit:
+          type: string
+          minLength: 1
+        built_at:
+          type: string
+          minLength: 1
+        go_version:
+          type: string
+          minLength: 1
+        dirty:
+          type: boolean
+    SystemStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - release
+        - phase
+        - role
+        - lifecycle_state
+        - strategy_activation
+        - real_trading_enabled
+      properties:
+        release:
+          type: string
+          enum: [V1A]
+        phase:
+          type: string
+          enum: [A1]
+        role:
+          type: string
+          minLength: 1
+        lifecycle_state:
+          type: string
+          enum: [STARTING, READY_PAUSED, STOPPING]
+        strategy_activation:
+          type: string
+          enum: [unavailable]
+        real_trading_enabled:
+          type: boolean
+          enum: [false]

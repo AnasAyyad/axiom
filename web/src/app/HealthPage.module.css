@@ -1,0 +1,91 @@
+.page {
+  width: min(70rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1rem 0 4rem;
+}
+
+.lockBanner {
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--color-lock-border);
+  border-radius: 0.6rem;
+  background: var(--color-lock-bg);
+  color: var(--color-lock-text);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.header {
+  padding: 4rem 0 2rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+  letter-spacing: -0.045em;
+}
+
+.header p {
+  color: var(--color-text-muted);
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--color-accent) !important;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 1rem;
+}
+
+.card {
+  padding: 1.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-surface);
+  box-shadow: 0 1.2rem 3rem rgb(0 0 0 / 14%);
+}
+
+.card h2 {
+  margin-top: 0;
+}
+
+.card dl {
+  margin: 1rem 0 0;
+}
+
+.card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.card dt {
+  color: var(--color-text-muted);
+}
+
+.card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.good,
+.warning {
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.good {
+  color: var(--color-good);
+}
+
+.warning {
+  color: var(--color-warning);
+}

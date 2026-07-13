@@ -1,0 +1,14 @@
+:root {
+  color-scheme: dark;
+  --color-bg: #0b1017;
+  --color-surface: #111a24;
+  --color-border: #2a3949;
+  --color-text: #eef5fb;
+  --color-text-muted: #a7b7c7;
+  --color-accent: #72d5ff;
+  --color-good: #7ce7ad;
+  --color-warning: #ffc66d;
+  --color-lock-bg: #351518;
+  --color-lock-border: #ff727b;
+  --color-lock-text: #ffd9dc;
+}

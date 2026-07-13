@@ -1,0 +1,33 @@
+# Local deployment environment and secrets
+.env
+.env.local
+.env.*.local
+.secrets/
+secrets/
+
+# Runtime data and backups
+.local/
+data/
+backups/
+*.partial
+
+# Build/test output
+bin/
+dist/
+coverage/
+node_modules/
+*.test
+*.tsbuildinfo
+.tools/
+.pnpm-store/
+
+# Embedded web output is generated locally and in the image build. Keep only
+# the marker that lets a source-only Go build compile before frontend assets.
+internal/api/static/dist/*
+!internal/api/static/dist/.gitkeep
+
+# Local editor/OS artifacts
+.DS_Store
+Thumbs.db
+*.Zone.Identifier
+*:Zone.Identifier

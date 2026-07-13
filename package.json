@@ -1,0 +1,19 @@
+{
+  "name": "axiom",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.12.0",
+  "engines": {
+    "node": "24.18.0",
+    "pnpm": "11.12.0"
+  },
+  "scripts": {
+    "build": "corepack pnpm --filter @axiom/web build",
+    "contracts": "corepack pnpm --filter @axiom/web contracts",
+    "format": "corepack pnpm --filter @axiom/web format",
+    "format:check": "corepack pnpm --filter @axiom/web format:check",
+    "lint": "corepack pnpm --filter @axiom/web lint",
+    "test": "corepack pnpm --filter @axiom/web test",
+    "typecheck": "corepack pnpm --filter @axiom/web typecheck"
+  }
+}
