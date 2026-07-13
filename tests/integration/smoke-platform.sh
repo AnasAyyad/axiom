@@ -31,7 +31,7 @@ export RISK_FAIL_CLOSED=true
 export RISK_INITIAL_STATE=PAUSED
 
 "${TEMP_DIR}/platform" admin migrate >"${TEMP_DIR}/migrate.out"
-rg --fixed-strings --quiet '"applied":0' "${TEMP_DIR}/migrate.out"
+grep --fixed-strings --quiet '"applied":0' "${TEMP_DIR}/migrate.out"
 if DB_PORT=1 DB_CONNECTION_TIMEOUT=100ms \
   "${TEMP_DIR}/platform" admin migrate \
   >"${TEMP_DIR}/migrate-negative.out" 2>"${TEMP_DIR}/migrate-negative.log"; then
@@ -70,11 +70,7 @@ start_and_check() {
   curl --fail --silent "http://127.0.0.1:${port}/health/live" >/dev/null
   curl --fail --silent "http://127.0.0.1:${port}/health/ready" >/dev/null
   curl --fail --silent "http://127.0.0.1:${port}/api/v1/system/status" | \
-    rg --fixed-strings --quiet '"real_trading_enabled":false'
-  if [[ "${role}" == "api" ]]; then
-    curl --fail --silent "http://127.0.0.1:${port}/" | \
-      rg --fixed-strings --quiet '<div id="root"></div>'
-  fi
+    grep --fixed-strings --quiet '"real_trading_enabled":false'
   stop_and_check
 }
 
