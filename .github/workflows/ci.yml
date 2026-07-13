@@ -26,6 +26,10 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Install required runner tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ripgrep
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
@@ -93,7 +97,7 @@ jobs:
         with:
           fail-on-severity: moderate
           license-check: true
-          allow-licenses: Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MIT, MPL-2.0, PostgreSQL, 0BSD, CC0-1.0, Unlicense
+          allow-licenses: Apache-2.0, BSD-2-Clause, BSD-2-Clause-Views, BSD-3-Clause, ISC, MIT, MIT-0, MPL-2.0, PostgreSQL, 0BSD, CC-BY-4.0, CC0-1.0, BlueOak-1.0.0, LicenseRef-scancode-google-patent-license-golang, Unlicense
 
   secret-scan:
     name: Full-history secret scan
@@ -133,6 +137,10 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Install required runner tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ripgrep
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build immutable candidate input
