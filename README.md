@@ -10,7 +10,7 @@ Binance Spot Testnet and Bybit Demo are planned only for later virtual-fund inte
 
 ## Current repository state
 
-A0 is verified. A1 is in progress and now contains the pinned Go/React health
+A0 and A1 are verified. A1 contains the pinned Go/React health
 skeleton, OpenAPI-generated model types, single platform command surface,
 production Dockerfile, Compose contract, and CI governance. Trading, recording,
 replay, accounting, risk, and strategy behavior remain unavailable until their

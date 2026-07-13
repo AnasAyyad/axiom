@@ -55,9 +55,9 @@ openssl rand -base64 48 > .secrets/postgres_migrator_password
 openssl rand -base64 48 > .secrets/postgres_runtime_password
 openssl rand -base64 48 > .secrets/postgres_readonly_password
 openssl rand -base64 48 > .secrets/grafana_admin_password
-chgrp 70 .secrets/postgres_*_password
+sudo chgrp 70 .secrets/postgres_*_password
 chmod 640 .secrets/postgres_*_password
-chgrp 472 .secrets/grafana_admin_password
+sudo chgrp 472 .secrets/grafana_admin_password
 chmod 640 .secrets/grafana_admin_password
 ```
 

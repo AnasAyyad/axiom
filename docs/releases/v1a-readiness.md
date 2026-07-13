@@ -2,10 +2,10 @@
 
 ## Current decision
 
-**V1A is not ready for release.** A0 is verified and A1 is in progress; A1–A11
-and every release gate remain unverified. This document is an evidence index,
-not evidence by itself. An unchecked item must not be inferred from source
-layout, planned work, or a passing narrower test.
+**V1A is not ready for release.** A0 and A1 are verified; A2–A11 and every
+release gate remain unverified. This document is an evidence index, not evidence
+by itself. An unchecked item must not be inferred from source layout, planned
+work, or a passing narrower test.
 
 Normative requirement details live in
 [requirements/traceability.md](../requirements/traceability.md). The execution
@@ -17,11 +17,11 @@ current phase status is [implementation-status.md](../implementation-status.md).
 
 | Field                              | Value   |
 | ---------------------------------- | ------- |
-| Candidate version                  | `0.1.0-a1` local A1 candidate |
-| Source commit                      | `d028115a3b61521d5be06af2601c181111179ec5` |
-| Clean-tree proof                   | Local fresh-clone proof recorded; hosted proof pending |
-| Build/toolchain identity           | Local A1 identity recorded; hosted proof pending |
-| Image digest and SBOM              | Local image/reproducibility digests recorded; CI SBOM pending |
+| Candidate version                  | `0.1.0-a1` A1 candidate |
+| Source commit                      | `5ce09c3611e05a8fa5d0f1afc4706e17698b2d90` |
+| Clean-tree proof                   | Local predecessor fresh-checkout proof plus owner-verified clean hosted run for current commit |
+| Build/toolchain identity           | Local predecessor identity plus owner-verified hosted run `#4` for current commit |
+| Image digest and SBOM              | Local predecessor digests; current hosted image/SBOM artifacts owner-verified, hashes not independently inspected |
 | Configuration/safety-manifest hash | Pending |
 | Dataset/soak manifest              | Pending |
 | Reference machine/load profile     | Pending |
@@ -61,7 +61,7 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | Phase | Owner                           | Entry dependency                      | Gate status | Evidence bundle                    |
 | ----- | ------------------------------- | ------------------------------------- | ----------- | ---------------------------------- |
 | A0    | Product, Architecture, Security | Authoritative spec and plan available | Verified    | [A0 review](evidence/a0-review.md) |
-| A1    | Platform Engineering            | A0 verified                           | In progress | [Local candidate](evidence/a1-local-validation.md) |
+| A1    | Platform Engineering            | A0 verified                           | Verified    | [Local validation](evidence/a1-local-validation.md); [owner-verified hosted CI](evidence/a1-hosted-ci.md); [clean-machine walkthrough](evidence/a1-clean-machine-walkthrough.md) |
 | A2    | Domain Engineering              | A1 verified                           | Not started | Pending                            |
 | A3    | Runtime/Platform Engineering    | A2 verified                           | Not started | Pending                            |
 | A4    | Storage/Accounting              | A3 verified                           | Not started | Pending                            |
@@ -93,20 +93,25 @@ Evidence register: [A0 architecture and safety review](evidence/a0-review.md).
 
 ## A1
 
-Requirements: all `AX-V1A-A01-*` IDs. Entry: A0 verified.
+Requirements: every phase-local `AX-V1A-A01-*` ID. Entry: A0 verified. The
+program-wide documentation row `AX-V1A-A01-QLT-013` remains continuously owned
+through later phases and the V1A release gate; it is not waived by this phase
+decision.
 
 - [x] Clean builds prove the pinned Go/React toolchains and platform commands.
 - [x] Backend/frontend health applications start and dependency-aware readiness
       behaves truthfully.
 - [x] Every Compose profile renders with safe placeholders and no authenticated
       or real-trading service, setting, mount, or port.
-- [ ] CI positive run and seeded-negative fixtures prove every governance gate.
+- [x] CI positive run and seeded-negative fixtures prove every governance gate.
 - [x] Runtime image is minimal, non-root, and contains the intended embedded UI.
-- [ ] Setup/governance documentation passes a clean-machine walkthrough.
+- [x] Setup/governance documentation passes a clean-machine walkthrough.
 
-Evidence register: [immutable-candidate local A1 validation](evidence/a1-local-validation.md).
-This is local evidence only; hosted CI, retained supply-chain artifacts, and a
-separate clean-machine walkthrough remain open, so the A1 gate remains open.
+Evidence register: [immutable-candidate local A1 validation](evidence/a1-local-validation.md)
+and [owner-verified hosted CI](evidence/a1-hosted-ci.md). Hosted run `#4` and
+its retained supply-chain artifacts are recorded for the current commit. The
+[clean-machine setup/governance walkthrough](evidence/a1-clean-machine-walkthrough.md)
+also passes for that candidate. A1 is verified.
 
 ## A2
 
@@ -285,9 +290,9 @@ Release decision: **Not evaluated; all evidence pending.**
 
 - The repository contains the A1 health/application skeleton only; all later
   V1A business capabilities remain unimplemented.
-- A1 has no committed source identity or clean CI/supply-chain artifact run, so
-  its gate remains unverified even though the local checks, image inspection,
-  and Docker-backed runtime smoke pass.
+- A1 has a committed source identity, owner-verified hosted CI/supply-chain
+  artifacts, local immutable-candidate evidence, and a completed clean-machine
+  setup/governance walkthrough.
 - The A0 review is an independent Codex architecture/static audit, not an
   external human security assessment and not runtime or release certification.
 - No targeted application, integration, race, fuzz, accessibility, recovery,

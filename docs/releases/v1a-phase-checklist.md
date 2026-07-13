@@ -21,10 +21,12 @@ in [V1A readiness](v1a-readiness.md). Clause-level plan coverage is in
 ## A1 — repository, toolchain, Compose, and CI
 
 - [x] Confirm A0 is verified.
-- [ ] Verify all `AX-V1A-A01-*` requirements.
+- [x] Verify every phase-local `AX-V1A-A01-*` requirement; the continuously
+      enforced cross-cutting documentation row remains owned by later phases and
+      the release gate.
 - [x] Start all minimal processes and health applications locally.
 - [x] Render every Compose profile and prove no authenticated/real-trading path.
-- [ ] Pass positive CI and every seeded-negative governance fixture.
+- [x] Pass positive CI and every seeded-negative governance fixture.
 
 ## A2 — financial domain and configuration
 

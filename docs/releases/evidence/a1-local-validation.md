@@ -1,8 +1,10 @@
 # A1 immutable-candidate local validation
 
-This record captures local validation for Phase A1. It identifies an immutable
-implementation candidate, but it is not hosted-CI gate evidence and does not
-mark A1 verified.
+This record captures local validation for the immutable predecessor A1
+candidate identified below. It remains supporting evidence for the unchanged
+application and deployment foundation, but it is not hosted-CI evidence for the
+current `5ce09c3611e05a8fa5d0f1afc4706e17698b2d90` candidate and does not by
+itself mark A1 verified.
 
 ## Validation identity
 
@@ -115,19 +117,15 @@ dependency-up/down readiness, forbidden-mode, exact-command, embedded-UI, and
 graceful-shutdown checks as part of the earlier candidate validation; its source
 and lockfiles are unchanged in this candidate.
 
-## Open A1 evidence
+## Relationship to the current A1 candidate
 
-- This repository has no configured remote, so GitHub Actions has not run for
-  the candidate. There is no positive hosted-CI run or retained CI log.
-- The PR-only dependency review, full-history Gitleaks action, SPDX SBOM,
-  Trivy vulnerability/secret/misconfiguration/license scan, and retained
-  supply-chain artifact have not run in their authoritative CI environment.
-- Docker Scout was not used as a substitute because that path can transmit
-  private local-image metadata to a third party and was not authorized.
-- A separate clean-machine setup and governance-document walkthrough has not
-  been executed. CI now automates the locked build and full image-backed setup,
-  but the workflow has not run on a fresh hosted runner.
+Owner-verified hosted CI and retained supply-chain evidence for current commit
+`5ce09c3611e05a8fa5d0f1afc4706e17698b2d90` are recorded separately in
+[a1-hosted-ci.md](a1-hosted-ci.md). This local record does not replace that
+current-commit evidence and does not claim independent access to private GitHub
+logs or artifacts.
 
-Phase A1 remains **In progress** until hosted CI, its retained supply-chain
-evidence, and the separate clean-machine walkthrough complete for an immutable
-candidate.
+The completed setup and governance-document walkthrough is recorded in
+[a1-clean-machine-walkthrough.md](a1-clean-machine-walkthrough.md). Together
+with current hosted evidence, it closes the A1 gate for the current candidate;
+this predecessor record remains supporting local evidence only.
