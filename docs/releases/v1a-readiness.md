@@ -17,11 +17,11 @@ current phase status is [implementation-status.md](../implementation-status.md).
 
 | Field                              | Value   |
 | ---------------------------------- | ------- |
-| Candidate version                  | Pending |
-| Source commit                      | Pending |
-| Clean-tree proof                   | Pending |
-| Build/toolchain identity           | Pending |
-| Image digest and SBOM              | Pending |
+| Candidate version                  | `0.1.0-a1` local A1 candidate |
+| Source commit                      | `30889cdf55c01258559531f474b3ea40df8382fa` |
+| Clean-tree proof                   | Local fresh-clone proof recorded; hosted proof pending |
+| Build/toolchain identity           | Local A1 identity recorded; hosted proof pending |
+| Image digest and SBOM              | Local image digest recorded; CI SBOM pending |
 | Configuration/safety-manifest hash | Pending |
 | Dataset/soak manifest              | Pending |
 | Reference machine/load profile     | Pending |
@@ -104,8 +104,10 @@ Requirements: all `AX-V1A-A01-*` IDs. Entry: A0 verified.
 - [ ] Runtime image is minimal, non-root, and contains the intended embedded UI.
 - [ ] Setup/governance documentation passes a clean-machine walkthrough.
 
-Evidence register: [provisional local A1 validation](evidence/a1-local-validation.md).
-This is diagnostic evidence only; the A1 gate remains open.
+Evidence register: [immutable-candidate local A1 validation](evidence/a1-local-validation.md).
+This is local evidence only; hosted CI, retained supply-chain artifacts, a
+clean-machine walkthrough, and the reproducibility disposition remain open, so
+the A1 gate remains open.
 
 ## A2
 

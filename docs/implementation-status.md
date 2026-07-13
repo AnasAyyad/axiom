@@ -5,7 +5,7 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 | Phase | Status      | Current slice                                                                                    | Evidence                                                                                                     |
 | ----- | ----------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | A0    | Complete    | Scope traceability, safety architecture, threat model, topology, lifecycle, and readiness policy | `docs/releases/evidence/a0-review.md`                                                                        |
-| A1    | In progress | Repository, toolchain, application skeleton, Compose, and CI                                     | Skeleton implemented; local gates and container/runtime smoke pass; immutable-source and CI evidence pending |
+| A1    | In progress | Repository, toolchain, application skeleton, Compose, and CI                                     | Immutable candidate passes clean local gates and runtime smoke; hosted CI and retained supply-chain evidence pending |
 | A2    | Not started | Financial domain and configuration safety                                                        | Pending A1 gate                                                                                              |
 | A3    | Not started | Deterministic runtime, bounded concurrency, and fencing                                          | Pending A2 gate                                                                                              |
 | A4    | Not started | PostgreSQL, journal, repositories, Parquet, and recovery                                         | Pending A3 gate                                                                                              |
@@ -25,9 +25,9 @@ V1A is public-data research and simulation software only. It contains no authent
 
 - The A1 application skeleton exists, but it has no business, market-data,
   strategy, simulation, accounting, or risk implementation from later phases.
-- Provisional local A1 validation is recorded in
-  `docs/releases/evidence/a1-local-validation.md`; it cannot verify A1 without a
-  committed source identity, clean CI, and the required retained supply-chain
-  evidence.
+- Immutable-candidate local A1 validation is recorded in
+  `docs/releases/evidence/a1-local-validation.md`; it cannot verify A1 without
+  clean hosted CI, the required retained supply-chain evidence, and a separate
+  clean-machine walkthrough.
 - No phase is complete until its tests and evidence have actually been produced.
 - The 72-hour Binance public-data soak and clean backup/restore drill are release evidence, not documentation-only checkboxes.

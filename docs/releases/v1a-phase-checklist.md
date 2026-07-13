@@ -22,8 +22,8 @@ in [V1A readiness](v1a-readiness.md). Clause-level plan coverage is in
 
 - [x] Confirm A0 is verified.
 - [ ] Verify all `AX-V1A-A01-*` requirements.
-- [ ] Start all minimal processes and health applications locally.
-- [ ] Render every Compose profile and prove no authenticated/real-trading path.
+- [x] Start all minimal processes and health applications locally.
+- [x] Render every Compose profile and prove no authenticated/real-trading path.
 - [ ] Pass positive CI and every seeded-negative governance fixture.
 
 ## A2 — financial domain and configuration
