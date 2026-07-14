@@ -1,0 +1,43 @@
+{
+  "snapshot": {
+    "last_sequence": 1027024,
+    "bid_price": "4",
+    "bid_quantity": "431",
+    "ask_price": "4.000002",
+    "ask_quantity": "12",
+    "raw_payload_hash": "f79ac14b18550d417e88206ae2f4ae8031c9096da154ce281ae59844ed681340"
+  },
+  "depth": {
+    "first_sequence": 157,
+    "last_sequence": 160,
+    "exchange_time": "2017-07-07T05:17:10.606Z",
+    "bid_price": "0.0024",
+    "ask_price": "0.0026",
+    "raw_payload_hash": "c8ca185ac082d60ad02063be8cf3df8236c60d64c2f0dd6310656d63f9cca3ca"
+  },
+  "trade": {
+    "native_id": "28457",
+    "price": "4.000001",
+    "quantity": "12",
+    "exchange_time": "2017-07-12T13:19:09.59Z",
+    "raw_payload_hash": "8b4e61aec31fcae69633957ca3af4f591ebdeed414e77ee7ae1d11d3e2ad2b40"
+  },
+  "candle": {
+    "interval": "4h",
+    "open": "0.0163479",
+    "high": "0.8",
+    "low": "0.015758",
+    "close": "0.015771",
+    "volume": "148976.11427815",
+    "raw_payload_hash": "3671ce002879c0a65253b2efe162929028ea4c6ad58af1fc25ae0e0bd0100d8d"
+  },
+  "instrument": {
+    "native_symbol": "BTCUSDT",
+    "native_status": "TRADING",
+    "price_tick": "0.01",
+    "quantity_step": "0.00001",
+    "minimum_quantity": "0.00001",
+    "minimum_notional": "5",
+    "raw_payload_hash": "19ded320911911e3c6f08e86e0fbd22184b11b447e3c638fdfc576a079b59e71"
+  }
+}
