@@ -47,6 +47,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a3-runtime-boundary.mjs
 	@$(NODE) scripts/check-a4-storage-boundary.mjs
 	@$(NODE) scripts/check-a5-observability-boundary.mjs
+	@$(NODE) scripts/check-a6-exchange-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -78,6 +79,7 @@ fuzz-smoke: ## Run required execution-mode and financial parsing fuzz targets br
 	@$(GO) test ./internal/config -run '^$$' -fuzz '^FuzzDecodeConfiguration$$' -fuzztime 3s
 	@$(GO) test ./internal/domain -run '^$$' -fuzz '^FuzzParseFinancial$$' -fuzztime 3s
 	@$(GO) test ./internal/runtime -run '^$$' -fuzz '^FuzzReplayOrdering$$' -fuzztime 3s
+	@$(GO) test ./internal/exchanges/binance -run '^$$' -fuzz '^FuzzNormalizePublicPayload$$' -fuzztime 3s
 
 benchmark-a2: ## Measure exact decimal arithmetic with allocation reporting.
 	@$(GO) test ./internal/domain -run '^$$' -bench '^BenchmarkFinancialArithmetic$$' -benchmem -count 5
@@ -107,6 +109,7 @@ security-static: ## Run secret and prohibited-capability scans with negative tes
 	@scripts/test-check-secret-patterns.sh
 	@scripts/check-prohibited-capabilities.sh
 	@scripts/test-check-prohibited-capabilities.sh
+	@GO="$(GO)" scripts/check-a6-binary-boundary.sh
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck ./...
