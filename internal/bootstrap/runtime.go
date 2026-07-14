@@ -9,16 +9,23 @@ import (
 	"net/http"
 	"time"
 
+	"axiom/internal/alerting"
 	"axiom/internal/api"
 	"axiom/internal/api/health"
 	"axiom/internal/buildinfo"
 	"axiom/internal/config"
+	"axiom/internal/observability"
+	runtimecore "axiom/internal/runtime"
+	"axiom/internal/security"
 	postgresstore "axiom/internal/storage/postgres"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
-func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, role string, includeUI bool, logger *slog.Logger) error {
+func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product config.Configuration, role string, includeUI bool, logger *slog.Logger) error {
+	observability.ConfigureTraceErrorHandler(logger)
 	pool, err := postgresstore.Open(ctx, runtimeConfig.Database)
 	if err != nil {
 		return err
@@ -26,26 +33,146 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, role string,
 	defer pool.Close()
 
 	state := &lifecycleState{}
-	options := health.Options{
-		Role: role, Build: buildinfo.Current(), Dependency: pool, Lifecycle: state.current,
-	}
-	handler := api.NewHealthRouter(options)
-	address := runtimeConfig.MetricsBindAddress
-	if includeUI {
-		handler = api.NewRouter(options)
-		address = runtimeConfig.HTTPBindAddress
-	}
-	server := newHTTPServer(address, handler)
-	listener, err := net.Listen("tcp", address)
+	services, err := newRoleServices(ctx, pool, runtimeConfig, product, role, state)
 	if err != nil {
-		return fmt.Errorf("http_listener_unavailable")
+		return err
+	}
+	servers, serveErrors, err := startRoleServers(runtimeConfig, includeUI, services)
+	if err != nil {
+		return err
+	}
+	roleContext, span := services.tracing.Tracer("axiom/bootstrap").Start(
+		ctx, "role.lifecycle", trace.WithAttributes(attribute.String("axiom.role", role)),
+	)
+	go markReady(roleContext, pool, state, services.metrics, services.alerts, logger, role)
+	if services.sink != nil {
+		go retryAlertDeliveries(roleContext, services.alerts, logger)
+	}
+	logger.Info("service_started", "event_code", "service_started", "role", role)
+	runErr := awaitShutdown(roleContext, servers, state, serveErrors, runtimeConfig.ShutdownTimeout, logger, role)
+	span.End()
+	traceContext, cancel := context.WithTimeout(context.Background(), traceExportTimeout)
+	defer cancel()
+	if err := services.tracing.Shutdown(traceContext); err != nil {
+		logger.Warn("trace shutdown incomplete", "event_code", "trace_shutdown_incomplete", "cause", err)
+	}
+	return runErr
+}
+
+const traceExportTimeout = 5 * time.Second
+
+type roleServices struct {
+	health  health.Options
+	metrics *observability.Metrics
+	alerts  *alerting.Service
+	sink    alerting.Sink
+	tracing *observability.Tracing
+}
+
+func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig config.Runtime, product config.Configuration, role string, state *lifecycleState) (roleServices, error) {
+	healthToken, err := security.ReadSecretFile(runtimeConfig.HealthDetailTokenFile)
+	if err != nil {
+		return roleServices{}, fmt.Errorf("health_detail_secret_unavailable: %w", err)
+	}
+	authorize, err := health.NewBearerAuthorizer(healthToken)
+	if err != nil {
+		return roleServices{}, err
+	}
+	options := health.Options{
+		Role: role, Build: buildinfo.Current(), Dependency: pool, Lifecycle: state.current, Authorize: authorize,
+	}
+	metrics, err := observability.NewMetrics(role, metricCatalog(product))
+	if err != nil {
+		return roleServices{}, fmt.Errorf("metrics_configuration_invalid")
+	}
+	alertStore, err := postgresstore.NewAlertStore(pool)
+	if err != nil {
+		return roleServices{}, err
+	}
+	sink, err := newAlertSink(runtimeConfig.AlertWebhook)
+	if err != nil {
+		return roleServices{}, err
+	}
+	gate := runtimecore.NewSafetyGate()
+	alertService, err := alerting.NewService(alertStore, sink, gate, nil)
+	if err != nil {
+		return roleServices{}, err
+	}
+	tracing, err := observability.NewTracing(ctx, observability.TracingConfiguration{
+		Enabled: runtimeConfig.Tracing.Enabled, Endpoint: runtimeConfig.Tracing.Endpoint,
+		Service: role, InstanceID: runtimeConfig.InstanceID,
+	})
+	if err != nil {
+		return roleServices{}, err
+	}
+	return roleServices{health: options, metrics: metrics, alerts: alertService, sink: sink, tracing: tracing}, nil
+}
+
+func newAlertSink(configuration config.AlertWebhook) (alerting.Sink, error) {
+	if !configuration.Enabled {
+		return nil, nil
+	}
+	token := ""
+	var err error
+	if configuration.TokenFile != "" {
+		token, err = security.ReadSecretFile(configuration.TokenFile)
+		if err != nil {
+			return nil, fmt.Errorf("alert_webhook_secret_unavailable: %w", err)
+		}
+	}
+	return alerting.NewWebhookSink(configuration.URL, token, []string{configuration.AllowedHost}, nil)
+}
+
+func startRoleServers(runtimeConfig config.Runtime, includeUI bool, services roleServices) ([]*http.Server, <-chan error, error) {
+	operationalServer := newHTTPServer(runtimeConfig.MetricsBindAddress, api.NewOperationalRouter(services.health, services.metrics.Handler()))
+	servers := []*http.Server{operationalServer}
+	if includeUI {
+		servers = append(servers, newHTTPServer(runtimeConfig.HTTPBindAddress, api.NewRouter(services.health)))
+	}
+	listeners := make([]net.Listener, 0, len(servers))
+	for _, server := range servers {
+		listener, listenErr := net.Listen("tcp", server.Addr)
+		if listenErr != nil {
+			for _, opened := range listeners {
+				_ = opened.Close()
+			}
+			return nil, nil, fmt.Errorf("http_listener_unavailable")
+		}
+		listeners = append(listeners, listener)
 	}
 
-	serveErrors := make(chan error, 1)
-	go func() { serveErrors <- server.Serve(listener) }()
-	go markReady(ctx, pool, state)
-	logger.Info("service_started", "event_code", "service_started", "role", role)
-	return awaitShutdown(ctx, server, state, serveErrors, runtimeConfig.ShutdownTimeout, logger, role)
+	serveErrors := make(chan error, len(servers))
+	for index := range servers {
+		server, listener := servers[index], listeners[index]
+		go func() { serveErrors <- server.Serve(listener) }()
+	}
+	return servers, serveErrors, nil
+}
+
+func retryAlertDeliveries(ctx context.Context, alerts *alerting.Service, logger *slog.Logger) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if _, err := alerts.RetryDue(ctx, 25); err != nil {
+				logger.Error("alert delivery retry failed", "event_code", "alert_delivery_retry_failed", "cause", err)
+			}
+		}
+	}
+}
+
+func metricCatalog(product config.Configuration) observability.MetricCatalog {
+	instruments := make([]string, 0, len(product.Instruments))
+	for _, instrument := range product.Instruments {
+		instruments = append(instruments, instrument.Base+instrument.Quote)
+	}
+	return observability.MetricCatalog{
+		Exchanges: []string{"binance"}, Instruments: instruments,
+		Strategies: []string{"trend"}, Modes: []string{string(product.Mode)},
+	}
 }
 
 func newHTTPServer(address string, handler http.Handler) *http.Server {
@@ -56,16 +183,30 @@ func newHTTPServer(address string, handler http.Handler) *http.Server {
 	}
 }
 
-func markReady(ctx context.Context, pool *pgxpool.Pool, state *lifecycleState) {
+func markReady(ctx context.Context, pool *pgxpool.Pool, state *lifecycleState, metrics *observability.Metrics, alerts *alerting.Service, logger *slog.Logger, role string) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	alertRecorded := false
+	faultPending := false
 	for {
 		pingContext, cancel := context.WithTimeout(ctx, 2*time.Second)
 		err := pool.Ping(pingContext)
 		cancel()
-		if err == nil {
+		ready := err == nil
+		_ = metrics.SetDependencyReady("postgres", ready)
+		if ready {
 			state.ready()
-			return
+			if faultPending && !alertRecorded {
+				alertRecorded = recordPersistenceAlert(ctx, alerts, logger, role)
+			}
+			if faultPending && alertRecorded {
+				faultPending, alertRecorded = false, false
+			}
+		} else {
+			faultPending = true
+			if !alertRecorded {
+				alertRecorded = recordPersistenceAlert(ctx, alerts, logger, role)
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -75,30 +216,46 @@ func markReady(ctx context.Context, pool *pgxpool.Pool, state *lifecycleState) {
 	}
 }
 
+func recordPersistenceAlert(ctx context.Context, alerts *alerting.Service, logger *slog.Logger, role string) bool {
+	now := time.Now().UTC()
+	stored, err := alerts.Trigger(ctx, alerting.Fault{
+		Severity: alerting.SeverityCritical, Reason: alerting.ReasonPersistenceFailure,
+		Component: role, CorrelationID: fmt.Sprintf("health-ping-%d", now.Unix()), OccurredAt: now,
+	})
+	if err != nil {
+		logger.Error("critical dependency alert failed", "event_code", "alert_persistence_failed", "cause", err)
+	}
+	return stored.ID != ""
+}
+
 func awaitShutdown(
 	ctx context.Context,
-	server *http.Server,
+	servers []*http.Server,
 	state *lifecycleState,
 	serveErrors <-chan error,
 	timeout time.Duration,
 	logger *slog.Logger,
 	role string,
 ) error {
+	var serveErr error
 	select {
-	case err := <-serveErrors:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return fmt.Errorf("http_server_failed")
+	case serveErr = <-serveErrors:
 	case <-ctx.Done():
 	}
 	state.stopping()
 	shutdownContext, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	if err := server.Shutdown(shutdownContext); err != nil {
-		_ = server.Close()
-		return fmt.Errorf("graceful_shutdown_failed")
+	for _, server := range servers {
+		if err := server.Shutdown(shutdownContext); err != nil {
+			for _, openServer := range servers {
+				_ = openServer.Close()
+			}
+			return fmt.Errorf("graceful_shutdown_failed")
+		}
 	}
 	logger.Info("service_stopped", "event_code", "service_stopped", "role", role)
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		return fmt.Errorf("http_server_failed")
+	}
 	return nil
 }

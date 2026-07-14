@@ -27,6 +27,7 @@ x-runtime-environment: &runtime-environment
   DB_STATEMENT_TIMEOUT: ${DB_STATEMENT_TIMEOUT:-10s}
   HTTP_BIND_ADDRESS: 0.0.0.0:8080
   METRICS_BIND_ADDRESS: 0.0.0.0:9091
+  HEALTH_DETAIL_TOKEN_FILE: /run/secrets/health_detail_token
   API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:-http://localhost:8080}
   WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-http://localhost:8080}
   TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
@@ -50,6 +51,8 @@ x-runtime-environment: &runtime-environment
   ALERT_IN_APP_ENABLED: ${ALERT_IN_APP_ENABLED:-true}
   ALERT_WEBHOOK_ENABLED: ${ALERT_WEBHOOK_ENABLED:-false}
   ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+  ALERT_WEBHOOK_ALLOWED_HOST: ${ALERT_WEBHOOK_ALLOWED_HOST:-}
+  ALERT_WEBHOOK_TOKEN_FILE: ${ALERT_WEBHOOK_TOKEN_FILE:-}
   RISK_INITIAL_STATE: ${RISK_INITIAL_STATE:-PAUSED}
   RISK_AUTO_UNPAUSE: ${RISK_AUTO_UNPAUSE:-false}
   RISK_FAIL_CLOSED: ${RISK_FAIL_CLOSED:-true}
@@ -105,19 +108,27 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_owner_password
       POSTGRES_MIGRATOR_USER: ${POSTGRES_MIGRATOR_USER:-axiom_migrator}
       POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-axiom_app}
+      POSTGRES_RECORDER_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
+      POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER:-axiom_backup}
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
       TZ: UTC
     secrets:
       - postgres_owner_password
       - postgres_migrator_password
       - postgres_runtime_password
+      - postgres_recorder_password
+      - postgres_backup_password
       - postgres_readonly_password
     volumes:
       # PostgreSQL official images 18+ use versioned PGDATA below this parent.
       - postgres_data:/var/lib/postgresql
       - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test:
+        [
+          "CMD-SHELL",
+          'test "$$(cat /proc/1/comm)" = postgres && pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"',
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -133,13 +144,16 @@ services:
 
   migrate:
     <<: *app-base
-    profiles: [app, record, workers]
+    profiles: [app, record, workers, backup]
     restart: "no"
     command: ["admin", "migrate"]
     environment:
       <<: *runtime-environment
       DB_USER: ${POSTGRES_MIGRATOR_USER:-axiom_migrator}
       DB_PASSWORD_FILE: /run/secrets/postgres_migrator_password
+      POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-axiom_app}
+      POSTGRES_RECORDER_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
+      POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
     secrets:
       - postgres_migrator_password
     depends_on:
@@ -147,6 +161,8 @@ services:
         condition: service_healthy
     networks:
       - core
+    mem_limit: ${MIGRATE_MEMORY_LIMIT:-512m}
+    cpus: ${MIGRATE_CPU_LIMIT:-1.0}
 
   api:
     <<: *app-base
@@ -156,6 +172,7 @@ services:
       <<: *runtime-environment
     secrets:
       - postgres_runtime_password
+      - health_detail_token
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -166,7 +183,13 @@ services:
     ports:
       - "${HOST_BIND_IP:-127.0.0.1}:${API_HOST_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "/app/platform", "healthcheck", "--url=http://127.0.0.1:8080/health/ready"]
+      test:
+        [
+          "CMD",
+          "/app/platform",
+          "healthcheck",
+          "--url=http://127.0.0.1:8080/health/ready",
+        ]
       interval: 15s
       timeout: 5s
       retries: 8
@@ -185,6 +208,7 @@ services:
       RECORDER_ROOT: /var/lib/axiom/market-data
     secrets:
       - postgres_runtime_password
+      - health_detail_token
     volumes:
       - type: bind
         source: ${MARKET_DATA_HOST_PATH:-./.local/market-data}
@@ -197,7 +221,13 @@ services:
       - metrics
       - exchange_egress
     healthcheck:
-      test: ["CMD", "/app/platform", "healthcheck", "--url=http://127.0.0.1:9091/health/ready"]
+      test:
+        [
+          "CMD",
+          "/app/platform",
+          "healthcheck",
+          "--url=http://127.0.0.1:9091/health/ready",
+        ]
       interval: 15s
       timeout: 5s
       retries: 8
@@ -211,6 +241,8 @@ services:
     command: ["recorder"]
     environment:
       <<: *runtime-environment
+      DB_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
+      DB_PASSWORD_FILE: /run/secrets/postgres_recorder_password
       EXECUTION_MODE: shadow
       RECORDER_ENABLED: ${RECORDER_ENABLED:-true}
       RECORDER_STORE_RAW_PAYLOADS: ${RECORDER_STORE_RAW_PAYLOADS:-true}
@@ -232,7 +264,8 @@ services:
       PERSISTENCE_QUEUE_CAPACITY: ${PERSISTENCE_QUEUE_CAPACITY:-8192}
       ORDER_BOOK_RETAINED_DEPTH: ${ORDER_BOOK_RETAINED_DEPTH:-100}
     secrets:
-      - postgres_runtime_password
+      - postgres_recorder_password
+      - health_detail_token
     volumes:
       - type: bind
         source: ${MARKET_DATA_HOST_PATH:-./.local/market-data}
@@ -245,7 +278,13 @@ services:
       - metrics
       - exchange_egress
     healthcheck:
-      test: ["CMD", "/app/platform", "healthcheck", "--url=http://127.0.0.1:9091/health/ready"]
+      test:
+        [
+          "CMD",
+          "/app/platform",
+          "healthcheck",
+          "--url=http://127.0.0.1:9091/health/ready",
+        ]
       interval: 15s
       timeout: 5s
       retries: 8
@@ -261,6 +300,7 @@ services:
       <<: *runtime-environment
     secrets:
       - postgres_runtime_password
+      - health_detail_token
     volumes:
       - type: bind
         source: ${MARKET_DATA_HOST_PATH:-./.local/market-data}
@@ -273,13 +313,95 @@ services:
       - core
       - metrics
     healthcheck:
-      test: ["CMD", "/app/platform", "healthcheck", "--url=http://127.0.0.1:9091/health/ready"]
+      test:
+        [
+          "CMD",
+          "/app/platform",
+          "healthcheck",
+          "--url=http://127.0.0.1:9091/health/ready",
+        ]
       interval: 15s
       timeout: 5s
       retries: 8
       start_period: 30s
     mem_limit: ${WORKER_MEMORY_LIMIT:-4g}
     cpus: ${WORKER_CPU_LIMIT:-4.0}
+
+  backup:
+    image: ${BACKUP_IMAGE:-CHANGE_ME/axiom-backup:CHANGE_ME}
+    pull_policy: ${BACKUP_PULL_POLICY:-missing}
+    profiles: [backup]
+    restart: "no"
+    user: "10002:70"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: ["create"]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-axiom}
+      DB_USER: ${POSTGRES_BACKUP_USER:-axiom_backup}
+      DB_PASSWORD_FILE: /run/secrets/postgres_backup_password
+      BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/backup_encryption_key
+      BACKUP_DESTINATION: /backups
+      BACKUP_RETENTION_GENERATIONS: ${BACKUP_RETENTION_GENERATIONS:-14}
+    secrets:
+      - postgres_backup_password
+      - backup_encryption_key
+    volumes:
+      - backup_data:/backups
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=0700,uid=10002,gid=70
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - core
+    mem_limit: ${BACKUP_MEMORY_LIMIT:-512m}
+    cpus: ${BACKUP_CPU_LIMIT:-1.0}
+    pids_limit: 128
+    logging: *default-logging
+
+  restore:
+    image: ${BACKUP_IMAGE:-CHANGE_ME/axiom-backup:CHANGE_ME}
+    pull_policy: ${BACKUP_PULL_POLICY:-missing}
+    profiles: [restore]
+    restart: "no"
+    user: "10002:70"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: ["restore"]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-axiom}
+      DB_USER: ${POSTGRES_MIGRATOR_USER:-axiom_migrator}
+      DB_PASSWORD_FILE: /run/secrets/postgres_migrator_password
+      BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/backup_encryption_key
+      BACKUP_DESTINATION: /backups
+      BACKUP_RESTORE_MANIFEST: ${BACKUP_RESTORE_MANIFEST:-}
+    secrets:
+      - postgres_migrator_password
+      - backup_encryption_key
+    volumes:
+      - backup_data:/backups
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=0700,uid=10002,gid=70
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - core
+    mem_limit: ${BACKUP_MEMORY_LIMIT:-512m}
+    cpus: ${BACKUP_CPU_LIMIT:-1.0}
+    pids_limit: 128
+    logging: *default-logging
 
   prometheus:
     image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
@@ -297,6 +419,7 @@ services:
       - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-20GB}
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
     networks:
       - metrics
@@ -307,6 +430,7 @@ services:
   grafana:
     image: ${GRAFANA_IMAGE:-grafana/grafana:12.0.2}
     profiles: [observability]
+    user: "472:0"
     read_only: true
     restart: ${CONTAINER_RESTART_POLICY:-unless-stopped}
     cap_drop:
@@ -319,11 +443,16 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_SERVER_DOMAIN: ${APP_DOMAIN:-localhost}
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
     secrets:
       - grafana_admin_password
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     networks:
@@ -378,6 +507,7 @@ volumes:
   grafana_data:
   caddy_data:
   caddy_config:
+  backup_data:
 
 secrets:
   postgres_owner_password:
@@ -386,7 +516,15 @@ secrets:
     file: ${SECRETS_DIR:-./.secrets}/postgres_migrator_password
   postgres_runtime_password:
     file: ${SECRETS_DIR:-./.secrets}/postgres_runtime_password
+  postgres_recorder_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_recorder_password
+  postgres_backup_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_backup_password
+  backup_encryption_key:
+    file: ${SECRETS_DIR:-./.secrets}/backup_encryption_key
   postgres_readonly_password:
     file: ${SECRETS_DIR:-./.secrets}/postgres_readonly_password
   grafana_admin_password:
     file: ${SECRETS_DIR:-./.secrets}/grafana_admin_password
+  health_detail_token:
+    file: ${SECRETS_DIR:-./.secrets}/health_detail_token

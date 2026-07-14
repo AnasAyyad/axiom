@@ -37,25 +37,25 @@ in [V1A readiness](v1a-readiness.md). Clause-level plan coverage is in
 
 ## A3 — deterministic runtime and fencing
 
-- [ ] Confirm A2 is verified.
-- [ ] Verify all `AX-V1A-A03-*` requirements.
-- [ ] Prove schedule-independent results and exclusive fenced ownership.
-- [ ] Pass overload, lease-loss, race, stress, leak, and shutdown tests.
+- [x] Confirm A2 is verified.
+- [x] Verify all `AX-V1A-A03-*` requirements.
+- [x] Prove schedule-independent results and exclusive fenced ownership.
+- [x] Pass overload, lease-loss, race, stress, leak, and shutdown tests.
 
 ## A4 — storage, journal, Parquet, and recovery
 
-- [ ] Confirm A3 is verified.
-- [ ] Verify all `AX-V1A-A04-*` requirements.
-- [ ] Prove exact per-asset journal balance and exclusive reservations.
-- [ ] Pass migration, segment, kill-point, projection-rebuild, and idempotency tests.
-- [ ] Complete a clean, timed, verifiable backup/restore drill.
+- [x] Confirm A3 is verified.
+- [x] Verify all A4 phase-acceptance requirements.
+- [x] Prove exact per-asset journal balance and exclusive reservations.
+- [x] Pass migration, segment, kill-point, projection-rebuild, and idempotency tests.
+- [x] Complete a clean, timed, verifiable backup/restore drill.
 
 ## A5 — security and observability
 
-- [ ] Confirm A4 is verified.
-- [ ] Verify all `AX-V1A-A05-*` requirements.
-- [ ] Pass redaction canaries, metric-cardinality, alert/fail-closed, and health tests.
-- [ ] Validate dashboards, external alert sink, hardened image, scans, and runbooks.
+- [x] Confirm A4 is verified.
+- [x] Verify all `AX-V1A-A05-*` requirements.
+- [x] Pass redaction canaries, metric-cardinality, alert/fail-closed, and health tests.
+- [x] Validate dashboards, external alert sink, hardened image, scans, and runbooks.
 
 ## A6 — exchange contracts and emulator
 

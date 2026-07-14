@@ -42,15 +42,23 @@ Required for PostgreSQL:
 - `.secrets/postgres_owner_password`
 - `.secrets/postgres_migrator_password`
 - `.secrets/postgres_runtime_password`
+- `.secrets/postgres_recorder_password`
+- `.secrets/postgres_backup_password`
+- `.secrets/backup_encryption_key`
 - `.secrets/postgres_readonly_password`
 
-The A1 `app` profile exposes public health/build information only and mounts no
-session, CSRF, bootstrap, or TOTP secret. A11 adds those files only with the
-implemented authentication boundary.
+The A5 `app` profile exposes redacted public liveness/readiness/build data and
+uses the independent health-detail token for authenticated component status.
+It mounts no session, CSRF, bootstrap, or TOTP secret. A11 adds those files only
+with the implemented authentication boundary.
 
 Required when observability is enabled:
 
 - `.secrets/grafana_admin_password`
+
+Required for every A5 application role:
+
+- `.secrets/health_detail_token`
 
 Example for random secrets:
 
@@ -59,22 +67,44 @@ umask 077
 openssl rand -base64 48 > .secrets/postgres_owner_password
 openssl rand -base64 48 > .secrets/postgres_migrator_password
 openssl rand -base64 48 > .secrets/postgres_runtime_password
+openssl rand -base64 48 > .secrets/postgres_recorder_password
+openssl rand -base64 48 > .secrets/postgres_backup_password
+openssl rand -base64 32 > .secrets/backup_encryption_key
 openssl rand -base64 48 > .secrets/postgres_readonly_password
 openssl rand -base64 48 > .secrets/grafana_admin_password
+openssl rand -base64 48 > .secrets/health_detail_token
 sudo chgrp 70 .secrets/postgres_*_password
 chmod 640 .secrets/postgres_*_password
-sudo chgrp 472 .secrets/grafana_admin_password
+sudo chgrp 0 .secrets/grafana_admin_password
 chmod 640 .secrets/grafana_admin_password
+sudo chgrp 70 .secrets/health_detail_token
+chmod 640 .secrets/health_detail_token
 ```
 
 GID `70` is pinned with `postgres:18.4-alpine` and the A1 application image;
-GID `472` is the pinned Grafana container group. Recheck these identities before
+Grafana `12.0.2` is pinned to UID `472` and GID `0`. Recheck these identities before
 changing an image. File-backed Compose secrets use bind mounts and cannot remap
 UID/GID/mode, so an owner-only `0600` file shared by the PostgreSQL initializer
 and non-root application would be unreadable. The reviewed `0640` delivery uses
 only the service-specific group and grants each secret to explicit services.
 
 Compose file secrets are mounted files; they are not encrypted secret storage. On a mature server, integrate an external secret manager or protected host provisioning mechanism.
+
+External alert delivery is optional. When enabled, set an HTTPS
+`ALERT_WEBHOOK_URL` without userinfo, query, or fragment and set
+`ALERT_WEBHOOK_ALLOWED_HOST` to its exact host (including a non-default port).
+If the sink needs bearer authentication, mount a narrowly permissioned token
+file with a deployment override and set its in-container absolute path as
+`ALERT_WEBHOOK_TOKEN_FILE`. The token must never be embedded in the URL or
+environment. Redirects are always rejected.
+
+OpenTelemetry tracing is optional and disabled by default. To enable bounded
+OTLP/HTTP export, set `OTEL_TRACING_ENABLED=true` and provide a full HTTPS
+`OTEL_EXPORTER_OTLP_ENDPOINT` with no userinfo, query, or fragment. Do not put
+collector credentials in the endpoint or environment. Export uses a bounded
+asynchronous queue: exporter delay or failure may drop spans and emit a
+redacted structured error, but cannot block application work. Shutdown gives
+the provider at most five seconds to flush.
 
 ## 3. Start infrastructure
 
@@ -84,11 +114,13 @@ docker compose up -d postgres
 docker compose ps
 ```
 
-The PostgreSQL initialization script creates distinct owner, migrator, runtime, and read-only roles only on an empty data volume. Later changes belong in migrations.
+The PostgreSQL initialization script creates distinct owner, migrator, runtime,
+recorder, backup, and read-only roles only on an empty data volume. Later changes belong
+in migrations.
 
-The exact migration command is `/app/platform admin migrate`. In A1 it verifies
-least-privilege migrator connectivity and reports zero application migrations;
-A4 adds versioned SQL migrations and transactional schema validation. An extra
+The exact migration command is `/app/platform admin migrate`. A4 applies the
+embedded checksummed forward-only migrations under an advisory lock after
+least-privilege migrator connectivity succeeds. An extra
 `up` argument is intentionally rejected so deployment and binary command
 surfaces cannot drift.
 
@@ -118,13 +150,53 @@ Add the edge only after `APP_DOMAIN`, `ACME_EMAIL`, secure cookies, allowed orig
 docker compose --profile app --profile record --profile observability --profile edge up -d
 ```
 
-The current A0/A1 Compose contract intentionally has no backup service. A4
-adds a reviewed encrypted backup image, least-privilege credential delivery,
-independent storage, retention, and clean-restore verification. Do not use an
-ad-hoc plaintext `pg_dump` as a substitute. A Docker volume is primary storage,
-not a backup.
+## 5. Encrypted PostgreSQL backups
 
-## 5. Reserved unavailable profile placeholders
+Build or publish the reviewed backup image separately from the scratch runtime
+image:
+
+```bash
+make backup-image
+BACKUP_IMAGE=axiom-backup:local BACKUP_PULL_POLICY=never \
+  docker compose --profile backup run --rm backup create
+```
+
+The one-shot backup service uses the least-privilege backup role, streams
+PostgreSQL custom format directly into framed AES-256-GCM, syncs and atomically
+renames the object, and then writes a checksum manifest. Database and encryption
+secrets remain file-backed and never enter command arguments. The `backup_data`
+volume is independent of `postgres_data`, but a same-host volume is not an
+off-host disaster copy. The authenticated manifest records start/completion UTC,
+database and schema identity, `pg_dump` version, WAL boundary, encryption format,
+object size, and checksum. After a successful backup, the job authenticates and
+decrypts the new object through `pg_restore --list`; a structurally invalid
+archive is durably quarantined outside the ready inventory. It then authenticates
+and fully verifies every completed restore point, safely resumes any interrupted
+deletion, and retains the newest 14 generations (or the larger configured
+`BACKUP_RETENTION_GENERATIONS` value). Invalid inventory fails pruning closed.
+Schedule the reviewed command daily and copy encrypted objects plus manifests to
+protected independent off-host storage before release readiness.
+
+Restore only into a clean isolated PostgreSQL database. Set the absolute
+manifest path as seen inside the backup container and run:
+
+```bash
+BACKUP_RESTORE_MANIFEST=/backups/<name>.manifest.json \
+  docker compose --profile restore run --rm restore
+```
+
+The restore command verifies the complete artifact authentication once before
+starting `pg_restore`, validates the archive with the current `pg_restore`, and
+refuses a target containing any non-system schema, relation, routine, or type.
+It then decrypts a second verified stream into an atomic
+`pg_restore --single-transaction` operation and withholds success unless the
+schema version, per-asset journal balance,
+nonnegative spot ownership, and active/quarantined reservation projection pass.
+Never point this command at the active primary. A successful command is still
+not release evidence until journal/projection, manifest/file, replay-hash, role,
+RPO, and timed-RTO checks pass on the clean instance.
+
+## 6. Reserved unavailable profile placeholders
 
 The reserved `testnet` and `demo` profile names are documentation-only
 placeholders in A1: no Compose service belongs to either profile. The V1A binary

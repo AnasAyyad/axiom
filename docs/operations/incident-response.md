@@ -2,10 +2,11 @@
 
 ## Status and principles
 
-This is the initial V1A response policy and runbook framework. It does not claim
-that alert routing, incident storage, replay links, or automated containment are
-implemented. Safety, evidence integrity, and containment take priority over
-availability or completing a research run.
+This is the V1A response policy and runbook framework. A5 implements durable
+in-app alert state, one bounded external delivery sink, and fail-closed
+containment for the enumerated critical faults. Later phases still own replay
+links and the complete business recovery paths. Safety, evidence integrity,
+and containment take priority over availability or completing a research run.
 
 All timelines use UTC and record monotonic elapsed durations. Never put a
 secret, token, signature, raw cookie/header, private payload, or unnecessary
@@ -175,8 +176,10 @@ security owns `SEV-0`, secrets, endpoint and supply-chain response; service/data
 owners validate recovery; product owns impact and release decisions; QA owns
 reproduction and regression evidence.
 
-Before V1A release, run tabletop and fault exercises for forbidden capability,
-secret canary, book gap/staleness, database outage, lease loss, disk full,
-partial segment, journal mismatch, alert-sink failure, crash recovery, and clean
-backup restore. Until current exercise artifacts pass, this file is policy, not
-proof of operational readiness.
+The A5 desk tabletop is recorded in the
+[A5 operations tabletop](../releases/evidence/a5-tabletop.md). Before V1A
+release, repeat multi-role deployment and fault-injection exercises for
+forbidden capability, secret canary, book gap/staleness, database outage, lease
+loss, disk full, partial segment, journal mismatch, alert-sink failure, crash
+recovery, and clean backup restore. The A5 tabletop proves runbook coverage; it
+does not replace those later environment-specific release drills.

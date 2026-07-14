@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -25,12 +26,30 @@ type Database struct {
 	StatementTimeout      time.Duration
 }
 
+// AlertWebhook is the optional code-owned HTTPS alert sink wiring.
+type AlertWebhook struct {
+	Enabled     bool
+	URL         string
+	AllowedHost string
+	TokenFile   string
+}
+
+// Tracing controls the optional bounded OTLP/HTTP exporter. Disabled tracing
+// is a true no-op and enabling it requires an explicit HTTPS collector URL.
+type Tracing struct {
+	Enabled  bool
+	Endpoint string
+}
+
 // Runtime is the immutable A1 process configuration.
 type Runtime struct {
 	DeploymentEnvironment string
 	InstanceID            string
 	HTTPBindAddress       string
 	MetricsBindAddress    string
+	HealthDetailTokenFile string
+	AlertWebhook          AlertWebhook
+	Tracing               Tracing
 	ShutdownTimeout       time.Duration
 	Database              Database
 }
@@ -51,11 +70,22 @@ func LoadRuntime() (Runtime, error) {
 	if err != nil {
 		return Runtime{}, err
 	}
+	webhook, err := loadAlertWebhook()
+	if err != nil {
+		return Runtime{}, err
+	}
+	tracing, err := loadTracing()
+	if err != nil {
+		return Runtime{}, err
+	}
 	runtimeConfig := Runtime{
 		DeploymentEnvironment: value("DEPLOYMENT_ENV", "local"),
 		InstanceID:            value("APP_INSTANCE_ID", "axiom-local-01"),
 		HTTPBindAddress:       value("HTTP_BIND_ADDRESS", "127.0.0.1:8080"),
 		MetricsBindAddress:    value("METRICS_BIND_ADDRESS", "127.0.0.1:9091"),
+		HealthDetailTokenFile: value("HEALTH_DETAIL_TOKEN_FILE", "/run/secrets/health_detail_token"),
+		AlertWebhook:          webhook,
+		Tracing:               tracing,
 		ShutdownTimeout:       shutdown,
 		Database:              database,
 	}
@@ -63,6 +93,42 @@ func LoadRuntime() (Runtime, error) {
 		return Runtime{}, err
 	}
 	return runtimeConfig, nil
+}
+
+func loadTracing() (Tracing, error) {
+	enabled, err := booleanValue("OTEL_TRACING_ENABLED", false)
+	if err != nil {
+		return Tracing{}, err
+	}
+	tracing := Tracing{Enabled: enabled, Endpoint: value("OTEL_EXPORTER_OTLP_ENDPOINT", "")}
+	if !enabled {
+		return tracing, nil
+	}
+	endpoint, err := url.Parse(tracing.Endpoint)
+	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil ||
+		endpoint.RawQuery != "" || endpoint.Fragment != "" {
+		return Tracing{}, fmt.Errorf("invalid_configuration:OTEL_EXPORTER_OTLP_ENDPOINT")
+	}
+	return tracing, nil
+}
+
+func loadAlertWebhook() (AlertWebhook, error) {
+	enabled, err := booleanValue("ALERT_WEBHOOK_ENABLED", false)
+	if err != nil {
+		return AlertWebhook{}, err
+	}
+	webhook := AlertWebhook{
+		Enabled: enabled, URL: value("ALERT_WEBHOOK_URL", ""),
+		AllowedHost: value("ALERT_WEBHOOK_ALLOWED_HOST", ""),
+		TokenFile:   value("ALERT_WEBHOOK_TOKEN_FILE", ""),
+	}
+	if enabled && (webhook.URL == "" || webhook.AllowedHost == "") {
+		return AlertWebhook{}, fmt.Errorf("invalid_configuration:ALERT_WEBHOOK")
+	}
+	if webhook.TokenFile != "" && !strings.HasPrefix(webhook.TokenFile, "/") {
+		return AlertWebhook{}, fmt.Errorf("invalid_configuration:ALERT_WEBHOOK_TOKEN_FILE")
+	}
+	return webhook, nil
 }
 
 func loadDatabase() (Database, error) {
@@ -112,6 +178,9 @@ func validateRuntime(runtimeConfig Runtime) error {
 	}
 	if runtimeConfig.Database.Name == "" || runtimeConfig.Database.User == "" {
 		return fmt.Errorf("invalid_configuration:DB_IDENTITY")
+	}
+	if !strings.HasPrefix(runtimeConfig.HealthDetailTokenFile, "/") {
+		return fmt.Errorf("invalid_configuration:HEALTH_DETAIL_TOKEN_FILE")
 	}
 	if !strings.HasPrefix(runtimeConfig.Database.PasswordFile, "/") {
 		return fmt.Errorf("invalid_configuration:DB_PASSWORD_FILE")
@@ -177,4 +246,18 @@ func integerValue(key, fallback string, minimum, maximum int) (int, error) {
 		return 0, fmt.Errorf("invalid_configuration:%s", key)
 	}
 	return parsed, nil
+}
+
+func booleanValue(key string, fallback bool) (bool, error) {
+	raw, found := os.LookupEnv(key)
+	if !found || raw == "" {
+		return fallback, nil
+	}
+	if raw == "true" {
+		return true, nil
+	}
+	if raw == "false" {
+		return false, nil
+	}
+	return false, fmt.Errorf("invalid_configuration:%s", key)
 }
