@@ -48,10 +48,16 @@ func ReadSecretFile(path string) (string, error) {
 	if value == "" || strings.ContainsRune(value, '\x00') {
 		return "", secretError("invalid_content")
 	}
-	if strings.Contains(strings.ToUpper(value), "CHANGE_ME") {
+	if placeholderSecret(value) {
 		return "", secretError("placeholder")
 	}
 	return value, nil
+}
+
+func placeholderSecret(value string) bool {
+	upper := strings.ToUpper(value)
+	return strings.Contains(upper, "CHANGE_ME") || strings.Contains(upper, "CHANGEME") ||
+		strings.Contains(upper, "PLACEHOLDER") || strings.Contains(value, "<") || strings.Contains(value, ">")
 }
 
 func validatePermissions(info os.FileInfo) error {

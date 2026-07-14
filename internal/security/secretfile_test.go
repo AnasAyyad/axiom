@@ -67,3 +67,15 @@ func TestReadSecretFileGroupPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestReadSecretFileRejectsPlaceholders(t *testing.T) {
+	for _, value := range []string{"CHANGE_ME", "changeme", "placeholder", "<required>"} {
+		path := filepath.Join(t.TempDir(), "value")
+		if err := os.WriteFile(path, []byte(value), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadSecretFile(path); err == nil {
+			t.Fatalf("placeholder form %q accepted", value)
+		}
+	}
+}

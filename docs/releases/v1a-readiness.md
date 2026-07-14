@@ -117,15 +117,17 @@ also passes for that candidate. A1 is verified.
 
 Requirements: all `AX-V1A-A02-*` IDs. Entry: A1 verified.
 
-- [ ] Decimal/type API, arithmetic, serialization, overflow, precision, and
+- [x] Decimal/type API, arithmetic, serialization, overflow, precision, and
       rounding unit/property/fuzz suites pass.
-- [ ] AST and schema scans prove no authoritative financial float use.
-- [ ] Full configuration negative matrix fails closed before side effects.
-- [ ] Immutable snapshot/hash golden reproduces the exact effective config.
-- [ ] Configuration reference matches schema units, ranges, defaults, and safety
+- [x] AST and schema scans prove no authoritative financial float use.
+- [x] Full configuration negative matrix fails closed before side effects.
+- [x] Immutable snapshot/hash golden reproduces the exact effective config.
+- [x] Configuration reference matches schema units, ranges, defaults, and safety
       semantics.
 
-Evidence register: pending.
+Evidence register: [A2 local phase-gate validation](evidence/a2-local-validation.md).
+A2 is verified locally; pushes and hosted CI are owner-managed and are not
+claimed by this record.
 
 ## A3
 

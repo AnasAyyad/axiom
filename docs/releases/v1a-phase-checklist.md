@@ -30,10 +30,10 @@ in [V1A readiness](v1a-readiness.md). Clause-level plan coverage is in
 
 ## A2 — financial domain and configuration
 
-- [ ] Confirm A1 is verified.
-- [ ] Verify all `AX-V1A-A02-*` requirements.
-- [ ] Pass arithmetic/rounding property and fuzz tests and financial-float scans.
-- [ ] Pass the full fail-closed configuration matrix and reproduction golden.
+- [x] Confirm A1 is verified.
+- [x] Verify all `AX-V1A-A02-*` requirements.
+- [x] Pass arithmetic/rounding property and fuzz tests and financial-float scans.
+- [x] Pass the full fail-closed configuration matrix and reproduction golden.
 
 ## A3 — deterministic runtime and fencing
 

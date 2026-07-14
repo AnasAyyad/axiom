@@ -25,6 +25,12 @@ reporting policy are not deployment-environment overrides. They belong to the
 immutable versioned research configuration selected by `APP_CONFIG_FILE`; a
 deployment cannot replace or augment those values through `.env`.
 
+The A2 image includes the reviewed `deploy/config/platform-shadow.json` at
+`/etc/axiom/platform.json`. The strict loader validates that complete graph
+before opening the database or a listener. A deployment-specific replacement
+must be mounted explicitly at an absolute path and selected with
+`APP_CONFIG_FILE`; partial environment overlays are rejected.
+
 If you created `.env` or initialized PostgreSQL before the Axiom naming update, leave those existing database and role names alone for now. Branding does not require deleting or recreating a local database. Fresh setups copied from the current `.env.example` use the `axiom` names; an existing database can be renamed later only through a planned migration/backup procedure.
 
 ## 2. Create secret files

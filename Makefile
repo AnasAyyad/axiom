@@ -9,7 +9,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate image image-reproducibility
 
 IMAGE ?= axiom:local
 REBUILD_IMAGE ?= $(IMAGE)-rebuild
@@ -41,6 +41,7 @@ contracts-check: ## Prove generated OpenAPI models are current.
 docs-check: ## Validate local documentation links and requirement-matrix consistency.
 	@$(NODE) scripts/check-doc-links.mjs
 	@$(NODE) scripts/check-a0-traceability.mjs $(if $(wildcard $(PLAN_FILE)),$(PLAN_FILE))
+	@$(NODE) scripts/check-a2-config-reference.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -67,8 +68,13 @@ test-frontend: ## Run Vitest, React Testing Library, and axe smoke tests.
 test-race: ## Run the Go race detector across the skeleton.
 	@$(GO) test -race ./...
 
-fuzz-smoke: ## Run the A1 execution-mode fuzz target briefly.
+fuzz-smoke: ## Run required execution-mode and financial parsing fuzz targets briefly.
 	@$(GO) test ./internal/config -run '^$$' -fuzz '^FuzzParseExecutionMode$$' -fuzztime 3s
+	@$(GO) test ./internal/config -run '^$$' -fuzz '^FuzzDecodeConfiguration$$' -fuzztime 3s
+	@$(GO) test ./internal/domain -run '^$$' -fuzz '^FuzzParseFinancial$$' -fuzztime 3s
+
+benchmark-a2: ## Measure exact decimal arithmetic with allocation reporting.
+	@$(GO) test ./internal/domain -run '^$$' -bench '^BenchmarkFinancialArithmetic$$' -benchmem -count 5
 
 build: generate build-backend ## Build the embedded React/platform artifact.
 

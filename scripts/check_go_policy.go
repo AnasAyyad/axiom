@@ -61,6 +61,7 @@ func checkFile(path string) int {
 		return 1
 	}
 	violations := 0
+	violations += checkAPDLeaks(path, file, set)
 	for _, declaration := range file.Decls {
 		function, ok := declaration.(*ast.FuncDecl)
 		if ok {
@@ -81,6 +82,84 @@ func checkFile(path string) int {
 		}
 	}
 	return violations
+}
+
+func checkAPDLeaks(path string, file *ast.File, set *token.FileSet) int {
+	aliases := apdAliases(file)
+	if len(aliases) == 0 {
+		return 0
+	}
+	violations := 0
+	for _, declaration := range file.Decls {
+		if leaked := leakedExport(declaration, aliases); leaked != nil {
+			fmt.Fprintf(os.Stderr, "ERROR [go-policy] %s:%d exported API leaks cockroachdb/apd\n", path, set.Position(leaked.Pos()).Line)
+			violations++
+		}
+	}
+	return violations
+}
+
+func apdAliases(file *ast.File) map[string]struct{} {
+	aliases := make(map[string]struct{})
+	for _, imported := range file.Imports {
+		if strings.Trim(imported.Path.Value, `"`) != "github.com/cockroachdb/apd/v3" {
+			continue
+		}
+		name := "apd"
+		if imported.Name != nil {
+			name = imported.Name.Name
+		}
+		aliases[name] = struct{}{}
+	}
+	return aliases
+}
+
+func leakedExport(declaration ast.Decl, aliases map[string]struct{}) ast.Node {
+	switch value := declaration.(type) {
+	case *ast.FuncDecl:
+		if value.Name.IsExported() && containsAPD(value.Type, aliases) {
+			return value
+		}
+	case *ast.GenDecl:
+		for _, specification := range value.Specs {
+			if exportedSpecificationLeaks(specification, aliases) {
+				return specification
+			}
+		}
+	}
+	return nil
+}
+
+func exportedSpecificationLeaks(specification ast.Spec, aliases map[string]struct{}) bool {
+	switch value := specification.(type) {
+	case *ast.TypeSpec:
+		return value.Name.IsExported() && containsAPD(value.Type, aliases)
+	case *ast.ValueSpec:
+		return len(exportedNames(value)) > 0 && containsAPD(value.Type, aliases)
+	default:
+		return false
+	}
+}
+
+func containsAPD(node ast.Node, aliases map[string]struct{}) bool {
+	found := false
+	ast.Inspect(node, func(current ast.Node) bool {
+		selector, ok := current.(*ast.SelectorExpr)
+		identifier, identifierOK := selectorX(selector, ok)
+		if identifierOK {
+			_, found = aliases[identifier.Name]
+		}
+		return !found
+	})
+	return found
+}
+
+func selectorX(selector *ast.SelectorExpr, ok bool) (*ast.Ident, bool) {
+	if !ok {
+		return nil, false
+	}
+	identifier, identifierOK := selector.X.(*ast.Ident)
+	return identifier, identifierOK
 }
 
 func checkGeneral(path string, set *token.FileSet, declaration *ast.GenDecl) int {

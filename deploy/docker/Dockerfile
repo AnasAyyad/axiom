@@ -44,6 +44,7 @@ LABEL org.opencontainers.image.title="Axiom" \
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=go-build /usr/share/zoneinfo/UTC /usr/share/zoneinfo/UTC
 COPY --from=go-build --chown=10001:70 /out/platform /app/platform
+COPY --chown=10001:70 deploy/config/platform-shadow.json /etc/axiom/platform.json
 ENV TZ=UTC
 USER 10001:70
 EXPOSE 8080 9091
