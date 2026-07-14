@@ -85,6 +85,14 @@ disk growth, memory after warm-up, clock drift, database latency, alert state,
 and every pause/lock. Restarting the observation window after an unexplained
 failure does not erase the failure; it creates an incident and new evidence run.
 
+For A7, `internal/qualification` fixes the declared load to BTC/USDT and
+ETH/USDT depth-at-100-ms, public trades, and 4-hour candle streams, with
+5,000-level snapshots, 1,000 published levels, an 8,192-event collector queue,
+five-minute segment finalization, a 512 MiB pending-recorder/heap qualification
+ceiling, and a 2 GiB container limit. Forced-GC heap samples use two one-hour
+post-warm-up windows; a rise exceeding both 5% and 8 MiB is treated as a
+positive leak trend. The raw samples remain in the evidence artifact.
+
 ## SLI definitions
 
 - **Book age/skew:** computed from the exact immutable market-view versions used

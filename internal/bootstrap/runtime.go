@@ -14,6 +14,7 @@ import (
 	"axiom/internal/api/health"
 	"axiom/internal/buildinfo"
 	"axiom/internal/config"
+	"axiom/internal/domain"
 	"axiom/internal/observability"
 	runtimecore "axiom/internal/runtime"
 	"axiom/internal/security"
@@ -37,19 +38,28 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product conf
 	if err != nil {
 		return err
 	}
+	recorderWork, err := recorderWorkForRole(ctx, pool, runtimeConfig, product, role)
+	if err != nil {
+		return err
+	}
 	servers, serveErrors, err := startRoleServers(runtimeConfig, includeUI, services)
 	if err != nil {
 		return err
 	}
-	roleContext, span := services.tracing.Tracer("axiom/bootstrap").Start(
+	tracedContext, span := services.tracing.Tracer("axiom/bootstrap").Start(
 		ctx, "role.lifecycle", trace.WithAttributes(attribute.String("axiom.role", role)),
 	)
-	go markReady(roleContext, pool, state, services.metrics, services.alerts, logger, role)
+	roleContext, cancelRole := context.WithCancel(tracedContext)
+	defer cancelRole()
+	workState, serveErrors := attachRecorderWork(roleContext, recorderWork, serveErrors, logger)
+	go markReady(roleContext, pool, state, services.metrics, services.alerts, logger, role, workState.ready)
 	if services.sink != nil {
 		go retryAlertDeliveries(roleContext, services.alerts, logger)
 	}
 	logger.Info("service_started", "event_code", "service_started", "role", role)
 	runErr := awaitShutdown(roleContext, servers, state, serveErrors, runtimeConfig.ShutdownTimeout, logger, role)
+	cancelRole()
+	runErr = workState.wait(runErr)
 	span.End()
 	traceContext, cancel := context.WithTimeout(context.Background(), traceExportTimeout)
 	defer cancel()
@@ -57,6 +67,62 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product conf
 		logger.Warn("trace shutdown incomplete", "event_code", "trace_shutdown_incomplete", "cause", err)
 	}
 	return runErr
+}
+
+func recorderWorkForRole(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runtimeConfig config.Runtime,
+	product config.Configuration,
+	role string,
+) (*recorderRoleWork, error) {
+	if role != "recorder" {
+		return nil, nil
+	}
+	return newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
+}
+
+type roleWorkState struct {
+	ready    func() bool
+	finished <-chan struct{}
+	result   *error
+}
+
+func attachRecorderWork(
+	ctx context.Context,
+	work *recorderRoleWork,
+	serveErrors <-chan error,
+	logger *slog.Logger,
+) (roleWorkState, <-chan error) {
+	if work == nil {
+		return roleWorkState{}, serveErrors
+	}
+	workErrors, finished := make(chan error, 1), make(chan struct{})
+	var result error
+	go func() {
+		result = work.Run(ctx, logger)
+		workErrors <- result
+		close(finished)
+	}()
+	return roleWorkState{ready: work.Ready, finished: finished, result: &result}, mergeRoleErrors(serveErrors, workErrors)
+}
+
+func (state roleWorkState) wait(runErr error) error {
+	if state.finished == nil {
+		return runErr
+	}
+	<-state.finished
+	if *state.result != nil && runErr == nil {
+		return fmt.Errorf("recorder_role_failed")
+	}
+	return runErr
+}
+
+func mergeRoleErrors(left, right <-chan error) <-chan error {
+	merged := make(chan error, 2)
+	go func() { merged <- <-left }()
+	go func() { merged <- <-right }()
+	return merged
 }
 
 const traceExportTimeout = 5 * time.Second
@@ -183,7 +249,16 @@ func newHTTPServer(address string, handler http.Handler) *http.Server {
 	}
 }
 
-func markReady(ctx context.Context, pool *pgxpool.Pool, state *lifecycleState, metrics *observability.Metrics, alerts *alerting.Service, logger *slog.Logger, role string) {
+func markReady(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	state *lifecycleState,
+	metrics *observability.Metrics,
+	alerts *alerting.Service,
+	logger *slog.Logger,
+	role string,
+	additionalReady func() bool,
+) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	alertRecorded := false
@@ -192,7 +267,7 @@ func markReady(ctx context.Context, pool *pgxpool.Pool, state *lifecycleState, m
 		pingContext, cancel := context.WithTimeout(ctx, 2*time.Second)
 		err := pool.Ping(pingContext)
 		cancel()
-		ready := err == nil
+		ready := err == nil && (additionalReady == nil || additionalReady())
 		_ = metrics.SetDependencyReady("postgres", ready)
 		if ready {
 			state.ready()
@@ -203,6 +278,7 @@ func markReady(ctx context.Context, pool *pgxpool.Pool, state *lifecycleState, m
 				faultPending, alertRecorded = false, false
 			}
 		} else {
+			state.notReady()
 			faultPending = true
 			if !alertRecorded {
 				alertRecorded = recordPersistenceAlert(ctx, alerts, logger, role)

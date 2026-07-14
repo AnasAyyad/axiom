@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +42,14 @@ type Tracing struct {
 	Endpoint string
 }
 
+// RecorderRuntime is the bounded production-public recorder process contract.
+type RecorderRuntime struct {
+	Root          string
+	FlushInterval time.Duration
+	QueueCapacity int
+	BookDepth     int
+}
+
 // Runtime is the immutable A1 process configuration.
 type Runtime struct {
 	DeploymentEnvironment string
@@ -52,6 +61,7 @@ type Runtime struct {
 	Tracing               Tracing
 	ShutdownTimeout       time.Duration
 	Database              Database
+	Recorder              RecorderRuntime
 }
 
 // LoadRuntime validates the narrow A1 runtime configuration before resources open.
@@ -78,6 +88,10 @@ func LoadRuntime() (Runtime, error) {
 	if err != nil {
 		return Runtime{}, err
 	}
+	recorderRuntime, err := loadRecorderRuntime()
+	if err != nil {
+		return Runtime{}, err
+	}
 	runtimeConfig := Runtime{
 		DeploymentEnvironment: value("DEPLOYMENT_ENV", "local"),
 		InstanceID:            value("APP_INSTANCE_ID", "axiom-local-01"),
@@ -88,11 +102,33 @@ func LoadRuntime() (Runtime, error) {
 		Tracing:               tracing,
 		ShutdownTimeout:       shutdown,
 		Database:              database,
+		Recorder:              recorderRuntime,
 	}
 	if err := validateRuntime(runtimeConfig); err != nil {
 		return Runtime{}, err
 	}
 	return runtimeConfig, nil
+}
+
+func loadRecorderRuntime() (RecorderRuntime, error) {
+	flush, err := durationValue("RECORDER_FLUSH_INTERVAL", "5m")
+	if err != nil || flush < time.Second || flush > time.Hour {
+		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:RECORDER_FLUSH_INTERVAL")
+	}
+	queue, err := integerValue("MARKET_EVENT_QUEUE_CAPACITY", "16384", 1000, 1<<20)
+	if err != nil {
+		return RecorderRuntime{}, err
+	}
+	depth, err := integerValue("ORDER_BOOK_RETAINED_DEPTH", "1000", 1, 5000)
+	if err != nil || queue < depth {
+		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:ORDER_BOOK_RETAINED_DEPTH")
+	}
+	root := value("RECORDER_ROOT", "/var/lib/axiom/market-data")
+	if !filepath.IsAbs(root) || filepath.Clean(root) == string(filepath.Separator) {
+		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:RECORDER_ROOT")
+	}
+	return RecorderRuntime{Root: filepath.Clean(root), FlushInterval: flush,
+		QueueCapacity: queue, BookDepth: depth}, nil
 }
 
 func loadTracing() (Tracing, error) {

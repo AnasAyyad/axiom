@@ -144,6 +144,16 @@ Typical public shadow stack:
 docker compose --profile app --profile record --profile observability up -d
 ```
 
+The `record` profile runs the A7 `platform recorder` composition. It connects
+only to the compiled Binance production-public hosts, synchronizes BTC/USDT and
+ETH/USDT, and writes linked wire/canonical Parquet segments under
+`MARKET_DATA_HOST_PATH`. Readiness remains false until PostgreSQL is available
+and both books are fresh and sequence-healthy. The default five-minute
+finalization interval is also the declared raw recorder RPO; lowering it creates
+more cumulative manifest revisions and must be capacity-tested. Keep the
+recorder on the `exchange_egress` network and do not add proxy or credential
+environment variables.
+
 Add the edge only after `APP_DOMAIN`, `ACME_EMAIL`, secure cookies, allowed origins, DNS, firewall, and TLS behavior are correct:
 
 ```bash

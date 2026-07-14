@@ -48,6 +48,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a4-storage-boundary.mjs
 	@$(NODE) scripts/check-a5-observability-boundary.mjs
 	@$(NODE) scripts/check-a6-exchange-boundary.mjs
+	@$(NODE) scripts/check-a7-public-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -110,6 +111,7 @@ security-static: ## Run secret and prohibited-capability scans with negative tes
 	@scripts/check-prohibited-capabilities.sh
 	@scripts/test-check-prohibited-capabilities.sh
 	@GO="$(GO)" scripts/check-a6-binary-boundary.sh
+	@GO="$(GO)" scripts/check-a7-binary-boundary.sh
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck ./...

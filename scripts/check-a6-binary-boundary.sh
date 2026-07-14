@@ -14,8 +14,7 @@ trap cleanup EXIT HUP INT TERM
 
 dependencies="$(${GO} list -deps ./cmd/platform)"
 for forbidden_dependency in \
-  'axiom/internal/exchanges/emulator' \
-  'golang.org/x/net/websocket'; do
+  'axiom/internal/exchanges/emulator'; do
   if [[ "${dependencies}" == *"${forbidden_dependency}"* ]]; then
     printf 'ERROR [a6-binary-boundary] test-only dependency linked: %s\n' \
       "${forbidden_dependency}" >&2

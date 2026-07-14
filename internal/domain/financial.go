@@ -90,6 +90,9 @@ func (value Quantity) Compare(other Quantity) int { return value.compare(other.d
 // Compare orders balances by numeric value.
 func (value Balance) Compare(other Balance) int { return value.compare(other.decimalValue) }
 
+// Compare orders notionals by numeric value.
+func (value Notional) Compare(other Notional) int { return value.compare(other.decimalValue) }
+
 // Compare orders money amounts by numeric value.
 func (value Money) Compare(other Money) int { return value.compare(other.decimalValue) }
 
@@ -136,6 +139,12 @@ func (value Balance) Add(other Balance) (Balance, error) {
 func (value Balance) Subtract(other Balance) (Balance, error) {
 	result, err := subtractDecimal("balance_subtract", value.decimalValue, other.decimalValue, false)
 	return Balance{result}, err
+}
+
+// Add returns an exact notional sum.
+func (value Notional) Add(other Notional) (Notional, error) {
+	result, err := addDecimal("notional_add", value.decimalValue, other.decimalValue)
+	return Notional{result}, err
 }
 
 // Add returns an exact PnL sum.

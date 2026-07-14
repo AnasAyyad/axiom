@@ -3,9 +3,9 @@
 ## Status and purpose
 
 This document defines the code-owned, public-only Binance Spot endpoint policy
-for V1A. It is an implementation contract, not evidence that an allowlist has
-already been compiled into an application. Release evidence must later prove
-that the built V1A image emits only requests allowed here.
+for V1A. A7 compiles the narrower routes used by the recorder into the platform
+binary. Source and binary checks prove that construction boundary locally; the
+72-hour capture and final release-image traffic proof remain separate evidence.
 
 The policy is default-deny. A request is permitted only when its scheme, exact
 host, port, method, normalized path, query schema, headers, body, product,
@@ -163,9 +163,9 @@ The release gate needs independent evidence, not only source review:
    transport, order/account method, production broker, or arbitrary URL path.
 7. A clean-build safety review maps the compiled constants back to this table.
 
-Until those artifacts exist and pass, this file records the architecture policy
-and planned proof. It does not by itself prove the current repository can or
-cannot emit a request.
+The A7 source, route-negative, DNS/redirect, public-integration, and binary
+checks exist. The long soak and final release-image outbound capture remain
+mandatory; this document alone is never runtime evidence.
 
 ## Ownership and change control
 

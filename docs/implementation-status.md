@@ -11,7 +11,7 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 | A4    | Complete    | PostgreSQL, journal, generated repositories, Parquet/Zstd, and recovery                          | `docs/releases/evidence/a4-local-progress.md`; clean PG18 and timed restore qualification passed                |
 | A5    | Complete    | Redacted logs/traces, bounded metrics, authenticated health, durable alerts, rules, and dashboards | `docs/releases/evidence/a5-local-progress.md`; Docker, scans, alert SLO, and tabletop qualification passed    |
 | A6    | Complete    | Public exchange contracts, capability boundary, deterministic controls, emulator, and fixtures    | `docs/releases/evidence/a6-local-validation.md`; cumulative verification and binary absence gate passed       |
-| A7    | Not started | Binance public adapter and recorder                                                              | Pending A6 gate                                                                                              |
+| A7    | In progress | Binance public adapter, synchronized books, operational recorder, and 72-hour qualification       | Implementation and short public qualification pass; continuous 72-hour gate remains pending                 |
 | A8    | Not started | Backtesting, replay, simulation, and durable orders                                              | Pending A7 gate                                                                                              |
 | A9    | Not started | Portfolio allocation, risk, reconciliation, and recovery                                         | Pending A8 gate                                                                                              |
 | A10   | Not started | Trend Following strategy                                                                         | Pending A9 gate                                                                                              |
@@ -23,10 +23,9 @@ V1A is public-data research and simulation software only. It contains no authent
 
 ## Current limitations
 
-- The A1 application skeleton, A2 financial domain/configuration boundary, and
-  A3-A6 runtime, storage, observability, and exchange-contract foundations
-  exist, but production-public market data, strategy, simulation, and risk
-  engines remain owned by later phases.
+- The A1-A6 foundations and A7 production-public collector/recorder
+  implementation exist. A7 remains incomplete until its 72-hour evidence is
+  retained; strategy, simulation, and risk engines remain later-phase work.
 - Immutable-candidate local A1 validation is recorded in
   `docs/releases/evidence/a1-local-validation.md`. Owner-verified hosted CI and
   retained supply-chain evidence for commit

@@ -1,0 +1,230 @@
+package recorder
+
+import (
+	"crypto/sha256"
+	"regexp"
+	"sync"
+	"time"
+
+	"axiom/internal/domain"
+	runtimecore "axiom/internal/runtime"
+	"axiom/internal/storage/segments"
+)
+
+var identifierPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$`)
+
+type rawRecord struct {
+	row       segments.WireRow
+	canonical bool
+}
+
+// Recorder appends raw rows before their linked canonical representations.
+type Recorder struct {
+	mutex          sync.Mutex
+	root           string
+	datasetID      string
+	sessionID      string
+	exchange       string
+	ordinals       *runtimecore.IngestOrdinals
+	finalizer      *segments.Finalizer
+	commit         segments.Committer
+	now            func() time.Time
+	revision       uint64
+	previous       string
+	raw            []segments.WireRow
+	canonical      []segments.CanonicalRow
+	links          map[uint64]*rawRecord
+	segments       []SegmentReference
+	gaps           []Gap
+	rawCount       uint64
+	canonicalCount uint64
+	pendingBytes   uint64
+	reservedBytes  uint64
+	pendingLimit   uint64
+}
+
+// PendingCounts reports bounded in-memory wire/canonical rows for operations.
+func (recorder *Recorder) PendingCounts() (uint64, uint64) {
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	return uint64(len(recorder.raw)), uint64(len(recorder.canonical))
+}
+
+// Recover finalizes or re-registers crash-safe ready segments before ingest.
+func (recorder *Recorder) Recover() ([]segments.Manifest, error) {
+	return recorder.finalizer.Recover(recorder.commit)
+}
+
+// New constructs one session-scoped append-only recorder.
+func New(
+	root, datasetID, sessionID, exchange string,
+	ordinals *runtimecore.IngestOrdinals,
+	commit segments.Committer,
+	kill segments.KillPoint,
+) (*Recorder, error) {
+	if !identifierPattern.MatchString(datasetID) || !identifierPattern.MatchString(sessionID) ||
+		!identifierPattern.MatchString(exchange) || ordinals == nil || commit == nil {
+		return nil, recorderError("configuration_invalid")
+	}
+	finalizer, err := segments.NewFinalizer(root, kill)
+	if err != nil {
+		return nil, recorderError("storage_invalid")
+	}
+	return &Recorder{root: root, datasetID: datasetID, sessionID: sessionID, exchange: exchange,
+		ordinals: ordinals, finalizer: finalizer, commit: commit, now: func() time.Time { return time.Now().UTC() },
+		links: make(map[uint64]*rawRecord), pendingLimit: maximumPendingBytes}, nil
+}
+
+// RecordRaw assigns the authoritative ingest ordinal and snapshots wire bytes.
+func (recorder *Recorder) RecordRaw(input RawInput) (RawLink, error) {
+	if err := validateRawInput(input, recorder.exchange, recorder.sessionID); err != nil {
+		return RawLink{}, err
+	}
+	ordinal, err := recorder.ordinals.Next()
+	if err != nil {
+		return RawLink{}, recorderError("ordinal_exhausted")
+	}
+	hash := sha256.Sum256(input.Payload)
+	row := segments.WireRow{IngestOrdinal: ordinal, Exchange: input.Exchange, EventType: string(input.EventType),
+		BaseAsset: string(input.Instrument.Base), QuoteAsset: string(input.Instrument.Quote),
+		SourceSessionID: input.SessionID, ConnectionID: input.ConnectionID,
+		ConnectionGeneration: input.ConnectionGeneration, MonotonicOffsetNanos: input.MonotonicOffsetNanos,
+		RecordedLogicalTime: input.RecordedLogicalTime, SourceSequence: input.SourceSequence,
+		ExchangeTimeUnixNano: timePointer(input.ExchangeTime), ReceivedAtUnixNano: input.ReceivedAt.UnixNano(),
+		Payload: append([]byte(nil), input.Payload...), PayloadSHA256: hash}
+	if err = segments.ValidateWireRow(row); err != nil {
+		return RawLink{}, recorderError("wire_row_invalid")
+	}
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	charge := uint64(len(input.Payload) + recordMemoryOverhead)
+	reservation := uint64(maximumEventBytes + recordMemoryOverhead)
+	used, required := recorder.pendingBytes+recorder.reservedBytes, charge+reservation
+	if used > recorder.pendingLimit || required > recorder.pendingLimit-used {
+		return RawLink{}, recorderError("recorder_capacity_exceeded")
+	}
+	recorder.raw = append(recorder.raw, row)
+	recorder.links[ordinal] = &rawRecord{row: row}
+	recorder.pendingBytes += charge
+	recorder.reservedBytes += reservation
+	return RawLink{IngestOrdinal: ordinal, PayloadHash: hash}, nil
+}
+
+// RecordCanonical appends exactly one canonical representation for a raw link.
+func (recorder *Recorder) RecordCanonical(input CanonicalInput) error {
+	if !identifierPattern.MatchString(input.EventID) || input.ParserVersion == "" ||
+		input.NormalizationVersion == "" || len(input.Canonical) == 0 || len(input.Canonical) > maximumEventBytes {
+		return recorderError("canonical_input_invalid")
+	}
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	record := recorder.links[input.Link.IngestOrdinal]
+	if record == nil || record.canonical || record.row.PayloadSHA256 != input.Link.PayloadHash {
+		return recorderError("raw_link_invalid")
+	}
+	reservation := uint64(maximumEventBytes + recordMemoryOverhead)
+	if recorder.reservedBytes < reservation {
+		return recorderError("recorder_capacity_invalid")
+	}
+	canonicalHash := sha256.Sum256(input.Canonical)
+	row := segments.CanonicalRow{IngestOrdinal: record.row.IngestOrdinal, EventID: input.EventID,
+		Exchange: record.row.Exchange, EventType: record.row.EventType,
+		BaseAsset: record.row.BaseAsset, QuoteAsset: record.row.QuoteAsset,
+		SourceSessionID: record.row.SourceSessionID, ConnectionID: record.row.ConnectionID,
+		ConnectionGeneration: record.row.ConnectionGeneration, MonotonicOffsetNanos: record.row.MonotonicOffsetNanos,
+		RecordedLogicalTime: record.row.RecordedLogicalTime, SourceSequence: record.row.SourceSequence,
+		ExchangeTimeUnixNano: cloneTimePointer(record.row.ExchangeTimeUnixNano),
+		ReceivedAtUnixNano:   record.row.ReceivedAtUnixNano, ParserVersion: input.ParserVersion,
+		NormalizationVersion: input.NormalizationVersion, WirePayloadSHA256: record.row.PayloadSHA256,
+		CanonicalEvent: append([]byte(nil), input.Canonical...), CanonicalSHA256: canonicalHash}
+	if input.SourceSequence != "" {
+		row.SourceSequence = input.SourceSequence
+	}
+	if input.ExchangeTime != nil {
+		if input.ExchangeTime.IsZero() || input.ExchangeTime.Location() != time.UTC {
+			return recorderError("canonical_input_invalid")
+		}
+		row.ExchangeTimeUnixNano = timePointer(input.ExchangeTime)
+	}
+	if err := segments.ValidateCanonicalRow(row); err != nil {
+		return recorderError("canonical_row_invalid")
+	}
+	record.canonical = true
+	recorder.canonical = append(recorder.canonical, row)
+	recorder.reservedBytes -= reservation
+	recorder.pendingBytes += uint64(len(input.Canonical) + recordMemoryOverhead)
+	return nil
+}
+
+// RecordGap appends one explicit, ordered source-sequence gap.
+func (recorder *Recorder) RecordGap(gap Gap) error {
+	if err := validateGap(gap, recorder.exchange); err != nil {
+		return err
+	}
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	if count := len(recorder.gaps); count > 0 {
+		prior := recorder.gaps[count-1]
+		if gap.StartedAt.Before(prior.EndedAt) || (gap.ConnectionGeneration == prior.ConnectionGeneration &&
+			gap.FirstSourceSequence <= prior.LastSourceSequence) {
+			return recorderError("gap_regressed")
+		}
+	}
+	recorder.gaps = append(recorder.gaps, gap)
+	return nil
+}
+
+func validateRawInput(input RawInput, exchange, session string) error {
+	if input.Exchange != exchange || input.SessionID != session || !validEventType(input.EventType) ||
+		!identifierPattern.MatchString(input.ConnectionID) || input.ConnectionGeneration == 0 ||
+		input.MonotonicOffsetNanos == 0 || input.RecordedLogicalTime == 0 ||
+		input.ReceivedAt.IsZero() || input.ReceivedAt.Location() != time.UTC ||
+		len(input.Payload) == 0 || len(input.Payload) > maximumEventBytes {
+		return recorderError("raw_input_invalid")
+	}
+	if _, err := domain.NewSpotInstrument(input.Instrument.Base, input.Instrument.Quote); err != nil {
+		return recorderError("raw_input_invalid")
+	}
+	if input.ExchangeTime != nil && (input.ExchangeTime.IsZero() || input.ExchangeTime.Location() != time.UTC) {
+		return recorderError("raw_input_invalid")
+	}
+	return nil
+}
+
+func validEventType(eventType EventType) bool {
+	switch eventType {
+	case EventDepth, EventTrade, EventCandle, EventSnapshot, EventLifecycle, EventSubscription,
+		EventGap, EventRebuild, EventDecoderError, EventClockSample, EventStreamFrame:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateGap(gap Gap, exchange string) error {
+	if gap.Exchange != exchange || gap.ConnectionGeneration == 0 || gap.FirstSourceSequence == 0 ||
+		gap.LastSourceSequence < gap.FirstSourceSequence || gap.StartedAt.IsZero() || gap.EndedAt.Before(gap.StartedAt) ||
+		gap.StartedAt.Location() != time.UTC || gap.EndedAt.Location() != time.UTC || !identifierPattern.MatchString(gap.Reason) {
+		return recorderError("gap_invalid")
+	}
+	if _, err := domain.NewSpotInstrument(gap.Instrument.Base, gap.Instrument.Quote); err != nil {
+		return recorderError("gap_invalid")
+	}
+	return nil
+}
+
+func timePointer(value *time.Time) *int64 {
+	if value == nil {
+		return nil
+	}
+	nanoseconds := value.UnixNano()
+	return &nanoseconds
+}
+
+func cloneTimePointer(value *int64) *int64 {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}

@@ -16,6 +16,8 @@ const (
 
 func (state *lifecycleState) ready() { state.value.Store(stateReadyPaused) }
 
+func (state *lifecycleState) notReady() { state.value.CompareAndSwap(stateReadyPaused, stateStarting) }
+
 func (state *lifecycleState) stopping() { state.value.Store(stateStopping) }
 
 func (state *lifecycleState) current() generated.SystemStatusLifecycleState {

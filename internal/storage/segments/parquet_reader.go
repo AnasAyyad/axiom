@@ -15,6 +15,16 @@ const parquetReadBatchSize = 1024
 // DecodeCanonicalParquet verifies the physical codec, compatibility metadata,
 // row digests, and ordered-content hash before returning replay records.
 func DecodeCanonicalParquet(path string, spec Spec) ([]Record, error) {
+	rows, err := ReadCanonicalParquetRows(path, spec)
+	if err != nil {
+		return nil, err
+	}
+	return canonicalRecords(rows), nil
+}
+
+// ReadCanonicalParquetRows verifies and returns linked canonical rows for
+// dataset-manifest validation.
+func ReadCanonicalParquetRows(path string, spec Spec) ([]CanonicalRow, error) {
 	if spec.SchemaVersion != CanonicalSchemaVersion || spec.RecordCount > math.MaxInt64 {
 		return nil, fmt.Errorf("segment_parquet_spec_invalid")
 	}
@@ -33,7 +43,7 @@ func DecodeCanonicalParquet(path string, spec Spec) ([]Record, error) {
 	if err = verifyCanonicalRows(rows, spec); err != nil {
 		return nil, err
 	}
-	return canonicalRecords(rows), nil
+	return cloneCanonicalRows(rows), nil
 }
 
 // ReadWireParquet verifies and reads an immutable wire segment. Its metadata

@@ -18,6 +18,10 @@ func TestLoadRuntimeUsesSafeDefaults(t *testing.T) {
 	if configuration.Database.Port != 5432 || configuration.Database.MaxOpenConnections != 30 {
 		t.Fatalf("unexpected database defaults: %#v", configuration.Database)
 	}
+	if configuration.Recorder.FlushInterval != 5*time.Minute || configuration.Recorder.QueueCapacity != 16384 ||
+		configuration.Recorder.BookDepth != 1000 {
+		t.Fatalf("unexpected recorder defaults: %#v", configuration.Recorder)
+	}
 }
 
 func TestLoadRuntimeRejectsUnsafeSafetyValues(t *testing.T) {
@@ -44,6 +48,23 @@ func TestLoadRuntimeRejectsShutdownOverCeiling(t *testing.T) {
 	t.Setenv("APP_SHUTDOWN_TIMEOUT", "61s")
 	if _, err := LoadRuntime(); err == nil {
 		t.Fatal("shutdown timeout above 60 seconds accepted")
+	}
+}
+
+func TestLoadRuntimeValidatesRecorderBounds(t *testing.T) {
+	clearRuntimeEnvironment(t)
+	for key, value := range map[string]string{
+		"RECORDER_ROOT":               "relative",
+		"RECORDER_FLUSH_INTERVAL":     "500ms",
+		"MARKET_EVENT_QUEUE_CAPACITY": "999",
+		"ORDER_BOOK_RETAINED_DEPTH":   "5001",
+	} {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv(key, value)
+			if _, err := LoadRuntime(); err == nil {
+				t.Fatalf("unsafe recorder setting accepted: %s", key)
+			}
+		})
 	}
 }
 
@@ -104,6 +125,7 @@ func clearRuntimeEnvironment(t *testing.T) {
 		"DB_CONNECTION_TIMEOUT", "DB_STATEMENT_TIMEOUT",
 		"ALERT_WEBHOOK_ENABLED", "ALERT_WEBHOOK_URL", "ALERT_WEBHOOK_ALLOWED_HOST", "ALERT_WEBHOOK_TOKEN_FILE",
 		"OTEL_TRACING_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT",
+		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH",
 	} {
 		t.Setenv(key, "")
 	}
@@ -115,6 +137,7 @@ func clearRuntimeEnvironment(t *testing.T) {
 		"DB_CONNECTION_TIMEOUT", "DB_STATEMENT_TIMEOUT",
 		"ALERT_WEBHOOK_ENABLED", "ALERT_WEBHOOK_URL", "ALERT_WEBHOOK_ALLOWED_HOST", "ALERT_WEBHOOK_TOKEN_FILE",
 		"OTEL_TRACING_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT",
+		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH",
 	} {
 		t.Setenv(key, defaultForUnset(key))
 	}
@@ -131,6 +154,8 @@ func defaultForUnset(key string) string {
 		"ALERT_WEBHOOK_ENABLED": "false", "ALERT_WEBHOOK_URL": "",
 		"ALERT_WEBHOOK_ALLOWED_HOST": "", "ALERT_WEBHOOK_TOKEN_FILE": "",
 		"OTEL_TRACING_ENABLED": "false", "OTEL_EXPORTER_OTLP_ENDPOINT": "",
+		"RECORDER_ROOT": "/var/lib/axiom/market-data", "RECORDER_FLUSH_INTERVAL": "5m",
+		"MARKET_EVENT_QUEUE_CAPACITY": "16384", "ORDER_BOOK_RETAINED_DEPTH": "1000",
 	}
 	return defaults[key]
 }

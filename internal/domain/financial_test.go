@@ -63,6 +63,29 @@ func TestCheckedArithmeticAndTraps(t *testing.T) {
 	}
 }
 
+func TestVWAPAndSlippageUseExplicitExactRounding(t *testing.T) {
+	notional := mustNotional(t, "301")
+	quantity := mustQuantity(t, "3")
+	vwap, err := CalculateVWAP(notional, quantity, 8)
+	if err != nil || vwap.String() != "100.33333333" {
+		t.Fatalf("VWAP = %q, %v", vwap.String(), err)
+	}
+	reference := mustPrice(t, "100.125")
+	slippage, err := ParsePercent("0.01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	buy, buyErr := PriceAtSlippage(reference, slippage, SideBuy, 8)
+	sell, sellErr := PriceAtSlippage(reference, slippage, SideSell, 8)
+	if buyErr != nil || sellErr != nil || buy.String() != "101.12625" || sell.String() != "99.12375" {
+		t.Fatalf("slippage prices = %q/%q, %v/%v", buy.String(), sell.String(), buyErr, sellErr)
+	}
+	zero := mustQuantity(t, "0")
+	if _, err = CalculateVWAP(notional, zero, 8); err == nil {
+		t.Fatal("zero-quantity VWAP accepted")
+	}
+}
+
 func TestSerializationAndDatabaseRoundTrip(t *testing.T) {
 	original := mustPrice(t, "123.4500")
 	encoded, err := json.Marshal(original)
@@ -157,6 +180,15 @@ func mustPrice(tb testing.TB, text string) Price {
 func mustQuantity(tb testing.TB, text string) Quantity {
 	tb.Helper()
 	value, err := ParseQuantity(text)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return value
+}
+
+func mustNotional(tb testing.TB, text string) Notional {
+	tb.Helper()
+	value, err := ParseNotional(text)
 	if err != nil {
 		tb.Fatal(err)
 	}

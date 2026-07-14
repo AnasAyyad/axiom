@@ -67,9 +67,9 @@ in [V1A readiness](v1a-readiness.md). Clause-level plan coverage is in
 
 ## A7 — Binance public data and recorder
 
-- [ ] Confirm A6 is verified.
+- [x] Confirm A6 is verified.
 - [ ] Verify all `AX-V1A-A07-*` requirements.
-- [ ] Pass public adapter sequence, reconnect, time, malformed/stale, and manifest tests.
+- [x] Pass public adapter sequence, reconnect, time, malformed/stale, and manifest tests.
 - [ ] Complete the 72-hour declared-load soak with bounded memory and all incidents.
 - [ ] Prove the process and image are public-only and credential-free.
 

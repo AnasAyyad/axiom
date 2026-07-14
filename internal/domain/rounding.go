@@ -90,6 +90,51 @@ func CalculateAveragePrice(cost Money, quantity Balance, scale uint8) (Price, er
 	return Price{result}, err
 }
 
+// CalculateVWAP divides exact total notional by filled base quantity and
+// rounds half-even at the explicitly selected output scale.
+func CalculateVWAP(notional Notional, quantity Quantity, scale uint8) (Price, error) {
+	if quantity.decimal.Sign() <= 0 {
+		return Price{}, domainError(CodeArithmetic, "vwap_zero_quantity")
+	}
+	context := exactContext
+	context.Traps = apd.DefaultTraps
+	context.Rounding = apd.RoundHalfEven
+	var quotient apd.Decimal
+	if _, err := context.Quo(&quotient, &notional.decimal, &quantity.decimal); err != nil {
+		return Price{}, domainError(CodeArithmetic, "vwap_divide")
+	}
+	result, err := quantizeDecimal("vwap_quantize", reducedValue(&quotient), scale, apd.RoundHalfEven)
+	return Price{result}, err
+}
+
+// PriceAtSlippage returns the inclusive buy ceiling or sell floor around one
+// reference price. The percentage is a decimal fraction in [0,1].
+func PriceAtSlippage(reference Price, slippage Percent, side Side, scale uint8) (Price, error) {
+	one, _ := parseDecimal("1", "slippage_one", false)
+	if slippage.decimal.Sign() < 0 || slippage.decimalValue.compare(one) > 0 {
+		return Price{}, domainError(CodeArithmetic, "slippage_range")
+	}
+	var multiplier decimalValue
+	var err error
+	switch side {
+	case SideBuy:
+		multiplier, err = addDecimal("buy_slippage", one, slippage.decimalValue)
+	case SideSell:
+		multiplier, err = subtractDecimal("sell_slippage", one, slippage.decimalValue, false)
+	default:
+		return Price{}, domainError(CodeInvalidInstrument, "slippage_side")
+	}
+	if err != nil {
+		return Price{}, err
+	}
+	adjusted, err := multiplyDecimal("slippage_price", reference.decimalValue, multiplier)
+	if err != nil {
+		return Price{}, err
+	}
+	result, err := quantizeDecimal("slippage_price", adjusted, scale, apd.RoundHalfEven)
+	return Price{result}, err
+}
+
 func floorMultiple(operation string, value, increment decimalValue) (decimalValue, error) {
 	if increment.decimal.Sign() <= 0 {
 		return decimalValue{}, domainError(CodeInvalidScale, operation)

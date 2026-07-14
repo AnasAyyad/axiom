@@ -15,7 +15,7 @@ func NormalizeInstruments(
 	version uint64,
 ) ([]exchangecontracts.InstrumentRecord, error) {
 	var native exchangeInfoPayload
-	if err := strictDecode(payload, &native); err != nil || native.Timezone != "UTC" ||
+	if err := strictDecode(payload, &native); err != nil || native.Timezone != "UTC" || len(native.ExchangeFilter) != 0 ||
 		native.ServerTime <= 0 || observedAt.IsZero() || observedAt.Location() != time.UTC || version == 0 {
 		return nil, exchangecontracts.NewError(exchangecontracts.ErrorValidation, exchangecontracts.OperationMetadata, 0)
 	}
@@ -99,6 +99,12 @@ func normalizeFilters(filters []filterPayload) (
 			}
 		case "NOTIONAL":
 			notional, err = domain.ParseNotional(filter.MinimumNotional)
+		case "MIN_NOTIONAL":
+			notional, err = domain.ParseNotional(filter.MinimumNotional)
+		case "ICEBERG_PARTS", "MARKET_LOT_SIZE", "TRAILING_DELTA", "PERCENT_PRICE",
+			"PERCENT_PRICE_BY_SIDE", "MAX_NUM_ORDERS", "MAX_NUM_ORDER_LISTS", "MAX_NUM_ALGO_ORDERS",
+			"MAX_NUM_ORDER_AMENDS":
+			// Known public constraints that do not define the canonical price/size minima.
 		default:
 			return tick, step, minimum, notional, metadataError()
 		}
@@ -106,7 +112,7 @@ func normalizeFilters(filters []filterPayload) (
 			return tick, step, minimum, notional, metadataError()
 		}
 	}
-	if !seen["PRICE_FILTER"] || !seen["LOT_SIZE"] || !seen["NOTIONAL"] {
+	if !seen["PRICE_FILTER"] || !seen["LOT_SIZE"] || (seen["NOTIONAL"] == seen["MIN_NOTIONAL"]) {
 		return tick, step, minimum, notional, metadataError()
 	}
 	return tick, step, minimum, notional, nil

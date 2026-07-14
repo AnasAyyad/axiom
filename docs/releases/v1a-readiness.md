@@ -199,15 +199,16 @@ Evidence register: [A6 local phase-gate validation](evidence/a6-local-validation
 
 Requirements: all `AX-V1A-A07-*` IDs. Entry: A6 verified.
 
-- [ ] Binance fixture/emulator/public integration tests pass sequence bridging,
+- [x] Binance fixture/emulator/public integration tests pass sequence bridging,
       gaps, reconnect, malformed/stale data, clock, and renewal scenarios.
-- [ ] Manifest validator and replay prove raw/canonical linkage and explicit gaps.
+- [x] Manifest validator and bounded replay prove raw/canonical linkage and explicit gaps.
 - [ ] Continuous 72-hour declared-load soak meets freshness, resynchronization,
       latency, and bounded-memory SLOs with every incident recorded.
 - [ ] Request/environment/image inspection proves public-only operation with no
       credentials or order capability.
 
-Evidence register: pending; the 72-hour soak has not been run.
+Evidence register: [A7 local validation](evidence/a7-local-validation.md); the
+72-hour soak is pending and therefore A7 is not verified.
 
 ## A8
 
@@ -297,16 +298,16 @@ Release decision: **Not evaluated; all evidence pending.**
 
 ## Known current limitations
 
-- The repository contains verified A1-A6 platform, domain, runtime, storage,
-  observability, public-contract, normalization, and emulator foundations.
-  Production-public Binance transport and all A7-A11 business workflows remain
-  unimplemented.
+- The repository contains verified A1-A6 foundations and the implemented A7
+  production-public Binance collector/recorder. A7 remains gated on continuous
+  soak and final inspection; A8-A11 remain unimplemented.
 - A1 has a committed source identity, owner-verified hosted CI/supply-chain
   artifacts, local immutable-candidate evidence, and a completed clean-machine
   setup/governance walkthrough.
 - The A0 review is an independent Codex architecture/static audit, not an
   external human security assessment and not runtime or release certification.
-- No targeted application, integration, race, fuzz, accessibility, recovery,
-  network-capture, load, or end-to-end evidence exists here.
+- A7 targeted unit, emulator, race, public-network, recorder-role, and short
+  qualification evidence exists. Later-phase accessibility and end-to-end
+  workflow evidence does not.
 - The 72-hour Binance soak and clean backup/restore drill have not been executed.
 - A passing documentation review alone cannot advance A1–A11 or the release gate.

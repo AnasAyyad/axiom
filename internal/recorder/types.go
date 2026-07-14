@@ -1,0 +1,109 @@
+package recorder
+
+import (
+	"time"
+
+	"axiom/internal/domain"
+	"axiom/internal/storage/segments"
+)
+
+const (
+	datasetSchemaVersion = "axiom.dataset.v1"
+	maximumEventBytes    = 2 * 1024 * 1024
+	maximumPendingBytes  = 512 * 1024 * 1024
+	recordMemoryOverhead = 1024
+)
+
+// EventType identifies one recorded public market or lifecycle fact.
+type EventType string
+
+// A7 recorder event classes.
+const (
+	EventDepth        EventType = "depth"
+	EventTrade        EventType = "trade"
+	EventCandle       EventType = "candle"
+	EventSnapshot     EventType = "snapshot"
+	EventLifecycle    EventType = "lifecycle"
+	EventSubscription EventType = "subscription"
+	EventGap          EventType = "gap"
+	EventRebuild      EventType = "rebuild"
+	EventDecoderError EventType = "decoder_error"
+	EventClockSample  EventType = "clock_sample"
+	EventStreamFrame  EventType = "stream_frame"
+)
+
+// RawInput is one immutable wire envelope recorded before normalization.
+type RawInput struct {
+	Exchange             string
+	EventType            EventType
+	Instrument           domain.Instrument
+	SessionID            string
+	ConnectionID         string
+	ConnectionGeneration uint64
+	MonotonicOffsetNanos uint64
+	RecordedLogicalTime  uint64
+	SourceSequence       string
+	ExchangeTime         *time.Time
+	ReceivedAt           time.Time
+	Payload              []byte
+}
+
+// RawLink identifies the exact source row for canonical normalization.
+type RawLink struct {
+	IngestOrdinal uint64   `json:"ingest_ordinal"`
+	PayloadHash   [32]byte `json:"payload_hash"`
+}
+
+// CanonicalInput links normalized bytes to an existing immutable raw row.
+type CanonicalInput struct {
+	Link                 RawLink
+	EventID              string
+	ParserVersion        string
+	NormalizationVersion string
+	Canonical            []byte
+	SourceSequence       string
+	ExchangeTime         *time.Time
+}
+
+// Gap is an explicit source-sequence hole or recorder loss interval.
+type Gap struct {
+	Exchange             string            `json:"exchange"`
+	Instrument           domain.Instrument `json:"instrument"`
+	ConnectionGeneration uint64            `json:"connection_generation"`
+	FirstSourceSequence  uint64            `json:"first_source_sequence"`
+	LastSourceSequence   uint64            `json:"last_source_sequence"`
+	StartedAt            time.Time         `json:"started_at"`
+	EndedAt              time.Time         `json:"ended_at"`
+	Reason               string            `json:"reason"`
+}
+
+// SegmentReference binds one dataset revision to an immutable segment proof.
+type SegmentReference struct {
+	Kind     string            `json:"kind"`
+	Manifest segments.Manifest `json:"manifest"`
+}
+
+// DatasetManifest is one immutable cumulative dataset revision.
+type DatasetManifest struct {
+	SchemaVersion  string             `json:"schema_version"`
+	DatasetID      string             `json:"dataset_id"`
+	SessionID      string             `json:"session_id"`
+	Exchange       string             `json:"exchange"`
+	Revision       uint64             `json:"revision"`
+	PreviousHash   string             `json:"previous_hash,omitempty"`
+	CreatedAt      time.Time          `json:"created_at"`
+	Segments       []SegmentReference `json:"segments"`
+	Gaps           []Gap              `json:"gaps"`
+	RawRecordCount uint64             `json:"raw_record_count"`
+	CanonicalCount uint64             `json:"canonical_record_count"`
+	Complete       bool               `json:"complete"`
+	Hash           string             `json:"hash"`
+}
+
+// Error is a bounded recorder failure without paths or payloads.
+type Error struct{ Code string }
+
+// Error returns a bounded recorder reason code.
+func (failure *Error) Error() string { return "recorder:" + failure.Code }
+
+func recorderError(code string) error { return &Error{Code: code} }
