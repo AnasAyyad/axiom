@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"axiom/internal/config"
+	"axiom/internal/domain"
 )
 
 // Main installs process-wide signal cancellation and returns a shell exit code.
@@ -43,6 +44,14 @@ func Run(ctx context.Context, arguments []string, output, errorOutput io.Writer)
 	}
 	if command.Kind == commandHealthcheck {
 		return runHealthcheck(ctx, command.URL)
+	}
+	productConfiguration, source, err := config.LoadProductConfiguration(command.Mode)
+	if err != nil {
+		return err
+	}
+	productClock := &domain.SystemClock{}
+	if _, err := config.NewSnapshot(productConfiguration, source, "process-startup", productClock); err != nil {
+		return err
 	}
 	runtimeConfig, err := config.LoadRuntime()
 	if err != nil {

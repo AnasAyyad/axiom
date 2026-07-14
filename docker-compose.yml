@@ -13,7 +13,7 @@ x-runtime-environment: &runtime-environment
   COLLECTOR_REGION: ${COLLECTOR_REGION:-local}
   APP_FAIL_CLOSED: ${APP_FAIL_CLOSED:-true}
   APP_SHUTDOWN_TIMEOUT: ${APP_SHUTDOWN_TIMEOUT:-60s}
-  APP_CONFIG_FILE: ${APP_CONFIG_FILE:-/etc/axiom/platform.yaml}
+  APP_CONFIG_FILE: ${APP_CONFIG_FILE:-/etc/axiom/platform.json}
   RISK_POLICY_FILE: ${RISK_POLICY_FILE:-/etc/axiom/risk-shadow.yaml}
   DB_HOST: postgres
   DB_PORT: "5432"

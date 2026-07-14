@@ -6,7 +6,7 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 | ----- | ----------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | A0    | Complete    | Scope traceability, safety architecture, threat model, topology, lifecycle, and readiness policy | `docs/releases/evidence/a0-review.md`                                                                        |
 | A1    | Complete    | Repository, toolchain, application skeleton, Compose, and CI                                     | Local validation, owner-verified hosted CI/supply-chain evidence, and clean-machine setup/governance walkthrough pass |
-| A2    | Not started | Financial domain and configuration safety                                                        | Awaiting owner merge of the completed A1 candidate; start from updated `main`                               |
+| A2    | Complete    | Fixed-point finance, canonical domain types, and immutable fail-closed configuration              | `docs/releases/evidence/a2-local-validation.md`; external integration remains owner-managed                    |
 | A3    | Not started | Deterministic runtime, bounded concurrency, and fencing                                          | Pending A2 gate                                                                                              |
 | A4    | Not started | PostgreSQL, journal, repositories, Parquet, and recovery                                         | Pending A3 gate                                                                                              |
 | A5    | Not started | Security, observability, monitoring, and alerts                                                  | Pending A4 gate                                                                                              |
@@ -23,8 +23,9 @@ V1A is public-data research and simulation software only. It contains no authent
 
 ## Current limitations
 
-- The A1 application skeleton exists, but it has no business, market-data,
-  strategy, simulation, accounting, or risk implementation from later phases.
+- The A1 application skeleton plus A2 financial domain and configuration
+  boundary exist, but market-data, strategy, simulation, accounting, and risk
+  engines remain owned by later phases.
 - Immutable-candidate local A1 validation is recorded in
   `docs/releases/evidence/a1-local-validation.md`. Owner-verified hosted CI and
   retained supply-chain evidence for commit

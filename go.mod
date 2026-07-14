@@ -4,7 +4,10 @@ go 1.26.0
 
 toolchain go1.26.5
 
-require github.com/jackc/pgx/v5 v5.10.0
+require (
+	github.com/cockroachdb/apd/v3 v3.2.3
+	github.com/jackc/pgx/v5 v5.10.0
+)
 
 require (
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect

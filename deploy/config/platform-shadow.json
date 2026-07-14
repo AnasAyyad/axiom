@@ -1,0 +1,91 @@
+{
+  "schema_version": "axiom.config.v1a.1",
+  "revision": 1,
+  "environment": "shadow",
+  "mode": "shadow",
+  "product": "spot",
+  "safety": {
+    "fail_closed": true,
+    "risk_initial_state": "PAUSED",
+    "auto_unpause": false
+  },
+  "endpoint": {
+    "set": "market-data-only-v1",
+    "rest": "https://data-api.binance.vision",
+    "websocket": "wss://data-stream.binance.vision"
+  },
+  "assets": [
+    { "symbol": "USDT", "status": "approved" },
+    { "symbol": "BTC", "status": "approved" },
+    { "symbol": "ETH", "status": "approved" }
+  ],
+  "instruments": [
+    { "base": "BTC", "quote": "USDT", "product": "spot" },
+    { "base": "ETH", "quote": "USDT", "product": "spot" }
+  ],
+  "risk": {
+    "maximum_asset_allocation": {
+      "value": "0.25",
+      "unit": "decimal_fraction",
+      "minimum": "0",
+      "maximum": "1",
+      "minimum_inclusive": true,
+      "maximum_inclusive": true,
+      "scale": 8,
+      "rounding": "down"
+    },
+    "maximum_order_notional": {
+      "value": "1000",
+      "unit": "USDT",
+      "minimum": "0",
+      "maximum": "1000000",
+      "minimum_inclusive": false,
+      "maximum_inclusive": true,
+      "scale": 8,
+      "rounding": "half_even"
+    },
+    "maximum_daily_loss": {
+      "value": "100",
+      "unit": "USDT",
+      "minimum": "0",
+      "maximum": "1000000",
+      "minimum_inclusive": false,
+      "maximum_inclusive": true,
+      "scale": 8,
+      "rounding": "half_even"
+    }
+  },
+  "portfolio": {
+    "settlement_asset": "USDT",
+    "starting_capital": {
+      "value": "500",
+      "unit": "USDT",
+      "minimum": "0",
+      "maximum": "1000000",
+      "minimum_inclusive": false,
+      "maximum_inclusive": true,
+      "scale": 8,
+      "rounding": "half_even"
+    }
+  },
+  "models": {
+    "fee": "fixed-bps-v1",
+    "latency": "fixed-zero-v1"
+  },
+  "capabilities": [
+    "external_orders_unsupported",
+    "authenticated_api_unsupported",
+    "withdrawals_unsupported",
+    "transfers_unsupported",
+    "margin_unsupported",
+    "futures_unsupported",
+    "perpetuals_unsupported",
+    "options_unsupported",
+    "leverage_unsupported",
+    "borrowing_unsupported",
+    "lending_unsupported",
+    "staking_unsupported",
+    "short_selling_unsupported"
+  ],
+  "secrets": []
+}
