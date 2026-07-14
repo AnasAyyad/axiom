@@ -1,0 +1,48 @@
+{
+  "name": "@axiom/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "24.18.0",
+    "pnpm": "11.12.0"
+  },
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "contracts": "node ../scripts/generate-openapi-types.mjs ../api/openapi.yaml src/api/generated/schema.ts",
+    "dev": "vite",
+    "format": "prettier --ignore-path ../.prettierignore --write . ../scripts/*.mjs ../package.json ../pnpm-workspace.yaml ../api/*.yaml '../.github/**/*.yml'",
+    "format:check": "prettier --ignore-path ../.prettierignore --check . ../scripts/*.mjs ../package.json ../pnpm-workspace.yaml ../api/*.yaml '../.github/**/*.yml'",
+    "lint": "eslint . --max-warnings 0",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@babel/core": "8.0.1",
+    "@babel/eslint-parser": "8.0.1",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
+    "axe-core": "4.12.1",
+    "eslint": "10.7.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.3",
+    "globals": "17.7.0",
+    "jsdom": "29.1.1",
+    "prettier": "3.9.5",
+    "typescript": "7.0.2",
+    "vite": "8.1.4",
+    "vitest": "4.1.10",
+    "yaml": "2.9.0"
+  }
+}
