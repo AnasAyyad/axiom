@@ -3,15 +3,17 @@ SHELL := /usr/bin/env bash
 GO ?= go
 NODE ?= node
 COREPACK ?= corepack
+SQLC ?= sqlc
 PNPM := $(COREPACK) pnpm
 PLATFORM := bin/platform
 PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/pasted-text-1.txt
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
+BACKUP_IMAGE ?= axiom-backup:local
 REBUILD_IMAGE ?= $(IMAGE)-rebuild
 VERSION ?= dev
 COMMIT ?= unknown
@@ -42,6 +44,8 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-doc-links.mjs
 	@$(NODE) scripts/check-a0-traceability.mjs $(if $(wildcard $(PLAN_FILE)),$(PLAN_FILE))
 	@$(NODE) scripts/check-a2-config-reference.mjs
+	@$(NODE) scripts/check-a3-runtime-boundary.mjs
+	@$(NODE) scripts/check-a4-storage-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -72,9 +76,13 @@ fuzz-smoke: ## Run required execution-mode and financial parsing fuzz targets br
 	@$(GO) test ./internal/config -run '^$$' -fuzz '^FuzzParseExecutionMode$$' -fuzztime 3s
 	@$(GO) test ./internal/config -run '^$$' -fuzz '^FuzzDecodeConfiguration$$' -fuzztime 3s
 	@$(GO) test ./internal/domain -run '^$$' -fuzz '^FuzzParseFinancial$$' -fuzztime 3s
+	@$(GO) test ./internal/runtime -run '^$$' -fuzz '^FuzzReplayOrdering$$' -fuzztime 3s
 
 benchmark-a2: ## Measure exact decimal arithmetic with allocation reporting.
 	@$(GO) test ./internal/domain -run '^$$' -bench '^BenchmarkFinancialArithmetic$$' -benchmem -count 5
+
+benchmark-a3: ## Measure deterministic scheduler overhead with allocation reporting.
+	@$(GO) test ./internal/runtime -run '^$$' -bench '^BenchmarkDeterministicScheduler$$' -benchmem -count 5
 
 build: generate build-backend ## Build the embedded React/platform artifact.
 
@@ -113,12 +121,26 @@ dev-web: ## Run Vite with the API proxy.
 migrate: ## Run the exact A1 migration command surface.
 	@$(GO) run ./cmd/platform admin migrate
 
+a4-sqlc: ## Generate and compile the reviewed A4 PostgreSQL queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A4_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a4-postgres-qualify: ## Run the destructive A4 gate against a dedicated *_a4_test database.
+	@test -n "$(AXIOM_A4_TEST_DSN)" || { echo "AXIOM_A4_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a4-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A4_TEST_DSN="$(AXIOM_A4_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA4PostgresMigrationJournalAndReservationIntegration$$' -count=1 -v
+
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \
 		--build-arg "VERSION=$(VERSION)" \
 		--build-arg "COMMIT=$(COMMIT)" \
 		--build-arg "BUILT_AT=$(BUILT_AT)" \
 		--build-arg "DIRTY=$(DIRTY)" .
+
+backup-image: ## Build the pinned PostgreSQL-tooling backup image.
+	@docker build --file deploy/backup/Dockerfile --tag "$(BACKUP_IMAGE)" .
 
 image-reproducibility: image ## Rebuild and compare the complete runtime image payload.
 	@VERSION="$(VERSION)" COMMIT="$(COMMIT)" BUILT_AT="$(BUILT_AT)" DIRTY="$(DIRTY)" \

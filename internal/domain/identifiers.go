@@ -87,6 +87,9 @@ type inboxMessageIDKind struct{}
 type outboxMessageIDKind struct{}
 type incidentIDKind struct{}
 type auditEventIDKind struct{}
+type eventIDKind struct{}
+type sourceSessionIDKind struct{}
+type connectionIDKind struct{}
 
 func (userIDKind) prefix() string                  { return "user" }
 func (sessionIDKind) prefix() string               { return "session" }
@@ -115,6 +118,9 @@ func (inboxMessageIDKind) prefix() string          { return "inbox_message" }
 func (outboxMessageIDKind) prefix() string         { return "outbox_message" }
 func (incidentIDKind) prefix() string              { return "incident" }
 func (auditEventIDKind) prefix() string            { return "audit_event" }
+func (eventIDKind) prefix() string                 { return "event" }
+func (sourceSessionIDKind) prefix() string         { return "source_session" }
+func (connectionIDKind) prefix() string            { return "connection" }
 
 // Stable compile-time-distinct identifier types for every V1A aggregate.
 type (
@@ -145,6 +151,9 @@ type (
 	OutboxMessageID         = ID[outboxMessageIDKind]
 	IncidentID              = ID[incidentIDKind]
 	AuditEventID            = ID[auditEventIDKind]
+	EventID                 = ID[eventIDKind]
+	SourceSessionID         = ID[sourceSessionIDKind]
+	ConnectionID            = ID[connectionIDKind]
 )
 
 // NewUserID constructs a user identifier.
@@ -245,3 +254,14 @@ func NewIncidentID(value string) (IncidentID, error) { return newID[incidentIDKi
 
 // NewAuditEventID constructs an audit-event identifier.
 func NewAuditEventID(value string) (AuditEventID, error) { return newID[auditEventIDKind](value) }
+
+// NewEventID constructs an event identifier.
+func NewEventID(value string) (EventID, error) { return newID[eventIDKind](value) }
+
+// NewSourceSessionID constructs a source-session identifier.
+func NewSourceSessionID(value string) (SourceSessionID, error) {
+	return newID[sourceSessionIDKind](value)
+}
+
+// NewConnectionID constructs a source-connection identifier.
+func NewConnectionID(value string) (ConnectionID, error) { return newID[connectionIDKind](value) }

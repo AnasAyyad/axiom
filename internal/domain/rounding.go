@@ -64,6 +64,32 @@ func CalculateFee(notional Notional, rate Rate, scale uint8) (Fee, error) {
 	return Fee{result}, err
 }
 
+// CalculateMoney multiplies a price by an owned balance and rounds half-even.
+func CalculateMoney(price Price, quantity Balance, scale uint8) (Money, error) {
+	product, err := multiplyDecimal("money_multiply", price.decimalValue, quantity.decimalValue)
+	if err != nil {
+		return Money{}, err
+	}
+	result, err := quantizeDecimal("money_quantize", product, scale, apd.RoundHalfEven)
+	return Money{result}, err
+}
+
+// CalculateAveragePrice divides total cost by owned quantity and rounds half-even.
+func CalculateAveragePrice(cost Money, quantity Balance, scale uint8) (Price, error) {
+	if quantity.decimal.Sign() <= 0 {
+		return Price{}, domainError(CodeArithmetic, "average_price_zero_quantity")
+	}
+	context := exactContext
+	context.Traps = apd.DefaultTraps
+	context.Rounding = apd.RoundHalfEven
+	var quotient apd.Decimal
+	if _, err := context.Quo(&quotient, &cost.decimal, &quantity.decimal); err != nil {
+		return Price{}, domainError(CodeArithmetic, "average_price_divide")
+	}
+	result, err := quantizeDecimal("average_price_quantize", reducedValue(&quotient), scale, apd.RoundHalfEven)
+	return Price{result}, err
+}
+
 func floorMultiple(operation string, value, increment decimalValue) (decimalValue, error) {
 	if increment.decimal.Sign() <= 0 {
 		return decimalValue{}, domainError(CodeInvalidScale, operation)

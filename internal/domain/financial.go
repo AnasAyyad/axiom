@@ -93,6 +93,24 @@ func (value Balance) Compare(other Balance) int { return value.compare(other.dec
 // Compare orders money amounts by numeric value.
 func (value Money) Compare(other Money) int { return value.compare(other.decimalValue) }
 
+// Add returns an exact money sum.
+func (value Money) Add(other Money) (Money, error) {
+	result, err := addDecimal("money_add", value.decimalValue, other.decimalValue)
+	return Money{result}, err
+}
+
+// AddFee adds a fee denominated in the same asset.
+func (value Money) AddFee(other Fee) (Money, error) {
+	result, err := addDecimal("money_add_fee", value.decimalValue, other.decimalValue)
+	return Money{result}, err
+}
+
+// Subtract returns an exact non-negative money difference.
+func (value Money) Subtract(other Money) (Money, error) {
+	result, err := subtractDecimal("money_subtract", value.decimalValue, other.decimalValue, false)
+	return Money{result}, err
+}
+
 // Compare orders decimal percentages by numeric value.
 func (value Percent) Compare(other Percent) int { return value.compare(other.decimalValue) }
 
@@ -136,4 +154,14 @@ func (value PnL) Subtract(other PnL) (PnL, error) {
 func (value Money) Divide(other Money) (Rate, error) {
 	result, err := divideDecimal("money_divide", value.decimalValue, other.decimalValue)
 	return Rate{result}, err
+}
+
+// MoneyDifference returns a signed exact result after subtracting cost and fee.
+func MoneyDifference(proceeds, cost Money, fee Fee) (PnL, error) {
+	result, err := subtractDecimal("money_difference", proceeds.decimalValue, cost.decimalValue, true)
+	if err != nil {
+		return PnL{}, err
+	}
+	result, err = subtractDecimal("money_difference_fee", result, fee.decimalValue, true)
+	return PnL{result}, err
 }
