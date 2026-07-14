@@ -2,8 +2,8 @@
 
 ## Current decision
 
-**V1A is not ready for release.** A0 and A1 are verified; A2–A11 and every
-release gate remain unverified. This document is an evidence index, not evidence
+**V1A is not ready for release.** A0-A6 are verified; A7-A11 and every release
+gate remain unverified. This document is an evidence index, not evidence
 by itself. An unchecked item must not be inferred from source layout, planned
 work, or a passing narrower test.
 
@@ -17,8 +17,8 @@ current phase status is [implementation-status.md](../implementation-status.md).
 
 | Field                              | Value   |
 | ---------------------------------- | ------- |
-| Candidate version                  | `0.1.0-a1` A1 candidate |
-| Source commit                      | `5ce09c3611e05a8fa5d0f1afc4706e17698b2d90` |
+| Candidate version                  | `0.1.0-a6` local phase candidate |
+| Source commit                      | `6bbda3029031c8226bfaaba3478ecba958176a2a` plus the following evidence-only commit |
 | Clean-tree proof                   | Local predecessor fresh-checkout proof plus owner-verified clean hosted run for current commit |
 | Build/toolchain identity           | Local predecessor identity plus owner-verified hosted run `#4` for current commit |
 | Image digest and SBOM              | Local predecessor digests; current hosted image/SBOM artifacts owner-verified, hashes not independently inspected |
@@ -66,7 +66,7 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | A3    | Runtime/Platform Engineering    | A2 verified                           | Verified    | [Local validation](evidence/a3-local-validation.md) |
 | A4    | Storage/Accounting              | A3 verified                           | Verified    | [Local validation](evidence/a4-local-progress.md) |
 | A5    | Security/SRE                    | A4 verified                           | Verified    | [Completion evidence](evidence/a5-local-progress.md) |
-| A6    | Exchange Platform               | A5 verified                           | Not started | Pending                            |
+| A6    | Exchange Platform               | A5 verified                           | Verified    | [Local validation](evidence/a6-local-validation.md) |
 | A7    | Binance Adapter Team            | A6 verified                           | Not started | Pending                            |
 | A8    | Execution/Research Platform     | A7 verified                           | Not started | Pending                            |
 | A9    | Portfolio/Risk Engineering      | A8 verified                           | Not started | Pending                            |
@@ -186,14 +186,14 @@ exact-tree PostgreSQL, alert-objective, and tabletop qualification passed.
 
 Requirements: all `AX-V1A-A06-*` IDs. Entry: A5 verified.
 
-- [ ] Shared contract/capability/error/retry/rate-budget suites pass.
-- [ ] Emulator scenarios for gaps, reconnects, limits, filters, duplicates,
+- [x] Shared contract/capability/error/retry/rate-budget suites pass.
+- [x] Emulator scenarios for gaps, reconnects, limits, filters, duplicates,
       partial/late fills, unknown state, reset, and reconciliation are repeatable.
-- [ ] Unsupported functions return typed errors.
-- [ ] Compile/build inspection proves no V1A signer, credential, private route, or
+- [x] Unsupported functions return typed errors.
+- [x] Compile/build inspection proves no V1A signer, credential, private route, or
       authenticated order implementation.
 
-Evidence register: pending.
+Evidence register: [A6 local phase-gate validation](evidence/a6-local-validation.md).
 
 ## A7
 
@@ -297,8 +297,10 @@ Release decision: **Not evaluated; all evidence pending.**
 
 ## Known current limitations
 
-- The repository contains the A1 health/application skeleton only; all later
-  V1A business capabilities remain unimplemented.
+- The repository contains verified A1-A6 platform, domain, runtime, storage,
+  observability, public-contract, normalization, and emulator foundations.
+  Production-public Binance transport and all A7-A11 business workflows remain
+  unimplemented.
 - A1 has a committed source identity, owner-verified hosted CI/supply-chain
   artifacts, local immutable-candidate evidence, and a completed clean-machine
   setup/governance walkthrough.

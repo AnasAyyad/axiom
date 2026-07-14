@@ -59,11 +59,11 @@ in [V1A readiness](v1a-readiness.md). Clause-level plan coverage is in
 
 ## A6 — exchange contracts and emulator
 
-- [ ] Confirm A5 is verified.
-- [ ] Verify all `AX-V1A-A06-*` requirements.
-- [ ] Pass shared contract/capability/error/rate/retry suites.
-- [ ] Reproduce every emulator fault scenario deterministically.
-- [ ] Prove no signer, credentials, private route, or order implementation exists.
+- [x] Confirm A5 is verified.
+- [x] Verify all `AX-V1A-A06-*` requirements.
+- [x] Pass shared contract/capability/error/rate/retry suites.
+- [x] Reproduce every emulator fault scenario deterministically.
+- [x] Prove no signer, credentials, private route, or order implementation exists.
 
 ## A7 — Binance public data and recorder
 
