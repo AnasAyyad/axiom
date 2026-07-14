@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"axiom/internal/config"
 	"axiom/internal/domain"
+	"axiom/internal/observability"
 )
 
 // Main installs process-wide signal cancellation and returns a shell exit code.
@@ -24,7 +23,9 @@ func Main(arguments []string, output, errorOutput io.Writer) int {
 			writeUsage(output)
 			return 0
 		}
-		_, _ = fmt.Fprintf(errorOutput, "axiom_start_failed:%s\n", err.Error())
+		observability.NewLogger(errorOutput, "platform").Error(
+			"startup failed", "event_code", "startup_failed", "cause", err,
+		)
 		return 1
 	}
 	return 0
@@ -57,16 +58,15 @@ func Run(ctx context.Context, arguments []string, output, errorOutput io.Writer)
 	if err != nil {
 		return err
 	}
-	logger := slog.New(slog.NewJSONHandler(errorOutput, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	switch command.Kind {
 	case commandAPI:
-		return runHTTPRole(ctx, runtimeConfig, "api", true, logger)
+		return runHTTPRole(ctx, runtimeConfig, productConfiguration, "api", true, observability.NewLogger(errorOutput, "api"))
 	case commandTrader:
-		return runHTTPRole(ctx, runtimeConfig, "engine-shadow", false, logger)
+		return runHTTPRole(ctx, runtimeConfig, productConfiguration, "engine-shadow", false, observability.NewLogger(errorOutput, "engine-shadow"))
 	case commandRecorder:
-		return runHTTPRole(ctx, runtimeConfig, "recorder", false, logger)
+		return runHTTPRole(ctx, runtimeConfig, productConfiguration, "recorder", false, observability.NewLogger(errorOutput, "recorder"))
 	case commandWorker:
-		return runHTTPRole(ctx, runtimeConfig, "worker", false, logger)
+		return runHTTPRole(ctx, runtimeConfig, productConfiguration, "worker", false, observability.NewLogger(errorOutput, "worker"))
 	case commandMigrate:
 		return runMigrate(ctx, runtimeConfig, output)
 	default:

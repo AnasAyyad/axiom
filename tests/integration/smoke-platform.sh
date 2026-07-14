@@ -13,8 +13,11 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 secret_file="${TEMP_DIR}/postgres-password"
+health_secret_file="${TEMP_DIR}/health-detail-token"
 umask 077
 openssl rand -base64 32 >"${secret_file}"
+openssl rand -base64 32 >"${health_secret_file}"
+printf 'header = "Authorization: Bearer %s"\n' "$(<"${health_secret_file}")" >"${TEMP_DIR}/health-curl.conf"
 go build -trimpath -o "${TEMP_DIR}/platform" ./cmd/platform
 
 export APP_FAIL_CLOSED=true
@@ -26,12 +29,14 @@ export DB_NAME="${AXIOM_SMOKE_DB_NAME:-axiom}"
 export DB_USER="${AXIOM_SMOKE_DB_USER:-postgres}"
 export DB_PASSWORD_FILE="${secret_file}"
 export DB_SSL_MODE=disable
+export HEALTH_DETAIL_TOKEN_FILE="${health_secret_file}"
 export RISK_AUTO_UNPAUSE=false
 export RISK_FAIL_CLOSED=true
 export RISK_INITIAL_STATE=PAUSED
 
 "${TEMP_DIR}/platform" admin migrate >"${TEMP_DIR}/migrate.out"
-grep --fixed-strings --quiet '"applied":0' "${TEMP_DIR}/migrate.out"
+grep --fixed-strings --quiet '"event_code":"migration_complete"' "${TEMP_DIR}/migrate.out"
+grep --fixed-strings --quiet '"phase":"A5"' "${TEMP_DIR}/migrate.out"
 if DB_PORT=1 DB_CONNECTION_TIMEOUT=100ms \
   "${TEMP_DIR}/platform" admin migrate \
   >"${TEMP_DIR}/migrate-negative.out" 2>"${TEMP_DIR}/migrate-negative.log"; then
@@ -56,9 +61,12 @@ stop_and_check() {
 start_and_check() {
   local role="$1"
   local port="$2"
+  local status_response detailed_response metrics_response
   shift 2
+  local metrics_port="${port}"
+  if [[ "${role}" == "api" ]]; then metrics_port=$((port + 100)); fi
   HTTP_BIND_ADDRESS="127.0.0.1:${port}" \
-    METRICS_BIND_ADDRESS="127.0.0.1:${port}" \
+    METRICS_BIND_ADDRESS="127.0.0.1:${metrics_port}" \
     "${TEMP_DIR}/platform" "$@" >"${TEMP_DIR}/${role}.out" 2>"${TEMP_DIR}/${role}.log" &
   service_pid=$!
   for _ in {1..50}; do
@@ -69,8 +77,13 @@ start_and_check() {
   done
   curl --fail --silent "http://127.0.0.1:${port}/health/live" >/dev/null
   curl --fail --silent "http://127.0.0.1:${port}/health/ready" >/dev/null
-  curl --fail --silent "http://127.0.0.1:${port}/api/v1/system/status" | \
-    grep --fixed-strings --quiet '"real_trading_enabled":false'
+  status_response="$(curl --fail --silent "http://127.0.0.1:${port}/api/v1/system/status")"
+  grep --fixed-strings --quiet '"real_trading_enabled":false' <<<"${status_response}"
+  detailed_response="$(curl --fail --silent --config "${TEMP_DIR}/health-curl.conf" \
+    "http://127.0.0.1:${port}/api/v1/system/health")"
+  grep --fixed-strings --quiet '"name":"postgres"' <<<"${detailed_response}"
+  metrics_response="$(curl --fail --silent "http://127.0.0.1:${metrics_port}/metrics")"
+  grep --fixed-strings --quiet 'axiom_dependency_ready' <<<"${metrics_response}"
   stop_and_check
 }
 
@@ -78,7 +91,7 @@ start_unready_and_check() {
   DB_PORT=1 \
     DB_CONNECTION_TIMEOUT=100ms \
     HTTP_BIND_ADDRESS=127.0.0.1:19084 \
-    METRICS_BIND_ADDRESS=127.0.0.1:19084 \
+    METRICS_BIND_ADDRESS=127.0.0.1:19184 \
     "${TEMP_DIR}/platform" api \
     >"${TEMP_DIR}/api-unready.out" 2>"${TEMP_DIR}/api-unready.log" &
   service_pid=$!

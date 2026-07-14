@@ -44,7 +44,7 @@ func runMigrate(ctx context.Context, runtimeConfig config.Runtime, output io.Wri
 	}
 	return json.NewEncoder(output).Encode(map[string]any{
 		"event_code": "migration_complete",
-		"phase":      "A4",
+		"phase":      "A5",
 		"applied":    applied,
 		"checked_at": time.Now().UTC().Format(time.RFC3339),
 	})

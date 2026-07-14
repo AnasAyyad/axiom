@@ -27,6 +27,10 @@ func TestStartupRejectsInvalidProductConfigBeforeDatabase(t *testing.T) {
 	if strings.Contains(errorOutput.String(), missing) {
 		t.Fatal("configuration path leaked into startup error")
 	}
+	if !strings.Contains(errorOutput.String(), `"event_code":"startup_failed"`) ||
+		!strings.Contains(errorOutput.String(), `"service":"platform"`) {
+		t.Fatalf("startup failure is not structured JSON: %s", errorOutput.String())
+	}
 }
 
 func TestMainRejectsExchangeCredentialKeyWithoutValueLeak(t *testing.T) {

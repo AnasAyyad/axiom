@@ -46,6 +46,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a2-config-reference.mjs
 	@$(NODE) scripts/check-a3-runtime-boundary.mjs
 	@$(NODE) scripts/check-a4-storage-boundary.mjs
+	@$(NODE) scripts/check-a5-observability-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...

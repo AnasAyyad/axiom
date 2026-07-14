@@ -3,8 +3,8 @@ info:
   title: Axiom V1A API
   version: 0.1.0
   description: >-
-    Public health and build-information contract for the A1 skeleton. Axiom V1A
-    is research and simulation software; real trading is disabled.
+    Public health/build information plus authenticated A5 operational health.
+    Axiom V1A is research and simulation software; real trading is disabled.
 servers:
   - url: /
 tags:
@@ -77,7 +77,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SystemStatus"
+  /api/v1/system/health:
+    get:
+      operationId: getDetailedHealth
+      tags: [System]
+      summary: Return redacted dependency detail to an authenticated operator
+      security:
+        - operationalBearer: []
+      responses:
+        "200":
+          description: Redacted detailed health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetailedHealthResponse"
+        "401":
+          description: Missing or invalid operational bearer token
+        "503":
+          description: At least one required dependency is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetailedHealthResponse"
 components:
+  securitySchemes:
+    operationalBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
   schemas:
     HealthResponse:
       type: object
@@ -152,3 +179,40 @@ components:
         real_trading_enabled:
           type: boolean
           enum: [false]
+    DetailedHealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [status, role, lifecycle_state, real_trading_enabled, components]
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        role:
+          type: string
+          minLength: 1
+        lifecycle_state:
+          type: string
+          enum: [STARTING, READY_PAUSED, STOPPING]
+        real_trading_enabled:
+          type: boolean
+          enum: [false]
+        components:
+          type: array
+          maxItems: 16
+          items:
+            $ref: "#/components/schemas/HealthComponent"
+    HealthComponent:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          enum: [postgres]
+        status:
+          type: string
+          enum: [ready, not_ready]
+        reason_code:
+          type: string
+          enum: [required_dependency_unavailable]

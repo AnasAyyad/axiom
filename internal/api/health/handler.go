@@ -2,8 +2,12 @@ package health
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"axiom/internal/api/generated"
@@ -26,6 +30,25 @@ type Options struct {
 	Build      buildinfo.Info
 	Dependency Dependency
 	Lifecycle  LifecycleState
+	Authorize  func(*http.Request) bool
+}
+
+// NewBearerAuthorizer returns a constant-time authorizer that retains only a
+// SHA-256 digest of the file-backed operational token.
+func NewBearerAuthorizer(token string) (func(*http.Request) bool, error) {
+	if len(token) < 32 || len(token) > 4096 || strings.ContainsAny(token, "\r\n\x00") {
+		return nil, fmt.Errorf("health_token_rejected")
+	}
+	wanted := sha256.Sum256([]byte(token))
+	return func(request *http.Request) bool {
+		const prefix = "Bearer "
+		header := request.Header.Get("Authorization")
+		if !strings.HasPrefix(header, prefix) || len(header)-len(prefix) > 4096 {
+			return false
+		}
+		actual := sha256.Sum256([]byte(strings.TrimPrefix(header, prefix)))
+		return subtle.ConstantTimeCompare(actual[:], wanted[:]) == 1
+	}, nil
 }
 
 // Register adds all A1 health and system-information routes to mux.
@@ -35,6 +58,37 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("/api/v1/system/version", getOnly(version(options)))
 	mux.HandleFunc("/api/v1/system/build", getOnly(build(options)))
 	mux.HandleFunc("/api/v1/system/status", getOnly(status(options)))
+	mux.HandleFunc("/api/v1/system/health", getOnly(detailed(options)))
+}
+
+func detailed(options Options) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		if options.Authorize == nil || !options.Authorize(request) {
+			writer.Header().Set("WWW-Authenticate", `Bearer realm="operational-health"`)
+			writer.Header().Set("Cache-Control", "no-store")
+			http.Error(writer, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		state := generated.SystemStatusLifecycleStateSTARTING
+		if options.Lifecycle != nil {
+			state = options.Lifecycle()
+		}
+		ctx, cancel := context.WithTimeout(request.Context(), readinessTimeout)
+		defer cancel()
+		status, componentStatus := generated.DetailedHealthResponseStatusReady, generated.HealthComponentStatusReady
+		statusCode := http.StatusOK
+		var reason *generated.HealthComponentReasonCode
+		if options.Dependency == nil || options.Dependency.Ping(ctx) != nil {
+			status, componentStatus, statusCode = generated.DetailedHealthResponseStatusNotReady, generated.HealthComponentStatusNotReady, http.StatusServiceUnavailable
+			value := generated.RequiredDependencyUnavailable
+			reason = &value
+		}
+		writeJSON(writer, statusCode, generated.DetailedHealthResponse{
+			Status: status, Role: options.Role, LifecycleState: generated.DetailedHealthResponseLifecycleState(state),
+			RealTradingEnabled: generated.DetailedHealthResponseRealTradingEnabled(false),
+			Components:         []generated.HealthComponent{{Name: generated.Postgres, Status: componentStatus, ReasonCode: reason}},
+		})
+	}
 }
 
 func liveness(options Options) http.HandlerFunc {
@@ -83,14 +137,14 @@ func build(options Options) http.HandlerFunc {
 
 func status(options Options) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
-		state := generated.STARTING
+		state := generated.SystemStatusLifecycleStateSTARTING
 		if options.Lifecycle != nil {
 			state = options.Lifecycle()
 		}
 		writeJSON(writer, http.StatusOK, generated.SystemStatus{
 			Release: generated.V1A, Phase: generated.SystemStatusPhaseA1,
 			Role: options.Role, LifecycleState: state,
-			StrategyActivation: generated.Unavailable, RealTradingEnabled: generated.False,
+			StrategyActivation: generated.Unavailable, RealTradingEnabled: generated.SystemStatusRealTradingEnabledFalse,
 		})
 	}
 }

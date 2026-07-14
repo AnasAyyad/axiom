@@ -62,10 +62,10 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | ----- | ------------------------------- | ------------------------------------- | ----------- | ---------------------------------- |
 | A0    | Product, Architecture, Security | Authoritative spec and plan available | Verified    | [A0 review](evidence/a0-review.md) |
 | A1    | Platform Engineering            | A0 verified                           | Verified    | [Local validation](evidence/a1-local-validation.md); [owner-verified hosted CI](evidence/a1-hosted-ci.md); [clean-machine walkthrough](evidence/a1-clean-machine-walkthrough.md) |
-| A2    | Domain Engineering              | A1 verified                           | Not started | Pending                            |
-| A3    | Runtime/Platform Engineering    | A2 verified                           | Not started | Pending                            |
-| A4    | Storage/Accounting              | A3 verified                           | Not started | Pending                            |
-| A5    | Security/SRE                    | A4 verified                           | Not started | Pending                            |
+| A2    | Domain Engineering              | A1 verified                           | Verified    | [Local validation](evidence/a2-local-validation.md) |
+| A3    | Runtime/Platform Engineering    | A2 verified                           | Verified    | [Local validation](evidence/a3-local-validation.md) |
+| A4    | Storage/Accounting              | A3 verified                           | Verified    | [Local validation](evidence/a4-local-progress.md) |
+| A5    | Security/SRE                    | A4 verified                           | Verified    | [Completion evidence](evidence/a5-local-progress.md) |
 | A6    | Exchange Platform               | A5 verified                           | Not started | Pending                            |
 | A7    | Binance Adapter Team            | A6 verified                           | Not started | Pending                            |
 | A8    | Execution/Research Platform     | A7 verified                           | Not started | Pending                            |
@@ -133,47 +133,54 @@ claimed by this record.
 
 Requirements: all `AX-V1A-A03-*` IDs. Entry: A2 verified.
 
-- [ ] Scheduler/concurrency permutations produce identical canonical results.
-- [ ] Overlapping engine, stale-fence, lease-loss, and database-failure tests
+- [x] Scheduler/concurrency permutations produce identical canonical results.
+- [x] Overlapping engine, stale-fence, lease-loss, and database-failure tests
       prove exclusive ownership and fail-closed mutation.
-- [ ] Queue saturation loses no critical event and creates no stale decision.
-- [ ] Race/stress/leak/load tests and graceful lifecycle timing pass.
-- [ ] Architecture/recovery documents match the tested implementation.
+- [x] Queue saturation loses no critical event and creates no stale decision.
+- [x] Race/stress/leak/load tests and graceful lifecycle timing pass.
+- [x] Architecture/recovery documents match the tested implementation.
 
-Evidence register: pending.
+Evidence register: [A3 local phase-gate validation](evidence/a3-local-validation.md).
+A3 is verified for its runtime-contract scope. PostgreSQL durability remains an
+A4 gate, and the complete integrated shadow recovery profile is requalified at
+the V1A release gate.
 
 ## A4
 
 Requirements: all `AX-V1A-A04-*` IDs. Entry: A3 verified.
 
-- [ ] Migration, role, constraint, repository, locking, and generated-query gates
+- [x] Migration, role, constraint, repository, locking, and generated-query gates
       pass on clean PostgreSQL.
-- [ ] Every journal posting balances per commodity; projections rebuild exactly.
-- [ ] High-contention reservations reject double spending and negative balances.
-- [ ] Segment kill-point and compatibility tests detect/quarantine every unsafe
+- [x] Every journal posting balances per commodity; projections rebuild exactly.
+- [x] High-contention reservations reject double spending and negative balances.
+- [x] Segment kill-point and compatibility tests detect/quarantine every unsafe
       file/manifest state.
-- [ ] Inbox/outbox/job/journal/reservation kill-point matrix has no loss or
+- [x] Inbox/outbox/job/journal/reservation kill-point matrix has no loss or
       duplicate effect.
-- [ ] A timed clean restore reproduces balances, manifests, and replay hashes.
+- [x] A timed clean restore reproduces balances, manifests, and replay hashes.
 
-Evidence register: pending.
+Validation record: [A4 local validation](evidence/a4-local-progress.md).
+Recorder-derived capacity and daily/off-host operational evidence remain later
+deployment/release gates and do not weaken this local A4 acceptance.
 
 ## A5
 
 Requirements: all `AX-V1A-A05-*` IDs. Entry: A4 verified.
 
-- [ ] Secret canaries are absent from logs, metrics, traces, APIs, audit, errors,
+- [x] Secret canaries are absent from logs, metrics, traces, APIs, audit, errors,
       and support artifacts.
-- [ ] Metrics pass schema/unit/bounded-cardinality review and dashboards/rules
+- [x] Metrics pass schema/unit/bounded-cardinality review and dashboards/rules
       validate against them.
-- [ ] Persistence, fence, disk, clock, queue, book, reconciliation, and accounting
+- [x] Persistence, fence, disk, clock, queue, book, reconciliation, and accounting
       faults alert and fail closed within SLO.
-- [ ] Prometheus/Grafana profiles, in-app alerts, external sink, deduplication, and
+- [x] Prometheus/Grafana profiles, in-app alerts, external sink, deduplication, and
       acknowledgement work end to end.
-- [ ] Container hardening and supply-chain scan/SBOM evidence pass.
-- [ ] Operations runbooks pass tabletop exercises.
+- [x] Container hardening and supply-chain scan/SBOM evidence pass.
+- [x] Operations runbooks pass tabletop exercises.
 
-Evidence register: pending.
+Evidence register: [A5 completion evidence](evidence/a5-local-progress.md) and
+[operations tabletop](evidence/a5-tabletop.md). Docker, supply-chain,
+exact-tree PostgreSQL, alert-objective, and tabletop qualification passed.
 
 ## A6
 
