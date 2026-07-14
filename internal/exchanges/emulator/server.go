@@ -138,8 +138,7 @@ func (server *Server) handleStream(connection *websocket.Conn) {
 	server.record("websocket", "connect", path, connectionID, 0, nil)
 	for _, frame := range session.Frames {
 		if !wait(connection.Request().Context(), frame.Delay) || frame.Close {
-			_ = connection.Close()
-			server.record("websocket", "close", path, connectionID, 0, nil)
+			server.closeStream(connection, path, connectionID)
 			return
 		}
 		if err := websocket.Message.Send(connection, frame.Body); err != nil {
@@ -147,8 +146,14 @@ func (server *Server) handleStream(connection *websocket.Conn) {
 		}
 		server.record("websocket", "frame", path, connectionID, 0, frame.Body)
 	}
-	_ = connection.Close()
+	server.closeStream(connection, path, connectionID)
+}
+
+func (server *Server) closeStream(connection *websocket.Conn, path string, connectionID uint64) {
+	// Record the scripted close before exposing EOF so transcript readers cannot
+	// observe a completed client session while the final entry is still pending.
 	server.record("websocket", "close", path, connectionID, 0, nil)
+	_ = connection.Close()
 }
 
 func (server *Server) nextSession(path string) (StreamSession, uint64, bool) {
