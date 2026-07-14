@@ -1,6 +1,16 @@
 # V1A recovery and readiness
 
-**Status:** Normative A0 architecture contract
+**Status:** Normative architecture contract; A3 lifecycle framework implemented
+
+## A3 implementation checkpoint
+
+`internal/runtime.RecoveryGate` enforces the fourteen shadow-startup gates in
+the order below, measures them through an injected clock, and remains locked
+after administrative readiness. `Lifecycle` owns bounded cancellable workers
+and enforces a configured shutdown limit no greater than 60 seconds. A3 tests
+use deterministic and local conformance dependencies; A4-A11 must connect each
+gate to its durable subsystem and the complete shadow profile must be timed
+again before release certification.
 
 ## Recovery principle
 

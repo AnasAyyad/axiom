@@ -1,7 +1,12 @@
 # V1A process topology
 
-- **Status:** Normative A0 architecture contract
+- **Status:** Normative architecture contract; A3 in-process boundary implemented
 - **Scope:** Single-server V1A deployment
+
+The A3 runtime establishes the bounded in-process event and pipeline contracts.
+Process-specific engines and durable PostgreSQL coordination remain assigned to
+their later implementation phases; this document does not claim those services
+are operational yet.
 
 ## Packaging
 

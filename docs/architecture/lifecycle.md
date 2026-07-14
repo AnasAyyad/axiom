@@ -1,6 +1,11 @@
 # V1A runtime lifecycle
 
-**Status:** Normative A0 architecture contract
+**Status:** Normative architecture contract; A3 lifecycle framework implemented
+
+The A3 implementation supplies bounded worker ownership, cancellation,
+shutdown timing, fail-closed safety state, and the ordered recovery gate. It
+does not yet implement later-phase durable checkpoint, journal, market-data,
+or reconciliation handlers.
 
 ## Lifecycle invariants
 

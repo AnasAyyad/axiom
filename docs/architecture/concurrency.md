@@ -1,6 +1,14 @@
 # V1A concurrency, ownership, and fencing
 
-**Status:** Normative A0 architecture contract
+**Status:** Normative architecture contract; A3 runtime primitives implemented
+
+## A3 implementation checkpoint
+
+`internal/runtime` provides the sealed bounded partition bus, fixed overload
+policies, bounded lifecycle, lease/fencing interfaces, atomic fenced-mutation
+contract, and deterministic in-memory conformance repositories. The memory
+repositories are test models, not durable substitutes for PostgreSQL. A4 owns
+the PostgreSQL transaction, migration, and constraint implementations.
 
 ## Goals
 
