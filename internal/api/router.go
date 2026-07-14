@@ -22,6 +22,15 @@ func NewHealthRouter(options health.Options) http.Handler {
 	return securityHeaders(mux)
 }
 
+// NewOperationalRouter composes health and the internal metrics endpoint. It is
+// intended only for the Compose-internal metrics network.
+func NewOperationalRouter(options health.Options, metrics http.Handler) http.Handler {
+	mux := http.NewServeMux()
+	health.Register(mux, options)
+	mux.Handle("/metrics", metrics)
+	return securityHeaders(mux)
+}
+
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("X-Content-Type-Options", "nosniff")

@@ -1,0 +1,74 @@
+groups:
+  - name: axiom-core-safety
+    interval: 15s
+    rules:
+      - alert: AxiomServiceUnavailable
+        expr: up{job=~"api|engine-shadow|recorder|backtest-worker"} == 0
+        for: 1m
+        labels: { severity: critical, reason_code: persistence_failure }
+        annotations:
+          summary: A required Axiom process is unavailable
+          runbook: docs/operations/incident-response.md#database-outage-or-leasefencing-loss
+      - alert: AxiomDatabaseUnavailable
+        expr: axiom_dependency_ready{dependency="postgres"} == 0
+        for: 30s
+        labels: { severity: critical, reason_code: persistence_failure }
+        annotations:
+          summary: PostgreSQL readiness failed
+          runbook: docs/operations/incident-response.md#database-outage-or-leasefencing-loss
+      - alert: AxiomFencingLeaseLost
+        expr: axiom_dependency_ready{job="engine-shadow",dependency="fencing"} == 0
+        for: 15s
+        labels: { severity: critical, reason_code: fencing_lease_lost }
+        annotations:
+          summary: The shadow engine lost its fencing lease
+          runbook: docs/operations/incident-response.md#database-outage-or-leasefencing-loss
+      - alert: AxiomClockUnsafe
+        expr: axiom_dependency_ready{job="engine-shadow",dependency="clock"} == 0
+        for: 15s
+        labels: { severity: critical, reason_code: clock_drift }
+        annotations:
+          summary: Clock health is outside the decision-safe bound
+          runbook: docs/operations/incident-response.md#book-gap-stalecrossed-data-or-clock-anomaly
+      - alert: AxiomBooksUnhealthy
+        expr: axiom_dependency_ready{job="engine-shadow",dependency="books"} == 0
+        for: 15s
+        labels: { severity: critical, reason_code: book_unhealthy }
+        annotations:
+          summary: Required order books are not decision-eligible
+          runbook: docs/operations/incident-response.md#book-gap-stalecrossed-data-or-clock-anomaly
+      - alert: AxiomQueueDrops
+        expr: increase(axiom_event_queue_dropped_total[5m]) > 0
+        for: 0m
+        labels: { severity: critical, reason_code: queue_saturated }
+        annotations:
+          summary: A bounded event queue dropped work
+          runbook: docs/operations/incident-response.md#response-flow
+      - alert: AxiomDiskLow
+        expr: axiom_disk_free_bytes < 10737418240
+        for: 5m
+        labels: { severity: warning, reason_code: disk_pressure }
+        annotations:
+          summary: Storage is below the 10 GiB high watermark
+          runbook: docs/operations/incident-response.md#disk-pressure-or-recorderstorage-failure
+      - alert: AxiomDiskCritical
+        expr: axiom_disk_free_bytes < 2147483648
+        for: 1m
+        labels: { severity: critical, reason_code: disk_critical }
+        annotations:
+          summary: Storage is below the 2 GiB critical watermark
+          runbook: docs/operations/incident-response.md#disk-pressure-or-recorderstorage-failure
+      - alert: AxiomReconciliationMismatch
+        expr: increase(axiom_reconciliation_mismatches_total[5m]) > 0
+        for: 0m
+        labels: { severity: critical, reason_code: reconciliation_mismatch }
+        annotations:
+          summary: Reconciliation found a mismatch
+          runbook: docs/operations/incident-response.md#journal-reservation-or-reconciliation-mismatch
+      - alert: AxiomJournalFailure
+        expr: increase(axiom_journal_failures_total[5m]) > 0
+        for: 0m
+        labels: { severity: critical, reason_code: accounting_invariant }
+        annotations:
+          summary: Exact journal persistence or validation failed
+          runbook: docs/operations/incident-response.md#journal-reservation-or-reconciliation-mismatch

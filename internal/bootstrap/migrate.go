@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"axiom/internal/config"
@@ -22,10 +23,29 @@ func runMigrate(ctx context.Context, runtimeConfig config.Runtime, output io.Wri
 	if err := pool.Ping(pingContext); err != nil {
 		return fmt.Errorf("migration_database_unavailable")
 	}
+	applied, err := postgresstore.ApplyMigrations(ctx, pool)
+	if err != nil {
+		return err
+	}
+	runtimeRole := os.Getenv("POSTGRES_RUNTIME_USER")
+	if runtimeRole == "" {
+		runtimeRole = "axiom_app"
+	}
+	recorderRole := os.Getenv("POSTGRES_RECORDER_USER")
+	if recorderRole == "" {
+		recorderRole = "axiom_recorder"
+	}
+	readOnlyRole := os.Getenv("POSTGRES_READONLY_USER")
+	if readOnlyRole == "" {
+		readOnlyRole = "axiom_readonly"
+	}
+	if err := postgresstore.ApplyRoleGrants(ctx, pool, runtimeRole, recorderRole, readOnlyRole); err != nil {
+		return err
+	}
 	return json.NewEncoder(output).Encode(map[string]any{
 		"event_code": "migration_complete",
-		"phase":      "A1",
-		"applied":    0,
+		"phase":      "A5",
+		"applied":    applied,
 		"checked_at": time.Now().UTC().Format(time.RFC3339),
 	})
 }

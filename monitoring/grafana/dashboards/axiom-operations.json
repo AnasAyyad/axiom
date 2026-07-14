@@ -1,0 +1,83 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Service readiness",
+      "type": "stat",
+      "targets": [{ "expr": "min by (job, dependency) (axiom_dependency_ready)", "legendFormat": "{{job}} / {{dependency}}" }],
+      "fieldConfig": { "defaults": { "unit": "bool", "min": 0, "max": 1 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Order-book age",
+      "type": "timeseries",
+      "targets": [{ "expr": "max by (exchange, instrument) (axiom_order_book_age_seconds)", "legendFormat": "{{exchange}} {{instrument}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "Queue depth",
+      "type": "timeseries",
+      "targets": [{ "expr": "max by (job, queue) (axiom_event_queue_depth)", "legendFormat": "{{job}} {{queue}}" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 0 }
+    },
+    {
+      "id": 4,
+      "title": "Dropped events (5m)",
+      "type": "stat",
+      "targets": [{ "expr": "sum by (job, queue) (increase(axiom_event_queue_dropped_total[5m]))", "legendFormat": "{{job}} {{queue}}" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 7 }
+    },
+    {
+      "id": 5,
+      "title": "Database latency p95",
+      "type": "timeseries",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, job, operation) (rate(axiom_database_operation_duration_seconds_bucket[5m])))", "legendFormat": "{{job}} {{operation}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 7 }
+    },
+    {
+      "id": 6,
+      "title": "Disk free",
+      "type": "timeseries",
+      "targets": [{ "expr": "min by (job, storage) (axiom_disk_free_bytes)", "legendFormat": "{{job}} {{storage}}" }],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 7 }
+    },
+    {
+      "id": 7,
+      "title": "Open alerts",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum by (severity, reason) (axiom_alerts_open)", "legendFormat": "{{severity}} {{reason}}" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 14 }
+    },
+    {
+      "id": 8,
+      "title": "Virtual P&L and drawdown",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "axiom_virtual_pnl_reporting_units", "legendFormat": "P&L {{mode}}" },
+        { "expr": "axiom_virtual_drawdown_ratio", "legendFormat": "drawdown {{mode}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 14 }
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["axiom", "operations", "v1a"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "utc",
+  "title": "Axiom V1A Operations",
+  "uid": "axiom-v1a-operations",
+  "version": 1
+}

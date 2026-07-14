@@ -10,6 +10,18 @@ export interface components {
       "go_version": string;
       "version": string;
     };
+    "DetailedHealthResponse": {
+      "components": Array<components["schemas"]["HealthComponent"]>;
+      "lifecycle_state": "STARTING" | "READY_PAUSED" | "STOPPING";
+      "real_trading_enabled": false;
+      "role": string;
+      "status": "ready" | "not_ready";
+    };
+    "HealthComponent": {
+      "name": "postgres";
+      "reason_code"?: "required_dependency_unavailable";
+      "status": "ready" | "not_ready";
+    };
     "HealthResponse": {
       "phase": "A1";
       "reason_code"?: string;

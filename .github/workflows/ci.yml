@@ -74,6 +74,15 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+      - name: Provision least-privilege smoke roles
+        env:
+          POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
+        run: |
+          for role in axiom_app axiom_recorder axiom_readonly; do
+            docker exec "${POSTGRES_SERVICE_ID}" psql \
+              --username postgres --dbname axiom --set=ON_ERROR_STOP=1 \
+              --command "CREATE ROLE ${role} NOLOGIN"
+          done
       - name: Run all platform command forms and health transitions
         env:
           AXIOM_SMOKE_DB_HOST: 127.0.0.1

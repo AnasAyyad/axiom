@@ -1,6 +1,15 @@
 # Deterministic replay
 
-**Status:** Normative A0 architecture contract
+**Status:** Normative architecture contract; A3 runtime primitives implemented
+
+## A3 implementation checkpoint
+
+`internal/runtime` now implements the canonical envelope, pre-fan-out ingest
+ordinal, strict two-field replay cursor, five-field derived-work scheduler,
+real and deterministic clocks, keyed random draws, sequence validation, and
+immutable market-view vectors described here. Strategy, simulator, checkpoint,
+and dataset compatibility behavior remains owned by A7-A10 and must not be
+inferred from these primitives.
 
 ## Purpose
 

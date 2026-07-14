@@ -21,10 +21,10 @@ func (state *lifecycleState) stopping() { state.value.Store(stateStopping) }
 func (state *lifecycleState) current() generated.SystemStatusLifecycleState {
 	switch state.value.Load() {
 	case stateReadyPaused:
-		return generated.READYPAUSED
+		return generated.SystemStatusLifecycleStateREADYPAUSED
 	case stateStopping:
-		return generated.STOPPING
+		return generated.SystemStatusLifecycleStateSTOPPING
 	default:
-		return generated.STARTING
+		return generated.SystemStatusLifecycleStateSTARTING
 	}
 }

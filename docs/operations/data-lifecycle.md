@@ -3,9 +3,13 @@
 ## Status and governing rules
 
 This document defines the initial V1A classification, UTC retention, deletion,
-backup, RPO, and RTO policy. It is an architecture and operations contract; it
-does not claim that writers, retention jobs, backups, encryption, or restore
-automation currently exist.
+backup, RPO, and RTO policy. A4 now provides deny-by-default retention planning,
+crash-safe segment finalization, authenticated streaming backup artifacts, and
+clean-target restore tooling. Completed database restore points are fully
+authenticated before pruning, with a hard 14-generation floor and resumable
+deletion tombstones. Actual Parquet codecs, scheduled off-host copies,
+database/segment integration, and a timed clean restore remain incomplete, so
+RPO/RTO readiness is not yet claimed.
 
 All persisted timestamps and retention cutoffs use UTC. Durations and timeouts
 use a monotonic clock. Retention never deletes a record or segment referenced by
@@ -76,7 +80,10 @@ unverified segment is never relabelled ready to meet an RPO or soak target.
 
 Before production-public recording begins, the owner measures bytes/day for
 each stream/depth and documents capacity for the retention window plus at least
-30% headroom. Initial segment limits are one hour or 256 MiB, whichever occurs
+30% headroom. The integer-only A4 planner also reserves at least 10 GiB free and
+rejects duplicate/invalid samples, overflow, or weakened limits; its output is
+evidence only when populated from real recorder measurements and declared server
+capacity. Initial segment limits are one hour or 256 MiB, whichever occurs
 first, with Parquet, Zstandard level 3. At the high disk watermark, reject new
 backtest/export jobs and alert. At the critical watermark, stop new shadow
 decisions, finalize or quarantine recorder segments, preserve critical
@@ -86,7 +93,8 @@ journal/audit capacity, and enter `PAUSED` or `LOCKED` according to policy.
 
 Deletion is a controlled, idempotent job and is deny by default:
 
-1. Freeze one UTC cutoff and configuration version for the run.
+1. Freeze one UTC policy time, a retention duration of at least 30 days, and a
+   configuration version; the planner derives the cutoff internally.
 2. Enumerate candidates from durable metadata; never glob an untrusted path.
 3. Revalidate age, classification, dependency graph, locked-test/replay/incident
    references, active leases, legal/owner holds, and backup policy.

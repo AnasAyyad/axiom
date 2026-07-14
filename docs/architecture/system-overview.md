@@ -1,8 +1,13 @@
 # Axiom V1A system overview
 
-- **Status:** Normative A0 architecture contract
+- **Status:** Normative architecture contract; A3 runtime foundation implemented
 - **Scope:** V1A only
 - **Authority:** `crypto_bot_v1_codex_spec.md` and the approved V1A implementation plan
+
+The current executable foundation includes A1 platform bootstrapping, A2 exact
+domain/configuration boundaries, and A3 deterministic runtime contracts. It
+does not yet contain the market-data, storage/accounting, strategy, simulation,
+risk, or complete shadow engines assigned to A4-A11.
 
 ## Purpose
 

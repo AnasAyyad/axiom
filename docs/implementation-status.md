@@ -7,10 +7,10 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 | A0    | Complete    | Scope traceability, safety architecture, threat model, topology, lifecycle, and readiness policy | `docs/releases/evidence/a0-review.md`                                                                        |
 | A1    | Complete    | Repository, toolchain, application skeleton, Compose, and CI                                     | Local validation, owner-verified hosted CI/supply-chain evidence, and clean-machine setup/governance walkthrough pass |
 | A2    | Complete    | Fixed-point finance, canonical domain types, and immutable fail-closed configuration              | `docs/releases/evidence/a2-local-validation.md`; external integration remains owner-managed                    |
-| A3    | Not started | Deterministic runtime, bounded concurrency, and fencing                                          | Pending A2 gate                                                                                              |
-| A4    | Not started | PostgreSQL, journal, repositories, Parquet, and recovery                                         | Pending A3 gate                                                                                              |
-| A5    | Not started | Security, observability, monitoring, and alerts                                                  | Pending A4 gate                                                                                              |
-| A6    | Not started | Exchange contracts and deterministic emulator                                                    | Pending A5 gate                                                                                              |
+| A3    | Complete    | Deterministic runtime, bounded concurrency, and fencing                                          | `docs/releases/evidence/a3-local-validation.md`; PostgreSQL durability remains A4 work                         |
+| A4    | Complete    | PostgreSQL, journal, generated repositories, Parquet/Zstd, and recovery                          | `docs/releases/evidence/a4-local-progress.md`; clean PG18 and timed restore qualification passed                |
+| A5    | Complete    | Redacted logs/traces, bounded metrics, authenticated health, durable alerts, rules, and dashboards | `docs/releases/evidence/a5-local-progress.md`; Docker, scans, alert SLO, and tabletop qualification passed    |
+| A6    | Not started | Exchange contracts and deterministic emulator                                                     | A5 verified; implementation has not started                                                                  |
 | A7    | Not started | Binance public adapter and recorder                                                              | Pending A6 gate                                                                                              |
 | A8    | Not started | Backtesting, replay, simulation, and durable orders                                              | Pending A7 gate                                                                                              |
 | A9    | Not started | Portfolio allocation, risk, reconciliation, and recovery                                         | Pending A8 gate                                                                                              |
@@ -23,9 +23,9 @@ V1A is public-data research and simulation software only. It contains no authent
 
 ## Current limitations
 
-- The A1 application skeleton plus A2 financial domain and configuration
-  boundary exist, but market-data, strategy, simulation, accounting, and risk
-  engines remain owned by later phases.
+- The A1 application skeleton, A2 financial domain/configuration boundary, and
+  A3 deterministic runtime foundation exist, but market-data, strategy,
+  simulation, accounting, and risk engines remain owned by later phases.
 - Immutable-candidate local A1 validation is recorded in
   `docs/releases/evidence/a1-local-validation.md`. Owner-verified hosted CI and
   retained supply-chain evidence for commit

@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-readonly -a profiles=(app record workers observability edge)
+readonly -a profiles=(app record workers observability edge backup restore)
 readonly combinations=$((1 << ${#profiles[@]}))
 
 for ((mask = 0; mask < combinations; mask++)); do
@@ -16,7 +16,7 @@ for ((mask = 0; mask < combinations; mask++)); do
 done
 
 actual="$(docker compose --env-file .env.example --profile '*' config --services | sort)"
-expected="$(printf '%s\n' api backtest-worker caddy engine-shadow grafana migrate postgres prometheus recorder | sort)"
+expected="$(printf '%s\n' api backup backtest-worker caddy engine-shadow grafana migrate postgres prometheus recorder restore | sort)"
 if [[ "${actual}" != "${expected}" ]]; then
   printf 'ERROR [compose] rendered service set differs from the reviewed V1A set\n' >&2
   exit 1
