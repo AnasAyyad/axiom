@@ -16,6 +16,7 @@ func (collector *InstrumentCollector) installSnapshot(
 	connectionID string,
 	generation uint64,
 ) error {
+	started := time.Now()
 	offset := collector.source.MonotonicOffset()
 	observation := collector.observation(result.snapshot.ReceivedAt, time.Time{}, connectionID, generation,
 		result.snapshot.LastSequence, result.token.IngestOrdinal, offset)
@@ -23,6 +24,7 @@ func (collector *InstrumentCollector) installSnapshot(
 		if observed.Event.Depth == nil {
 			continue
 		}
+		collector.stats.messages.Add(1)
 		if err := collector.book.Buffer(marketdata.DepthEvent{Update: *observed.Event.Depth,
 			Observation: collector.streamObservation(observed, observed.Event.Depth.ExchangeTime,
 				observed.Event.Depth.LastSequence)}); err != nil {
@@ -33,7 +35,38 @@ func (collector *InstrumentCollector) installSnapshot(
 			return err
 		}
 	}
-	return collector.book.InstallSnapshot(result.snapshot, observation)
+	if err := collector.book.InstallSnapshot(result.snapshot, observation); err != nil {
+		if first, last, gap := snapshotBridgeGap(result.snapshot.LastSequence, pending); gap {
+			if recordErr := collector.recordSequenceGap(ctx, connectionID, generation, first, last,
+				"snapshot_bridge_gap"); recordErr != nil {
+				return fatalCollectorError{recordErr}
+			}
+		}
+		return err
+	}
+	for _, observed := range pending {
+		if observed.Event.Depth == nil {
+			continue
+		}
+		collector.stats.depthUpdates.Add(1)
+		collector.stats.hotPath.record(time.Duration(observed.DecodeNanos) + time.Since(started))
+	}
+	return nil
+}
+
+func snapshotBridgeGap(snapshotSequence uint64, pending []ObservedStreamEvent) (uint64, uint64, bool) {
+	sequence := snapshotSequence
+	for _, observed := range pending {
+		if observed.Event.Depth == nil || observed.Event.Depth.LastSequence <= sequence {
+			continue
+		}
+		next := sequence + 1
+		if observed.Event.Depth.FirstSequence > next || observed.Event.Depth.LastSequence < next {
+			return next, observed.Event.Depth.LastSequence, true
+		}
+		sequence = observed.Event.Depth.LastSequence
+	}
+	return 0, 0, false
 }
 
 func (collector *InstrumentCollector) runHealthy(

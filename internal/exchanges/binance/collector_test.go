@@ -28,7 +28,8 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	go func() { done <- collector.Run(ctx) }()
 	waitFor(t, func() bool {
 		view, viewErr := collector.Views().Book(collectorExchange, instrument)
-		return viewErr == nil && view.Health() == marketdata.HealthHealthy && view.Sequence() == 101
+		return viewErr == nil && view.Health() == marketdata.HealthHealthy && view.Sequence() == 101 &&
+			collector.Stats().DepthUpdates == 1
 	})
 	view, _ := collector.Views().Book(collectorExchange, instrument)
 	bids := view.Bids()
@@ -42,7 +43,8 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 		t.Fatal(err)
 	}
 	stats := collector.Stats()
-	if stats.DepthUpdates != 1 || stats.Rebuilds != 1 || recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 {
+	if stats.Messages != 1 || stats.DepthUpdates != 1 || stats.Rebuilds != 1 ||
+		recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 {
 		t.Fatalf("unexpected collector evidence: %#v raw=%d canonical=%d", stats, recorder.raw.Load(), recorder.canonical.Load())
 	}
 }
@@ -88,8 +90,10 @@ func TestInstrumentCollectorReconnectsAndResynchronizesAfterGap(t *testing.T) {
 	go func() { done <- collector.Run(ctx) }()
 	waitFor(t, func() bool {
 		view, viewErr := collector.Views().Book(collectorExchange, instrument)
+		stats := collector.Stats()
 		return viewErr == nil && view.Health() == marketdata.HealthHealthy && view.Generation() == 2 &&
-			view.Sequence() == 101
+			view.Sequence() == 101 && stats.Reconnects > 0 && stats.Rebuilds > 0 && stats.Gaps > 0 &&
+			stats.ResyncP95 > 0
 	})
 	stats := collector.Stats()
 	if stats.Reconnects == 0 || stats.Rebuilds == 0 || stats.Gaps == 0 || stats.ResyncP95 <= 0 {
