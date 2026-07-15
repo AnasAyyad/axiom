@@ -16,7 +16,6 @@ func (collector *InstrumentCollector) installSnapshot(
 	connectionID string,
 	generation uint64,
 ) error {
-	started := time.Now()
 	offset := collector.source.MonotonicOffset()
 	observation := collector.observation(result.snapshot.ReceivedAt, time.Time{}, connectionID, generation,
 		result.snapshot.LastSequence, result.token.IngestOrdinal, offset)
@@ -49,7 +48,6 @@ func (collector *InstrumentCollector) installSnapshot(
 			continue
 		}
 		collector.stats.depthUpdates.Add(1)
-		collector.stats.hotPath.record(time.Duration(observed.DecodeNanos) + time.Since(started))
 	}
 	return nil
 }
