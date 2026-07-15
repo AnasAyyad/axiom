@@ -8,6 +8,7 @@ temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/axiom-compose-smoke.XXXXXX")"
 secret_dir="${temp_dir}/secrets"
 market_dir="${temp_dir}/market-data"
 mkdir -p "${secret_dir}" "${market_dir}"
+chmod 0770 "${market_dir}"
 
 compose() {
   COMPOSE_PROJECT_NAME="${project}" \
@@ -71,7 +72,7 @@ printf 'header = "Authorization: Bearer %s"\n' "$(<"${secret_dir}/health_detail_
 chmod 0600 "${temp_dir}/health-curl.conf"
 docker run --rm --user 0:0 --entrypoint /bin/chown \
   --mount "type=bind,src=${market_dir},dst=/market-data" \
-  postgres:18.4-alpine 10001:70 /market-data >/dev/null
+  postgres:18.4-alpine "10001:$(id -g)" /market-data >/dev/null
 
 compose up --detach --wait --wait-timeout 180
 
