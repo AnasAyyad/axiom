@@ -15,6 +15,11 @@ type AccountSnapshot struct {
 	SnapshotHash     interface{}        `db:"snapshot_hash" json:"snapshot_hash"`
 	CanonicalPayload []byte             `db:"canonical_payload" json:"canonical_payload"`
 	RecordedAt       pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+	OwnershipHash    interface{}        `db:"ownership_hash" json:"ownership_hash"`
+	BalancesHash     interface{}        `db:"balances_hash" json:"balances_hash"`
+	PositionsHash    interface{}        `db:"positions_hash" json:"positions_hash"`
+	ReservationsHash interface{}        `db:"reservations_hash" json:"reservations_hash"`
+	RiskStateHash    interface{}        `db:"risk_state_hash" json:"risk_state_hash"`
 }
 
 type Alert struct {
@@ -55,6 +60,36 @@ type AlertDelivery struct {
 	Revision       int64              `db:"revision" json:"revision"`
 }
 
+type AllocationCandidate struct {
+	ID                      string             `db:"id" json:"id"`
+	AccountID               string             `db:"account_id" json:"account_id"`
+	InstrumentID            string             `db:"instrument_id" json:"instrument_id"`
+	Side                    string             `db:"side" json:"side"`
+	Quantity                interface{}        `db:"quantity" json:"quantity"`
+	Notional                interface{}        `db:"notional" json:"notional"`
+	AggregateScore          interface{}        `db:"aggregate_score" json:"aggregate_score"`
+	BaseEligibilityVersion  int64              `db:"base_eligibility_version" json:"base_eligibility_version"`
+	QuoteEligibilityVersion int64              `db:"quote_eligibility_version" json:"quote_eligibility_version"`
+	State                   string             `db:"state" json:"state"`
+	ReasonCode              string             `db:"reason_code" json:"reason_code"`
+	Revision                int64              `db:"revision" json:"revision"`
+	CreatedAt               pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type AllocationReservation struct {
+	CandidateID            string `db:"candidate_id" json:"candidate_id"`
+	ReservationID          string `db:"reservation_id" json:"reservation_id"`
+	LiquidityReservationID string `db:"liquidity_reservation_id" json:"liquidity_reservation_id"`
+}
+
+type AllocationScoreComponent struct {
+	CandidateID    string      `db:"candidate_id" json:"candidate_id"`
+	ComponentName  string      `db:"component_name" json:"component_name"`
+	ComponentValue interface{} `db:"component_value" json:"component_value"`
+	Ordinal        int32       `db:"ordinal" json:"ordinal"`
+}
+
 type Asset struct {
 	Symbol string `db:"symbol" json:"symbol"`
 }
@@ -87,6 +122,17 @@ type AuditEvent struct {
 type AuthorizationRole struct {
 	ID   string `db:"id" json:"id"`
 	Name string `db:"name" json:"name"`
+}
+
+type CircuitBreakerEvent struct {
+	ID             string             `db:"id" json:"id"`
+	BreakerKind    string             `db:"breaker_kind" json:"breaker_kind"`
+	ScopeKind      string             `db:"scope_kind" json:"scope_kind"`
+	ScopeID        string             `db:"scope_id" json:"scope_id"`
+	Action         string             `db:"action" json:"action"`
+	ResultingState string             `db:"resulting_state" json:"resulting_state"`
+	EvidenceHash   interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt     pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
 type CommandRequest struct {
@@ -342,6 +388,27 @@ type LedgerEntry struct {
 	RoundingMetadata *string     `db:"rounding_metadata" json:"rounding_metadata"`
 }
 
+type LiquidityDomain struct {
+	ID                string             `db:"id" json:"id"`
+	NamespaceID       string             `db:"namespace_id" json:"namespace_id"`
+	AvailableQuantity interface{}        `db:"available_quantity" json:"available_quantity"`
+	Revision          int64              `db:"revision" json:"revision"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type LiquidityReservation struct {
+	ID                string             `db:"id" json:"id"`
+	CandidateID       string             `db:"candidate_id" json:"candidate_id"`
+	DomainID          string             `db:"domain_id" json:"domain_id"`
+	Quantity          interface{}        `db:"quantity" json:"quantity"`
+	RemainingQuantity interface{}        `db:"remaining_quantity" json:"remaining_quantity"`
+	State             string             `db:"state" json:"state"`
+	FencingToken      int64              `db:"fencing_token" json:"fencing_token"`
+	Revision          int64              `db:"revision" json:"revision"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type MarketDataSegment struct {
 	ID                   string             `db:"id" json:"id"`
 	RecorderSession      string             `db:"recorder_session" json:"recorder_session"`
@@ -471,6 +538,18 @@ type Portfolio struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type PortfolioOwnership struct {
+	AccountID                   string             `db:"account_id" json:"account_id"`
+	PortfolioID                 string             `db:"portfolio_id" json:"portfolio_id"`
+	ExchangeID                  string             `db:"exchange_id" json:"exchange_id"`
+	StrategyVersionID           string             `db:"strategy_version_id" json:"strategy_version_id"`
+	StrategyKey                 string             `db:"strategy_key" json:"strategy_key"`
+	InitializationTransactionID string             `db:"initialization_transaction_id" json:"initialization_transaction_id"`
+	NumeraireAsset              string             `db:"numeraire_asset" json:"numeraire_asset"`
+	OwnershipHash               interface{}        `db:"ownership_hash" json:"ownership_hash"`
+	CreatedAt                   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type Position struct {
 	AccountID           string             `db:"account_id" json:"account_id"`
 	InstrumentID        string             `db:"instrument_id" json:"instrument_id"`
@@ -479,6 +558,8 @@ type Position struct {
 	RealizedPnl         interface{}        `db:"realized_pnl" json:"realized_pnl"`
 	Revision            int64              `db:"revision" json:"revision"`
 	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	Cost                interface{}        `db:"cost" json:"cost"`
+	UnrealizedPnl       interface{}        `db:"unrealized_pnl" json:"unrealized_pnl"`
 }
 
 type ProjectionRevision struct {
@@ -490,14 +571,40 @@ type ProjectionRevision struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type QuarantinedScope struct {
+	Scope         string             `db:"scope" json:"scope"`
+	ReasonCode    string             `db:"reason_code" json:"reason_code"`
+	CaseID        string             `db:"case_id" json:"case_id"`
+	Revision      int64              `db:"revision" json:"revision"`
+	QuarantinedAt pgtype.Timestamptz `db:"quarantined_at" json:"quarantined_at"`
+	ReleasedAt    pgtype.Timestamptz `db:"released_at" json:"released_at"`
+}
+
 type ReconciliationCase struct {
-	ID             string             `db:"id" json:"id"`
-	AccountID      string             `db:"account_id" json:"account_id"`
-	Classification string             `db:"classification" json:"classification"`
-	State          string             `db:"state" json:"state"`
-	IncidentID     *string            `db:"incident_id" json:"incident_id"`
-	OpenedAt       pgtype.Timestamptz `db:"opened_at" json:"opened_at"`
-	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ID                string             `db:"id" json:"id"`
+	AccountID         string             `db:"account_id" json:"account_id"`
+	Classification    string             `db:"classification" json:"classification"`
+	State             string             `db:"state" json:"state"`
+	IncidentID        *string            `db:"incident_id" json:"incident_id"`
+	OpenedAt          pgtype.Timestamptz `db:"opened_at" json:"opened_at"`
+	ResolvedAt        pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	Scope             *string            `db:"scope" json:"scope"`
+	ExpectedStateHash interface{}        `db:"expected_state_hash" json:"expected_state_hash"`
+	ActualStateHash   interface{}        `db:"actual_state_hash" json:"actual_state_hash"`
+	CaseHash          interface{}        `db:"case_hash" json:"case_hash"`
+}
+
+type ReconciliationDifference struct {
+	CaseID           string      `db:"case_id" json:"case_id"`
+	Ordinal          int32       `db:"ordinal" json:"ordinal"`
+	Category         string      `db:"category" json:"category"`
+	Classification   string      `db:"classification" json:"classification"`
+	ExpectedHash     interface{} `db:"expected_hash" json:"expected_hash"`
+	ActualHash       interface{} `db:"actual_hash" json:"actual_hash"`
+	AssetSymbol      *string     `db:"asset_symbol" json:"asset_symbol"`
+	Quantity         interface{} `db:"quantity" json:"quantity"`
+	Critical         bool        `db:"critical" json:"critical"`
+	CanonicalPayload []byte      `db:"canonical_payload" json:"canonical_payload"`
 }
 
 type ReconciliationSuspense struct {
@@ -534,12 +641,66 @@ type Reservation struct {
 }
 
 type RiskEvaluation struct {
-	ID            string             `db:"id" json:"id"`
-	DecisionID    string             `db:"decision_id" json:"decision_id"`
-	PolicyVersion string             `db:"policy_version" json:"policy_version"`
-	Outcome       string             `db:"outcome" json:"outcome"`
-	ReasonCode    string             `db:"reason_code" json:"reason_code"`
-	EvaluatedAt   pgtype.Timestamptz `db:"evaluated_at" json:"evaluated_at"`
+	ID               string             `db:"id" json:"id"`
+	DecisionID       string             `db:"decision_id" json:"decision_id"`
+	PolicyVersion    string             `db:"policy_version" json:"policy_version"`
+	Outcome          string             `db:"outcome" json:"outcome"`
+	ReasonCode       string             `db:"reason_code" json:"reason_code"`
+	EvaluatedAt      pgtype.Timestamptz `db:"evaluated_at" json:"evaluated_at"`
+	Action           string             `db:"action" json:"action"`
+	EffectiveState   string             `db:"effective_state" json:"effective_state"`
+	ObservationHash  interface{}        `db:"observation_hash" json:"observation_hash"`
+	CanonicalPayload []byte             `db:"canonical_payload" json:"canonical_payload"`
+}
+
+type RiskEvaluationPolicy struct {
+	EvaluationID  string `db:"evaluation_id" json:"evaluation_id"`
+	PolicyID      string `db:"policy_id" json:"policy_id"`
+	PolicyVersion int64  `db:"policy_version" json:"policy_version"`
+	Precedence    int32  `db:"precedence" json:"precedence"`
+}
+
+type RiskPolicy struct {
+	ID               string             `db:"id" json:"id"`
+	Version          int64              `db:"version" json:"version"`
+	ScopeKind        string             `db:"scope_kind" json:"scope_kind"`
+	ScopeID          string             `db:"scope_id" json:"scope_id"`
+	State            string             `db:"state" json:"state"`
+	PolicyHash       interface{}        `db:"policy_hash" json:"policy_hash"`
+	CanonicalPayload []byte             `db:"canonical_payload" json:"canonical_payload"`
+	EffectiveAt      pgtype.Timestamptz `db:"effective_at" json:"effective_at"`
+	RecordedAt       pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type RiskPolicyLimit struct {
+	PolicyID                      string      `db:"policy_id" json:"policy_id"`
+	PolicyVersion                 int64       `db:"policy_version" json:"policy_version"`
+	AccountDrawdown               interface{} `db:"account_drawdown" json:"account_drawdown"`
+	UtcDayLoss                    interface{} `db:"utc_day_loss" json:"utc_day_loss"`
+	Rolling24HourLoss             interface{} `db:"rolling_24_hour_loss" json:"rolling_24_hour_loss"`
+	StrategyLoss                  interface{} `db:"strategy_loss" json:"strategy_loss"`
+	AssetExposure                 interface{} `db:"asset_exposure" json:"asset_exposure"`
+	CombinedExposure              interface{} `db:"combined_exposure" json:"combined_exposure"`
+	ExchangeExposure              interface{} `db:"exchange_exposure" json:"exchange_exposure"`
+	MinimumReserve                interface{} `db:"minimum_reserve" json:"minimum_reserve"`
+	MaximumReservedCapital        interface{} `db:"maximum_reserved_capital" json:"maximum_reserved_capital"`
+	MaximumSpread                 interface{} `db:"maximum_spread" json:"maximum_spread"`
+	MaximumSlippage               interface{} `db:"maximum_slippage" json:"maximum_slippage"`
+	MaximumOpenOrders             int32       `db:"maximum_open_orders" json:"maximum_open_orders"`
+	MaximumBookAgeMicroseconds    int64       `db:"maximum_book_age_microseconds" json:"maximum_book_age_microseconds"`
+	MaximumQueueLagMicroseconds   int64       `db:"maximum_queue_lag_microseconds" json:"maximum_queue_lag_microseconds"`
+	MaximumClockDriftMicroseconds int64       `db:"maximum_clock_drift_microseconds" json:"maximum_clock_drift_microseconds"`
+	MinimumQualityScore           int32       `db:"minimum_quality_score" json:"minimum_quality_score"`
+}
+
+type RiskStateEvent struct {
+	ID           string             `db:"id" json:"id"`
+	PriorState   string             `db:"prior_state" json:"prior_state"`
+	NextState    string             `db:"next_state" json:"next_state"`
+	ReasonCode   string             `db:"reason_code" json:"reason_code"`
+	Actor        string             `db:"actor" json:"actor"`
+	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
 type Run struct {
@@ -623,6 +784,24 @@ type Session struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ExpiresAt pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 	RevokedAt pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+}
+
+type StartupRecoveryAttempt struct {
+	ID                string             `db:"id" json:"id"`
+	RunID             string             `db:"run_id" json:"run_id"`
+	State             string             `db:"state" json:"state"`
+	BuildHash         interface{}        `db:"build_hash" json:"build_hash"`
+	ConfigurationHash interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	StartedAt         pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+}
+
+type StartupRecoveryEvidence struct {
+	AttemptID    string             `db:"attempt_id" json:"attempt_id"`
+	Ordinal      int32              `db:"ordinal" json:"ordinal"`
+	Stage        string             `db:"stage" json:"stage"`
+	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	RecordedAt   pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
 type StrategyDefinition struct {

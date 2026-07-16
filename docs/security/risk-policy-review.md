@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | A0 design review complete; accepted as the V1A implementation baseline; A9 implementation evidence pending |
+| Status | A0 design review complete; A9 implemented and locally validated; formal acceptance blocked by A7 and formal A8 acceptance |
 | Review date | 2026-07-12 UTC |
 | Reviewer | Codex technical review under the user-approved specification and V1A plan; independent release review remains required |
 | Scope | Initial V1A central-risk policy for backtest, replay, paper, and public-data shadow modes |
@@ -14,10 +14,12 @@
 | Approval basis | Normative user-supplied limits plus the safest explicit assumptions recorded here and in ADR-0007 |
 | Re-review trigger | Before A9 policy activation, after any policy/schema change or incident, and before any cap is loosened |
 
-This is a design-policy review, not proof that the risk engine exists or that a
-release gate passes. No application implementation or risk boundary/model-test
-evidence exists yet. The values below are conservative safety starting caps,
-not evidence that a strategy is viable or profitable.
+The design policy now has local A9 implementation and model evidence in the
+[A9 local validation record](../releases/evidence/a9-local-validation.md). That
+record includes the updated PostgreSQL gate and final image-backed Compose smoke.
+It is not formal release acceptance; the owner-authorized speculative candidate remains unmerged
+while A7 and formal A8 acceptance are pending. The values below are conservative
+safety starting caps, not evidence that a strategy is viable or profitable.
 
 ## Policy invariants
 

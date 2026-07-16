@@ -177,6 +177,9 @@ func (value PnL) Add(other PnL) (PnL, error) {
 	return PnL{result}, err
 }
 
+// Compare orders signed profit-and-loss values.
+func (value PnL) Compare(other PnL) int { return value.compare(other.decimalValue) }
+
 // Subtract returns an exact signed PnL difference.
 func (value PnL) Subtract(other PnL) (PnL, error) {
 	result, err := subtractDecimal("pnl_subtract", value.decimalValue, other.decimalValue, true)

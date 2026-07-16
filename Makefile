@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -153,6 +153,21 @@ a8-local-qualify: ## Verify and stream the ignored A7 engineering recordings wit
 	@AXIOM_A8_DATASET_43_ROOT=$(CURDIR)/.local/a7-soak-a641cd4 \
 		AXIOM_A8_DATASET_R2_ROOT=$(CURDIR)/.local/a7-soak-a641cd4-r2 \
 		$(GO) test ./internal/backtest -run '^TestA8IgnoredLocalDatasetQualification$$' -count=1 -v
+
+a9-sqlc: ## Generate and compile the reviewed A9 PostgreSQL queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A9_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a9-postgres-qualify: ## Run the A9 ownership/risk/recovery gate against a dedicated *_a9_test database.
+	@test -n "$(AXIOM_A9_TEST_DSN)" || { echo "AXIOM_A9_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a9-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A9_TEST_DSN="$(AXIOM_A9_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA9PostgresPortfolioRiskRecoveryQualification$$' -count=1 -v
+
+a9-model-qualify: ## Exercise exact A9 portfolio, risk, reconciliation, and shared A8 pipeline models.
+	@$(GO) test ./internal/portfolio ./internal/risk ./internal/reconciliation -count=1
+	@$(GO) test ./internal/backtest -run '^TestA9.*Pipeline.*$$' -count=1 -v
 
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \

@@ -7,7 +7,7 @@ import (
 )
 
 func TestReviewedQueriesCoverA4RepositoryBoundaries(t *testing.T) {
-	files := []string{"queries/accounting.sql", "queries/catalog.sql", "queries/coordination.sql", "queries/a8_execution.sql"}
+	files := []string{"queries/accounting.sql", "queries/catalog.sql", "queries/coordination.sql", "queries/a8_execution.sql", "queries/a9_portfolio_risk.sql"}
 	var source strings.Builder
 	for _, file := range files {
 		contents, err := os.ReadFile(file)
@@ -24,6 +24,14 @@ func TestReviewedQueriesCoverA4RepositoryBoundaries(t *testing.T) {
 		"InsertRunManifest", "InsertCanonicalOutput", "ReduceCanonicalOrder", "InsertCanonicalFill",
 		"InsertFillJournalPosting", "InsertA8Checkpoint", "UpdateVirtualBalanceProjection",
 		"UpsertPositionProjection", "UpsertProjectionRevision", "SettleReservationFill",
+		"InsertPortfolioOwnership", "InsertA9AccountSnapshot", "InsertAllocationCandidate",
+		"InsertAllocationScoreComponent", "ReserveLiquidityDomain", "InsertLiquidityReservation",
+		"CloseAllocationCandidate", "SettleAllocationCandidateFill", "CloseLiquidityReservation",
+		"SettleLiquidityReservationFill", "ReleaseLiquidityDomain", "UpdateLiquidityDomainProjection",
+		"InsertRiskPolicy", "InsertRiskPolicyLimits", "InsertRiskStateEvent",
+		"InsertA9RiskEvaluation", "InsertRiskEvaluationPolicy", "InsertCircuitBreakerEvent",
+		"InsertA9ReconciliationCase", "InsertReconciliationDifference", "QuarantineScope",
+		"InsertStartupRecoveryAttempt", "InsertStartupRecoveryEvidence", "CompleteStartupRecoveryAttempt",
 	} {
 		if !strings.Contains(source.String(), "-- name: "+query+" ") {
 			t.Fatalf("reviewed query missing: %s", query)

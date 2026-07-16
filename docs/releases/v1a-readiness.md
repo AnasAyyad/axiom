@@ -235,7 +235,7 @@ Requirements: all `AX-V1A-A09-*` IDs. Entry: A8 verified.
 - [ ] Startup/reconciliation/restart tests reproduce exact portfolio and journal
       state and block entries on unresolved state.
 
-Evidence register: pending.
+Evidence register: [A9 local validation](evidence/a9-local-validation.md).
 
 ## A10
 

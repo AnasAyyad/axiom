@@ -13,7 +13,7 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 | A6    | Complete    | Public exchange contracts, capability boundary, deterministic controls, emulator, and fixtures    | `docs/releases/evidence/a6-local-validation.md`; cumulative verification and binary absence gate passed       |
 | A7    | Implementation complete — formal 72-hour qualification pending | Binance public adapter, synchronized books, operational recorder, and 72-hour qualification       | Implementation and short public qualification pass; continuous 72-hour gate remains pending                 |
 | A8    | Implemented and locally validated — formal acceptance blocked by A7 | Backtesting, replay, simulation, durable orders, persistence, and local dataset qualification | `docs/releases/evidence/a8-local-validation.md`; candidate remains unmerged on `a8-backtest-replay` |
-| A9    | Not started | Portfolio allocation, risk, reconciliation, and recovery                                         | Pending A8 gate                                                                                              |
+| A9    | Implemented and locally validated — formal acceptance blocked by A7 and formal A8 acceptance | Portfolio allocation, risk, reconciliation, and recovery | `docs/releases/evidence/a9-local-validation.md`; candidate remains unmerged on `a9-portfolio-risk` |
 | A10   | Not started | Trend Following strategy                                                                         | Pending A9 gate                                                                                              |
 | A11   | Not started | Versioned API, authentication, React UI, and live shadow workflow                                | Pending A10 gate                                                                                             |
 
@@ -37,4 +37,6 @@ V1A is public-data research and simulation software only. It contains no authent
   `docs/releases/evidence/a1-clean-machine-walkthrough.md`.
 - A8 has local implementation evidence but is not formally complete because its
   A7 prerequisite remains pending.
+- A9 has local implementation evidence but is not formally complete because A7
+  and formal A8 acceptance remain pending.
 - The 72-hour Binance public-data soak and clean backup/restore drill are release evidence, not documentation-only checkboxes.

@@ -641,7 +641,7 @@ SET quantity=EXCLUDED.quantity,
   revision=positions.revision+1,
   updated_at=EXCLUDED.updated_at
 WHERE positions.revision=$7
-RETURNING account_id, instrument_id, quantity, weighted_average_cost, realized_pnl, revision, updated_at
+RETURNING account_id, instrument_id, quantity, weighted_average_cost, realized_pnl, revision, updated_at, cost, unrealized_pnl
 `
 
 type UpsertPositionProjectionParams struct {
@@ -673,6 +673,8 @@ func (q *Queries) UpsertPositionProjection(ctx context.Context, arg UpsertPositi
 		&i.RealizedPnl,
 		&i.Revision,
 		&i.UpdatedAt,
+		&i.Cost,
+		&i.UnrealizedPnl,
 	)
 	return &i, err
 }

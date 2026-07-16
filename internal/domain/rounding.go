@@ -90,6 +90,22 @@ func CalculateAveragePrice(cost Money, quantity Balance, scale uint8) (Price, er
 	return Price{result}, err
 }
 
+// CalculatePercent divides exact money values and rounds half-even at scale.
+func CalculatePercent(numerator, denominator Money, scale uint8) (Percent, error) {
+	if denominator.decimal.Sign() <= 0 {
+		return Percent{}, domainError(CodeArithmetic, "percent_zero_denominator")
+	}
+	context := exactContext
+	context.Traps = apd.DefaultTraps
+	context.Rounding = apd.RoundHalfEven
+	var quotient apd.Decimal
+	if _, err := context.Quo(&quotient, &numerator.decimal, &denominator.decimal); err != nil {
+		return Percent{}, domainError(CodeArithmetic, "percent_divide")
+	}
+	result, err := quantizeDecimal("percent_quantize", reducedValue(&quotient), scale, apd.RoundHalfEven)
+	return Percent{result}, err
+}
+
 // CalculateVWAP divides exact total notional by filled base quantity and
 // rounds half-even at the explicitly selected output scale.
 func CalculateVWAP(notional Notional, quantity Quantity, scale uint8) (Price, error) {
