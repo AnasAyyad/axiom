@@ -44,6 +44,24 @@ func RoundLimitPrice(side Side, requested, tick Price) (Price, error) {
 	return Price{ceiling}, err
 }
 
+// RoundMarketableLimitPrice rounds a buy upward and a sell downward so the
+// requested marketable protection remains executable without crossing beyond
+// the configured pre-rounding slippage boundary.
+func RoundMarketableLimitPrice(side Side, requested, tick Price) (Price, error) {
+	floor, err := floorMultiple("marketable_limit_price_round", requested.decimalValue, tick.decimalValue)
+	if err != nil || side == SideSell {
+		return Price{floor}, err
+	}
+	if side != SideBuy {
+		return Price{}, domainError(CodeInvalidInstrument, "side")
+	}
+	if floor.compare(requested.decimalValue) == 0 {
+		return Price{floor}, nil
+	}
+	ceiling, err := addDecimal("marketable_limit_price_round", floor, tick.decimalValue)
+	return Price{ceiling}, err
+}
+
 // CalculateNotional multiplies price and quantity and rounds half-even to scale.
 func CalculateNotional(price Price, quantity Quantity, scale uint8) (Notional, error) {
 	product, err := multiplyDecimal("notional_multiply", price.decimalValue, quantity.decimalValue)

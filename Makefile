@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -49,6 +49,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a5-observability-boundary.mjs
 	@$(NODE) scripts/check-a6-exchange-boundary.mjs
 	@$(NODE) scripts/check-a7-public-boundary.mjs
+	@$(NODE) scripts/check-a10-strategy-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -168,6 +169,27 @@ a9-postgres-qualify: ## Run the A9 ownership/risk/recovery gate against a dedica
 a9-model-qualify: ## Exercise exact A9 portfolio, risk, reconciliation, and shared A8 pipeline models.
 	@$(GO) test ./internal/portfolio ./internal/risk ./internal/reconciliation -count=1
 	@$(GO) test ./internal/backtest -run '^TestA9.*Pipeline.*$$' -count=1 -v
+
+a10-sqlc: ## Generate and compile the reviewed A10 Trend and research queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A10_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a10-postgres-qualify: ## Run the A10 immutable research gate against a dedicated *_a10_test database.
+	@test -n "$(AXIOM_A10_TEST_DSN)" || { echo "AXIOM_A10_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a10-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A10_TEST_DSN="$(AXIOM_A10_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA10PostgresTrendResearchQualification$$' -count=1 -v
+
+a10-model-qualify: ## Exercise exact Trend decisions through the shared allocator/risk pipeline.
+	@$(GO) test ./internal/strategies/trend -count=1 -v
+	@$(GO) test ./internal/backtest -count=1
+	@$(NODE) scripts/check-a10-strategy-boundary.mjs
+
+a10-research-qualify: ## Verify deterministic Go research and the independent locked Python checker.
+	@python3 -c 'import sys; assert sys.version_info[:3] == (3, 12, 3), sys.version'
+	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
+	@$(GO) test ./internal/research -count=1 -v
 
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \

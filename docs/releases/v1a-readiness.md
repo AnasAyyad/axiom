@@ -250,7 +250,9 @@ Requirements: all `AX-V1A-A10-*` IDs. Entry: A9 verified.
 - [ ] Backtest/replay/shadow, stress, confidence-interval, stability, benchmark,
       and uncertainty evidence is reproducible and makes no profitability claim.
 
-Evidence register: pending.
+Evidence register: [A10 local validation](evidence/a10-local-validation.md).
+Formal acceptance remains pending; the unchecked items above are not
+pre-approved by local implementation evidence.
 
 ## A11
 

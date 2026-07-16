@@ -18,6 +18,8 @@ coverage/
 node_modules/
 *.test
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 .tools/
 .pnpm-store/
 

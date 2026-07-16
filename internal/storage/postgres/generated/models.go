@@ -279,14 +279,38 @@ type ExecutionPlanLeg struct {
 	ClientOrderID   *string     `db:"client_order_id" json:"client_order_id"`
 }
 
+type ExperimentFinalTestConsumption struct {
+	ResearchGenerationID string             `db:"research_generation_id" json:"research_generation_id"`
+	ConsumedByRunID      string             `db:"consumed_by_run_id" json:"consumed_by_run_id"`
+	ConsumptionHash      interface{}        `db:"consumption_hash" json:"consumption_hash"`
+	ConsumedAt           pgtype.Timestamptz `db:"consumed_at" json:"consumed_at"`
+}
+
 type ExperimentRegistration struct {
-	ID                string             `db:"id" json:"id"`
-	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
-	ConfigurationID   string             `db:"configuration_id" json:"configuration_id"`
-	DatasetID         string             `db:"dataset_id" json:"dataset_id"`
-	Hypothesis        string             `db:"hypothesis" json:"hypothesis"`
-	Status            string             `db:"status" json:"status"`
-	RegisteredAt      pgtype.Timestamptz `db:"registered_at" json:"registered_at"`
+	ID                    string             `db:"id" json:"id"`
+	StrategyVersionID     string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ConfigurationID       string             `db:"configuration_id" json:"configuration_id"`
+	DatasetID             string             `db:"dataset_id" json:"dataset_id"`
+	Hypothesis            string             `db:"hypothesis" json:"hypothesis"`
+	Status                string             `db:"status" json:"status"`
+	RegisteredAt          pgtype.Timestamptz `db:"registered_at" json:"registered_at"`
+	Generation            *int32             `db:"generation" json:"generation"`
+	PrimaryMetric         *string            `db:"primary_metric" json:"primary_metric"`
+	TrainStart            pgtype.Timestamptz `db:"train_start" json:"train_start"`
+	TrainEnd              pgtype.Timestamptz `db:"train_end" json:"train_end"`
+	ValidationStart       pgtype.Timestamptz `db:"validation_start" json:"validation_start"`
+	ValidationEnd         pgtype.Timestamptz `db:"validation_end" json:"validation_end"`
+	FinalTestStart        pgtype.Timestamptz `db:"final_test_start" json:"final_test_start"`
+	FinalTestEnd          pgtype.Timestamptz `db:"final_test_end" json:"final_test_end"`
+	SearchSpace           []byte             `db:"search_space" json:"search_space"`
+	ParameterNeighborhood []byte             `db:"parameter_neighborhood" json:"parameter_neighborhood"`
+	ModelAssumptions      []byte             `db:"model_assumptions" json:"model_assumptions"`
+	BenchmarkAssumptions  []byte             `db:"benchmark_assumptions" json:"benchmark_assumptions"`
+	MinimumSamples        *int64             `db:"minimum_samples" json:"minimum_samples"`
+	StoppingRule          *string            `db:"stopping_rule" json:"stopping_rule"`
+	RejectionRule         *string            `db:"rejection_rule" json:"rejection_rule"`
+	PromotionRule         *string            `db:"promotion_rule" json:"promotion_rule"`
+	RegisteredSeedHash    interface{}        `db:"registered_seed_hash" json:"registered_seed_hash"`
 }
 
 type Fill struct {
@@ -626,6 +650,30 @@ type RecoveryAttempt struct {
 	RecordedAt   pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
+type ResearchGeneration struct {
+	ID               string             `db:"id" json:"id"`
+	ExperimentID     string             `db:"experiment_id" json:"experiment_id"`
+	Generation       int32              `db:"generation" json:"generation"`
+	FinalWindowHash  interface{}        `db:"final_window_hash" json:"final_window_hash"`
+	RegistrationHash interface{}        `db:"registration_hash" json:"registration_hash"`
+	RegisteredAt     pgtype.Timestamptz `db:"registered_at" json:"registered_at"`
+}
+
+type ResearchReport struct {
+	ID                   string             `db:"id" json:"id"`
+	ResearchGenerationID string             `db:"research_generation_id" json:"research_generation_id"`
+	ManifestHash         interface{}        `db:"manifest_hash" json:"manifest_hash"`
+	ArtifactHash         interface{}        `db:"artifact_hash" json:"artifact_hash"`
+	CanonicalManifest    []byte             `db:"canonical_manifest" json:"canonical_manifest"`
+	RunReferences        []byte             `db:"run_references" json:"run_references"`
+	ConfidenceLabel      string             `db:"confidence_label" json:"confidence_label"`
+	PlatformCorrectness  string             `db:"platform_correctness" json:"platform_correctness"`
+	StrategyEvidence     string             `db:"strategy_evidence" json:"strategy_evidence"`
+	ViabilityDisposition string             `db:"viability_disposition" json:"viability_disposition"`
+	DisclaimerPolicy     string             `db:"disclaimer_policy" json:"disclaimer_policy"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type Reservation struct {
 	ID                string             `db:"id" json:"id"`
 	AccountID         string             `db:"account_id" json:"account_id"`
@@ -811,10 +859,22 @@ type StrategyDefinition struct {
 }
 
 type StrategyParameter struct {
-	StrategyVersionID string `db:"strategy_version_id" json:"strategy_version_id"`
-	ParameterName     string `db:"parameter_name" json:"parameter_name"`
-	DecimalValue      string `db:"decimal_value" json:"decimal_value"`
-	Unit              string `db:"unit" json:"unit"`
+	StrategyVersionID string  `db:"strategy_version_id" json:"strategy_version_id"`
+	ParameterName     string  `db:"parameter_name" json:"parameter_name"`
+	DecimalValue      string  `db:"decimal_value" json:"decimal_value"`
+	Unit              string  `db:"unit" json:"unit"`
+	Description       *string `db:"description" json:"description"`
+	AlgorithmVersion  *string `db:"algorithm_version" json:"algorithm_version"`
+	MinimumValue      *string `db:"minimum_value" json:"minimum_value"`
+	MaximumValue      *string `db:"maximum_value" json:"maximum_value"`
+	MinimumInclusive  *bool   `db:"minimum_inclusive" json:"minimum_inclusive"`
+	MaximumInclusive  *bool   `db:"maximum_inclusive" json:"maximum_inclusive"`
+	DecimalScale      *int32  `db:"decimal_scale" json:"decimal_scale"`
+	Rounding          *string `db:"rounding" json:"rounding"`
+	Cadence           *string `db:"cadence" json:"cadence"`
+	WarmUp            *string `db:"warm_up" json:"warm_up"`
+	Mutability        *string `db:"mutability" json:"mutability"`
+	ModelDependencies []byte  `db:"model_dependencies" json:"model_dependencies"`
 }
 
 type StrategyPortfolio struct {
@@ -832,6 +892,34 @@ type StrategyVersion struct {
 	PromotionStatus    string             `db:"promotion_status" json:"promotion_status"`
 	UsedAt             pgtype.Timestamptz `db:"used_at" json:"used_at"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ManifestHash       interface{}        `db:"manifest_hash" json:"manifest_hash"`
+	CanonicalManifest  []byte             `db:"canonical_manifest" json:"canonical_manifest"`
+	CodeCommit         *string            `db:"code_commit" json:"code_commit"`
+	SupportedModes     []string           `db:"supported_modes" json:"supported_modes"`
+	Author             *string            `db:"author" json:"author"`
+	Notes              *string            `db:"notes" json:"notes"`
+}
+
+type TrendDecision struct {
+	DecisionID              string             `db:"decision_id" json:"decision_id"`
+	ExplanationHash         interface{}        `db:"explanation_hash" json:"explanation_hash"`
+	CanonicalExplanation    []byte             `db:"canonical_explanation" json:"canonical_explanation"`
+	CandleViewID            string             `db:"candle_view_id" json:"candle_view_id"`
+	CandleViewRevision      int64              `db:"candle_view_revision" json:"candle_view_revision"`
+	MarketViewID            string             `db:"market_view_id" json:"market_view_id"`
+	MarketViewRevision      int64              `db:"market_view_revision" json:"market_view_revision"`
+	InstrumentMetadataID    string             `db:"instrument_metadata_id" json:"instrument_metadata_id"`
+	AssetEligibilityVersion int64              `db:"asset_eligibility_version" json:"asset_eligibility_version"`
+	PortfolioRevision       int64              `db:"portfolio_revision" json:"portfolio_revision"`
+	PositionRevision        int64              `db:"position_revision" json:"position_revision"`
+	FeeModelID              string             `db:"fee_model_id" json:"fee_model_id"`
+	LatencyModelID          string             `db:"latency_model_id" json:"latency_model_id"`
+	FillModelID             string             `db:"fill_model_id" json:"fill_model_id"`
+	SlippageModelID         string             `db:"slippage_model_id" json:"slippage_model_id"`
+	GapModelID              string             `db:"gap_model_id" json:"gap_model_id"`
+	CorrelationID           string             `db:"correlation_id" json:"correlation_id"`
+	CausationID             string             `db:"causation_id" json:"causation_id"`
+	RecordedAt              pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
 type User struct {

@@ -16,6 +16,7 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0008](0008-dataset-replay-and-scheduler-ordering.md) | Accepted | Recorded datasets preserve logical-time/ingest order; source validation and scheduler tie-breaking are separate. |
 | [0009](0009-compose-file-secret-groups.md) | Accepted | File-backed Compose secrets use narrowly pinned read-only consumer groups. |
 | [0010](0010-a6-public-contract-emulator-boundary.md) | Accepted | A6 exposes public contracts and keeps its deterministic emulator test-only. |
+| [0011](0011-trend-version-and-research-generation.md) | Accepted | Trend decisions and final-test use are locked to immutable versions and visible generations. |
 
 ## Naming and lifecycle
 

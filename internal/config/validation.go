@@ -38,6 +38,9 @@ func Validate(configuration Configuration) error {
 	if err := validateModels(configuration.Models); err != nil {
 		return err
 	}
+	if err := validateTrend(configuration.Trend); err != nil {
+		return err
+	}
 	return validateSecrets(configuration.Secrets)
 }
 
@@ -219,6 +222,70 @@ func validateModels(models ModelConfiguration) error {
 		return configError("model_rejected", "models.latency")
 	}
 	return nil
+}
+
+func validateTrend(trend TrendConfiguration) error {
+	if trend.StrategyVersion == "" || len(trend.StrategyVersion) > 120 || trend.Timeframe != "4h" {
+		return configError("invalid_trend_configuration", "trend")
+	}
+	wanted := defaultTrendConfiguration()
+	if len(trend.Parameters) != len(wanted.Parameters) {
+		return configError("invalid_trend_configuration", "trend.parameters")
+	}
+	contracts := make(map[string]StrategyParameter, len(wanted.Parameters))
+	for _, parameter := range wanted.Parameters {
+		contracts[parameter.ID] = parameter
+	}
+	seen := make(map[string]struct{}, len(trend.Parameters))
+	for _, parameter := range trend.Parameters {
+		contract, ok := contracts[parameter.ID]
+		if !ok || parameter.Description != contract.Description || parameter.Unit != contract.Unit ||
+			parameter.Minimum != contract.Minimum || parameter.Maximum != contract.Maximum ||
+			parameter.MinimumInclusive != contract.MinimumInclusive || parameter.MaximumInclusive != contract.MaximumInclusive ||
+			parameter.Scale != contract.Scale || parameter.Rounding != contract.Rounding ||
+			parameter.Cadence != contract.Cadence || parameter.WarmUp != contract.WarmUp ||
+			parameter.Mutability != contract.Mutability || !equalStrings(parameter.ModelDependencies, contract.ModelDependencies) {
+			return configError("invalid_trend_parameter", "trend.parameters")
+		}
+		if _, duplicate := seen[parameter.ID]; duplicate {
+			return configError("invalid_trend_parameter", "trend.parameters.id")
+		}
+		seen[parameter.ID] = struct{}{}
+		if err := validateTrendValue(parameter); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateTrendValue(parameter StrategyParameter) error {
+	if parameter.Scale > 18 || decimalScale(parameter.Value) > int(parameter.Scale) || !validRounding(parameter.Rounding) {
+		return configError("invalid_trend_parameter", parameter.ID)
+	}
+	value, valueErr := domain.ParseRate(parameter.Value)
+	minimum, minimumErr := domain.ParseRate(parameter.Minimum)
+	maximum, maximumErr := domain.ParseRate(parameter.Maximum)
+	if valueErr != nil || minimumErr != nil || maximumErr != nil || maximum.Compare(minimum) < 0 {
+		return configError("invalid_trend_parameter", parameter.ID)
+	}
+	if outsideRange(value.Compare(minimum), value.Compare(maximum), FinancialValue{
+		MinimumInclusive: parameter.MinimumInclusive, MaximumInclusive: parameter.MaximumInclusive,
+	}) {
+		return configError("trend_parameter_out_of_range", parameter.ID)
+	}
+	return nil
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func validateSecrets(references []SecretReference) error {

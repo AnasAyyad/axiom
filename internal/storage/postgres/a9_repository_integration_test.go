@@ -33,7 +33,11 @@ func TestA9PostgresPortfolioRiskRecoveryQualification(t *testing.T) {
 	}
 	defer pool.Close()
 	assertEmptyTestDatabase(t, ctx, pool)
-	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 8 {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != len(migrations) {
 		t.Fatalf("A9 migrations = %d %v", applied, applyErr)
 	}
 	assertA9RolePermissions(t, ctx, pool)

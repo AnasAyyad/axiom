@@ -61,7 +61,7 @@ function fail(message) {
   process.exitCode = 1;
 }
 
-if (configuration.schema_version !== "axiom.config.v1a.1") {
+if (configuration.schema_version !== "axiom.config.v1a.2") {
   fail("deployment schema version is not the documented V1A schema");
 }
 
@@ -96,6 +96,27 @@ for (const [
   const row = `| \`${path}\` | \`${value}\` | \`${unit}\` | \`${minimum}..${maximum}\` | ${inclusivity} | ${scale} | \`${rounding}\` |`;
   if (!reference.includes(row)) {
     fail(`${path} is missing or stale in the configuration reference table`);
+  }
+}
+
+if (
+  configuration.trend.strategy_version !== "trend.v1a.1" ||
+  configuration.trend.timeframe !== "4h" ||
+  configuration.trend.parameters.length !== 16
+) {
+  fail("Trend version, timeframe, or complete parameter count is stale");
+} else {
+  for (const parameter of configuration.trend.parameters) {
+    const inclusivity = parameter.minimum_inclusive
+      ? "both inclusive"
+      : "minimum exclusive, maximum inclusive";
+    const dependencies = parameter.model_dependencies
+      .map((dependency) => `\`${dependency}\``)
+      .join(", ");
+    const row = `| \`${parameter.id}\` | \`${parameter.value}\` | \`${parameter.unit}\` | \`${parameter.minimum}..${parameter.maximum}\` | ${inclusivity} | ${parameter.scale} | \`${parameter.rounding}\` | \`${parameter.warm_up}\` | ${dependencies} |`;
+    if (!reference.includes(row)) {
+      fail(`${parameter.id} is missing or stale in the Trend parameter table`);
+    }
   }
 }
 
