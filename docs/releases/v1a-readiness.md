@@ -221,7 +221,7 @@ Requirements: all `AX-V1A-A08-*` IDs. Entry: A7 verified.
 - [ ] Combined liquidity cannot be reused and confidence namespaces cannot mix.
 - [ ] Kill-point/fault matrix resumes without duplicate order/fill or lost state.
 
-Evidence register: pending.
+Evidence register: [A8 local validation](evidence/a8-local-validation.md).
 
 ## A9
 

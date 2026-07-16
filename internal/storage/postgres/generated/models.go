@@ -208,14 +208,17 @@ type ExecutionLeaseEpoch struct {
 }
 
 type ExecutionPlan struct {
-	ID            string             `db:"id" json:"id"`
-	DecisionID    string             `db:"decision_id" json:"decision_id"`
-	ReservationID *string            `db:"reservation_id" json:"reservation_id"`
-	State         string             `db:"state" json:"state"`
-	RecoveryState string             `db:"recovery_state" json:"recovery_state"`
-	Revision      int64              `db:"revision" json:"revision"`
-	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID                string             `db:"id" json:"id"`
+	DecisionID        string             `db:"decision_id" json:"decision_id"`
+	ReservationID     *string            `db:"reservation_id" json:"reservation_id"`
+	State             string             `db:"state" json:"state"`
+	RecoveryState     string             `db:"recovery_state" json:"recovery_state"`
+	Revision          int64              `db:"revision" json:"revision"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DispatchPolicy    string             `db:"dispatch_policy" json:"dispatch_policy"`
+	RemainingExposure []byte             `db:"remaining_exposure" json:"remaining_exposure"`
+	FinalDisposition  *string            `db:"final_disposition" json:"final_disposition"`
 }
 
 type ExecutionPlanLeg struct {
@@ -226,6 +229,8 @@ type ExecutionPlanLeg struct {
 	Quantity        interface{} `db:"quantity" json:"quantity"`
 	DependencyIndex *int32      `db:"dependency_index" json:"dependency_index"`
 	State           string      `db:"state" json:"state"`
+	OrderID         *string     `db:"order_id" json:"order_id"`
+	ClientOrderID   *string     `db:"client_order_id" json:"client_order_id"`
 }
 
 type ExperimentRegistration struct {
@@ -248,6 +253,15 @@ type Fill struct {
 	FeeQuantity    interface{}        `db:"fee_quantity" json:"fee_quantity"`
 	FeeAsset       string             `db:"fee_asset" json:"fee_asset"`
 	OccurredAt     pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	RebateQuantity interface{}        `db:"rebate_quantity" json:"rebate_quantity"`
+	IngestOrdinal  *int64             `db:"ingest_ordinal" json:"ingest_ordinal"`
+	FillHash       interface{}        `db:"fill_hash" json:"fill_hash"`
+}
+
+type FillJournalPosting struct {
+	FillID        string `db:"fill_id" json:"fill_id"`
+	TransactionID string `db:"transaction_id" json:"transaction_id"`
+	PostingKind   string `db:"posting_kind" json:"posting_kind"`
 }
 
 type InboxEvent struct {
@@ -352,6 +366,19 @@ type MarketDataSegment struct {
 	FinalizedAt          pgtype.Timestamptz `db:"finalized_at" json:"finalized_at"`
 }
 
+type ModelNamespace struct {
+	ID               string             `db:"id" json:"id"`
+	NamespaceHash    interface{}        `db:"namespace_hash" json:"namespace_hash"`
+	MarketContext    string             `db:"market_context" json:"market_context"`
+	LiquidityDomain  string             `db:"liquidity_domain" json:"liquidity_domain"`
+	FeeModelID       string             `db:"fee_model_id" json:"fee_model_id"`
+	LatencyModelID   string             `db:"latency_model_id" json:"latency_model_id"`
+	FillModelID      string             `db:"fill_model_id" json:"fill_model_id"`
+	PriceModelHash   interface{}        `db:"price_model_hash" json:"price_model_hash"`
+	CanonicalPayload []byte             `db:"canonical_payload" json:"canonical_payload"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ModelVersion struct {
 	ID               string             `db:"id" json:"id"`
 	ModelType        string             `db:"model_type" json:"model_type"`
@@ -374,18 +401,23 @@ type Opportunity struct {
 }
 
 type Order struct {
-	ID            string             `db:"id" json:"id"`
-	PlanID        *string            `db:"plan_id" json:"plan_id"`
-	AccountID     string             `db:"account_id" json:"account_id"`
-	ClientOrderID string             `db:"client_order_id" json:"client_order_id"`
-	AccountEpoch  int64              `db:"account_epoch" json:"account_epoch"`
-	InstrumentID  string             `db:"instrument_id" json:"instrument_id"`
-	Side          string             `db:"side" json:"side"`
-	Quantity      interface{}        `db:"quantity" json:"quantity"`
-	State         string             `db:"state" json:"state"`
-	Revision      int64              `db:"revision" json:"revision"`
-	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID                 string             `db:"id" json:"id"`
+	PlanID             *string            `db:"plan_id" json:"plan_id"`
+	AccountID          string             `db:"account_id" json:"account_id"`
+	ClientOrderID      string             `db:"client_order_id" json:"client_order_id"`
+	AccountEpoch       int64              `db:"account_epoch" json:"account_epoch"`
+	InstrumentID       string             `db:"instrument_id" json:"instrument_id"`
+	Side               string             `db:"side" json:"side"`
+	Quantity           interface{}        `db:"quantity" json:"quantity"`
+	State              string             `db:"state" json:"state"`
+	Revision           int64              `db:"revision" json:"revision"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ExchangeStatus     string             `db:"exchange_status" json:"exchange_status"`
+	CumulativeQuantity interface{}        `db:"cumulative_quantity" json:"cumulative_quantity"`
+	CumulativeFee      interface{}        `db:"cumulative_fee" json:"cumulative_fee"`
+	CumulativeRebate   interface{}        `db:"cumulative_rebate" json:"cumulative_rebate"`
+	LastEventOrdinal   int64              `db:"last_event_ordinal" json:"last_event_ordinal"`
 }
 
 type OrderAttempt struct {
@@ -406,6 +438,21 @@ type OrderEvent struct {
 	Revision              int64              `db:"revision" json:"revision"`
 	CausationID           string             `db:"causation_id" json:"causation_id"`
 	OccurredAt            pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	IngestOrdinal         *int64             `db:"ingest_ordinal" json:"ingest_ordinal"`
+	EventHash             interface{}        `db:"event_hash" json:"event_hash"`
+	ExchangeStatus        *string            `db:"exchange_status" json:"exchange_status"`
+	CumulativeQuantity    interface{}        `db:"cumulative_quantity" json:"cumulative_quantity"`
+	CanonicalPayload      []byte             `db:"canonical_payload" json:"canonical_payload"`
+}
+
+type OrderReductionIncident struct {
+	ID               string             `db:"id" json:"id"`
+	OrderID          string             `db:"order_id" json:"order_id"`
+	EventID          *string            `db:"event_id" json:"event_id"`
+	ReasonCode       string             `db:"reason_code" json:"reason_code"`
+	PriorRevision    int64              `db:"prior_revision" json:"prior_revision"`
+	CanonicalPayload []byte             `db:"canonical_payload" json:"canonical_payload"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type OutboxEvent struct {
@@ -508,14 +555,57 @@ type Run struct {
 	CompletedAt         pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 }
 
+type RunCanonicalOutput struct {
+	RunID            string      `db:"run_id" json:"run_id"`
+	OutputKind       string      `db:"output_kind" json:"output_kind"`
+	Ordinal          int64       `db:"ordinal" json:"ordinal"`
+	OutputHash       interface{} `db:"output_hash" json:"output_hash"`
+	CanonicalPayload []byte      `db:"canonical_payload" json:"canonical_payload"`
+}
+
 type RunCheckpoint struct {
-	ID           string             `db:"id" json:"id"`
-	RunID        string             `db:"run_id" json:"run_id"`
-	Revision     int64              `db:"revision" json:"revision"`
-	InputOrdinal int64              `db:"input_ordinal" json:"input_ordinal"`
-	StateHash    interface{}        `db:"state_hash" json:"state_hash"`
-	Payload      []byte             `db:"payload" json:"payload"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID                     string             `db:"id" json:"id"`
+	RunID                  string             `db:"run_id" json:"run_id"`
+	Revision               int64              `db:"revision" json:"revision"`
+	InputOrdinal           int64              `db:"input_ordinal" json:"input_ordinal"`
+	StateHash              interface{}        `db:"state_hash" json:"state_hash"`
+	Payload                []byte             `db:"payload" json:"payload"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CursorLogicalTime      *int64             `db:"cursor_logical_time" json:"cursor_logical_time"`
+	OrdersHash             interface{}        `db:"orders_hash" json:"orders_hash"`
+	PlansHash              interface{}        `db:"plans_hash" json:"plans_hash"`
+	LiquidityHash          interface{}        `db:"liquidity_hash" json:"liquidity_hash"`
+	JournalHash            interface{}        `db:"journal_hash" json:"journal_hash"`
+	ProjectionHash         interface{}        `db:"projection_hash" json:"projection_hash"`
+	ModelNamespaceID       *string            `db:"model_namespace_id" json:"model_namespace_id"`
+	DeterministicStateHash interface{}        `db:"deterministic_state_hash" json:"deterministic_state_hash"`
+}
+
+type RunManifest struct {
+	RunID                string             `db:"run_id" json:"run_id"`
+	ManifestHash         interface{}        `db:"manifest_hash" json:"manifest_hash"`
+	CodeCommit           string             `db:"code_commit" json:"code_commit"`
+	GoVersion            string             `db:"go_version" json:"go_version"`
+	Architecture         string             `db:"architecture" json:"architecture"`
+	OperatingSystem      string             `db:"operating_system" json:"operating_system"`
+	BuildFlagsHash       interface{}        `db:"build_flags_hash" json:"build_flags_hash"`
+	GoSumHash            interface{}        `db:"go_sum_hash" json:"go_sum_hash"`
+	PnpmLockHash         interface{}        `db:"pnpm_lock_hash" json:"pnpm_lock_hash"`
+	DatasetManifestHash  interface{}        `db:"dataset_manifest_hash" json:"dataset_manifest_hash"`
+	DatasetRevision      int64              `db:"dataset_revision" json:"dataset_revision"`
+	SourceCommit         string             `db:"source_commit" json:"source_commit"`
+	SchemaVersion        string             `db:"schema_version" json:"schema_version"`
+	ParserVersion        string             `db:"parser_version" json:"parser_version"`
+	NormalizationVersion string             `db:"normalization_version" json:"normalization_version"`
+	SegmentHashesHash    interface{}        `db:"segment_hashes_hash" json:"segment_hashes_hash"`
+	ConfigurationHash    interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	SchedulerVersion     string             `db:"scheduler_version" json:"scheduler_version"`
+	SerializationVersion string             `db:"serialization_version" json:"serialization_version"`
+	ModelNamespaceID     string             `db:"model_namespace_id" json:"model_namespace_id"`
+	StartingBalanceHash  interface{}        `db:"starting_balance_hash" json:"starting_balance_hash"`
+	ConfidenceTier       string             `db:"confidence_tier" json:"confidence_tier"`
+	CanonicalPayload     []byte             `db:"canonical_payload" json:"canonical_payload"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type RunResult struct {

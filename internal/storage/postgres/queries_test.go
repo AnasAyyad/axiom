@@ -7,7 +7,7 @@ import (
 )
 
 func TestReviewedQueriesCoverA4RepositoryBoundaries(t *testing.T) {
-	files := []string{"queries/accounting.sql", "queries/catalog.sql", "queries/coordination.sql"}
+	files := []string{"queries/accounting.sql", "queries/catalog.sql", "queries/coordination.sql", "queries/a8_execution.sql"}
 	var source strings.Builder
 	for _, file := range files {
 		contents, err := os.ReadFile(file)
@@ -21,6 +21,8 @@ func TestReviewedQueriesCoverA4RepositoryBoundaries(t *testing.T) {
 		"RebuildAccountProjection", "InsertMarketDataSegment", "InsertDatasetGap", "TransitionDatasetManifest",
 		"InsertRun", "TransitionRun", "LatestRunCheckpoint", "InsertAuditEvent", "ConsumeInbox", "InsertOutbox",
 		"AdvanceConsumerCursor", "ClaimNextJob", "RenewJobClaim", "CompleteJob", "AcquireLease", "RenewLease",
+		"InsertRunManifest", "InsertCanonicalOutput", "ReduceCanonicalOrder", "InsertCanonicalFill",
+		"InsertFillJournalPosting", "InsertA8Checkpoint",
 	} {
 		if !strings.Contains(source.String(), "-- name: "+query+" ") {
 			t.Fatalf("reviewed query missing: %s", query)

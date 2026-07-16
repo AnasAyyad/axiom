@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -137,6 +137,22 @@ a4-postgres-qualify: ## Run the destructive A4 gate against a dedicated *_a4_tes
 	@$(MAKE) a4-sqlc GO="$(GO)" SQLC="$(SQLC)"
 	@AXIOM_A4_TEST_DSN="$(AXIOM_A4_TEST_DSN)" $(GO) test ./internal/storage/postgres \
 		-run '^TestA4PostgresMigrationJournalAndReservationIntegration$$' -count=1 -v
+
+a8-sqlc: ## Generate and compile the reviewed A8 PostgreSQL queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A8_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a8-postgres-qualify: ## Run the A8 atomic repository gate against a dedicated *_a8_test database.
+	@test -n "$(AXIOM_A8_TEST_DSN)" || { echo "AXIOM_A8_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a8-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A8_TEST_DSN="$(AXIOM_A8_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA8PostgresAtomicOrderFillJournalCheckpoint$$' -count=1 -v
+
+a8-local-qualify: ## Verify and stream the ignored A7 engineering recordings without exporting payloads.
+	@AXIOM_A8_DATASET_43_ROOT=$(CURDIR)/.local/a7-soak-a641cd4 \
+		AXIOM_A8_DATASET_R2_ROOT=$(CURDIR)/.local/a7-soak-a641cd4-r2 \
+		$(GO) test ./internal/backtest -run '^TestA8IgnoredLocalDatasetQualification$$' -count=1 -v
 
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \

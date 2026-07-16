@@ -395,7 +395,7 @@ const insertRunCheckpoint = `-- name: InsertRunCheckpoint :one
 INSERT INTO run_checkpoints (
   id, run_id, revision, input_ordinal, state_hash, payload, created_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, run_id, revision, input_ordinal, state_hash, payload, created_at
+RETURNING id, run_id, revision, input_ordinal, state_hash, payload, created_at, cursor_logical_time, orders_hash, plans_hash, liquidity_hash, journal_hash, projection_hash, model_namespace_id, deterministic_state_hash
 `
 
 type InsertRunCheckpointParams struct {
@@ -427,6 +427,14 @@ func (q *Queries) InsertRunCheckpoint(ctx context.Context, arg InsertRunCheckpoi
 		&i.StateHash,
 		&i.Payload,
 		&i.CreatedAt,
+		&i.CursorLogicalTime,
+		&i.OrdersHash,
+		&i.PlansHash,
+		&i.LiquidityHash,
+		&i.JournalHash,
+		&i.ProjectionHash,
+		&i.ModelNamespaceID,
+		&i.DeterministicStateHash,
 	)
 	return &i, err
 }
@@ -462,7 +470,7 @@ func (q *Queries) InsertRunResult(ctx context.Context, arg InsertRunResultParams
 }
 
 const latestRunCheckpoint = `-- name: LatestRunCheckpoint :one
-SELECT id, run_id, revision, input_ordinal, state_hash, payload, created_at FROM run_checkpoints
+SELECT id, run_id, revision, input_ordinal, state_hash, payload, created_at, cursor_logical_time, orders_hash, plans_hash, liquidity_hash, journal_hash, projection_hash, model_namespace_id, deterministic_state_hash FROM run_checkpoints
 WHERE run_id = $1
 ORDER BY revision DESC
 LIMIT 1
@@ -479,6 +487,14 @@ func (q *Queries) LatestRunCheckpoint(ctx context.Context, runID string) (*RunCh
 		&i.StateHash,
 		&i.Payload,
 		&i.CreatedAt,
+		&i.CursorLogicalTime,
+		&i.OrdersHash,
+		&i.PlansHash,
+		&i.LiquidityHash,
+		&i.JournalHash,
+		&i.ProjectionHash,
+		&i.ModelNamespaceID,
+		&i.DeterministicStateHash,
 	)
 	return &i, err
 }

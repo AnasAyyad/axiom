@@ -135,6 +135,21 @@ func PriceAtSlippage(reference Price, slippage Percent, side Side, scale uint8) 
 	return Price{result}, err
 }
 
+// ScaleQuantity multiplies quantity by a decimal fraction and rounds down so a
+// modeled partial fill can never exceed the requested amount.
+func ScaleQuantity(quantity Quantity, fraction Percent, scale uint8) (Quantity, error) {
+	one, _ := parseDecimal("1", "quantity_fraction_one", false)
+	if fraction.decimal.Sign() < 0 || fraction.decimalValue.compare(one) > 0 {
+		return Quantity{}, domainError(CodeArithmetic, "quantity_fraction_range")
+	}
+	product, err := multiplyDecimal("quantity_fraction", quantity.decimalValue, fraction.decimalValue)
+	if err != nil {
+		return Quantity{}, err
+	}
+	result, err := quantizeDecimal("quantity_fraction", product, scale, apd.RoundFloor)
+	return Quantity{result}, err
+}
+
 func floorMultiple(operation string, value, increment decimalValue) (decimalValue, error) {
 	if increment.decimal.Sign() <= 0 {
 		return decimalValue{}, domainError(CodeInvalidScale, operation)
