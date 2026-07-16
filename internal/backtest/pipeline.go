@@ -30,6 +30,20 @@ type Allocator interface {
 	Allocate(context.Context, Candidate) (AllocatedIntent, error)
 }
 
+// AllocationDisposition defines conservative ownership cleanup after a downstream failure.
+type AllocationDisposition string
+
+// Supported downstream-failure dispositions.
+const (
+	AllocationReleased    AllocationDisposition = "released"
+	AllocationQuarantined AllocationDisposition = "quarantined"
+)
+
+// AllocationCloser closes exclusive claims when a later pipeline stage fails.
+type AllocationCloser interface {
+	CloseAllocation(context.Context, AllocatedIntent, AllocationDisposition) error
+}
+
 // RiskEngine is the consumer-owned central approval interface.
 type RiskEngine interface {
 	Approve(context.Context, AllocatedIntent) (execution.ApprovedIntent, error)
@@ -51,7 +65,8 @@ type PipelineProcessor struct{ dependencies PipelineDependencies }
 
 // NewPipelineProcessor fails closed until every operational dependency exists.
 func NewPipelineProcessor(dependencies PipelineDependencies) (*PipelineProcessor, error) {
-	if dependencies.Strategy == nil || dependencies.Allocator == nil || dependencies.Risk == nil ||
+	_, closesAllocations := dependencies.Allocator.(AllocationCloser)
+	if dependencies.Strategy == nil || dependencies.Allocator == nil || !closesAllocations || dependencies.Risk == nil ||
 		dependencies.Planner == nil || dependencies.Broker == nil || dependencies.Reduce == nil || dependencies.Metrics == nil {
 		return nil, backtestError("operational_pipeline_incomplete")
 	}
@@ -70,22 +85,49 @@ func (processor *PipelineProcessor) Process(ctx context.Context, event replay.Ev
 	}
 	approved, err := processor.dependencies.Risk.Approve(ctx, allocated)
 	if err != nil {
+		if processor.closeAllocation(ctx, allocated, AllocationReleased) != nil {
+			return EventResult{}, backtestError("allocation_cleanup_failed")
+		}
 		return EventResult{}, backtestError("risk_stage_failed")
 	}
 	plan, err := processor.dependencies.Planner.Plan(ctx, approved)
 	if err != nil {
+		if processor.closeAllocation(ctx, allocated, AllocationReleased) != nil {
+			return EventResult{}, backtestError("allocation_cleanup_failed")
+		}
 		return EventResult{}, backtestError("planning_stage_failed")
 	}
 	events, err := processor.dependencies.Broker.Submit(ctx, plan)
 	if err != nil {
+		if processor.closeAllocation(ctx, allocated, AllocationQuarantined) != nil {
+			return EventResult{}, backtestError("allocation_cleanup_failed")
+		}
 		return EventResult{}, backtestError("simulation_stage_failed")
 	}
 	orders, balances, err := processor.dependencies.Reduce(ctx, events)
 	if err != nil {
+		if processor.closeAllocation(ctx, allocated, AllocationQuarantined) != nil {
+			return EventResult{}, backtestError("allocation_cleanup_failed")
+		}
 		return EventResult{}, backtestError("durable_stage_failed")
 	}
 	decision, _ := json.Marshal(approved)
 	return EventResult{Ordinal: event.Ordinal, Decision: decision, Orders: orders, Balances: balances}, nil
+}
+
+func (processor *PipelineProcessor) closeAllocation(
+	ctx context.Context,
+	allocated AllocatedIntent,
+	disposition AllocationDisposition,
+) error {
+	closer := processor.dependencies.Allocator.(AllocationCloser)
+	if err := closer.CloseAllocation(ctx, allocated, disposition); err != nil {
+		if disposition == AllocationReleased {
+			return closer.CloseAllocation(ctx, allocated, AllocationQuarantined)
+		}
+		return err
+	}
+	return nil
 }
 
 // Metrics returns the shared processor's canonical Section 21 result metrics.

@@ -103,10 +103,22 @@ func a8AtomicFixture() A8AtomicWrite {
 		Entries: []generated.InsertLedgerEntryParams{
 			{TransactionID: "journal-a", LineNumber: 1, AccountClass: "strategy_inventory", AccountOwner: "account-a", AssetSymbol: "BTC", Direction: "debit", Quantity: "0.5"},
 			{TransactionID: "journal-a", LineNumber: 2, AccountClass: "available_asset", AccountOwner: "account-a", AssetSymbol: "BTC", Direction: "credit", Quantity: "0.5"},
-			{TransactionID: "journal-a", LineNumber: 3, AccountClass: "fee_expense", AccountOwner: "account-a", AssetSymbol: "USDT", Direction: "debit", Quantity: "0.05"},
-			{TransactionID: "journal-a", LineNumber: 4, AccountClass: "available_asset", AccountOwner: "account-a", AssetSymbol: "USDT", Direction: "credit", Quantity: "0.05"},
+			{TransactionID: "journal-a", LineNumber: 3, AccountClass: "trade_cost_proceeds", AccountOwner: "account-a", AssetSymbol: "USDT", Direction: "debit", Quantity: "50"},
+			{TransactionID: "journal-a", LineNumber: 4, AccountClass: "available_asset", AccountOwner: "account-a", AssetSymbol: "USDT", Direction: "credit", Quantity: "50"},
+			{TransactionID: "journal-a", LineNumber: 5, AccountClass: "fee_expense", AccountOwner: "account-a", AssetSymbol: "USDT", Direction: "debit", Quantity: "0.05"},
+			{TransactionID: "journal-a", LineNumber: 6, AccountClass: "available_asset", AccountOwner: "account-a", AssetSymbol: "USDT", Direction: "credit", Quantity: "0.05"},
 		},
 		Postings: []generated.InsertFillJournalPostingParams{{FillID: fillID, TransactionID: "journal-a", PostingKind: "fill"}},
+		Balances: []generated.UpdateVirtualBalanceProjectionParams{
+			{AccountID: "account-a", AssetSymbol: "USDT", Available: "449.95", Reserved: "0", UpdatedAt: now, ExpectedRevision: 1},
+			{AccountID: "account-a", AssetSymbol: "BTC", Available: "2.5", Reserved: "0", UpdatedAt: now, ExpectedRevision: 1},
+		},
+		Positions: []generated.UpsertPositionProjectionParams{{AccountID: "account-a", InstrumentID: "instrument-a",
+			Quantity: "0.5", WeightedAverageCost: "100.1", RealizedPnl: "0", UpdatedAt: now, ExpectedRevision: 0}},
+		Projections: []generated.UpsertProjectionRevisionParams{
+			{AccountID: "account-a", ProjectionKind: "balances", SourceJournalID: "journal-a", ProjectionHash: hash, UpdatedAt: now, ExpectedRevision: 0},
+			{AccountID: "account-a", ProjectionKind: "positions", SourceJournalID: "journal-a", ProjectionHash: hash, UpdatedAt: now, ExpectedRevision: 0},
+		},
 		Checkpoint: generated.InsertA8CheckpointParams{ID: "checkpoint-a", RunID: "run-a", Revision: 1,
 			InputOrdinal: ordinal, StateHash: hash, Payload: []byte("{}"), CreatedAt: now, CursorLogicalTime: &ordinal,
 			OrdersHash: hash, PlansHash: hash, LiquidityHash: hash, JournalHash: hash, ProjectionHash: hash,
@@ -127,5 +139,15 @@ func assertA8AtomicState(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 	if err := pool.QueryRow(ctx, "SELECT state,cumulative_quantity::text FROM orders WHERE id='order-a'").Scan(&state, &quantity); err != nil ||
 		state != "partially_filled" || quantity != "0.500000000000000000" {
 		t.Fatal("canonical order projection mismatch")
+	}
+	var usdt, btc, position string
+	_ = pool.QueryRow(ctx, "SELECT available::text FROM virtual_balances WHERE account_id='account-a' AND asset_symbol='USDT'").Scan(&usdt)
+	_ = pool.QueryRow(ctx, "SELECT available::text FROM virtual_balances WHERE account_id='account-a' AND asset_symbol='BTC'").Scan(&btc)
+	_ = pool.QueryRow(ctx, "SELECT quantity::text FROM positions WHERE account_id='account-a' AND instrument_id='instrument-a'").Scan(&position)
+	var projections int
+	_ = pool.QueryRow(ctx, "SELECT count(*) FROM projection_revisions WHERE account_id='account-a'").Scan(&projections)
+	if usdt != "449.950000000000000000" || btc != "2.500000000000000000" ||
+		position != "0.500000000000000000" || projections != 2 {
+		t.Fatalf("financial projections = %s/%s/%s/%d", usdt, btc, position, projections)
 	}
 }

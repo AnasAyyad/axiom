@@ -22,7 +22,8 @@ func TestReviewedQueriesCoverA4RepositoryBoundaries(t *testing.T) {
 		"InsertRun", "TransitionRun", "LatestRunCheckpoint", "InsertAuditEvent", "ConsumeInbox", "InsertOutbox",
 		"AdvanceConsumerCursor", "ClaimNextJob", "RenewJobClaim", "CompleteJob", "AcquireLease", "RenewLease",
 		"InsertRunManifest", "InsertCanonicalOutput", "ReduceCanonicalOrder", "InsertCanonicalFill",
-		"InsertFillJournalPosting", "InsertA8Checkpoint",
+		"InsertFillJournalPosting", "InsertA8Checkpoint", "UpdateVirtualBalanceProjection",
+		"UpsertPositionProjection", "UpsertProjectionRevision", "SettleReservationFill",
 	} {
 		if !strings.Contains(source.String(), "-- name: "+query+" ") {
 			t.Fatalf("reviewed query missing: %s", query)

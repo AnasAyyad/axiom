@@ -17,6 +17,7 @@ type Querier interface {
 	CompleteJob(ctx context.Context, arg CompleteJobParams) (*Job, error)
 	ConsumeInbox(ctx context.Context, arg ConsumeInboxParams) (*InboxEvent, error)
 	ConsumeVirtualBalance(ctx context.Context, arg ConsumeVirtualBalanceParams) (*VirtualBalance, error)
+	CreditVirtualBalance(ctx context.Context, arg CreditVirtualBalanceParams) (*VirtualBalance, error)
 	EnsureLeaseEpoch(ctx context.Context, resource string) error
 	GetAlert(ctx context.Context, id string) (*Alert, error)
 	GetRun(ctx context.Context, id string) (*Run, error)
@@ -67,12 +68,17 @@ type Querier interface {
 	RenewJobClaim(ctx context.Context, arg RenewJobClaimParams) (*Job, error)
 	RenewLease(ctx context.Context, arg RenewLeaseParams) (*ExecutionLease, error)
 	ReserveVirtualBalance(ctx context.Context, arg ReserveVirtualBalanceParams) (*VirtualBalance, error)
+	SettleReservationFill(ctx context.Context, arg SettleReservationFillParams) (*Reservation, error)
+	SettleReservedVirtualBalance(ctx context.Context, arg SettleReservedVirtualBalanceParams) (*VirtualBalance, error)
 	StartJob(ctx context.Context, arg StartJobParams) (*Job, error)
 	TransitionDatasetManifest(ctx context.Context, arg TransitionDatasetManifestParams) (*DatasetManifest, error)
 	TransitionMarketDataSegment(ctx context.Context, arg TransitionMarketDataSegmentParams) (*MarketDataSegment, error)
 	TransitionRun(ctx context.Context, arg TransitionRunParams) (*Run, error)
+	UpdateVirtualBalanceProjection(ctx context.Context, arg UpdateVirtualBalanceProjectionParams) (*VirtualBalance, error)
 	UpsertAlert(ctx context.Context, arg UpsertAlertParams) (*Alert, error)
 	UpsertAlertDelivery(ctx context.Context, arg UpsertAlertDeliveryParams) (*AlertDelivery, error)
+	UpsertPositionProjection(ctx context.Context, arg UpsertPositionProjectionParams) (*Position, error)
+	UpsertProjectionRevision(ctx context.Context, arg UpsertProjectionRevisionParams) (*ProjectionRevision, error)
 }
 
 var _ Querier = (*Queries)(nil)

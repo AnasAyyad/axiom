@@ -12,14 +12,17 @@ import (
 
 // A8AtomicWrite is one complete order/fill/journal/checkpoint/outbox boundary.
 type A8AtomicWrite struct {
-	OrderEvent generated.InsertCanonicalOrderEventParams
-	Order      generated.ReduceCanonicalOrderParams
-	Fills      []generated.InsertCanonicalFillParams
-	Journal    generated.InsertJournalTransactionParams
-	Entries    []generated.InsertLedgerEntryParams
-	Postings   []generated.InsertFillJournalPostingParams
-	Checkpoint generated.InsertA8CheckpointParams
-	Outbox     generated.InsertOutboxParams
+	OrderEvent  generated.InsertCanonicalOrderEventParams
+	Order       generated.ReduceCanonicalOrderParams
+	Fills       []generated.InsertCanonicalFillParams
+	Journal     generated.InsertJournalTransactionParams
+	Entries     []generated.InsertLedgerEntryParams
+	Postings    []generated.InsertFillJournalPostingParams
+	Balances    []generated.UpdateVirtualBalanceProjectionParams
+	Positions   []generated.UpsertPositionProjectionParams
+	Projections []generated.UpsertProjectionRevisionParams
+	Checkpoint  generated.InsertA8CheckpointParams
+	Outbox      generated.InsertOutboxParams
 }
 
 // A8Repository persists virtual execution facts through reviewed sqlc queries.
@@ -81,6 +84,21 @@ func executeA8Accounting(ctx context.Context, queries *generated.Queries, write 
 			return fmt.Errorf("a8_fill_posting_failed")
 		}
 	}
+	for _, balance := range write.Balances {
+		if _, err := queries.UpdateVirtualBalanceProjection(ctx, balance); err != nil {
+			return fmt.Errorf("a8_balance_projection_failed")
+		}
+	}
+	for _, position := range write.Positions {
+		if _, err := queries.UpsertPositionProjection(ctx, position); err != nil {
+			return fmt.Errorf("a8_position_projection_failed")
+		}
+	}
+	for _, projection := range write.Projections {
+		if _, err := queries.UpsertProjectionRevision(ctx, projection); err != nil {
+			return fmt.Errorf("a8_projection_revision_failed")
+		}
+	}
 	if _, err := queries.ReduceCanonicalOrder(ctx, write.Order); err != nil {
 		return fmt.Errorf("a8_order_reduce_failed")
 	}
@@ -96,5 +114,6 @@ func executeA8Accounting(ctx context.Context, queries *generated.Queries, write 
 func validA8Write(write A8AtomicWrite) bool {
 	return write.Order.ID != "" && write.OrderEvent.ID != "" && write.OrderEvent.OrderID == write.Order.ID &&
 		len(write.Fills) > 0 && write.Journal.ID != "" && len(write.Entries) >= 2 &&
-		len(write.Postings) > 0 && write.Checkpoint.ID != "" && write.Outbox.ID != ""
+		len(write.Postings) > 0 && len(write.Balances) > 0 && len(write.Positions) > 0 &&
+		len(write.Projections) > 0 && write.Checkpoint.ID != "" && write.Outbox.ID != ""
 }

@@ -213,6 +213,48 @@ func TestReservationQuarantineKeepsUncertainOwnershipReserved(t *testing.T) {
 	}
 }
 
+func TestReservationSettlementIsAtomicAndRequiresCurrentRevisionFence(t *testing.T) {
+	ledger := NewReservationLedger()
+	account, _ := domain.NewVirtualAccountID("account-a")
+	quote := BalanceKey{Account: account, Asset: "USDT"}
+	base := BalanceKey{Account: account, Asset: "BTC"}
+	quoteBalance, _ := domain.ParseBalance("500")
+	zero, _ := domain.ParseBalance("0")
+	reserved, _ := domain.ParseBalance("100.1")
+	debit, _ := domain.ParseBalance("100.05")
+	credit, _ := domain.ParseBalance("1")
+	_ = ledger.OpenBalance(quote, quoteBalance)
+	_ = ledger.OpenBalance(base, zero)
+	id, _ := domain.NewReservationID("reservation-settle")
+	reservation, _ := ledger.Reserve(id, quote, reserved, 11)
+	if err := ledger.Settle(id, reservation.Revision+1, 11, debit, base, credit); err == nil {
+		t.Fatal("stale revision settled reservation")
+	}
+	beforeQuote, _ := ledger.Balance(quote)
+	beforeBase, _ := ledger.Balance(base)
+	if err := ledger.Settle(id, reservation.Revision, 12, debit, base, credit); err == nil {
+		t.Fatal("stale fence settled reservation")
+	}
+	afterQuote, _ := ledger.Balance(quote)
+	afterBase, _ := ledger.Balance(base)
+	if beforeQuote != afterQuote || beforeBase != afterBase {
+		t.Fatal("rejected settlement changed balances")
+	}
+	if err := ledger.Settle(id, reservation.Revision, 11, debit, base, credit); err != nil {
+		t.Fatal(err)
+	}
+	quoteResult, _ := ledger.Balance(quote)
+	baseResult, _ := ledger.Balance(base)
+	settled, _ := ledger.Reservation(id)
+	if quoteResult.Available.String() != "399.95" || quoteResult.Reserved.String() != "0" ||
+		baseResult.Available.String() != "1" || settled.State != ReservationConsumed || settled.Revision != 2 {
+		t.Fatalf("settlement = %#v %#v %#v", quoteResult, baseResult, settled)
+	}
+	if err := ledger.Settle(id, reservation.Revision, 11, debit, base, credit); err == nil {
+		t.Fatal("settlement replay credited ownership twice")
+	}
+}
+
 func TestWeightedAverageCostAndRealizedPnLStaySeparated(t *testing.T) {
 	basis := NewCostBasis()
 	firstQuantity, _ := domain.ParseBalance("2")

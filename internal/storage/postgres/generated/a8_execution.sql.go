@@ -585,3 +585,140 @@ func (q *Queries) ReduceCanonicalOrder(ctx context.Context, arg ReduceCanonicalO
 	)
 	return &i, err
 }
+
+const updateVirtualBalanceProjection = `-- name: UpdateVirtualBalanceProjection :one
+UPDATE virtual_balances
+SET available=$1, reserved=$2,
+  revision=revision+1, updated_at=$3
+WHERE account_id=$4 AND asset_symbol=$5
+  AND revision=$6
+RETURNING account_id, asset_symbol, available, reserved, revision, updated_at
+`
+
+type UpdateVirtualBalanceProjectionParams struct {
+	Available        interface{}        `db:"available" json:"available"`
+	Reserved         interface{}        `db:"reserved" json:"reserved"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	AccountID        string             `db:"account_id" json:"account_id"`
+	AssetSymbol      string             `db:"asset_symbol" json:"asset_symbol"`
+	ExpectedRevision int64              `db:"expected_revision" json:"expected_revision"`
+}
+
+func (q *Queries) UpdateVirtualBalanceProjection(ctx context.Context, arg UpdateVirtualBalanceProjectionParams) (*VirtualBalance, error) {
+	row := q.db.QueryRow(ctx, updateVirtualBalanceProjection,
+		arg.Available,
+		arg.Reserved,
+		arg.UpdatedAt,
+		arg.AccountID,
+		arg.AssetSymbol,
+		arg.ExpectedRevision,
+	)
+	var i VirtualBalance
+	err := row.Scan(
+		&i.AccountID,
+		&i.AssetSymbol,
+		&i.Available,
+		&i.Reserved,
+		&i.Revision,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const upsertPositionProjection = `-- name: UpsertPositionProjection :one
+INSERT INTO positions (
+  account_id, instrument_id, quantity, weighted_average_cost, realized_pnl,
+  revision, updated_at
+) VALUES (
+  $1, $2, $3,
+  $4, $5, 1,
+  $6
+)
+ON CONFLICT (account_id, instrument_id) DO UPDATE
+SET quantity=EXCLUDED.quantity,
+  weighted_average_cost=EXCLUDED.weighted_average_cost,
+  realized_pnl=EXCLUDED.realized_pnl,
+  revision=positions.revision+1,
+  updated_at=EXCLUDED.updated_at
+WHERE positions.revision=$7
+RETURNING account_id, instrument_id, quantity, weighted_average_cost, realized_pnl, revision, updated_at
+`
+
+type UpsertPositionProjectionParams struct {
+	AccountID           string             `db:"account_id" json:"account_id"`
+	InstrumentID        string             `db:"instrument_id" json:"instrument_id"`
+	Quantity            interface{}        `db:"quantity" json:"quantity"`
+	WeightedAverageCost interface{}        `db:"weighted_average_cost" json:"weighted_average_cost"`
+	RealizedPnl         interface{}        `db:"realized_pnl" json:"realized_pnl"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ExpectedRevision    int64              `db:"expected_revision" json:"expected_revision"`
+}
+
+func (q *Queries) UpsertPositionProjection(ctx context.Context, arg UpsertPositionProjectionParams) (*Position, error) {
+	row := q.db.QueryRow(ctx, upsertPositionProjection,
+		arg.AccountID,
+		arg.InstrumentID,
+		arg.Quantity,
+		arg.WeightedAverageCost,
+		arg.RealizedPnl,
+		arg.UpdatedAt,
+		arg.ExpectedRevision,
+	)
+	var i Position
+	err := row.Scan(
+		&i.AccountID,
+		&i.InstrumentID,
+		&i.Quantity,
+		&i.WeightedAverageCost,
+		&i.RealizedPnl,
+		&i.Revision,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const upsertProjectionRevision = `-- name: UpsertProjectionRevision :one
+INSERT INTO projection_revisions (
+  account_id, projection_kind, revision, source_journal_id, projection_hash, updated_at
+) VALUES (
+  $1, $2, 1, $3,
+  $4, $5
+)
+ON CONFLICT (account_id, projection_kind) DO UPDATE
+SET revision=projection_revisions.revision+1,
+  source_journal_id=EXCLUDED.source_journal_id,
+  projection_hash=EXCLUDED.projection_hash,
+  updated_at=EXCLUDED.updated_at
+WHERE projection_revisions.revision=$6
+RETURNING account_id, projection_kind, revision, source_journal_id, projection_hash, updated_at
+`
+
+type UpsertProjectionRevisionParams struct {
+	AccountID        string             `db:"account_id" json:"account_id"`
+	ProjectionKind   string             `db:"projection_kind" json:"projection_kind"`
+	SourceJournalID  string             `db:"source_journal_id" json:"source_journal_id"`
+	ProjectionHash   interface{}        `db:"projection_hash" json:"projection_hash"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ExpectedRevision int64              `db:"expected_revision" json:"expected_revision"`
+}
+
+func (q *Queries) UpsertProjectionRevision(ctx context.Context, arg UpsertProjectionRevisionParams) (*ProjectionRevision, error) {
+	row := q.db.QueryRow(ctx, upsertProjectionRevision,
+		arg.AccountID,
+		arg.ProjectionKind,
+		arg.SourceJournalID,
+		arg.ProjectionHash,
+		arg.UpdatedAt,
+		arg.ExpectedRevision,
+	)
+	var i ProjectionRevision
+	err := row.Scan(
+		&i.AccountID,
+		&i.ProjectionKind,
+		&i.Revision,
+		&i.SourceJournalID,
+		&i.ProjectionHash,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}

@@ -520,16 +520,17 @@ type RecoveryAttempt struct {
 }
 
 type Reservation struct {
-	ID           string             `db:"id" json:"id"`
-	AccountID    string             `db:"account_id" json:"account_id"`
-	AssetSymbol  string             `db:"asset_symbol" json:"asset_symbol"`
-	Quantity     interface{}        `db:"quantity" json:"quantity"`
-	State        string             `db:"state" json:"state"`
-	FencingToken int64              `db:"fencing_token" json:"fencing_token"`
-	Revision     int64              `db:"revision" json:"revision"`
-	OrderID      *string            `db:"order_id" json:"order_id"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID                string             `db:"id" json:"id"`
+	AccountID         string             `db:"account_id" json:"account_id"`
+	AssetSymbol       string             `db:"asset_symbol" json:"asset_symbol"`
+	Quantity          interface{}        `db:"quantity" json:"quantity"`
+	State             string             `db:"state" json:"state"`
+	FencingToken      int64              `db:"fencing_token" json:"fencing_token"`
+	Revision          int64              `db:"revision" json:"revision"`
+	OrderID           *string            `db:"order_id" json:"order_id"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	RemainingQuantity interface{}        `db:"remaining_quantity" json:"remaining_quantity"`
 }
 
 type RiskEvaluation struct {

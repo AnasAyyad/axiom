@@ -75,3 +75,44 @@ INSERT INTO run_checkpoints (
   projection_hash, model_namespace_id, deterministic_state_hash
 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 RETURNING *;
+
+-- name: UpdateVirtualBalanceProjection :one
+UPDATE virtual_balances
+SET available=sqlc.arg(available), reserved=sqlc.arg(reserved),
+  revision=revision+1, updated_at=sqlc.arg(updated_at)
+WHERE account_id=sqlc.arg(account_id) AND asset_symbol=sqlc.arg(asset_symbol)
+  AND revision=sqlc.arg(expected_revision)
+RETURNING *;
+
+-- name: UpsertPositionProjection :one
+INSERT INTO positions (
+  account_id, instrument_id, quantity, weighted_average_cost, realized_pnl,
+  revision, updated_at
+) VALUES (
+  sqlc.arg(account_id), sqlc.arg(instrument_id), sqlc.arg(quantity),
+  sqlc.arg(weighted_average_cost), sqlc.arg(realized_pnl), 1,
+  sqlc.arg(updated_at)
+)
+ON CONFLICT (account_id, instrument_id) DO UPDATE
+SET quantity=EXCLUDED.quantity,
+  weighted_average_cost=EXCLUDED.weighted_average_cost,
+  realized_pnl=EXCLUDED.realized_pnl,
+  revision=positions.revision+1,
+  updated_at=EXCLUDED.updated_at
+WHERE positions.revision=sqlc.arg(expected_revision)
+RETURNING *;
+
+-- name: UpsertProjectionRevision :one
+INSERT INTO projection_revisions (
+  account_id, projection_kind, revision, source_journal_id, projection_hash, updated_at
+) VALUES (
+  sqlc.arg(account_id), sqlc.arg(projection_kind), 1, sqlc.arg(source_journal_id),
+  sqlc.arg(projection_hash), sqlc.arg(updated_at)
+)
+ON CONFLICT (account_id, projection_kind) DO UPDATE
+SET revision=projection_revisions.revision+1,
+  source_journal_id=EXCLUDED.source_journal_id,
+  projection_hash=EXCLUDED.projection_hash,
+  updated_at=EXCLUDED.updated_at
+WHERE projection_revisions.revision=sqlc.arg(expected_revision)
+RETURNING *;
