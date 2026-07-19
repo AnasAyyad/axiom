@@ -1,15 +1,26 @@
 openapi: 3.0.3
 info:
   title: Axiom V1A API
-  version: 0.1.0
+  version: 1.0.0
   description: >-
-    Public health/build information plus authenticated A5 operational health.
-    Axiom V1A is research and simulation software; real trading is disabled.
+    Authenticated research, replay, and production-public shadow operations.
+    Axiom V1A is simulation software and cannot place external orders.
 servers:
   - url: /
 tags:
   - name: Health
+  - name: Session
   - name: System
+  - name: Binance
+  - name: Portfolio
+  - name: Risk
+  - name: Trend
+  - name: Backtest
+  - name: Replay
+  - name: Shadow
+  - name: Incident
+  - name: Audit
+  - name: Stream
 paths:
   /health/live:
     get:
@@ -21,198 +32,1341 @@ paths:
           description: Process is live
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
+              schema: { $ref: "#/components/schemas/HealthResponse" }
   /health/ready:
     get:
       operationId: getReadiness
       tags: [Health]
-      summary: Report whether required A1 dependencies are available
+      summary: Report whether all role prerequisites are ready
       responses:
         "200":
-          description: Process is ready for its A1 skeleton role
+          description: Role is ready
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
+              schema: { $ref: "#/components/schemas/HealthResponse" }
         "503":
-          description: A required dependency is unavailable
+          $ref: "#/components/responses/HealthUnavailable"
+  /api/v1/session/login:
+    post:
+      operationId: loginSession
+      tags: [Session]
+      summary: Authenticate and rotate to a fresh opaque session
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "201":
+          description: Authenticated session created
+          headers:
+            Set-Cookie:
+              schema: { type: string }
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/session/logout:
+    post:
+      operationId: logoutSession
+      tags: [Session]
+      summary: Revoke the current session and clear its cookies
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+      responses:
+        "204": { description: Session revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/session/me:
+    get:
+      operationId: getCurrentSession
+      tags: [Session]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Current user and session projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionMe" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /api/v1/system/version:
     get:
       operationId: getVersion
       tags: [System]
-      summary: Return the application version
       responses:
         "200":
           description: Version identity
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/VersionResponse"
+              schema: { $ref: "#/components/schemas/VersionResponse" }
   /api/v1/system/build:
     get:
       operationId: getBuildInformation
       tags: [System]
-      summary: Return non-secret build identity
       responses:
         "200":
-          description: Build identity
+          description: Non-secret build identity
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/BuildInformation"
+              schema: { $ref: "#/components/schemas/BuildInformation" }
   /api/v1/system/status:
     get:
       operationId: getSystemStatus
       tags: [System]
-      summary: Return the A1 skeleton safety and lifecycle state
+      security: [{ sessionCookie: [] }]
       responses:
         "200":
-          description: Current system status
+          description: Current fail-closed system projection
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/SystemStatus"
+              schema: { $ref: "#/components/schemas/SystemStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /api/v1/system/health:
     get:
       operationId: getDetailedHealth
       tags: [System]
-      summary: Return redacted dependency detail to an authenticated operator
-      security:
-        - operationalBearer: []
+      summary: Return internal redacted dependency detail on the metrics network
+      security: [{ operationalBearer: [] }]
       responses:
         "200":
           description: Redacted detailed health
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/DetailedHealthResponse"
-        "401":
-          description: Missing or invalid operational bearer token
+              schema: { $ref: "#/components/schemas/DetailedHealthResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
-          description: At least one required dependency is unavailable
+          description: A dependency is unavailable
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/DetailedHealthResponse" }
+  /api/v1/exchanges/binance/health:
+    get:
+      operationId: getBinanceHealth
+      tags: [Binance]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Production-public Binance health projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BinanceHealth" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/exchanges/binance/instruments:
+    get:
+      operationId: listBinanceInstruments
+      tags: [Binance]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Deterministically ordered Spot metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstrumentPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/portfolios:
+    get:
+      operationId: listPortfolios
+      tags: [Portfolio]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Virtual portfolio summaries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortfolioPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/portfolios/{id}:
+    get:
+      operationId: getPortfolio
+      tags: [Portfolio]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Exact virtual balance and position projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortfolioDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/portfolios/{id}/journal:
+    get:
+      operationId: listPortfolioJournal
+      tags: [Portfolio]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Exact immutable virtual journal page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JournalPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/risk/status:
+    get:
+      operationId: getRiskStatus
+      tags: [Risk]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Effective global risk state and evidence
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RiskStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/risk/pause:
+    post:
+      operationId: pauseRisk
+      tags: [Risk]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses:
+        "202":
+          description: Durable pause command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /api/v1/risk/resume:
+    post:
+      operationId: resumeRisk
+      tags: [Risk]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses:
+        "202":
+          description: Policy-gated durable resume command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/strategies/trend:
+    get:
+      operationId: getTrendStrategy
+      tags: [Trend]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Immutable Trend version, parameters, and evidence maturity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrendStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/strategies/trend/decisions:
+    get:
+      operationId: listTrendDecisions
+      tags: [Trend]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: outcome
+          schema: { type: string, enum: [accepted, rejected] }
+      responses:
+        "200":
+          description: Canonical decision and rejection explanations
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrendDecisionPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/backtests:
+    post:
+      operationId: createBacktest
+      tags: [Backtest]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OfflineJobRequest" }
+      responses:
+        "202":
+          description: Durable backtest job accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/backtests/{id}:
+    get:
+      operationId: getBacktest
+      tags: [Backtest]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Backtest lifecycle, result, and reproducibility projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/replays:
+    post:
+      operationId: createReplay
+      tags: [Replay]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReplayJobRequest" }
+      responses:
+        "202":
+          description: Durable replay job accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/replays/{id}:
+    get:
+      operationId: getReplay
+      tags: [Replay]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Replay lifecycle and deterministic cursor projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/replays/{id}/pause:
+    post:
+      operationId: pauseReplay
+      tags: [Replay]
+      security: [{ sessionCookie: [] }]
+      parameters: &replayCommandParameters
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: &commandResponses
+        "202":
+          description: Durable command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /api/v1/replays/{id}/resume:
+    post:
+      operationId: resumeReplay
+      tags: [Replay]
+      security: [{ sessionCookie: [] }]
+      parameters: *replayCommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *commandResponses
+  /api/v1/replays/{id}/step:
+    post:
+      operationId: stepReplay
+      tags: [Replay]
+      security: [{ sessionCookie: [] }]
+      parameters: *replayCommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *commandResponses
+  /api/v1/shadow-sessions:
+    post:
+      operationId: createShadowSession
+      tags: [Shadow]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ShadowSessionRequest" }
+      responses:
+        "202":
+          description: Public-data simulation-only shadow session accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShadowSessionResource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/shadow-sessions/{id}/stop:
+    post:
+      operationId: stopShadowSession
+      tags: [Shadow]
+      security: [{ sessionCookie: [] }]
+      parameters: *replayCommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *commandResponses
+  /api/v1/shadow-sessions/{id}:
+    get:
+      operationId: getShadowSession
+      tags: [Shadow]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Public-data virtual shadow projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShadowSessionResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/incidents:
+    get:
+      operationId: listIncidents
+      tags: [Incident]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: state
+          schema: { type: string, enum: [open, acknowledged, resolved] }
+      responses:
+        "200":
+          description: Correlated incident summaries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/incidents/{id}:
+    get:
+      operationId: getIncident
+      tags: [Incident]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - in: query
+          name: include_raw
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Correlated redacted incident timeline
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/audit-events:
+    get:
+      operationId: listAuditEvents
+      tags: [Audit]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: event_type
+          schema: { type: string, maxLength: 80 }
+        - in: query
+          name: include_detail
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Redacted immutable audit page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEventPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/stream:
+    get:
+      operationId: streamEvents
+      tags: [Stream]
+      summary: Resume durable operational events after a REST snapshot revision
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - in: header
+          name: Last-Event-ID
+          schema: { $ref: "#/components/schemas/Revision" }
+        - in: query
+          name: after_revision
+          schema: { $ref: "#/components/schemas/Revision" }
+      responses:
+        "200":
+          description: Versioned SSE stream with 15-second heartbeats
+          content:
+            text/event-stream:
               schema:
-                $ref: "#/components/schemas/DetailedHealthResponse"
+                type: string
+                description: Each data field is one StreamEvent JSON object.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "410":
+          description: Resume cursor expired; fetch fresh REST snapshots
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 components:
   securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: axiom_session
     operationalBearer:
       type: http
       scheme: bearer
       bearerFormat: opaque
+  parameters:
+    Origin:
+      in: header
+      name: Origin
+      required: true
+      schema: { type: string, format: uri, maxLength: 512 }
+    CSRFToken:
+      in: header
+      name: X-CSRF-Token
+      required: true
+      schema: { type: string, minLength: 32, maxLength: 512 }
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        {
+          type: string,
+          minLength: 16,
+          maxLength: 128,
+          pattern: "^[A-Za-z0-9._:-]+$",
+        }
+    ResourceID:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 160 }
+    Cursor:
+      in: query
+      name: cursor
+      schema: { type: string, minLength: 16, maxLength: 1024 }
+    PageSize:
+      in: query
+      name: page_size
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+  requestBodies:
+    RevisionCommand:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RevisionCommandRequest" }
+  responses:
+    BadRequest:
+      description: Request failed safe validation
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unauthorized:
+      description: Authentication failed
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Authorization, Origin, or CSRF policy denied the request
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: Resource not found
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: Idempotency payload or lifecycle conflict
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    PreconditionFailed:
+      description: Expected entity revision is stale
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    RateLimited:
+      description: Durable authentication or workload quota exceeded
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unavailable:
+      description: A required fail-closed prerequisite is unavailable
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    HealthUnavailable:
+      description: A required dependency is unavailable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/HealthResponse" }
   schemas:
+    Decimal:
+      type: string
+      pattern: "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+      example: "1000.000000000000000000"
+    NonnegativeDecimal:
+      type: string
+      pattern: "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    Revision:
+      type: string
+      pattern: "^(0|[1-9][0-9]*)$"
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC 3339 timestamp with an explicit UTC offset.
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, correlation_id]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 80 }
+        message: { type: string, minLength: 1, maxLength: 240 }
+        correlation_id: { type: string, minLength: 1, maxLength: 160 }
+        field_details:
+          type: object
+          additionalProperties: { type: string, maxLength: 160 }
+    Page:
+      type: object
+      additionalProperties: false
+      required: [revision, has_more]
+      properties:
+        revision: { $ref: "#/components/schemas/Revision" }
+        next_cursor: { type: string, minLength: 16, maxLength: 1024 }
+        has_more: { type: boolean }
     HealthResponse:
       type: object
       additionalProperties: false
       required: [status, role, phase]
       properties:
-        status:
-          type: string
-          enum: [live, ready, not_ready]
-        role:
-          type: string
-          minLength: 1
-        phase:
-          type: string
-          enum: [A1]
-        reason_code:
-          type: string
-          minLength: 1
+        status: { type: string, enum: [live, ready, not_ready] }
+        role: { type: string, minLength: 1 }
+        phase: { type: string, enum: [A1, A11] }
+        reason_code: { type: string, minLength: 1 }
     VersionResponse:
       type: object
       additionalProperties: false
       required: [version]
       properties:
-        version:
-          type: string
-          minLength: 1
+        version: { type: string, minLength: 1 }
     BuildInformation:
       type: object
       additionalProperties: false
       required: [version, commit, built_at, go_version, dirty]
       properties:
-        version:
-          type: string
-          minLength: 1
-        commit:
-          type: string
-          minLength: 1
-        built_at:
-          type: string
-          minLength: 1
-        go_version:
-          type: string
-          minLength: 1
-        dirty:
-          type: boolean
+        version: { type: string, minLength: 1 }
+        commit: { type: string, minLength: 1 }
+        built_at: { type: string, minLength: 1 }
+        go_version: { type: string, minLength: 1 }
+        dirty: { type: boolean }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, minLength: 3, maxLength: 254 }
+        password:
+          { type: string, minLength: 1, maxLength: 1024, writeOnly: true }
+    LoginResponse:
+      type: object
+      additionalProperties: false
+      required: [user, csrf_token, expires_at]
+      properties:
+        user: { $ref: "#/components/schemas/SessionUser" }
+        csrf_token: { type: string, minLength: 32, maxLength: 512 }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+    SessionUser:
+      type: object
+      additionalProperties: false
+      required: [id, email, roles, permissions]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        roles: { type: array, items: { type: string }, maxItems: 16 }
+        permissions: { type: array, items: { type: string }, maxItems: 64 }
+    SessionMe:
+      type: object
+      additionalProperties: false
+      required: [user, session_id, session_revision, reauthenticated_at]
+      properties:
+        user: { $ref: "#/components/schemas/SessionUser" }
+        session_id: { type: string }
+        session_revision: { $ref: "#/components/schemas/Revision" }
+        reauthenticated_at: { $ref: "#/components/schemas/Timestamp" }
     SystemStatus:
       type: object
       additionalProperties: false
       required:
-        - release
-        - phase
-        - role
-        - lifecycle_state
-        - strategy_activation
-        - real_trading_enabled
+        [
+          release,
+          phase,
+          role,
+          lifecycle_state,
+          strategy_activation,
+          real_trading_enabled,
+        ]
       properties:
-        release:
-          type: string
-          enum: [V1A]
-        phase:
-          type: string
-          enum: [A1]
-        role:
-          type: string
-          minLength: 1
+        release: { type: string, enum: [V1A] }
+        phase: { type: string, enum: [A1, A11] }
+        role: { type: string, minLength: 1 }
         lifecycle_state:
-          type: string
-          enum: [STARTING, READY_PAUSED, STOPPING]
-        strategy_activation:
-          type: string
-          enum: [unavailable]
-        real_trading_enabled:
-          type: boolean
-          enum: [false]
+          {
+            type: string,
+            enum: [STARTING, READY_PAUSED, RUNNING, DEGRADED, STOPPING],
+          }
+        strategy_activation: { type: string, enum: [unavailable, trend.v1a.1] }
+        real_trading_enabled: { type: boolean, enum: [false] }
+        environment: { type: string }
+        execution_mode:
+          { type: string, enum: [backtest, replay, paper, shadow] }
+        engine_state: { type: string }
+        binance_state: { type: string }
+        risk_state: { type: string, enum: [PAUSED, RESUMED, LOCKED] }
+        active_resource_id: { type: string }
+        critical_incidents: { type: integer, minimum: 0 }
+        server_time: { $ref: "#/components/schemas/Timestamp" }
+        clock_drift_ms: { type: string, pattern: "^-?(0|[1-9][0-9]*)$" }
+        revision: { $ref: "#/components/schemas/Revision" }
     DetailedHealthResponse:
       type: object
       additionalProperties: false
       required:
         [status, role, lifecycle_state, real_trading_enabled, components]
       properties:
-        status:
-          type: string
-          enum: [ready, not_ready]
-        role:
-          type: string
-          minLength: 1
+        status: { type: string, enum: [ready, not_ready] }
+        role: { type: string }
         lifecycle_state:
-          type: string
-          enum: [STARTING, READY_PAUSED, STOPPING]
-        real_trading_enabled:
-          type: boolean
-          enum: [false]
+          {
+            type: string,
+            enum: [STARTING, READY_PAUSED, RUNNING, DEGRADED, STOPPING],
+          }
+        real_trading_enabled: { type: boolean, enum: [false] }
         components:
           type: array
-          maxItems: 16
-          items:
-            $ref: "#/components/schemas/HealthComponent"
+          maxItems: 32
+          items: { $ref: "#/components/schemas/HealthComponent" }
     HealthComponent:
       type: object
       additionalProperties: false
       required: [name, status]
       properties:
         name:
-          type: string
-          enum: [postgres]
-        status:
-          type: string
-          enum: [ready, not_ready]
+          {
+            type: string,
+            enum:
+              [
+                postgres,
+                authentication,
+                outbox,
+                public_binance,
+                disk,
+                recovery,
+              ],
+          }
+        status: { type: string, enum: [ready, not_ready] }
         reason_code:
-          type: string
-          enum: [required_dependency_unavailable]
+          {
+            type: string,
+            enum:
+              [
+                required_dependency_unavailable,
+                bootstrap_required,
+                stale,
+                locked,
+              ],
+          }
+    BinanceHealth:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          environment,
+          public_only,
+          websocket_state,
+          book_state,
+          recorder_state,
+          revision,
+          observed_at,
+        ]
+      properties:
+        environment: { type: string, enum: [production_public] }
+        public_only: { type: boolean, enum: [true] }
+        capabilities: { type: array, items: { type: string }, maxItems: 16 }
+        websocket_state:
+          { type: string, enum: [healthy, reconnecting, degraded, stale] }
+        book_state: { type: string, enum: [healthy, rebuilding, gapped, stale] }
+        clock_drift_ms: { type: string, pattern: "^-?(0|[1-9][0-9]*)$" }
+        gaps: { type: integer, minimum: 0 }
+        rebuilds: { type: integer, minimum: 0 }
+        recorder_state:
+          { type: string, enum: [healthy, degraded, paused, unavailable] }
+        revision: { $ref: "#/components/schemas/Revision" }
+        observed_at: { $ref: "#/components/schemas/Timestamp" }
+    Instrument:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          symbol,
+          product,
+          price_tick,
+          quantity_step,
+          minimum_quantity,
+          minimum_notional,
+          metadata_version,
+        ]
+      properties:
+        id: { type: string }
+        symbol: { type: string }
+        product: { type: string, enum: [spot] }
+        price_tick: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        quantity_step: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        minimum_quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        minimum_notional: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        metadata_version: { $ref: "#/components/schemas/Revision" }
+    InstrumentPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/Instrument" },
+              }
+    PortfolioSummary:
+      type: object
+      additionalProperties: false
+      required: [id, label, mode, equity, available, reserved, revision]
+      properties:
+        id: { type: string }
+        label: { type: string, enum: [VIRTUAL] }
+        mode: { type: string, enum: [backtest, replay, paper, shadow] }
+        equity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        available: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        reserved: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    PortfolioPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/PortfolioSummary" },
+              }
+    Balance:
+      type: object
+      additionalProperties: false
+      required: [asset, available, reserved]
+      properties:
+        asset: { type: string }
+        available: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        reserved: { $ref: "#/components/schemas/NonnegativeDecimal" }
+    Position:
+      type: object
+      additionalProperties: false
+      required:
+        [instrument, quantity, average_cost, unrealized_pnl, realized_pnl, fees]
+      properties:
+        instrument: { type: string }
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        average_cost: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        unrealized_pnl: { $ref: "#/components/schemas/Decimal" }
+        realized_pnl: { $ref: "#/components/schemas/Decimal" }
+        fees: { $ref: "#/components/schemas/NonnegativeDecimal" }
+    PortfolioDetail:
+      allOf:
+        - $ref: "#/components/schemas/PortfolioSummary"
+        - type: object
+          required: [balances, positions, updated_at]
+          properties:
+            balances:
+              { type: array, items: { $ref: "#/components/schemas/Balance" } }
+            positions:
+              { type: array, items: { $ref: "#/components/schemas/Position" } }
+            updated_at: { $ref: "#/components/schemas/Timestamp" }
+    JournalEntry:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          transaction_id,
+          asset,
+          direction,
+          quantity,
+          occurred_at,
+          correlation_id,
+        ]
+      properties:
+        id: { type: string }
+        transaction_id: { type: string }
+        asset: { type: string }
+        direction: { type: string, enum: [debit, credit] }
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        correlation_id: { type: string }
+    JournalPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [virtual, items]
+          properties:
+            virtual: { type: boolean, enum: [true] }
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/JournalEntry" },
+              }
+    RiskContributor:
+      type: object
+      additionalProperties: false
+      required: [name, usage, limit, reason_code]
+      properties:
+        name: { type: string }
+        usage: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        limit: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        reason_code: { type: string }
+    RiskStatus:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          state,
+          revision,
+          policy_version,
+          contributors,
+          recovery_ready,
+          updated_at,
+        ]
+      properties:
+        state: { type: string, enum: [NORMAL, CAUTIOUS, PAUSED, LOCKED] }
+        revision: { $ref: "#/components/schemas/Revision" }
+        policy_version: { $ref: "#/components/schemas/Revision" }
+        reason_codes: { type: array, items: { type: string }, maxItems: 64 }
+        contributors:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/RiskContributor" },
+          }
+        recovery_ready: { type: boolean }
+        unresolved_critical: { type: integer, minimum: 0 }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    RevisionCommandRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, reason]
+      properties:
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    CommandAccepted:
+      type: object
+      additionalProperties: false
+      required: [id, state, target_id, revision, correlation_id, created_at]
+      properties:
+        id: { type: string }
+        state: { type: string, enum: [pending, applied, rejected, failed] }
+        target_id: { type: string }
+        revision: { $ref: "#/components/schemas/Revision" }
+        correlation_id: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    TrendParameter:
+      type: object
+      additionalProperties: false
+      required: [id, value, unit, cadence, mutability]
+      properties:
+        id: { type: string }
+        value: { type: string }
+        unit: { type: string }
+        cadence: { type: string }
+        mutability: { type: string, enum: [immutable_per_run] }
+    TrendStatus:
+      type: object
+      additionalProperties: false
+      required:
+        [version, timeframe, health, evidence_maturity, parameters, revision]
+      properties:
+        version: { type: string, enum: [trend.v1a.1] }
+        timeframe: { type: string, enum: [4h] }
+        health:
+          { type: string, enum: [healthy, warming, paused, degraded, locked] }
+        evidence_maturity:
+          {
+            type: string,
+            enum: [local_tier_b, formal_tier_a, insufficient, rejected],
+          }
+        viability:
+          {
+            type: string,
+            enum: [undetermined, viable_for_more_research, rejected],
+          }
+        parameters:
+          {
+            type: array,
+            minItems: 16,
+            maxItems: 16,
+            items: { $ref: "#/components/schemas/TrendParameter" },
+          }
+        revision: { $ref: "#/components/schemas/Revision" }
+    TrendDecision:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          outcome,
+          reason_code,
+          explanation,
+          candle_view_id,
+          market_view_id,
+          occurred_at,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        outcome: { type: string, enum: [accepted, rejected] }
+        reason_code: { type: string }
+        explanation: { type: string, maxLength: 2000 }
+        candle_view_id: { type: string }
+        market_view_id: { type: string }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    TrendDecisionPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/TrendDecision" },
+              }
+    OfflineJobRequest:
+      type: object
+      additionalProperties: false
+      required: [dataset_id, strategy_version, configuration_id, root_seed_hash]
+      properties:
+        dataset_id: { type: string }
+        strategy_version: { type: string, enum: [trend.v1a.1] }
+        configuration_id: { type: string }
+        root_seed_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+    ReplayJobRequest:
+      allOf:
+        - $ref: "#/components/schemas/OfflineJobRequest"
+        - type: object
+          properties:
+            speed: { type: string, enum: [original, accelerated, maximum] }
+            incident_id: { type: string }
+            first_ordinal: { $ref: "#/components/schemas/Revision" }
+            last_ordinal: { $ref: "#/components/schemas/Revision" }
+    JobResult:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          result_hash,
+          platform_correctness,
+          strategy_evidence,
+          viability,
+          reproducibility,
+        ]
+      properties:
+        result_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        platform_correctness: { type: string }
+        strategy_evidence: { type: string }
+        viability:
+          {
+            type: string,
+            enum: [undetermined, viable_for_more_research, rejected],
+          }
+        reproducibility: { type: string }
+        metrics:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/Decimal" }
+    JobResource:
+      type: object
+      additionalProperties: false
+      required: [id, kind, state, mode_label, revision, created_at]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [backtest, replay] }
+        state:
+          {
+            type: string,
+            enum:
+              [
+                QUEUED,
+                RUNNING,
+                PAUSE_REQUESTED,
+                PAUSED,
+                CANCEL_REQUESTED,
+                CANCELED,
+                SUCCEEDED,
+                FAILED,
+              ],
+          }
+        mode_label: { type: string, enum: [BACKTEST, REPLAY] }
+        revision: { $ref: "#/components/schemas/Revision" }
+        progress: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        cursor_ordinal: { $ref: "#/components/schemas/Revision" }
+        failure_code: { type: string }
+        result: { $ref: "#/components/schemas/JobResult" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ShadowSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [configuration_id, strategy_version, portfolio_id]
+      properties:
+        configuration_id: { type: string }
+        strategy_version: { type: string, enum: [trend.v1a.1] }
+        portfolio_id: { type: string }
+    SimulatedOrder:
+      type: object
+      additionalProperties: false
+      required: [id, instrument, side, state, quantity, limit_price, simulated]
+      properties:
+        id: { type: string }
+        instrument: { type: string }
+        side: { type: string, enum: [buy, sell] }
+        state: { type: string }
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        limit_price: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        filled_quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        latency_ms: { type: string, pattern: "^(0|[1-9][0-9]*)$" }
+        simulated: { type: boolean, enum: [true] }
+    ShadowSessionResource:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          state,
+          label,
+          public_only,
+          simulation_only,
+          entries_enabled,
+          revision,
+          created_at,
+        ]
+      properties:
+        id: { type: string }
+        state:
+          {
+            type: string,
+            enum: [QUEUED, RUNNING, PAUSED, CANCEL_REQUESTED, CANCELED, FAILED],
+          }
+        label: { type: string, enum: [PUBLIC-LIVE SHADOW / VIRTUAL] }
+        public_only: { type: boolean, enum: [true] }
+        simulation_only: { type: boolean, enum: [true] }
+        entries_enabled: { type: boolean }
+        revision: { $ref: "#/components/schemas/Revision" }
+        risk_state: { type: string, enum: [PAUSED, RESUMED, LOCKED] }
+        orders:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/SimulatedOrder" },
+          }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        stopped_at: { $ref: "#/components/schemas/Timestamp" }
+        failure_code: { type: string }
+    IncidentSummary:
+      type: object
+      additionalProperties: false
+      required: [id, severity, state, reason_code, opened_at, revision]
+      properties:
+        id: { type: string }
+        severity: { type: string, enum: [warning, error, critical] }
+        state: { type: string, enum: [open, acknowledged, resolved] }
+        reason_code: { type: string }
+        opened_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    IncidentPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/IncidentSummary" },
+              }
+    TimelineEvent:
+      type: object
+      additionalProperties: false
+      required: [id, event_type, occurred_at, correlation_id, redacted]
+      properties:
+        id: { type: string }
+        event_type: { type: string }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        correlation_id: { type: string }
+        redacted: { type: boolean }
+        safe_detail: { type: string, maxLength: 2000 }
+    IncidentDetail:
+      allOf:
+        - $ref: "#/components/schemas/IncidentSummary"
+        - type: object
+          required: [timeline, replay_window]
+          properties:
+            timeline:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/TimelineEvent" },
+              }
+            replay_window:
+              type: object
+              additionalProperties: false
+              required: [dataset_id, first_ordinal, last_ordinal]
+              properties:
+                dataset_id: { type: string }
+                first_ordinal: { $ref: "#/components/schemas/Revision" }
+                last_ordinal: { $ref: "#/components/schemas/Revision" }
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          event_type,
+          actor,
+          correlation_id,
+          causation_id,
+          recorded_at,
+          redacted,
+        ]
+      properties:
+        id: { type: string }
+        event_type: { type: string }
+        actor: { type: string }
+        correlation_id: { type: string }
+        causation_id: { type: string }
+        recorded_at: { $ref: "#/components/schemas/Timestamp" }
+        redacted: { type: boolean }
+        safe_detail: { type: string, maxLength: 2000 }
+    AuditEventPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/AuditEvent" },
+              }
+    StreamEvent:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          stream,
+          schema_version,
+          revision,
+          entity_revision,
+          occurred_at,
+          correlation_id,
+          causation_id,
+          event_type,
+          payload,
+        ]
+      properties:
+        id: { type: string }
+        stream:
+          {
+            type: string,
+            enum:
+              [
+                system,
+                exchange,
+                portfolio,
+                risk,
+                trend,
+                job,
+                shadow,
+                incident,
+                alert,
+                order,
+                fill,
+              ],
+          }
+        schema_version: { type: string, enum: [axiom.stream.v1] }
+        revision: { $ref: "#/components/schemas/Revision" }
+        entity_revision: { $ref: "#/components/schemas/Revision" }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        correlation_id: { type: string }
+        causation_id: { type: string }
+        event_type: { type: string }
+        payload: { type: object, additionalProperties: true }

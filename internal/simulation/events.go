@@ -13,10 +13,16 @@ func withSubmitting(
 	terminal []execution.OrderEvent,
 ) []execution.OrderEvent {
 	zero, _ := domain.ParseQuantity("0")
-	event := execution.OrderEvent{ID: fmt.Sprintf("%s-submitting", leg.OrderID.Value()), OrderID: leg.OrderID,
-		ClientOrderID: leg.ClientOrderID, State: execution.OrderSubmitting, ExchangeStatus: "SUBMITTING",
-		CumulativeQuantity: zero, OccurredAt: eventTime(decision), Ordinal: decision}
-	return append([]execution.OrderEvent{event}, terminal...)
+	states := []execution.OrderState{execution.OrderValidating, execution.OrderReserved,
+		execution.OrderApproved, execution.OrderSubmitting}
+	events := make([]execution.OrderEvent, 0, len(states)+len(terminal))
+	for index, state := range states {
+		ordinal := decision + uint64(index)
+		events = append(events, execution.OrderEvent{ID: fmt.Sprintf("%s-%s", leg.OrderID.Value(), state),
+			OrderID: leg.OrderID, ClientOrderID: leg.ClientOrderID, State: state, ExchangeStatus: string(state),
+			CumulativeQuantity: zero, OccurredAt: eventTime(ordinal), Ordinal: ordinal})
+	}
+	return append(events, terminal...)
 }
 
 func withArrival(

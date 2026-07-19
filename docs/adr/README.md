@@ -17,6 +17,7 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0009](0009-compose-file-secret-groups.md) | Accepted | File-backed Compose secrets use narrowly pinned read-only consumer groups. |
 | [0010](0010-a6-public-contract-emulator-boundary.md) | Accepted | A6 exposes public contracts and keeps its deterministic emulator test-only. |
 | [0011](0011-trend-version-and-research-generation.md) | Accepted | Trend decisions and final-test use are locked to immutable versions and visible generations. |
+| [0012](0012-a11-authentication-and-session-policy.md) | Accepted | A11 uses file-bootstrapped Argon2id credentials and hashed opaque sessions. |
 
 ## Naming and lifecycle
 

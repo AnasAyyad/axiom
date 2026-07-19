@@ -13,7 +13,6 @@ import (
 	"axiom/internal/backtest"
 	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
-	"axiom/internal/execution"
 	"axiom/internal/portfolio"
 	"axiom/internal/replay"
 	"axiom/internal/risk"
@@ -48,14 +47,8 @@ func TestA10TrendUsesRealAllocatorRiskPlannerAndSimulationPipeline(t *testing.T)
 	broker := trendSimulatedBroker(t, input, guard)
 	processor, err := backtest.NewPipelineProcessor(backtest.PipelineDependencies{Strategy: adapter,
 		Allocator: pipelineAllocator, Risk: pipelineRisk, Planner: planner, Broker: broker,
-		Reduce: func(_ context.Context, events []execution.OrderEvent) (json.RawMessage, json.RawMessage, error) {
-			if len(events) < 3 || events[len(events)-1].State != execution.OrderFilled ||
-				events[len(events)-1].OccurredAt.UnixNano() <= int64(input.LogicalTime) {
-				return nil, nil, trendError(ReasonMissedOrder)
-			}
-			orders, _ := json.Marshal(events)
-			return orders, json.RawMessage(`{"USDT":"reserved"}`), nil
-		}, Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "not_evaluated"} }})
+		Reduce:  pipelineAllocator.ReduceSimulation,
+		Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "not_evaluated"} }})
 	if err != nil {
 		t.Fatal(err)
 	}

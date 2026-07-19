@@ -14,6 +14,7 @@ var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 var runtimeReadInsertTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "asset_screening_versions", "assets", "audit_events",
+	"api_entity_revisions", "authentication_failures", "authorization_permissions",
 	"allocation_candidates", "allocation_reservations", "allocation_score_components",
 	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
@@ -23,14 +24,14 @@ var runtimeReadInsertTables = []string{
 	"circuit_breaker_events", "fill_journal_postings", "liquidity_domains", "liquidity_reservations", "model_namespaces", "opportunities", "order_attempts", "order_events", "order_reduction_incidents", "orders", "outbox_events", "portfolio_ownership", "portfolios", "positions",
 	"projection_revisions", "quarantined_scopes", "reconciliation_cases", "reconciliation_differences", "reconciliation_suspense", "recovery_attempts", "reservations",
 	"risk_evaluation_policies", "risk_evaluations", "risk_policies", "risk_policy_limits", "risk_state_events", "run_checkpoints", "run_results", "runs", "sessions", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters",
-	"run_canonical_outputs", "run_manifests", "strategy_portfolios", "strategy_versions", "user_roles", "users", "virtual_accounts", "virtual_balances",
+	"experiment_final_test_consumptions", "research_generations", "research_reports", "role_permissions", "run_canonical_outputs", "run_manifests", "shadow_sessions", "strategy_portfolios", "strategy_versions", "stream_connections", "trend_decisions", "user_roles", "users", "virtual_accounts", "virtual_balances",
 }
 
 var runtimeUpdateTables = []string{
 	"alert_deliveries", "alerts", "allocation_candidates", "assets", "command_requests", "consumer_cursors", "dataset_manifests", "execution_lease_epochs",
 	"execution_leases", "incidents", "jobs", "market_data_segments", "model_versions", "orders", "outbox_events",
 	"liquidity_domains", "liquidity_reservations", "positions", "projection_revisions", "quarantined_scopes", "reconciliation_cases", "reservations", "runs", "sessions", "startup_recovery_attempts", "strategy_versions",
-	"users", "virtual_balances",
+	"api_entity_revisions", "shadow_sessions", "stream_connections", "users", "virtual_balances",
 }
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
@@ -43,7 +44,7 @@ var recorderWriteTables = []string{
 	"alert_deliveries", "alerts", "data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "market_data_segments",
 }
 
-var recorderAppendTables = []string{"audit_events"}
+var recorderAppendTables = []string{"audit_events", "instrument_metadata_versions"}
 
 var readOnlyTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "allocation_candidates", "allocation_reservations", "allocation_score_components", "asset_screening_versions", "assets", "audit_events",
@@ -53,8 +54,8 @@ var readOnlyTables = []string{
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
 	"liquidity_domains", "liquidity_reservations", "model_namespaces", "opportunities", "order_attempts", "order_events", "order_reduction_incidents", "orders", "portfolio_ownership", "portfolios", "positions",
 	"projection_revisions", "quarantined_scopes", "reconciliation_cases", "reconciliation_differences", "reconciliation_suspense", "reservations", "risk_evaluation_policies", "risk_evaluations", "risk_policies", "risk_policy_limits", "risk_state_events",
-	"run_canonical_outputs", "run_checkpoints", "run_manifests", "run_results", "runs", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters", "strategy_portfolios",
-	"strategy_versions", "virtual_accounts", "virtual_balances",
+	"experiment_final_test_consumptions", "research_generations", "research_reports", "run_canonical_outputs", "run_checkpoints", "run_manifests", "run_results", "runs", "shadow_sessions", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters", "strategy_portfolios",
+	"strategy_versions", "trend_decisions", "virtual_accounts", "virtual_balances",
 }
 
 // ApplyRoleGrants applies the closed runtime, recorder, and reporting matrices.

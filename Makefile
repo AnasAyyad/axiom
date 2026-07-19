@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-e2e-qualify a11-security-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -50,6 +50,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a6-exchange-boundary.mjs
 	@$(NODE) scripts/check-a7-public-boundary.mjs
 	@$(NODE) scripts/check-a10-strategy-boundary.mjs
+	@$(NODE) scripts/check-a11-console-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -190,6 +191,38 @@ a10-research-qualify: ## Verify deterministic Go research and the independent lo
 	@python3 -c 'import sys; assert sys.version_info[:3] == (3, 12, 3), sys.version'
 	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
 	@$(GO) test ./internal/research -count=1 -v
+
+a11-sqlc: ## Generate and compile reviewed A11 authentication and console queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A11_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a11-postgres-qualify: ## Run A11 auth, command, projection, stream, and immutability qualification.
+	@test -n "$(AXIOM_A11_TEST_DSN)" || { echo "AXIOM_A11_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a11-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A11_TEST_DSN="$(AXIOM_A11_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA11PostgresAuthenticationCommandsAndConsoleQualification$$' -count=1 -v
+
+a11-contract-qualify: ## Prove exact OpenAPI operations, generated models, and boundary ownership.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-a11-console-boundary.mjs
+	@$(GO) test ./internal/api/... -count=1
+
+a11-api-qualify: ## Exercise A11 authentication, authorization, API, bootstrap, and storage policy.
+	@$(GO) test ./internal/authentication ./internal/api/... ./internal/bootstrap ./internal/config -count=1
+
+a11-frontend-qualify: ## Type-check, lint, test, and build the routed accessible console.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+
+a11-e2e-qualify: ## Run the deterministic browser workflow against the preview console.
+	@$(PNPM) --filter @axiom/web test:e2e
+
+a11-security-qualify: ## Run A11 ownership checks plus repository secret/capability scans.
+	@$(NODE) scripts/check-a11-console-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)"
 
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \

@@ -114,7 +114,7 @@ func (broker *SimulatedBroker) simulateLeg(
 			terminalWithoutFill(leg, execution.OrderExpired, arrival)), nil
 	}
 	state, ok, err := broker.timeline.AtOrAfter(leg.Instrument, arrival)
-	if err != nil || !ok || state.LogicalTime < arrival || state.LogicalTime <= plan.DecisionLogicalTime {
+	if err != nil || !ok || state.LogicalTime < arrival || state.LogicalTime < plan.DecisionLogicalTime {
 		return withSubmitting(leg, plan.DecisionLogicalTime,
 			terminalWithoutFill(leg, execution.OrderExpired, arrival)), nil
 	}

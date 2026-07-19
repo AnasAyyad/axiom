@@ -68,7 +68,7 @@ func Run(ctx context.Context, arguments []string, output, errorOutput io.Writer)
 	case commandWorker:
 		return runHTTPRole(ctx, runtimeConfig, productConfiguration, "worker", false, observability.NewLogger(errorOutput, "worker"))
 	case commandMigrate:
-		return runMigrate(ctx, runtimeConfig, output)
+		return runMigrate(ctx, runtimeConfig, productConfiguration, output)
 	default:
 		return errUsage
 	}

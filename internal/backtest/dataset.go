@@ -1,11 +1,42 @@
 package backtest
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 
 	"axiom/internal/recorder"
 	"axiom/internal/storage/segments"
 )
+
+// OpenSelectedDataset locates one exact immutable recorder manifest identity.
+func OpenSelectedDataset(root, datasetID, manifestHash string, compatibility DatasetCompatibility) (*DatasetReader, error) {
+	if root == "" || datasetID == "" || !validHash(manifestHash) {
+		return nil, backtestError("dataset_selection_invalid")
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, backtestError("dataset_selection_failed")
+	}
+	selected := ""
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".dataset.json") {
+			continue
+		}
+		path := filepath.Join(root, entry.Name())
+		manifest, readErr := recorder.ReadManifest(path)
+		if readErr == nil && manifest.DatasetID == datasetID && manifest.Hash == manifestHash {
+			if selected != "" {
+				return nil, backtestError("dataset_selection_ambiguous")
+			}
+			selected = path
+		}
+	}
+	if selected == "" {
+		return nil, backtestError("dataset_selection_missing")
+	}
+	return OpenDataset(root, selected, compatibility)
+}
 
 // DatasetCompatibility fixes admitted parser and normalizer versions.
 type DatasetCompatibility struct {

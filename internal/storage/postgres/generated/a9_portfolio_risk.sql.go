@@ -741,7 +741,7 @@ const insertRiskStateEvent = `-- name: InsertRiskStateEvent :one
 INSERT INTO risk_state_events (
   id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at
 ) VALUES ($1,$2,$3,$4,$5,$6,$7)
-RETURNING id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at
+RETURNING id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at, entity_revision
 `
 
 type InsertRiskStateEventParams struct {
@@ -773,6 +773,7 @@ func (q *Queries) InsertRiskStateEvent(ctx context.Context, arg InsertRiskStateE
 		&i.Actor,
 		&i.EvidenceHash,
 		&i.OccurredAt,
+		&i.EntityRevision,
 	)
 	return &i, err
 }

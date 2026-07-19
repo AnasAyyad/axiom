@@ -22,7 +22,7 @@ func TestOperationalPipelineReleasesAllocationAfterRiskFailure(t *testing.T) {
 	processor, err := NewPipelineProcessor(PipelineDependencies{
 		Strategy: pipelineStrategyProbe{}, Allocator: allocator, Risk: pipelineRiskProbe{},
 		Planner: pipelinePlannerProbe{}, Broker: pipelineBrokerProbe{},
-		Reduce: func(context.Context, []execution.OrderEvent) (json.RawMessage, json.RawMessage, error) {
+		Reduce: func(context.Context, AllocatedIntent, execution.SimulatedPlan, []execution.OrderEvent) (json.RawMessage, json.RawMessage, error) {
 			return nil, nil, nil
 		}, Metrics: func() Metrics { return Metrics{} },
 	})

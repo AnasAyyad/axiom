@@ -21,13 +21,33 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(circle at 20% 0%, rgb(32 99 130 / 22%), transparent 35rem),
-    var(--color-bg);
+    radial-gradient(
+      circle at 12% -10%,
+      rgb(31 143 124 / 20%),
+      transparent 32rem
+    ),
+    linear-gradient(rgb(255 255 255 / 1%) 1px, transparent 1px), var(--color-bg);
+  background-size:
+    auto,
+    100% 3rem,
+    auto;
 }
 
 button,
-a {
+a,
+input,
+select {
   font: inherit;
+}
+
+button,
+input,
+select {
+  color: inherit;
+}
+
+a {
+  color: inherit;
 }
 
 :focus-visible {

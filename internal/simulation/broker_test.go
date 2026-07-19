@@ -16,8 +16,9 @@ func TestBrokerUsesPostLatencyBookAndProducesExactFill(t *testing.T) {
 	broker := testBroker(t, bookState(t, 110, "100", "1"), balance(t, "0"))
 	plan := testPlan(t, "combined", false)
 	events, err := broker.Submit(context.Background(), plan)
-	if err != nil || len(events) != 3 || events[2].State != execution.OrderFilled ||
-		events[2].Fills[0].Price.String() != "100" || events[2].Fees[0].Total.String() != "0.1" {
+	last := len(events) - 1
+	if err != nil || len(events) != 6 || events[last].State != execution.OrderFilled ||
+		events[last].Fills[0].Price.String() != "100" || events[last].Fees[0].Total.String() != "0.1" {
 		t.Fatalf("events = %#v, %v", events, err)
 	}
 	reducer := approvedReducer(t, plan.Legs[0])
@@ -43,6 +44,16 @@ func TestBrokerRejectsSignalStateAndUnownedSell(t *testing.T) {
 	plan.Legs[0].LimitPrice, _ = domain.ParsePrice("99")
 	if codeOfBroker(broker.Submit(context.Background(), plan)) != "quantity_filter_invalid" {
 		t.Fatal("unowned sell was accepted")
+	}
+}
+
+func TestBrokerZeroLatencyUsesRecordedArrivalBookWithoutSignalCloseFill(t *testing.T) {
+	broker := testBroker(t, bookState(t, 100, "100", "1"), balance(t, "0"))
+	broker.models.Latency.Samples = []time.Duration{0}
+	events, err := broker.Submit(context.Background(), testPlan(t, "combined", false))
+	if err != nil || events[len(events)-1].State != execution.OrderFilled ||
+		events[len(events)-1].Fills[0].Price.String() != "100" {
+		t.Fatalf("zero-latency arrival = %#v %v", events, err)
 	}
 }
 
@@ -149,15 +160,6 @@ func approvedReducer(t *testing.T, leg execution.PlannedLeg) *execution.OrderRed
 		ClientOrderID: leg.ClientOrderID, Instrument: leg.Instrument, Side: leg.Side, Quantity: leg.Quantity})
 	if err != nil {
 		t.Fatal(err)
-	}
-	zero, _ := domain.ParseQuantity("0")
-	for index, state := range []execution.OrderState{execution.OrderValidating, execution.OrderReserved, execution.OrderApproved} {
-		event := execution.OrderEvent{ID: "approval-" + string(state), OrderID: leg.OrderID,
-			ClientOrderID: leg.ClientOrderID, State: state, ExchangeStatus: string(state), CumulativeQuantity: zero,
-			OccurredAt: time.Unix(0, int64(index+1)).UTC(), Ordinal: uint64(index + 1)}
-		if _, err = reducer.Reduce(event); err != nil {
-			t.Fatal(err)
-		}
 	}
 	return reducer
 }

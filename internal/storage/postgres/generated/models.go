@@ -90,6 +90,13 @@ type AllocationScoreComponent struct {
 	Ordinal        int32       `db:"ordinal" json:"ordinal"`
 }
 
+type ApiEntityRevision struct {
+	EntityType string             `db:"entity_type" json:"entity_type"`
+	EntityID   string             `db:"entity_id" json:"entity_id"`
+	Revision   int64              `db:"revision" json:"revision"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type Asset struct {
 	Symbol string `db:"symbol" json:"symbol"`
 }
@@ -119,6 +126,19 @@ type AuditEvent struct {
 	RecordedAt      pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
+type AuthenticationFailure struct {
+	ID                  string             `db:"id" json:"id"`
+	NormalizedEmailHash interface{}        `db:"normalized_email_hash" json:"normalized_email_hash"`
+	SourceScopeHash     interface{}        `db:"source_scope_hash" json:"source_scope_hash"`
+	OccurredAt          pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	CorrelationID       string             `db:"correlation_id" json:"correlation_id"`
+}
+
+type AuthorizationPermission struct {
+	ID          string `db:"id" json:"id"`
+	Description string `db:"description" json:"description"`
+}
+
 type AuthorizationRole struct {
 	ID   string `db:"id" json:"id"`
 	Name string `db:"name" json:"name"`
@@ -139,10 +159,24 @@ type CommandRequest struct {
 	ID               string             `db:"id" json:"id"`
 	DeduplicationKey string             `db:"deduplication_key" json:"deduplication_key"`
 	PayloadHash      interface{}        `db:"payload_hash" json:"payload_hash"`
-	ConfigurationID  string             `db:"configuration_id" json:"configuration_id"`
+	ConfigurationID  *string            `db:"configuration_id" json:"configuration_id"`
 	State            string             `db:"state" json:"state"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	AppliedAt        pgtype.Timestamptz `db:"applied_at" json:"applied_at"`
+	ActorUserID      *string            `db:"actor_user_id" json:"actor_user_id"`
+	SessionID        *string            `db:"session_id" json:"session_id"`
+	CommandKind      *string            `db:"command_kind" json:"command_kind"`
+	TargetType       *string            `db:"target_type" json:"target_type"`
+	TargetID         *string            `db:"target_id" json:"target_id"`
+	Reason           *string            `db:"reason" json:"reason"`
+	IdempotencyKey   *string            `db:"idempotency_key" json:"idempotency_key"`
+	ExpectedRevision *int64             `db:"expected_revision" json:"expected_revision"`
+	CorrelationID    *string            `db:"correlation_id" json:"correlation_id"`
+	CausationID      *string            `db:"causation_id" json:"causation_id"`
+	ResultPayload    []byte             `db:"result_payload" json:"result_payload"`
+	AuditEventID     *string            `db:"audit_event_id" json:"audit_event_id"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	EntityRevision   int64              `db:"entity_revision" json:"entity_revision"`
 }
 
 type ConfigurationActivation struct {
@@ -181,12 +215,14 @@ type DataQualityEvent struct {
 }
 
 type DatasetGap struct {
-	ID           string             `db:"id" json:"id"`
-	DatasetID    string             `db:"dataset_id" json:"dataset_id"`
-	FirstOrdinal int64              `db:"first_ordinal" json:"first_ordinal"`
-	LastOrdinal  int64              `db:"last_ordinal" json:"last_ordinal"`
-	ReasonCode   string             `db:"reason_code" json:"reason_code"`
-	DetectedAt   pgtype.Timestamptz `db:"detected_at" json:"detected_at"`
+	ID                  string             `db:"id" json:"id"`
+	DatasetID           string             `db:"dataset_id" json:"dataset_id"`
+	FirstOrdinal        *int64             `db:"first_ordinal" json:"first_ordinal"`
+	LastOrdinal         *int64             `db:"last_ordinal" json:"last_ordinal"`
+	ReasonCode          string             `db:"reason_code" json:"reason_code"`
+	DetectedAt          pgtype.Timestamptz `db:"detected_at" json:"detected_at"`
+	FirstSourceSequence *string            `db:"first_source_sequence" json:"first_source_sequence"`
+	LastSourceSequence  *string            `db:"last_source_sequence" json:"last_source_sequence"`
 }
 
 type DatasetManifest struct {
@@ -197,6 +233,11 @@ type DatasetManifest struct {
 	CoverageEnd         pgtype.Timestamptz `db:"coverage_end" json:"coverage_end"`
 	State               string             `db:"state" json:"state"`
 	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RecorderDatasetID   *string            `db:"recorder_dataset_id" json:"recorder_dataset_id"`
+	ManifestRevision    *int64             `db:"manifest_revision" json:"manifest_revision"`
+	ManifestPath        *string            `db:"manifest_path" json:"manifest_path"`
+	SourceCommit        *string            `db:"source_commit" json:"source_commit"`
+	DatasetKind         string             `db:"dataset_kind" json:"dataset_kind"`
 }
 
 type DatasetSegment struct {
@@ -371,16 +412,29 @@ type InstrumentMetadataVersion struct {
 }
 
 type Job struct {
-	ID             string             `db:"id" json:"id"`
-	JobType        string             `db:"job_type" json:"job_type"`
-	IdempotencyKey string             `db:"idempotency_key" json:"idempotency_key"`
-	State          string             `db:"state" json:"state"`
-	ClaimOwner     *string            `db:"claim_owner" json:"claim_owner"`
-	ClaimEpoch     *int64             `db:"claim_epoch" json:"claim_epoch"`
-	ClaimExpiresAt pgtype.Timestamptz `db:"claim_expires_at" json:"claim_expires_at"`
-	PayloadHash    interface{}        `db:"payload_hash" json:"payload_hash"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID                string             `db:"id" json:"id"`
+	JobType           string             `db:"job_type" json:"job_type"`
+	IdempotencyKey    string             `db:"idempotency_key" json:"idempotency_key"`
+	State             string             `db:"state" json:"state"`
+	ClaimOwner        *string            `db:"claim_owner" json:"claim_owner"`
+	ClaimEpoch        *int64             `db:"claim_epoch" json:"claim_epoch"`
+	ClaimExpiresAt    pgtype.Timestamptz `db:"claim_expires_at" json:"claim_expires_at"`
+	PayloadHash       interface{}        `db:"payload_hash" json:"payload_hash"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	OwnerUserID       *string            `db:"owner_user_id" json:"owner_user_id"`
+	RunID             *string            `db:"run_id" json:"run_id"`
+	RequestPayload    []byte             `db:"request_payload" json:"request_payload"`
+	ResultPayload     []byte             `db:"result_payload" json:"result_payload"`
+	FailureCode       *string            `db:"failure_code" json:"failure_code"`
+	RetryCount        int32              `db:"retry_count" json:"retry_count"`
+	MaxAttempts       int32              `db:"max_attempts" json:"max_attempts"`
+	ProgressRevision  int64              `db:"progress_revision" json:"progress_revision"`
+	ResumeOrdinal     int64              `db:"resume_ordinal" json:"resume_ordinal"`
+	SingleStep        bool               `db:"single_step" json:"single_step"`
+	CheckpointPayload []byte             `db:"checkpoint_payload" json:"checkpoint_payload"`
+	StartedAt         pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 }
 
 type JournalTransaction struct {
@@ -547,12 +601,21 @@ type OrderReductionIncident struct {
 }
 
 type OutboxEvent struct {
-	Revision    int64              `db:"revision" json:"revision"`
-	ID          string             `db:"id" json:"id"`
-	Topic       string             `db:"topic" json:"topic"`
-	PayloadHash interface{}        `db:"payload_hash" json:"payload_hash"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	PublishedAt pgtype.Timestamptz `db:"published_at" json:"published_at"`
+	Revision       int64              `db:"revision" json:"revision"`
+	ID             string             `db:"id" json:"id"`
+	Topic          string             `db:"topic" json:"topic"`
+	PayloadHash    interface{}        `db:"payload_hash" json:"payload_hash"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	PublishedAt    pgtype.Timestamptz `db:"published_at" json:"published_at"`
+	Stream         string             `db:"stream" json:"stream"`
+	SchemaVersion  string             `db:"schema_version" json:"schema_version"`
+	EntityType     string             `db:"entity_type" json:"entity_type"`
+	EntityID       string             `db:"entity_id" json:"entity_id"`
+	EntityRevision int64              `db:"entity_revision" json:"entity_revision"`
+	EventTime      pgtype.Timestamptz `db:"event_time" json:"event_time"`
+	CorrelationID  string             `db:"correlation_id" json:"correlation_id"`
+	CausationID    string             `db:"causation_id" json:"causation_id"`
+	Payload        []byte             `db:"payload" json:"payload"`
 }
 
 type Portfolio struct {
@@ -742,13 +805,20 @@ type RiskPolicyLimit struct {
 }
 
 type RiskStateEvent struct {
-	ID           string             `db:"id" json:"id"`
-	PriorState   string             `db:"prior_state" json:"prior_state"`
-	NextState    string             `db:"next_state" json:"next_state"`
-	ReasonCode   string             `db:"reason_code" json:"reason_code"`
-	Actor        string             `db:"actor" json:"actor"`
-	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
-	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	ID             string             `db:"id" json:"id"`
+	PriorState     string             `db:"prior_state" json:"prior_state"`
+	NextState      string             `db:"next_state" json:"next_state"`
+	ReasonCode     string             `db:"reason_code" json:"reason_code"`
+	Actor          string             `db:"actor" json:"actor"`
+	EvidenceHash   interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt     pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	EntityRevision int64              `db:"entity_revision" json:"entity_revision"`
+}
+
+type RolePermission struct {
+	RoleID       string             `db:"role_id" json:"role_id"`
+	PermissionID string             `db:"permission_id" json:"permission_id"`
+	GrantedAt    pgtype.Timestamptz `db:"granted_at" json:"granted_at"`
 }
 
 type Run struct {
@@ -826,12 +896,40 @@ type RunResult struct {
 }
 
 type Session struct {
-	ID        string             `db:"id" json:"id"`
-	UserID    string             `db:"user_id" json:"user_id"`
-	TokenHash interface{}        `db:"token_hash" json:"token_hash"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ExpiresAt pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
-	RevokedAt pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	ID                string             `db:"id" json:"id"`
+	UserID            string             `db:"user_id" json:"user_id"`
+	TokenHash         interface{}        `db:"token_hash" json:"token_hash"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ExpiresAt         pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	RevokedAt         pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	CsrfTokenHash     interface{}        `db:"csrf_token_hash" json:"csrf_token_hash"`
+	LastSeenAt        pgtype.Timestamptz `db:"last_seen_at" json:"last_seen_at"`
+	IdleExpiresAt     pgtype.Timestamptz `db:"idle_expires_at" json:"idle_expires_at"`
+	ReauthenticatedAt pgtype.Timestamptz `db:"reauthenticated_at" json:"reauthenticated_at"`
+	Revision          int64              `db:"revision" json:"revision"`
+	RevokedReason     *string            `db:"revoked_reason" json:"revoked_reason"`
+}
+
+type ShadowSession struct {
+	ID                string             `db:"id" json:"id"`
+	CommandID         string             `db:"command_id" json:"command_id"`
+	RunID             *string            `db:"run_id" json:"run_id"`
+	PortfolioID       *string            `db:"portfolio_id" json:"portfolio_id"`
+	State             string             `db:"state" json:"state"`
+	Revision          int64              `db:"revision" json:"revision"`
+	PublicExchange    string             `db:"public_exchange" json:"public_exchange"`
+	SimulationOnly    bool               `db:"simulation_only" json:"simulation_only"`
+	EntriesEnabled    bool               `db:"entries_enabled" json:"entries_enabled"`
+	ConfigurationID   *string            `db:"configuration_id" json:"configuration_id"`
+	StrategyVersionID *string            `db:"strategy_version_id" json:"strategy_version_id"`
+	DecisionDatasetID *string            `db:"decision_dataset_id" json:"decision_dataset_id"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	StartedAt         pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	StoppedAt         pgtype.Timestamptz `db:"stopped_at" json:"stopped_at"`
+	FailureCode       *string            `db:"failure_code" json:"failure_code"`
+	ClaimOwner        *string            `db:"claim_owner" json:"claim_owner"`
+	ClaimEpoch        *int64             `db:"claim_epoch" json:"claim_epoch"`
+	ClaimExpiresAt    pgtype.Timestamptz `db:"claim_expires_at" json:"claim_expires_at"`
 }
 
 type StartupRecoveryAttempt struct {
@@ -900,6 +998,16 @@ type StrategyVersion struct {
 	Notes              *string            `db:"notes" json:"notes"`
 }
 
+type StreamConnection struct {
+	ID           string             `db:"id" json:"id"`
+	UserID       string             `db:"user_id" json:"user_id"`
+	SessionID    string             `db:"session_id" json:"session_id"`
+	OpenedAt     pgtype.Timestamptz `db:"opened_at" json:"opened_at"`
+	HeartbeatAt  pgtype.Timestamptz `db:"heartbeat_at" json:"heartbeat_at"`
+	ClosedAt     pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	LastRevision int64              `db:"last_revision" json:"last_revision"`
+}
+
 type TrendDecision struct {
 	DecisionID              string             `db:"decision_id" json:"decision_id"`
 	ExplanationHash         interface{}        `db:"explanation_hash" json:"explanation_hash"`
@@ -923,12 +1031,15 @@ type TrendDecision struct {
 }
 
 type User struct {
-	ID           string             `db:"id" json:"id"`
-	Email        string             `db:"email" json:"email"`
-	PasswordHash string             `db:"password_hash" json:"password_hash"`
-	Status       string             `db:"status" json:"status"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	DisabledAt   pgtype.Timestamptz `db:"disabled_at" json:"disabled_at"`
+	ID                string             `db:"id" json:"id"`
+	Email             string             `db:"email" json:"email"`
+	PasswordHash      string             `db:"password_hash" json:"password_hash"`
+	Status            string             `db:"status" json:"status"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	DisabledAt        pgtype.Timestamptz `db:"disabled_at" json:"disabled_at"`
+	NormalizedEmail   string             `db:"normalized_email" json:"normalized_email"`
+	RoleRevision      int64              `db:"role_revision" json:"role_revision"`
+	PasswordChangedAt pgtype.Timestamptz `db:"password_changed_at" json:"password_changed_at"`
 }
 
 type UserRole struct {

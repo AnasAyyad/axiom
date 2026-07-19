@@ -56,7 +56,7 @@ type PipelineDependencies struct {
 	Risk      RiskEngine
 	Planner   execution.ExecutionPlanner
 	Broker    execution.Broker
-	Reduce    func(context.Context, []execution.OrderEvent) (json.RawMessage, json.RawMessage, error)
+	Reduce    func(context.Context, AllocatedIntent, execution.SimulatedPlan, []execution.OrderEvent) (json.RawMessage, json.RawMessage, error)
 	Metrics   func() Metrics
 }
 
@@ -104,7 +104,7 @@ func (processor *PipelineProcessor) Process(ctx context.Context, event replay.Ev
 		}
 		return EventResult{}, backtestError("simulation_stage_failed")
 	}
-	orders, balances, err := processor.dependencies.Reduce(ctx, events)
+	orders, balances, err := processor.dependencies.Reduce(ctx, allocated, plan, events)
 	if err != nil {
 		if processor.closeAllocation(ctx, allocated, AllocationQuarantined) != nil {
 			return EventResult{}, backtestError("allocation_cleanup_failed")
@@ -112,7 +112,37 @@ func (processor *PipelineProcessor) Process(ctx context.Context, event replay.Ev
 		return EventResult{}, backtestError("durable_stage_failed")
 	}
 	decision, _ := json.Marshal(approved)
-	return EventResult{Ordinal: event.Ordinal, Decision: decision, Orders: orders, Balances: balances}, nil
+	canonicalEvents, err := canonicalExecutionEvents(plan, events)
+	if err != nil {
+		return EventResult{}, backtestError("durable_stage_failed")
+	}
+	executionEvents, _ := json.Marshal(canonicalEvents)
+	return EventResult{Ordinal: event.Ordinal, Decision: decision, Orders: orders,
+		ExecutionEvents: executionEvents, Balances: balances}, nil
+}
+
+func canonicalExecutionEvents(plan execution.SimulatedPlan,
+	events []execution.OrderEvent) ([]execution.OrderEvent, error) {
+	canonical := make([]execution.OrderEvent, 0, len(events))
+	if len(events) == 0 {
+		return canonical, nil
+	}
+	for _, leg := range plan.Legs {
+		identity := execution.OrderIdentity{ID: leg.OrderID, PlanID: plan.ID,
+			ClientOrderID: leg.ClientOrderID, Instrument: leg.Instrument, Side: leg.Side, Quantity: leg.Quantity}
+		legEvents := make([]execution.OrderEvent, 0, len(events))
+		for _, event := range events {
+			if event.OrderID == leg.OrderID {
+				legEvents = append(legEvents, event)
+			}
+		}
+		_, applied, err := execution.ReduceOrderEvents(identity, legEvents)
+		if err != nil || len(applied) == 0 {
+			return nil, backtestError("canonical_execution_events_invalid")
+		}
+		canonical = append(canonical, applied...)
+	}
+	return canonical, nil
 }
 
 func (processor *PipelineProcessor) closeAllocation(

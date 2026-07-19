@@ -84,6 +84,13 @@ func (recorder *Recorder) RecordRaw(input RawInput) (RawLink, error) {
 	if err != nil {
 		return RawLink{}, recorderError("ordinal_exhausted")
 	}
+	return recorder.recordRawAt(input, ordinal)
+}
+
+func (recorder *Recorder) recordRawAt(input RawInput, ordinal uint64) (RawLink, error) {
+	if ordinal == 0 || validateRawInput(input, recorder.exchange, recorder.sessionID) != nil {
+		return RawLink{}, recorderError("raw_input_invalid")
+	}
 	hash := sha256.Sum256(input.Payload)
 	row := segments.WireRow{IngestOrdinal: ordinal, Exchange: input.Exchange, EventType: string(input.EventType),
 		BaseAsset: string(input.Instrument.Base), QuoteAsset: string(input.Instrument.Quote),
@@ -92,7 +99,7 @@ func (recorder *Recorder) RecordRaw(input RawInput) (RawLink, error) {
 		RecordedLogicalTime: input.RecordedLogicalTime, SourceSequence: input.SourceSequence,
 		ExchangeTimeUnixNano: timePointer(input.ExchangeTime), ReceivedAtUnixNano: input.ReceivedAt.UnixNano(),
 		Payload: append([]byte(nil), input.Payload...), PayloadSHA256: hash}
-	if err = segments.ValidateWireRow(row); err != nil {
+	if err := segments.ValidateWireRow(row); err != nil {
 		return RawLink{}, recorderError("wire_row_invalid")
 	}
 	recorder.mutex.Lock()
@@ -156,6 +163,45 @@ func (recorder *Recorder) RecordCanonical(input CanonicalInput) error {
 	return nil
 }
 
+// RecordDecisionInput appends an exact in-process decision input through the
+// same raw-before-canonical durability boundary used for public wire data.
+func (recorder *Recorder) RecordDecisionInput(input DecisionInput) (uint64, error) {
+	return recorder.RecordDecisionInputBuilt(input, func(uint64) ([]byte, error) {
+		return append([]byte(nil), input.Payload...), nil
+	})
+}
+
+// RecordDecisionInputBuilt atomically binds the canonical payload to the
+// authoritative recorder ordinal before either representation is appended.
+func (recorder *Recorder) RecordDecisionInputBuilt(input DecisionInput, build DecisionInputBuilder) (uint64, error) {
+	if !identifierPattern.MatchString(input.EventID) || input.LogicalTime == 0 || input.ReceivedAt.IsZero() ||
+		input.ReceivedAt.Location() != time.UTC || build == nil {
+		return 0, recorderError("decision_input_invalid")
+	}
+	ordinal, err := recorder.ordinals.Next()
+	if err != nil {
+		return 0, recorderError("ordinal_exhausted")
+	}
+	payload, err := build(ordinal)
+	if err != nil || len(payload) == 0 {
+		return 0, recorderError("decision_input_invalid")
+	}
+	link, err := recorder.recordRawAt(RawInput{Exchange: recorder.exchange, EventType: EventDecisionInput,
+		Instrument: input.Instrument, SessionID: recorder.sessionID, ConnectionID: "decision-input",
+		ConnectionGeneration: 1, MonotonicOffsetNanos: input.LogicalTime,
+		RecordedLogicalTime: input.LogicalTime, SourceSequence: input.EventID,
+		ReceivedAt: input.ReceivedAt, Payload: append([]byte(nil), payload...)}, ordinal)
+	if err != nil {
+		return 0, err
+	}
+	if err = recorder.RecordCanonical(CanonicalInput{Link: link, EventID: input.EventID,
+		ParserVersion: "decision-input.v1", NormalizationVersion: "decision-input.v1",
+		Canonical: append([]byte(nil), payload...), SourceSequence: input.EventID}); err != nil {
+		return 0, err
+	}
+	return link.IngestOrdinal, nil
+}
+
 // RecordGap appends one explicit, ordered source-sequence gap.
 func (recorder *Recorder) RecordGap(gap Gap) error {
 	if err := validateGap(gap, recorder.exchange); err != nil {
@@ -194,7 +240,7 @@ func validateRawInput(input RawInput, exchange, session string) error {
 func validEventType(eventType EventType) bool {
 	switch eventType {
 	case EventDepth, EventTrade, EventCandle, EventSnapshot, EventLifecycle, EventSubscription,
-		EventGap, EventRebuild, EventDecoderError, EventClockSample, EventStreamFrame:
+		EventGap, EventRebuild, EventDecoderError, EventClockSample, EventStreamFrame, EventDecisionInput:
 		return true
 	default:
 		return false

@@ -71,7 +71,7 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | A8    | Execution/Research Platform     | A7 verified                           | Not started | Pending                            |
 | A9    | Portfolio/Risk Engineering      | A8 verified                           | Not started | Pending                            |
 | A10   | Strategy/Research               | A9 verified                           | Not started | Pending                            |
-| A11   | API/Frontend/Security           | A10 verified                          | Not started | Pending                            |
+| A11   | API/Frontend/Security           | A10 verified                          | In progress | API/auth/console implemented; runtime workflow pending |
 
 ## A0
 
@@ -269,7 +269,7 @@ Requirements: all `AX-V1A-A11-*` IDs. Entry: A10 verified.
 - [ ] Dependency/route/bundle/network inspection proves API/UI cannot enable real
       trading or bypass backend allocation/risk.
 
-Evidence register: pending.
+Evidence register: [A11 local implementation evidence](evidence/a11-local-validation.md).
 
 ## V1A release gate
 
@@ -300,16 +300,19 @@ Release decision: **Not evaluated; all evidence pending.**
 
 ## Known current limitations
 
-- The repository contains verified A1-A6 foundations and the implemented A7
-  production-public Binance collector/recorder. A7 remains gated on continuous
-  soak and final inspection; A8-A11 remain unimplemented.
+- The repository contains verified A1-A6 foundations, the implemented A7
+  production-public Binance collector/recorder, locally implemented A8-A10
+  candidates, and an A11 API/authentication/console candidate. A7 remains gated
+  on continuous soak and final inspection. A11's worker/shadow runtime
+  composition and current browser/runtime acceptance remain incomplete.
 - A1 has a committed source identity, owner-verified hosted CI/supply-chain
   artifacts, local immutable-candidate evidence, and a completed clean-machine
   setup/governance walkthrough.
 - The A0 review is an independent Codex architecture/static audit, not an
   external human security assessment and not runtime or release certification.
 - A7 targeted unit, emulator, race, public-network, recorder-role, and short
-  qualification evidence exists. Later-phase accessibility and end-to-end
-  workflow evidence does not.
+  qualification evidence exists. A11 component/axe and deterministic browser
+  specifications exist, but current full Playwright and end-to-end runtime
+  evidence does not.
 - The 72-hour Binance soak and clean backup/restore drill have not been executed.
 - A passing documentation review alone cannot advance A1–A11 or the release gate.

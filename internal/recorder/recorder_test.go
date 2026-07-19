@@ -48,6 +48,33 @@ func TestRecorderLinksWireCanonicalAndValidatesManifestChain(t *testing.T) {
 	verifySecondManifest(t, root, recorder, manifest, created)
 }
 
+func TestDecisionInputUsesRawBeforeCanonicalDatasetBoundary(t *testing.T) {
+	recorder, err := testRecorder(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte(`{"ordinal":1,"logical_time":10}`)
+	ordinal, err := recorder.RecordDecisionInputBuilt(DecisionInput{Instrument: recorderInstrument(t),
+		EventID: "decision-input-1", LogicalTime: 10, ReceivedAt: time.Unix(1, 0).UTC()},
+		func(assigned uint64) ([]byte, error) {
+			if assigned != 1 {
+				t.Fatalf("assigned ordinal = %d", assigned)
+			}
+			return payload, nil
+		})
+	if err != nil || ordinal != 1 {
+		t.Fatalf("decision input ordinal = %d, %v", ordinal, err)
+	}
+	manifest, err := recorder.Flush()
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := ValidateDataset(recorder.root, manifest)
+	if err != nil || len(records) != 1 || string(records[0].Canonical) != string(payload) {
+		t.Fatalf("decision dataset = %#v, %v", records, err)
+	}
+}
+
 func verifyFirstManifest(t *testing.T, root string, recorder *Recorder, manifest DatasetManifest) {
 	t.Helper()
 	path := filepath.Join(root, "session-a7-000001.dataset.json")

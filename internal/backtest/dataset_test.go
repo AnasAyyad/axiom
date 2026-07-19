@@ -57,6 +57,63 @@ func TestDatasetReaderDowngradesLowDensityAndRejectsVersions(t *testing.T) {
 	}
 }
 
+func TestOpenSelectedDatasetRequiresExactManifestIdentity(t *testing.T) {
+	root, selected := datasetFixture(t, 2)
+	manifest, err := recorder.ReadManifest(selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := OpenSelectedDataset(root, manifest.DatasetID, manifest.Hash, compatibility(1, 0))
+	if err != nil || reader.Descriptor().ManifestHash != manifest.Hash {
+		t.Fatalf("selected dataset = %#v %v", reader, err)
+	}
+	if _, err = OpenSelectedDataset(root, manifest.DatasetID, strings.Repeat("f", 64), compatibility(1, 0)); code(nil, err) != "dataset_selection_missing" {
+		t.Fatalf("wrong identity accepted: %v", err)
+	}
+}
+
+func TestDatasetSourceAdaptsVerifiedCanonicalEvidence(t *testing.T) {
+	root, selected := datasetFixture(t, 2)
+	reader, err := OpenDataset(root, selected, compatibility(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := NewDatasetSource(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event, ok, err := source.Next()
+	if err != nil || !ok || event.Ordinal != 1 || event.LogicalTime != 1 || string(event.Canonical) != `{"sequence":1}` {
+		t.Fatalf("replay event = %#v %t %v", event, ok, err)
+	}
+	if err = source.SeekOrdinal(2); err != nil {
+		t.Fatal(err)
+	}
+	event, ok, err = source.Next()
+	if err != nil || !ok || event.Ordinal != 2 {
+		t.Fatalf("seeked replay event = %#v %t %v", event, ok, err)
+	}
+}
+
+func TestDatasetWindowSourceStopsAtInclusiveBoundary(t *testing.T) {
+	root, selected := datasetFixture(t, 3)
+	reader, err := OpenDataset(root, selected, compatibility(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := NewDatasetWindowSource(reader, 2, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event, ok, err := source.Next()
+	if err != nil || !ok || event.Ordinal != 2 {
+		t.Fatalf("window event = %#v %t %v", event, ok, err)
+	}
+	if _, ok, err = source.Next(); err != nil || ok {
+		t.Fatalf("window end = %t %v", ok, err)
+	}
+}
+
 func TestRunManifestHashIncludesBuildDatasetAndNamespace(t *testing.T) {
 	root, selected := datasetFixture(t, 1)
 	reader, err := OpenDataset(root, selected, compatibility(1, 0))

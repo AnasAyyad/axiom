@@ -11,10 +11,11 @@ import (
 
 // EventResult contains canonical same-pipeline output for one input event.
 type EventResult struct {
-	Ordinal  uint64          `json:"ordinal"`
-	Decision json.RawMessage `json:"decision"`
-	Orders   json.RawMessage `json:"orders"`
-	Balances json.RawMessage `json:"balances"`
+	Ordinal         uint64          `json:"ordinal"`
+	Decision        json.RawMessage `json:"decision"`
+	Orders          json.RawMessage `json:"orders"`
+	ExecutionEvents json.RawMessage `json:"execution_events,omitempty"`
+	Balances        json.RawMessage `json:"balances"`
 }
 
 // Processor is the shared strategy/allocation/risk/execution/accounting path.
@@ -85,30 +86,54 @@ func NewEngine(controller *replay.Controller, processor Processor, manifest RunM
 
 // Run resumes the controller and returns byte-stable canonical output.
 func (engine *Engine) Run(ctx context.Context) (CanonicalResult, error) {
+	result, _, err := engine.RunControlled(ctx, nil)
+	return result, err
+}
+
+// RunControlled executes deterministically and may return an unsealed partial
+// result after a durable replay control requests a safe event boundary.
+func (engine *Engine) RunControlled(ctx context.Context,
+	pauseAfter func(uint64) (bool, error)) (CanonicalResult, bool, error) {
 	engine.controller.Resume()
 	results := make([]EventResult, 0)
 	for {
 		event, ok, err := engine.controller.Next(ctx)
 		if err != nil {
-			return CanonicalResult{}, err
+			return CanonicalResult{}, false, err
 		}
 		if !ok {
 			break
 		}
 		result, err := engine.processor.Process(ctx, event)
 		if err != nil || result.Ordinal != event.Ordinal {
-			return CanonicalResult{}, backtestError("processor_output_invalid")
+			return CanonicalResult{}, false, backtestError("processor_output_invalid")
 		}
 		results = append(results, cloneEventResult(result))
+		if pauseAfter != nil {
+			paused, controlErr := pauseAfter(event.Ordinal)
+			if controlErr != nil {
+				return CanonicalResult{}, false, controlErr
+			}
+			if paused {
+				return engine.canonicalResult(results, false)
+			}
+		}
 	}
+	return engine.canonicalResult(results, true)
+}
+
+func (engine *Engine) canonicalResult(results []EventResult, seal bool) (CanonicalResult, bool, error) {
 	output := CanonicalResult{ManifestHash: engine.manifestHash, Confidence: engine.manifest.Dataset.Confidence,
 		Namespace: engine.manifest.Models, Events: results, Metrics: engine.processor.Metrics()}
+	if !seal {
+		return output, true, nil
+	}
 	hash, err := resultHash(output)
 	if err != nil {
-		return CanonicalResult{}, err
+		return CanonicalResult{}, false, err
 	}
 	output.ResultHash = hash
-	return output, nil
+	return output, false, nil
 }
 
 // CompareResults rejects model-world mismatches before comparing result hashes.
@@ -132,6 +157,7 @@ func resultHash(result CanonicalResult) (string, error) {
 func cloneEventResult(result EventResult) EventResult {
 	result.Decision = append(json.RawMessage(nil), result.Decision...)
 	result.Orders = append(json.RawMessage(nil), result.Orders...)
+	result.ExecutionEvents = append(json.RawMessage(nil), result.ExecutionEvents...)
 	result.Balances = append(json.RawMessage(nil), result.Balances...)
 	return result
 }

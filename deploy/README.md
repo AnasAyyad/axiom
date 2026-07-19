@@ -47,10 +47,40 @@ Required for PostgreSQL:
 - `.secrets/backup_encryption_key`
 - `.secrets/postgres_readonly_password`
 
-The A5 `app` profile exposes redacted public liveness/readiness/build data and
+The A11 `api` service exposes redacted public liveness/readiness/build data and
 uses the independent health-detail token for authenticated component status.
-It mounts no session, CSRF, bootstrap, or TOTP secret. A11 adds those files only
-with the implemented authentication boundary.
+Only that service receives the bootstrap, CSRF, and session-signing files;
+the shadow engine, recorder, workers, and observability services do not.
+
+Required for A11 API startup:
+
+- `.secrets/bootstrap_owner_email`
+- `.secrets/bootstrap_owner_password_hash`
+- `.secrets/csrf_key`
+- `.secrets/session_signing_key`
+
+The bootstrap password file must contain a precomputed Argon2id PHC hash using
+64 MiB, three iterations, parallelism one, a 16-byte random salt, and 32-byte
+output. Axiom never accepts or stores a bootstrap plaintext password. Generate
+it locally without putting the password in shell arguments:
+
+```bash
+umask 077
+read -r -s -p 'Bootstrap password: ' AXIOM_BOOTSTRAP_PASSWORD; printf '\n'
+printf '%s\n' "$AXIOM_BOOTSTRAP_PASSWORD" | \
+  go run ./scripts/generate_bootstrap_hash.go > .secrets/bootstrap_owner_password_hash
+unset AXIOM_BOOTSTRAP_PASSWORD
+printf '%s\n' 'owner@example.invalid' > .secrets/bootstrap_owner_email
+openssl rand -base64 48 > .secrets/csrf_key
+openssl rand -base64 48 > .secrets/session_signing_key
+```
+
+On an empty database, missing, empty, placeholder, or obsolete bootstrap inputs
+keep readiness false. The first owner, role grants, and audit event are created
+in one transaction. Once a user exists, bootstrap files are ignored; removing
+them does not delete or recreate identity. CSRF and session-signing inputs stay
+required. Login cookies are host-only, `HttpOnly` for the session,
+`SameSite=Strict`, and `Secure` outside the local deployment environment.
 
 Required when observability is enabled:
 
@@ -79,6 +109,10 @@ sudo chgrp 0 .secrets/grafana_admin_password
 chmod 640 .secrets/grafana_admin_password
 sudo chgrp 70 .secrets/health_detail_token
 chmod 640 .secrets/health_detail_token
+sudo chgrp 70 .secrets/bootstrap_owner_email .secrets/bootstrap_owner_password_hash \
+  .secrets/csrf_key .secrets/session_signing_key
+chmod 640 .secrets/bootstrap_owner_email .secrets/bootstrap_owner_password_hash \
+  .secrets/csrf_key .secrets/session_signing_key
 ```
 
 GID `70` is pinned with `postgres:18.4-alpine` and the A1 application image;
@@ -138,10 +172,15 @@ APP_IMAGE=axiom:local APP_PULL_POLICY=never \
 For a server, use an image that CI has built, scanned, signed, and published;
 set `APP_IMAGE` to its immutable digest where possible.
 
-Typical public shadow stack:
+The `app` profile starts the API, production-public shadow engine, recorder,
+and credential-free offline worker together, so the console workflows do not
+silently omit their durable consumers. The narrower `record` and `workers`
+profiles remain available for independently scaled role deployments.
+
+Typical public shadow stack with observability:
 
 ```bash
-docker compose --profile app --profile record --profile observability up -d
+docker compose --profile app --profile observability up -d
 ```
 
 The `record` profile runs the A7 `platform recorder` composition. It connects

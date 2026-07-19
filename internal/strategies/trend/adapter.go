@@ -89,8 +89,19 @@ func (adapter *Adapter) portfolioCandidateValue(input Input, decision Decision) 
 		return portfolio.Candidate{}, err
 	}
 	score, _ := domain.ParsePnL("0")
+	reserved := moneyFromNotional(candidate.Notional)
+	if candidate.Side == domain.SideBuy {
+		fee, feeErr := domain.CalculateFee(candidate.Notional, input.Sizing.EntryFeeRate, 18)
+		if feeErr != nil {
+			return portfolio.Candidate{}, trendError(ReasonInvalidSizing)
+		}
+		reserved, err = reserved.AddFee(fee)
+		if err != nil {
+			return portfolio.Candidate{}, trendError(ReasonInvalidSizing)
+		}
+	}
 	payload := portfolio.Candidate{ID: decision.ID.Value(), Instrument: candidate.Instrument, Side: candidate.Side,
-		Quantity: candidate.Quantity, Notional: moneyFromNotional(candidate.Notional), Score: score,
+		Quantity: candidate.Quantity, Notional: reserved, Score: score,
 		ScoreComponents: []portfolio.ScoreComponent{{Name: "trend_stressed_edge", Value: score}},
 		BaseEligibility: input.Evidence.AssetEligibilityVersion, QuoteEligibility: input.Evidence.AssetEligibilityVersion,
 		LiquidityDomain: input.Sizing.LiquidityDomain, LiquidityReservation: liquidity,

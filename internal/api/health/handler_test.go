@@ -40,6 +40,18 @@ func TestReadinessReflectsDependency(t *testing.T) {
 	}
 }
 
+func TestReadinessRejectsStartingLifecycle(t *testing.T) {
+	mux := http.NewServeMux()
+	Register(mux, Options{Role: "engine-shadow", Dependency: dependency{},
+		Lifecycle: func() generated.SystemStatusLifecycleState { return generated.SystemStatusLifecycleStateSTARTING }})
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health/ready", nil))
+	if response.Code != http.StatusServiceUnavailable ||
+		!strings.Contains(response.Body.String(), `"reason_code":"bootstrap_required"`) {
+		t.Fatalf("starting lifecycle readiness: %d %s", response.Code, response.Body.String())
+	}
+}
+
 func TestSystemStatusHardCodesSafetyBoundary(t *testing.T) {
 	mux := http.NewServeMux()
 	Register(mux, Options{

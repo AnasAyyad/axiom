@@ -42,7 +42,7 @@ func TestA9RealAllocatorAndRiskComposeThroughSharedA8Pipeline(t *testing.T) {
 	guard, _ := portfolio.NewBrokerGuard(owned, registry)
 	processor, err := backtest.NewPipelineProcessor(backtest.PipelineDependencies{
 		Strategy: pipelineStrategy{candidate: pipelineCandidate(t)}, Allocator: pipelineAllocator, Risk: pipelineRisk,
-		Planner: planner, Broker: pipelineBroker{guard: guard}, Reduce: func(_ context.Context, _ []execution.OrderEvent) (json.RawMessage, json.RawMessage, error) {
+		Planner: planner, Broker: pipelineBroker{guard: guard}, Reduce: func(_ context.Context, _ backtest.AllocatedIntent, _ execution.SimulatedPlan, _ []execution.OrderEvent) (json.RawMessage, json.RawMessage, error) {
 			return json.RawMessage(`[]`), json.RawMessage(`{"USDT":"399.9"}`), nil
 		}, Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "unavailable"} },
 	})
@@ -72,7 +72,7 @@ func TestA9PipelineReleasesExclusiveClaimsAfterRiskRejection(t *testing.T) {
 	processor, err := backtest.NewPipelineProcessor(backtest.PipelineDependencies{
 		Strategy: pipelineStrategy{candidate: pipelineCandidate(t)}, Allocator: pipelineAllocator,
 		Risk: pipelineRejectingRisk{}, Planner: pipelinePlanner{}, Broker: pipelineBroker{},
-		Reduce: func(context.Context, []execution.OrderEvent) (json.RawMessage, json.RawMessage, error) {
+		Reduce: func(context.Context, backtest.AllocatedIntent, execution.SimulatedPlan, []execution.OrderEvent) (json.RawMessage, json.RawMessage, error) {
 			return nil, nil, nil
 		}, Metrics: func() backtest.Metrics { return backtest.Metrics{} },
 	})

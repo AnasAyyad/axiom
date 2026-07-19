@@ -165,14 +165,14 @@ const insertDatasetGap = `-- name: InsertDatasetGap :one
 INSERT INTO dataset_gaps (
   id, dataset_id, first_ordinal, last_ordinal, reason_code, detected_at
 ) VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, dataset_id, first_ordinal, last_ordinal, reason_code, detected_at
+RETURNING id, dataset_id, first_ordinal, last_ordinal, reason_code, detected_at, first_source_sequence, last_source_sequence
 `
 
 type InsertDatasetGapParams struct {
 	ID           string             `db:"id" json:"id"`
 	DatasetID    string             `db:"dataset_id" json:"dataset_id"`
-	FirstOrdinal int64              `db:"first_ordinal" json:"first_ordinal"`
-	LastOrdinal  int64              `db:"last_ordinal" json:"last_ordinal"`
+	FirstOrdinal *int64             `db:"first_ordinal" json:"first_ordinal"`
+	LastOrdinal  *int64             `db:"last_ordinal" json:"last_ordinal"`
 	ReasonCode   string             `db:"reason_code" json:"reason_code"`
 	DetectedAt   pgtype.Timestamptz `db:"detected_at" json:"detected_at"`
 }
@@ -194,6 +194,8 @@ func (q *Queries) InsertDatasetGap(ctx context.Context, arg InsertDatasetGapPara
 		&i.LastOrdinal,
 		&i.ReasonCode,
 		&i.DetectedAt,
+		&i.FirstSourceSequence,
+		&i.LastSourceSequence,
 	)
 	return &i, err
 }
@@ -202,7 +204,7 @@ const insertDatasetManifest = `-- name: InsertDatasetManifest :one
 INSERT INTO dataset_manifests (
   id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at
+RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at, recorder_dataset_id, manifest_revision, manifest_path, source_commit, dataset_kind
 `
 
 type InsertDatasetManifestParams struct {
@@ -234,6 +236,11 @@ func (q *Queries) InsertDatasetManifest(ctx context.Context, arg InsertDatasetMa
 		&i.CoverageEnd,
 		&i.State,
 		&i.CreatedAt,
+		&i.RecorderDatasetID,
+		&i.ManifestRevision,
+		&i.ManifestPath,
+		&i.SourceCommit,
+		&i.DatasetKind,
 	)
 	return &i, err
 }
@@ -500,7 +507,7 @@ func (q *Queries) LatestRunCheckpoint(ctx context.Context, runID string) (*RunCh
 }
 
 const listDatasetGaps = `-- name: ListDatasetGaps :many
-SELECT id, dataset_id, first_ordinal, last_ordinal, reason_code, detected_at FROM dataset_gaps
+SELECT id, dataset_id, first_ordinal, last_ordinal, reason_code, detected_at, first_source_sequence, last_source_sequence FROM dataset_gaps
 WHERE dataset_id = $1
 ORDER BY first_ordinal, last_ordinal, id
 `
@@ -521,6 +528,8 @@ func (q *Queries) ListDatasetGaps(ctx context.Context, datasetID string) ([]*Dat
 			&i.LastOrdinal,
 			&i.ReasonCode,
 			&i.DetectedAt,
+			&i.FirstSourceSequence,
+			&i.LastSourceSequence,
 		); err != nil {
 			return nil, err
 		}
@@ -586,7 +595,7 @@ const transitionDatasetManifest = `-- name: TransitionDatasetManifest :one
 UPDATE dataset_manifests
 SET state = $3
 WHERE id = $1 AND state = $2
-RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at
+RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at, recorder_dataset_id, manifest_revision, manifest_path, source_commit, dataset_kind
 `
 
 type TransitionDatasetManifestParams struct {
@@ -606,6 +615,11 @@ func (q *Queries) TransitionDatasetManifest(ctx context.Context, arg TransitionD
 		&i.CoverageEnd,
 		&i.State,
 		&i.CreatedAt,
+		&i.RecorderDatasetID,
+		&i.ManifestRevision,
+		&i.ManifestPath,
+		&i.SourceCommit,
+		&i.DatasetKind,
 	)
 	return &i, err
 }

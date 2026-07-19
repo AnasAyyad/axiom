@@ -59,7 +59,7 @@ type Portfolio struct {
 	revision  uint64
 }
 
-// InitializeV1ATrend creates exactly 500 USDT and zero BTC/ETH with journal proof.
+// InitializeV1ATrend creates the locked V1A baseline of 500 USDT and zero BTC/ETH.
 func InitializeV1ATrend(
 	runID domain.RunID,
 	portfolioID domain.PortfolioID,
@@ -68,15 +68,31 @@ func InitializeV1ATrend(
 	journal accounting.Journal,
 	recordedAt domain.EventTime,
 ) (*Portfolio, error) {
+	capital, _ := domain.ParseBalance("500.00")
+	return InitializeTrend(runID, portfolioID, accountID, configurationHash, capital, journal, recordedAt)
+}
+
+// InitializeTrend creates an exact configured virtual USDT balance and zero
+// BTC/ETH inventory with immutable journal proof.
+func InitializeTrend(
+	runID domain.RunID,
+	portfolioID domain.PortfolioID,
+	accountID domain.VirtualAccountID,
+	configurationHash string,
+	startingCapital domain.Balance,
+	journal accounting.Journal,
+	recordedAt domain.EventTime,
+) (*Portfolio, error) {
+	zero, _ := domain.ParseBalance("0")
 	if runID.Value() == "" || portfolioID.Value() == "" || accountID.Value() == "" ||
-		configurationHash == "" || journal == nil || recordedAt.Validate() != nil {
+		configurationHash == "" || startingCapital.Compare(zero) <= 0 || journal == nil || recordedAt.Validate() != nil {
 		return nil, portfolioError("initialization_invalid")
 	}
 	portfolio := newV1APortfolio(portfolioID, accountID)
-	if err := portfolio.openInitialBalances(); err != nil {
+	if err := portfolio.openInitialBalances(startingCapital); err != nil {
 		return nil, err
 	}
-	if err := journal.Append(initializationTransaction(runID, portfolioID, configurationHash, recordedAt)); err != nil {
+	if err := journal.Append(initializationTransaction(runID, portfolioID, configurationHash, startingCapital, recordedAt)); err != nil {
 		return nil, portfolioError("initialization_journal_failed")
 	}
 	return portfolio, nil
@@ -89,8 +105,8 @@ func newV1APortfolio(portfolioID domain.PortfolioID, accountID domain.VirtualAcc
 		positions: make(map[domain.Instrument]Position), revision: 1}
 }
 
-func (portfolio *Portfolio) openInitialBalances() error {
-	for _, item := range []struct{ asset, quantity string }{{"USDT", "500.00"}, {"BTC", "0"}, {"ETH", "0"}} {
+func (portfolio *Portfolio) openInitialBalances(startingCapital domain.Balance) error {
+	for _, item := range []struct{ asset, quantity string }{{"USDT", startingCapital.String()}, {"BTC", "0"}, {"ETH", "0"}} {
 		asset, _ := domain.ParseAssetSymbol(item.asset)
 		quantity, _ := domain.ParseBalance(item.quantity)
 		key := accounting.BalanceKey{Account: portfolio.ownership.AccountID, Asset: asset}
@@ -106,17 +122,17 @@ func initializationTransaction(
 	runID domain.RunID,
 	portfolioID domain.PortfolioID,
 	configurationHash string,
+	startingCapital domain.Balance,
 	recordedAt domain.EventTime,
 ) accounting.Transaction {
 	id, _ := domain.NewJournalTransactionID("v1a-trend-initialization")
 	cause, _ := domain.NewEventID("v1a-trend-initialization")
 	asset, _ := domain.ParseAssetSymbol(V1ANumeraire)
-	quantity, _ := domain.ParseBalance("500.00")
 	return accounting.Transaction{ID: id, Type: "portfolio_initialization", RunID: runID,
 		PortfolioID: portfolioID, ConfigurationHash: configurationHash, CausationID: cause,
 		RecordedAt: recordedAt, IngestOrdinal: recordedAt.Sequence, Lines: []accounting.Line{
-			{Account: accounting.AccountKey{Class: accounting.AvailableAsset, Asset: asset, Owner: V1AStrategy}, Direction: accounting.Debit, Quantity: quantity},
-			{Account: accounting.AccountKey{Class: accounting.ExternalEquity, Asset: asset, Owner: V1AStrategy}, Direction: accounting.Credit, Quantity: quantity},
+			{Account: accounting.AccountKey{Class: accounting.AvailableAsset, Asset: asset, Owner: V1AStrategy}, Direction: accounting.Debit, Quantity: startingCapital},
+			{Account: accounting.AccountKey{Class: accounting.ExternalEquity, Asset: asset, Owner: V1AStrategy}, Direction: accounting.Credit, Quantity: startingCapital},
 		}}
 }
 

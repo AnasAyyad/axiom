@@ -15,12 +15,20 @@
     "format:check": "prettier --ignore-path ../.prettierignore --check . ../scripts/*.mjs ../package.json ../pnpm-workspace.yaml ../api/*.yaml '../.github/**/*.yml'",
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run src",
+    "test:e2e": "playwright test",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "1.1.19",
+    "@radix-ui/react-dialog": "1.1.19",
+    "@tanstack/react-query": "5.101.2",
+    "@tanstack/react-table": "8.21.3",
+    "echarts": "6.1.0",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "react-router-dom": "7.18.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@babel/core": "8.0.1",

@@ -47,39 +47,46 @@ RETURNING *;
 -- name: ClaimNextJob :one
 WITH candidate AS (
   SELECT id FROM jobs
-  WHERE (state = 'queued' OR
-      (state IN ('claimed','running') AND claim_expires_at <= $1))
+  WHERE (state = 'QUEUED' OR
+      (state = 'RUNNING' AND claim_expires_at <= $1))
     AND (claim_epoch IS NULL OR claim_epoch < $3)
+    AND (owner_user_id IS NULL OR state = 'RUNNING' OR
+      (SELECT count(*) FROM jobs active
+       WHERE active.owner_user_id = jobs.owner_user_id
+         AND active.state IN ('RUNNING','PAUSE_REQUESTED','CANCEL_REQUESTED')) < 2)
+    AND (state = 'RUNNING' OR
+      (SELECT count(*) FROM jobs active
+       WHERE active.state IN ('RUNNING','PAUSE_REQUESTED','CANCEL_REQUESTED')) < 8)
   ORDER BY created_at, id
   FOR UPDATE SKIP LOCKED
   LIMIT 1
 )
 UPDATE jobs
-SET state = 'claimed', claim_owner = $2, claim_epoch = $3,
-    claim_expires_at = $4, updated_at = $1
+SET state = 'RUNNING', claim_owner = $2, claim_epoch = $3,
+    claim_expires_at = $4, started_at = coalesce(started_at, $1),
+    progress_revision = progress_revision + 1, updated_at = $1
 FROM candidate
 WHERE jobs.id = candidate.id
 RETURNING jobs.*;
 
 -- name: RenewJobClaim :one
 UPDATE jobs
-SET claim_expires_at = $4, updated_at = $5
+SET claim_expires_at = $4, progress_revision = progress_revision + 1, updated_at = $5
 WHERE id = $1 AND claim_owner = $2 AND claim_epoch = $3
-  AND state IN ('claimed','running') AND claim_expires_at > $5 AND $4 > $5
+  AND state = 'RUNNING' AND claim_expires_at > $5 AND $4 > $5
 RETURNING *;
 
 -- name: StartJob :one
-UPDATE jobs
-SET state = 'running', updated_at = $4
+SELECT * FROM jobs
 WHERE id = $1 AND claim_owner = $2 AND claim_epoch = $3
-  AND state = 'claimed' AND claim_expires_at > $4
-RETURNING *;
+  AND state = 'RUNNING' AND claim_expires_at > $4;
 
 -- name: CompleteJob :one
 UPDATE jobs
-SET state = $4, claim_expires_at = NULL, updated_at = $5
+SET state = $4, claim_expires_at = NULL, completed_at = $5,
+    progress_revision = progress_revision + 1, updated_at = $5
 WHERE id = $1 AND claim_owner = $2 AND claim_epoch = $3
-  AND state IN ('claimed','running') AND $4 IN ('completed','failed','cancelled')
+  AND state = 'RUNNING' AND $4 IN ('SUCCEEDED','FAILED')
 RETURNING *;
 
 -- name: EnsureLeaseEpoch :exec

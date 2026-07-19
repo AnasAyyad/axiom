@@ -33,11 +33,20 @@ func NewFillJournal(journal accounting.Journal, context JournalContext) (*FillJo
 
 // PostFill appends one balanced immutable transaction for base, quote, and fee assets.
 func (journal *FillJournal) PostFill(order execution.OrderIdentity, fill execution.FillFact) error {
-	transaction, err := journal.fillTransaction(order, fill)
+	transaction, err := journal.Transaction(order, fill)
 	if err != nil {
 		return err
 	}
 	return journal.journal.Append(transaction)
+}
+
+// Transaction returns the exact balanced transaction for a simulated fill so
+// durable adapters can commit it in the same database transaction as the fill.
+func (journal *FillJournal) Transaction(
+	order execution.OrderIdentity,
+	fill execution.FillFact,
+) (accounting.Transaction, error) {
+	return journal.fillTransaction(order, fill)
 }
 
 // PostAdjustment records dust or recovery loss without hiding the counter-account.
