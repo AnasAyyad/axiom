@@ -71,7 +71,7 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | A8    | Execution/Research Platform     | A7 verified                           | Not started | Pending                            |
 | A9    | Portfolio/Risk Engineering      | A8 verified                           | Not started | Pending                            |
 | A10   | Strategy/Research               | A9 verified                           | Not started | Pending                            |
-| A11   | API/Frontend/Security           | A10 verified                          | In progress | API/auth/console implemented; runtime workflow pending |
+| A11   | API/Frontend/Security           | A10 verified                          | Implemented | Local API/auth/worker/shadow/console acceptance passed; formal entry gate remains open |
 
 ## A0
 
@@ -301,18 +301,17 @@ Release decision: **Not evaluated; all evidence pending.**
 ## Known current limitations
 
 - The repository contains verified A1-A6 foundations, the implemented A7
-  production-public Binance collector/recorder, locally implemented A8-A10
-  candidates, and an A11 API/authentication/console candidate. A7 remains gated
-  on continuous soak and final inspection. A11's worker/shadow runtime
-  composition and current browser/runtime acceptance remain incomplete.
+  production-public Binance collector/recorder, and locally implemented A8-A11
+  candidates. A7 remains gated on continuous soak and final inspection; formal
+  acceptance of the stacked A8-A11 candidates remains prerequisite-ordered.
 - A1 has a committed source identity, owner-verified hosted CI/supply-chain
   artifacts, local immutable-candidate evidence, and a completed clean-machine
   setup/governance walkthrough.
 - The A0 review is an independent Codex architecture/static audit, not an
   external human security assessment and not runtime or release certification.
 - A7 targeted unit, emulator, race, public-network, recorder-role, and short
-  qualification evidence exists. A11 component/axe and deterministic browser
-  specifications exist, but current full Playwright and end-to-end runtime
-  evidence does not.
+  qualification evidence exists. A11 has current PostgreSQL 18,
+  desktop/mobile Playwright, image, and image-backed Compose evidence; it is
+  local implementation evidence, not formal phase acceptance.
 - The 72-hour Binance soak and clean backup/restore drill have not been executed.
 - A passing documentation review alone cannot advance A1–A11 or the release gate.

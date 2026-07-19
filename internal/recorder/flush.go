@@ -54,8 +54,12 @@ func (recorder *Recorder) Flush() (DatasetManifest, error) {
 }
 
 func (recorder *Recorder) completedPrefix() ([]segments.WireRow, []segments.CanonicalRow, error) {
+	orderedRaw := append([]segments.WireRow(nil), recorder.raw...)
+	sort.Slice(orderedRaw, func(left, right int) bool {
+		return orderedRaw[left].IngestOrdinal < orderedRaw[right].IngestOrdinal
+	})
 	count := 0
-	for _, row := range recorder.raw {
+	for _, row := range orderedRaw {
 		link := recorder.links[row.IngestOrdinal]
 		if link == nil {
 			return nil, nil, recorderError("segment_link_mismatch")
@@ -68,8 +72,8 @@ func (recorder *Recorder) completedPrefix() ([]segments.WireRow, []segments.Cano
 	if count == 0 {
 		return nil, nil, recorderError("segment_incomplete")
 	}
-	last := recorder.raw[count-1].IngestOrdinal
-	raw := append([]segments.WireRow(nil), recorder.raw[:count]...)
+	last := orderedRaw[count-1].IngestOrdinal
+	raw := orderedRaw[:count]
 	canonical := make([]segments.CanonicalRow, 0, count)
 	for _, row := range recorder.canonical {
 		if row.IngestOrdinal <= last {

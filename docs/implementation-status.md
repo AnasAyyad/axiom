@@ -15,7 +15,7 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 | A8    | Implemented and locally validated — formal acceptance blocked by A7 | Backtesting, replay, simulation, durable orders, persistence, and local dataset qualification | `docs/releases/evidence/a8-local-validation.md`; candidate remains unmerged on `a8-backtest-replay` |
 | A9    | Implemented and locally validated — formal acceptance blocked by A7 and formal A8 acceptance | Portfolio allocation, risk, reconciliation, and recovery | `docs/releases/evidence/a9-local-validation.md`; candidate remains unmerged on `a9-portfolio-risk` |
 | A10   | Implemented and locally validated — formal acceptance blocked by A7 and formal A8/A9 acceptance | Trend strategy, exact sizing/exits, shared simulated pipeline, immutable research governance, and reporting | `docs/releases/evidence/a10-local-validation.md`; candidate remains unmerged on `a10-trend-strategy` |
-| A11   | In progress — API/UI implemented; runtime workflow and local acceptance pending | Versioned API, authentication, durable controls/SSE, and routed React console; offline/shadow consumers remain | `docs/releases/evidence/a11-local-validation.md`; formal acceptance blocked by A7 and formal A8/A9/A10 acceptance |
+| A11   | Implemented and locally validated — formal acceptance blocked by A7 and formal A8/A9/A10 acceptance | Versioned API/authentication, durable worker/replay controls, production-public shadow runtime, resumable SSE, and routed React console | `docs/releases/evidence/a11-local-validation.md`; candidate remains unmerged on `a11-research-console` |
 
 ## Absolute V1A boundary
 
@@ -42,9 +42,9 @@ V1A is public-data research and simulation software only. It contains no authent
 - A10 has local implementation evidence but is not formally complete because
   A7 and formal A8/A9 acceptance remain pending. No final-test strategy result
   was consumed for implementation evidence.
-- A11 has implemented API, authentication, durable command/job/session storage,
-  resumable SSE, and routed console evidence. It is not locally complete because
-  the worker and shadow roles do not yet consume those durable records through
-  the production A10/A9/A8 pipeline, and the restricted environment prevented
-  current PostgreSQL/browser/cumulative runtime acceptance.
+- A11 has local implementation evidence for API/authentication, durable
+  command/job/session storage, worker and production-public shadow composition,
+  resumable SSE, routed console, PostgreSQL 18, desktop/mobile browser, image,
+  and Compose acceptance. It remains formally blocked by A7 and formal
+  A8/A9/A10 acceptance.
 - The 72-hour Binance public-data soak and clean backup/restore drill are release evidence, not documentation-only checkboxes.

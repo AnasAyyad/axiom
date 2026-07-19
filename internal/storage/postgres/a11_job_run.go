@@ -45,12 +45,7 @@ func (store *A11JobStore) attachRun(ctx context.Context, kind string, payload js
 	if err = insertA11Run(ctx, tx, request, claim.Manifest, manifestHash, now); err != nil {
 		return err
 	}
-	renewedLeaseEnd := now.Add(a11JobLease)
-	if !renewedLeaseEnd.After(leaseEnd) {
-		// PostgreSQL timestamps are microsecond-precision, so the minimum
-		// monotonic renewal must survive its wire/storage round trip.
-		renewedLeaseEnd = leaseEnd.Add(time.Microsecond)
-	}
+	renewedLeaseEnd := renewedA11JobLease(now, leaseEnd)
 	tag, err := tx.Exec(ctx, `UPDATE jobs SET run_id=$1,claim_expires_at=$2,updated_at=$3,
       progress_revision=progress_revision+1 WHERE id=$1 AND state='RUNNING' AND claim_owner=$4`,
 		claim.ID, renewedLeaseEnd, now, store.owner)
@@ -61,6 +56,16 @@ func (store *A11JobStore) attachRun(ctx context.Context, kind string, payload js
 		return fmt.Errorf("a11_job_run_link_conflict")
 	}
 	return tx.Commit(ctx)
+}
+
+func renewedA11JobLease(now, leaseEnd time.Time) time.Time {
+	renewed := now.Add(a11JobLease)
+	if renewed.After(leaseEnd) {
+		return renewed
+	}
+	// PostgreSQL timestamps are microsecond-precision, so the minimum
+	// monotonic renewal must survive its wire/storage round trip.
+	return leaseEnd.Add(time.Microsecond)
 }
 
 func insertA11Run(ctx context.Context, tx pgx.Tx, request a11OfflineRequest, manifest backtest.RunManifest,
