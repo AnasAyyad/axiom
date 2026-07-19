@@ -6,8 +6,9 @@ by A7 and formal A8/A9/A10 acceptance.
 **Candidate branch:** `a11-research-console`, stacked from A10 commit
 `e63d6ed69c5cc549a052ac7127f715e84e17dedc`. The primary A11 implementation is
 commit `faabd012eb44484c792cb2f44f7f30bba6cb5689`; live-stack fixes are commit
-`d5119bfd9d5335b6c469fb99ec59f150d6496f76`. This evidence does not merge or
-pre-approve A7, A8, A9, A10, A11, or the V1A release gate.
+`d5119bfd9d5335b6c469fb99ec59f150d6496f76`; final race and qualification
+alignment is commit `73902b3e11d528d0c204642324253a5c96addf0e`. This evidence
+does not merge or pre-approve A7, A8, A9, A10, A11, or the V1A release gate.
 
 ## Implemented scope
 
@@ -55,7 +56,7 @@ pre-approve A7, A8, A9, A10, A11, or the V1A release gate.
 | `make a11-security-qualify` | Passed; A11 ownership, secret/prohibited-capability scans, negative scanner tests, and A6/A7 binary boundaries passed. |
 | `make verify` with the pinned toolchains | Passed from the final aligned source: formatting, generated contracts, documentation, vet/staticcheck/ESLint, source policies, all Go/Vitest tests, full Go race suite, five fuzz targets, embedded production builds, all 128 Compose profile renders, security scans, and `govulncheck` passed. `govulncheck` reported zero called vulnerabilities. |
 | Clean A11 image build plus `scripts/inspect-image.sh axiom:a11-local` | Passed; embedded frontend, non-root user, read-only runtime posture, and minimal/prohibited binary boundaries passed. |
-| `make compose-smoke IMAGE=axiom:a11-local` from clean commit `d5119bf` | Passed on PostgreSQL 18 with API, shadow engine, recorder, worker, Prometheus, and Grafana. All four app roles became healthy; authenticated API login/status/logout, hardened containers, scrapes, and dashboard provisioning passed. |
+| `make compose-smoke IMAGE=axiom:a11-local` from clean commit `73902b3` | Passed on PostgreSQL 18 with API, shadow engine, recorder, worker, Prometheus, and Grafana. All four app roles became healthy; authenticated API login/status/logout, hardened containers, scrapes, and dashboard provisioning passed. |
 
 ## Qualification interpretation and remaining formal gates
 
