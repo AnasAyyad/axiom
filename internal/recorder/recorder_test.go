@@ -141,6 +141,36 @@ func TestRecorderRejectsMissingDuplicateAndMutatedLinks(t *testing.T) {
 	}
 }
 
+func TestRecorderFlushRetainsInFlightRawSuffix(t *testing.T) {
+	recorder, err := testRecorder(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordPair(t, recorder, 1, `{"wire":1}`, `{"canonical":1}`)
+	second, err := recorder.RecordRaw(rawInput(t, 2, []byte(`{"wire":2}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstManifest, err := recorder.Flush()
+	if err != nil || firstManifest.RawRecordCount != 1 {
+		t.Fatalf("completed-prefix flush = %#v %v", firstManifest, err)
+	}
+	if raw, canonical := recorder.PendingCounts(); raw != 1 || canonical != 0 {
+		t.Fatalf("retained suffix counts = %d/%d", raw, canonical)
+	}
+	if err = recorder.RecordCanonical(CanonicalInput{Link: second, EventID: eventID(second.IngestOrdinal),
+		ParserVersion: "parser-v1", NormalizationVersion: "normalizer-v1", Canonical: []byte(`{"canonical":2}`)}); err != nil {
+		t.Fatal(err)
+	}
+	secondManifest, err := recorder.Flush()
+	if err != nil || secondManifest.RawRecordCount != 2 || secondManifest.PreviousHash != firstManifest.Hash {
+		t.Fatalf("retained-suffix flush = %#v %v", secondManifest, err)
+	}
+	if _, err = ValidateDataset(recorder.root, secondManifest); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRecorderFailsClosedAtConfiguredMemoryBound(t *testing.T) {
 	recorder, err := testRecorder(t)
 	if err != nil {

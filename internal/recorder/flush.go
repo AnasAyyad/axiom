@@ -18,11 +18,10 @@ import (
 func (recorder *Recorder) Flush() (DatasetManifest, error) {
 	recorder.mutex.Lock()
 	defer recorder.mutex.Unlock()
-	if len(recorder.raw) == 0 || len(recorder.raw) != len(recorder.canonical) {
-		return DatasetManifest{}, recorderError("segment_incomplete")
+	raw, canonical, err := recorder.completedPrefix()
+	if err != nil {
+		return DatasetManifest{}, err
 	}
-	raw := append([]segments.WireRow(nil), recorder.raw...)
-	canonical := append([]segments.CanonicalRow(nil), recorder.canonical...)
 	sort.Slice(raw, func(left, right int) bool { return raw[left].IngestOrdinal < raw[right].IngestOrdinal })
 	sort.Slice(canonical, func(left, right int) bool { return canonical[left].IngestOrdinal < canonical[right].IngestOrdinal })
 	if err := verifyPendingLinks(raw, canonical); err != nil {
@@ -50,9 +49,68 @@ func (recorder *Recorder) Flush() (DatasetManifest, error) {
 	for _, row := range raw {
 		delete(recorder.links, row.IngestOrdinal)
 	}
-	recorder.raw, recorder.canonical = nil, nil
-	recorder.pendingBytes, recorder.reservedBytes = 0, 0
+	recorder.retainPendingAfter(raw[len(raw)-1].IngestOrdinal)
 	return cloneManifest(manifest), nil
+}
+
+func (recorder *Recorder) completedPrefix() ([]segments.WireRow, []segments.CanonicalRow, error) {
+	count := 0
+	for _, row := range recorder.raw {
+		link := recorder.links[row.IngestOrdinal]
+		if link == nil {
+			return nil, nil, recorderError("segment_link_mismatch")
+		}
+		if !link.canonical {
+			break
+		}
+		count++
+	}
+	if count == 0 {
+		return nil, nil, recorderError("segment_incomplete")
+	}
+	last := recorder.raw[count-1].IngestOrdinal
+	raw := append([]segments.WireRow(nil), recorder.raw[:count]...)
+	canonical := make([]segments.CanonicalRow, 0, count)
+	for _, row := range recorder.canonical {
+		if row.IngestOrdinal <= last {
+			canonical = append(canonical, row)
+		}
+	}
+	if len(canonical) != count {
+		return nil, nil, recorderError("segment_link_mismatch")
+	}
+	return raw, canonical, nil
+}
+
+func (recorder *Recorder) retainPendingAfter(last uint64) {
+	raw := recorder.raw[:0]
+	for _, row := range recorder.raw {
+		if row.IngestOrdinal > last {
+			raw = append(raw, row)
+		}
+	}
+	canonical := recorder.canonical[:0]
+	for _, row := range recorder.canonical {
+		if row.IngestOrdinal > last {
+			canonical = append(canonical, row)
+		}
+	}
+	recorder.raw, recorder.canonical = raw, canonical
+	recorder.pendingBytes, recorder.reservedBytes = recorder.pendingUsage()
+}
+
+func (recorder *Recorder) pendingUsage() (uint64, uint64) {
+	pending, reserved := uint64(0), uint64(0)
+	for _, row := range recorder.raw {
+		pending += uint64(len(row.Payload) + recordMemoryOverhead)
+		if link := recorder.links[row.IngestOrdinal]; link != nil && !link.canonical {
+			reserved += maximumEventBytes + recordMemoryOverhead
+		}
+	}
+	for _, row := range recorder.canonical {
+		pending += uint64(len(row.CanonicalEvent) + recordMemoryOverhead)
+	}
+	return pending, reserved
 }
 
 func (recorder *Recorder) finalizeWire(revision uint64, rows []segments.WireRow) (segments.Manifest, error) {

@@ -36,6 +36,8 @@ var runtimeUpdateTables = []string{
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
 
+var runtimeReadTables = []string{"schema_migrations"}
+
 var recorderReadTables = []string{
 	"assets", "configuration_versions", "exchanges", "instruments", "instrument_metadata_versions",
 }
@@ -71,6 +73,7 @@ func ApplyRoleGrants(ctx context.Context, pool *pgxpool.Pool, runtimeRole, recor
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	grants := map[string][]tableGrant{
 		runtimeRole: {
+			{privileges: "SELECT", tables: runtimeReadTables},
 			{privileges: "SELECT, INSERT", tables: runtimeReadInsertTables},
 			{privileges: "UPDATE", tables: runtimeUpdateTables},
 			{privileges: "DELETE", tables: runtimeDeleteTables},
