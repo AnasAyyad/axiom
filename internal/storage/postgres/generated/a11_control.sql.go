@@ -358,7 +358,7 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash interface
 }
 
 const getShadowSession = `-- name: GetShadowSession :one
-SELECT id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at FROM shadow_sessions WHERE id=$1
+SELECT id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id FROM shadow_sessions WHERE id=$1
 `
 
 func (q *Queries) GetShadowSession(ctx context.Context, id string) (*ShadowSession, error) {
@@ -384,6 +384,9 @@ func (q *Queries) GetShadowSession(ctx context.Context, id string) (*ShadowSessi
 		&i.ClaimOwner,
 		&i.ClaimEpoch,
 		&i.ClaimExpiresAt,
+		&i.ModelNamespaceID,
+		&i.SlippageModelID,
+		&i.GapModelID,
 	)
 	return &i, err
 }
@@ -788,7 +791,7 @@ INSERT INTO shadow_sessions (
   id,command_id,state,revision,public_exchange,simulation_only,entries_enabled,
   configuration_id,strategy_version_id,created_at
 ) VALUES ($1,$2,'QUEUED',1,'binance-production-public',true,false,$3,$4,$5)
-RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at
+RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id
 `
 
 type InsertShadowSessionParams struct {
@@ -828,6 +831,9 @@ func (q *Queries) InsertShadowSession(ctx context.Context, arg InsertShadowSessi
 		&i.ClaimOwner,
 		&i.ClaimEpoch,
 		&i.ClaimExpiresAt,
+		&i.ModelNamespaceID,
+		&i.SlippageModelID,
+		&i.GapModelID,
 	)
 	return &i, err
 }
@@ -1091,7 +1097,8 @@ func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) (*
 }
 
 const touchSession = `-- name: TouchSession :one
-UPDATE sessions SET last_seen_at=$2, idle_expires_at=least(expires_at,$3), revision=revision+1
+UPDATE sessions SET last_seen_at=greatest(last_seen_at,$2),
+  idle_expires_at=greatest(idle_expires_at,least(expires_at,$3)), revision=revision+1
 WHERE id=$1 AND revoked_at IS NULL AND expires_at>$2 AND idle_expires_at>$2
 RETURNING id, user_id, token_hash, created_at, expires_at, revoked_at, csrf_token_hash, last_seen_at, idle_expires_at, reauthenticated_at, revision, revoked_reason
 `
@@ -1126,7 +1133,7 @@ const transitionShadowSession = `-- name: TransitionShadowSession :one
 UPDATE shadow_sessions SET state=$2,revision=revision+1,entries_enabled=$3,
   started_at=coalesce(started_at,$4),stopped_at=$5,failure_code=$6
 WHERE id=$1 AND revision=$7
-RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at
+RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id
 `
 
 type TransitionShadowSessionParams struct {
@@ -1170,6 +1177,9 @@ func (q *Queries) TransitionShadowSession(ctx context.Context, arg TransitionSha
 		&i.ClaimOwner,
 		&i.ClaimEpoch,
 		&i.ClaimExpiresAt,
+		&i.ModelNamespaceID,
+		&i.SlippageModelID,
+		&i.GapModelID,
 	)
 	return &i, err
 }

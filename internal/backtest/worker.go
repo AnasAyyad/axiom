@@ -15,6 +15,8 @@ type JobClaim struct {
 	Manifest      RunManifest
 	Configuration config.Configuration
 	Source        replay.Source
+	TimingMode    replay.TimingMode
+	Acceleration  uint64
 	ResumeOrdinal uint64
 	SingleStep    bool
 }
@@ -78,7 +80,7 @@ func (worker *Worker) runClaim(ctx context.Context, claim JobClaim) error {
 	if err != nil || processor == nil {
 		return worker.fail(ctx, claim.ID, "operational_pipeline_incomplete")
 	}
-	controller, err := replay.NewController(claim.Source, worker.pacer, replay.MaximumTiming, 1)
+	controller, err := replay.NewController(claim.Source, worker.pacer, claim.TimingMode, claim.Acceleration)
 	if err != nil {
 		return worker.fail(ctx, claim.ID, "replay_controller_invalid")
 	}

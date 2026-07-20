@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import axe from "axe-core";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +25,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   setCSRFToken("");
   sessionStorage.clear();
+  FakeEventSource.instances = [];
 });
 
 describe("A11 console states", () => {
@@ -83,6 +84,76 @@ describe("A11 console states", () => {
       const result = await axe.run(view.container);
       expect(result.violations).toHaveLength(0);
     });
+  });
+
+  it("recovers an expired hidden EventSource cursor from the REST snapshot revision", async () => {
+    vi.stubGlobal("fetch", vi.fn(a11FetchFixture));
+    vi.stubGlobal("EventSource", FakeEventSource);
+    sessionStorage.setItem("axiom_stream_revision", "999");
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AppShell
+            user={{
+              id: "user-a11",
+              email: "owner@example.test",
+              roles: ["owner"],
+              permissions: ["operations.read"],
+            }}
+          >
+            <h1>Evidence workspace</h1>
+          </AppShell>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    expect(FakeEventSource.instances[0]?.url).toBe(
+      "/api/v1/stream?after_revision=999",
+    );
+    await act(async () => {
+      FakeEventSource.instances[0]?.onerror?.(new Event("error"));
+    });
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(2), {
+      timeout: 3_000,
+    });
+    expect(FakeEventSource.instances[1]?.url).toBe("/api/v1/stream");
+    expect(sessionStorage.getItem("axiom_stream_revision")).toBeNull();
+  });
+
+  it("reports browser offline state and reconnects from an authoritative snapshot", async () => {
+    vi.stubGlobal("fetch", vi.fn(a11FetchFixture));
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AppShell
+            user={{
+              id: "user-a11",
+              email: "owner@example.test",
+              roles: ["owner"],
+              permissions: ["operations.read"],
+            }}
+          >
+            <h1>Evidence workspace</h1>
+          </AppShell>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    await act(async () => window.dispatchEvent(new Event("offline")));
+    expect(screen.getByText("reconnecting")).toBeInTheDocument();
+    expect(FakeEventSource.instances[0]?.readyState).toBe(
+      FakeEventSource.CLOSED,
+    );
+
+    await act(async () => window.dispatchEvent(new Event("online")));
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(2));
   });
 
   it("presents an accessible credential form without accepting exchange credentials", async () => {
@@ -159,6 +230,7 @@ function a11FetchFixture(input: RequestInfo | URL) {
 }
 
 class FakeEventSource {
+  static instances: FakeEventSource[] = [];
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
   static readonly CLOSED = 2;
@@ -173,6 +245,7 @@ class FakeEventSource {
   onerror: ((event: Event) => void) | null = null;
   constructor(url: string | URL) {
     this.url = String(url);
+    FakeEventSource.instances.push(this);
   }
   close() {
     this.readyState = FakeEventSource.CLOSED;

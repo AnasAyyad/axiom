@@ -11,6 +11,7 @@ import (
 	"axiom/internal/api/generated"
 	"axiom/internal/backtest"
 	"axiom/internal/domain"
+	"axiom/internal/research"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,7 +19,10 @@ import (
 
 const a11JobLease = 30 * time.Second
 
-var a11FailureCode = regexp.MustCompile(`^[a-z][a-z0-9_]{0,95}$`)
+var (
+	a11FailureCode = regexp.MustCompile(`^[a-z][a-z0-9_]{0,95}$`)
+	a11Decimal     = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?$`)
+)
 
 // A11JobMaterializer turns a durable request into verified offline inputs.
 // Exchange clients are deliberately absent from this boundary.
@@ -54,7 +58,7 @@ func (store *A11JobStore) Claim(ctx context.Context) (backtest.JobClaim, bool, e
 	}
 	claim.ID = jobID
 	var resumeOrdinal int64
-	if err = store.pool.QueryRow(ctx, `SELECT resume_ordinal,single_step FROM jobs WHERE id=$1 AND state='RUNNING'
+	if err = store.pool.QueryRow(ctx, `SELECT resume_ordinal,single_step FROM jobs WHERE id=$1 AND state IN ('RUNNING','PAUSE_REQUESTED')
       AND claim_owner=$2`, jobID, store.owner).Scan(&resumeOrdinal, &claim.SingleStep); err != nil || resumeOrdinal < 0 {
 		_ = store.Fail(ctx, jobID, "offline_control_materialization_failed")
 		return backtest.JobClaim{}, false, fmt.Errorf("a11_job_control_materialization_failed")
@@ -161,6 +165,11 @@ func (store *A11JobStore) Pause(ctx context.Context, id string, ordinal uint64, 
 			return err
 		}
 	}
+	var partial backtest.CanonicalResult
+	if json.Unmarshal(checkpoint, &partial) != nil || len(partial.Events) == 0 ||
+		partial.Events[len(partial.Events)-1].Ordinal != ordinal || partial.ResultHash != "" {
+		return fmt.Errorf("a11_job_pause_invalid")
+	}
 	tag, err := tx.Exec(ctx, `UPDATE jobs SET state='PAUSED',claim_owner=NULL,claim_expires_at=NULL,
       resume_ordinal=$2,checkpoint_payload=$3,progress_revision=progress_revision+1,updated_at=$4
       WHERE id=$1 AND state='PAUSE_REQUESTED' AND claim_owner=$5`, id, int64(ordinal), string(checkpoint),
@@ -172,19 +181,27 @@ func (store *A11JobStore) Pause(ctx context.Context, id string, ordinal uint64, 
 	if err != nil || runTag.RowsAffected() != 1 {
 		return fmt.Errorf("a11_run_pause_conflict")
 	}
+	if err = insertA11PauseCheckpoint(ctx, tx, id, runID, ordinal, checkpoint, partial.Events, now); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func insertA11PauseCheckpoint(ctx context.Context, tx pgx.Tx, id, runID string, ordinal uint64,
+	checkpoint []byte, events []backtest.EventResult, now time.Time) error {
 	var checkpointRevision int64
-	if err = tx.QueryRow(ctx, `SELECT coalesce(max(revision),0)+1 FROM run_checkpoints WHERE run_id=$1`,
+	if err := tx.QueryRow(ctx, `SELECT coalesce(max(revision),0)+1 FROM run_checkpoints WHERE run_id=$1`,
 		runID).Scan(&checkpointRevision); err != nil {
 		return err
 	}
 	checkpointHash := a11SHA256(checkpoint)
 	checkpointID := fmt.Sprintf("replay-checkpoint-%s-%d", id, checkpointRevision)
-	if _, err = tx.Exec(ctx, `INSERT INTO run_checkpoints(id,run_id,revision,input_ordinal,state_hash,payload,
+	if _, err := tx.Exec(ctx, `INSERT INTO run_checkpoints(id,run_id,revision,input_ordinal,state_hash,payload,
       created_at,deterministic_state_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$5)`, checkpointID, runID,
 		checkpointRevision, int64(ordinal), checkpointHash, checkpoint, now); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	return insertA11CanonicalOutputs(ctx, tx, runID, events)
 }
 
 // Complete atomically publishes the safe API result projection and releases the lease.
@@ -192,12 +209,8 @@ func (store *A11JobStore) Complete(ctx context.Context, id string, result backte
 	if id == "" || result.ResultHash == "" || !json.Valid(canonical) {
 		return fmt.Errorf("a11_job_result_invalid")
 	}
-	projection, err := json.Marshal(a11JobResult(result))
-	if err != nil {
-		return fmt.Errorf("a11_job_result_invalid")
-	}
 	now := store.clock.Now().UTC
-	if err = store.completeRun(ctx, id, result, canonical, projection, now); err != nil {
+	if err := store.completeRun(ctx, id, result, canonical, now); err != nil {
 		return fmt.Errorf("a11_job_completion_rejected")
 	}
 	return nil
@@ -215,18 +228,32 @@ func (store *A11JobStore) Fail(ctx context.Context, id, reason string) error {
 	return nil
 }
 
-func a11JobResult(result backtest.CanonicalResult) generated.JobResult {
-	metrics := map[string]generated.Decimal{
+func a11JobMetrics(result backtest.CanonicalResult) map[string]generated.Decimal {
+	values := map[string]string{
 		"total_net_return": result.Metrics.TotalNetReturn, "maximum_drawdown": result.Metrics.MaximumDrawdown,
 		"current_drawdown": result.Metrics.CurrentDrawdown, "sharpe_ratio": result.Metrics.SharpeRatio,
 		"sortino_ratio": result.Metrics.SortinoRatio, "profit_factor": result.Metrics.ProfitFactor,
 		"expectancy": result.Metrics.Expectancy, "win_rate": result.Metrics.WinRate,
 		"turnover": result.Metrics.Turnover, "exposure": result.Metrics.Exposure,
-		"trades": generated.Decimal(strconv.FormatUint(result.Metrics.Trades, 10)),
+		"fees_paid": result.Metrics.FeesPaid, "trades": strconv.FormatUint(result.Metrics.Trades, 10),
 	}
-	return generated.JobResult{ResultHash: result.ResultHash, Metrics: &metrics,
+	metrics := make(map[string]generated.Decimal, len(values))
+	for key, value := range values {
+		if a11Decimal.MatchString(value) {
+			metrics[key] = generated.Decimal(value)
+		}
+	}
+	return metrics
+}
+
+func a11JobResult(result backtest.CanonicalResult, reportID, reportHash string) generated.JobResult {
+	metrics := a11JobMetrics(result)
+	return generated.JobResult{ResultHash: result.ResultHash, Metrics: &metrics, ReportId: reportID, ReportHash: reportHash,
 		PlatformCorrectness: "canonical_pipeline_completed", StrategyEvidence: "confidence_tier_" + string(result.Confidence),
-		Viability: generated.JobResultViability("undetermined"), Reproducibility: result.ManifestHash}
+		Viability: generated.JobResultViability("undetermined"), Reproducibility: result.ManifestHash,
+		ConfidenceLabel:  generated.JobResultConfidenceLabel("insufficient"),
+		ResearchCoverage: generated.JobResultResearchCoverage("single_run_incomplete"),
+		Disclaimer:       research.DisclaimerNoProductionProfitability}
 }
 
 var _ backtest.ControlledJobStore = (*A11JobStore)(nil)

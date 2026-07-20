@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-e2e-qualify a11-security-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -217,7 +217,17 @@ a11-frontend-qualify: ## Type-check, lint, test, and build the routed accessible
 	@$(PNPM) --filter @axiom/web test
 	@$(PNPM) --filter @axiom/web build
 
-a11-e2e-qualify: ## Run the deterministic browser workflow against the preview console.
+a11-ui-fixture-qualify: ## Run deterministic desktop/mobile UI coverage with contract-shaped fixtures.
+	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e
+
+a11-e2e-qualify: ## Run the unmocked authenticated workflow against a clean integrated A11 environment.
+	@test -n "$(AXIOM_A11_E2E_BASE_URL)" || { echo "AXIOM_A11_E2E_BASE_URL is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_CONFIGURATION_ID)" || { echo "AXIOM_A11_E2E_CONFIGURATION_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_DATASET_ID)" || { echo "AXIOM_A11_E2E_DATASET_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_RESEARCH_GENERATION_ID)" || { echo "AXIOM_A11_E2E_RESEARCH_GENERATION_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_PORTFOLIO_ID)" || { echo "AXIOM_A11_E2E_PORTFOLIO_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_EVIDENCE_SHADOW_ID)" || { echo "AXIOM_A11_E2E_EVIDENCE_SHADOW_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_PASSWORD)" || { echo "AXIOM_A11_E2E_PASSWORD is required" >&2; exit 1; }
 	@$(PNPM) --filter @axiom/web test:e2e
 
 a11-security-qualify: ## Run A11 ownership checks plus repository secret/capability scans.

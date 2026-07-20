@@ -1,6 +1,7 @@
 package research
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -64,9 +65,13 @@ type ReportInput struct {
 // ReportManifest is immutable canonical A10 report evidence.
 type ReportManifest struct {
 	ReportInput
-	Stability    Stability `json:"stability"`
-	Disclaimer   string    `json:"disclaimer"`
-	ManifestHash string    `json:"manifest_hash"`
+	Stability  Stability `json:"stability"`
+	Disclaimer string    `json:"disclaimer"`
+	// ManifestHash authenticates the exact canonical JSON representation of the
+	// report. It is metadata about those bytes and is therefore deliberately
+	// excluded from the bytes themselves, avoiding a circular/self-mismatching
+	// manifest identity.
+	ManifestHash string `json:"-"`
 }
 
 // BuildReport validates coverage, computes stability, and hashes canonical JSON.
@@ -87,6 +92,33 @@ func BuildReport(input ReportInput) (ReportManifest, error) {
 	digest := sha256.Sum256(canonical)
 	manifest.ManifestHash = hex.EncodeToString(digest[:])
 	return manifest, nil
+}
+
+// ValidateReportCanonical reconstructs a registered report and proves that the
+// stored bytes, manifest hash, generation, and optional run reference agree.
+// It never upgrades an incomplete single-run report into suite evidence.
+func ValidateReportCanonical(canonical []byte, expectedHash, generationID, runID string) (ReportManifest, error) {
+	var stored ReportManifest
+	if !json.Valid(canonical) || json.Unmarshal(canonical, &stored) != nil || expectedHash == "" ||
+		generationID == "" || stored.ResearchGenerationID != generationID {
+		return ReportManifest{}, researchError("report_canonical_invalid")
+	}
+	rebuilt, err := BuildReport(stored.ReportInput)
+	if err != nil || rebuilt.ManifestHash != expectedHash || rebuilt.Stability != stored.Stability ||
+		stored.Disclaimer != DisclaimerNoProductionProfitability {
+		return ReportManifest{}, researchError("report_canonical_invalid")
+	}
+	reencoded, err := json.Marshal(rebuilt)
+	if err != nil || !bytes.Equal(reencoded, canonical) {
+		return ReportManifest{}, researchError("report_canonical_invalid")
+	}
+	if runID != "" {
+		index := sort.SearchStrings(rebuilt.RunReferences, runID)
+		if index >= len(rebuilt.RunReferences) || rebuilt.RunReferences[index] != runID {
+			return ReportManifest{}, researchError("report_run_reference_missing")
+		}
+	}
+	return rebuilt, nil
 }
 
 // NeighborhoodStability reports exact registered-neighbor dispersion.

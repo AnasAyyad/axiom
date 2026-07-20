@@ -167,7 +167,7 @@ BEGIN
     RAISE EXCEPTION 'immutable_job_identity';
   END IF;
   IF NEW.run_id IS DISTINCT FROM OLD.run_id AND NOT (
-    OLD.run_id IS NULL AND NEW.run_id = NEW.id AND NEW.state = 'RUNNING'
+    OLD.run_id IS NULL AND NEW.run_id = NEW.id AND NEW.state IN ('RUNNING','PAUSE_REQUESTED')
   ) THEN
     RAISE EXCEPTION 'immutable_job_run_identity';
   END IF;

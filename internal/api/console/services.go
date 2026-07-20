@@ -32,11 +32,11 @@ type ReadService interface {
 	Risk(context.Context) (generated.RiskStatus, error)
 	Trend(context.Context) (generated.TrendStatus, error)
 	TrendDecisions(context.Context, string, int) (generated.TrendDecisionPage, error)
-	Job(context.Context, string) (generated.JobResource, error)
+	Job(context.Context, string, string) (generated.JobResource, error)
 	Shadow(context.Context, string) (generated.ShadowSessionResource, error)
-	Incidents(context.Context, string, int) (generated.IncidentPage, error)
+	Incidents(context.Context, string, int, string) (generated.IncidentPage, error)
 	Incident(context.Context, string, bool) (generated.IncidentDetail, error)
-	Audit(context.Context, string, int, bool) (generated.AuditEventPage, error)
+	Audit(context.Context, string, int, string, bool) (generated.AuditEventPage, error)
 }
 
 // CommandService persists audited, idempotent commands and durable jobs.

@@ -146,7 +146,7 @@ func (store *A11ConsoleStore) Risk(ctx context.Context) (generated.RiskStatus, e
 func (store *A11ConsoleStore) Trend(ctx context.Context) (generated.TrendStatus, error) {
 	var id, promotion string
 	var version int64
-	err := store.pool.QueryRow(ctx, `SELECT sv.id,sv.version,sv.promotion_status FROM strategy_versions sv JOIN strategy_definitions sd ON sd.id=sv.strategy_id WHERE sd.name='trend' ORDER BY sv.version DESC LIMIT 1`).Scan(&id, &version, &promotion)
+	err := store.pool.QueryRow(ctx, `SELECT sv.id,sv.version,sv.promotion_status FROM strategy_versions sv JOIN strategy_definitions sd ON sd.id=sv.strategy_id WHERE sd.family='trend' ORDER BY sv.version DESC LIMIT 1`).Scan(&id, &version, &promotion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return generated.TrendStatus{}, console.ErrNotFound
 	}

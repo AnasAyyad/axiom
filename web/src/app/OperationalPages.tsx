@@ -1,7 +1,7 @@
 export { BinancePage, CommandCenter } from "./CommandExchangePages";
+export { AuditPage } from "./AuditPage";
 export { PortfolioPage, RiskPage } from "./PortfolioRiskPages";
 export {
-  AuditPage,
   IncidentDetailPage,
   IncidentPage,
   TrendPage,

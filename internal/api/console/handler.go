@@ -7,6 +7,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -107,6 +108,26 @@ func (handler *handler) validOrigin(request *http.Request) bool {
 	origin := request.Header.Get("Origin")
 	_, ok := handler.origins[origin]
 	return ok
+}
+
+// validEventStreamOrigin accepts the explicit Origin header when present. A
+// same-origin EventSource GET may omit Origin, so that browser shape is accepted
+// only when Fetch Metadata says same-origin and the request Host is allowlisted.
+func (handler *handler) validEventStreamOrigin(request *http.Request) bool {
+	if request.Header.Get("Origin") != "" {
+		return handler.validOrigin(request)
+	}
+	if request.Header.Get("Sec-Fetch-Site") != "same-origin" || request.Header.Get("Sec-Fetch-Mode") != "cors" {
+		return false
+	}
+	for origin := range handler.origins {
+		parsed, err := url.Parse(origin)
+		if err == nil && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" &&
+			(parsed.Path == "" || parsed.Path == "/") && strings.EqualFold(parsed.Host, request.Host) {
+			return true
+		}
+	}
+	return false
 }
 
 func (handler *handler) decode(writer http.ResponseWriter, request *http.Request, target any) bool {

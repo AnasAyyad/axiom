@@ -546,23 +546,25 @@ type Opportunity struct {
 }
 
 type Order struct {
-	ID                 string             `db:"id" json:"id"`
-	PlanID             *string            `db:"plan_id" json:"plan_id"`
-	AccountID          string             `db:"account_id" json:"account_id"`
-	ClientOrderID      string             `db:"client_order_id" json:"client_order_id"`
-	AccountEpoch       int64              `db:"account_epoch" json:"account_epoch"`
-	InstrumentID       string             `db:"instrument_id" json:"instrument_id"`
-	Side               string             `db:"side" json:"side"`
-	Quantity           interface{}        `db:"quantity" json:"quantity"`
-	State              string             `db:"state" json:"state"`
-	Revision           int64              `db:"revision" json:"revision"`
-	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ExchangeStatus     string             `db:"exchange_status" json:"exchange_status"`
-	CumulativeQuantity interface{}        `db:"cumulative_quantity" json:"cumulative_quantity"`
-	CumulativeFee      interface{}        `db:"cumulative_fee" json:"cumulative_fee"`
-	CumulativeRebate   interface{}        `db:"cumulative_rebate" json:"cumulative_rebate"`
-	LastEventOrdinal   int64              `db:"last_event_ordinal" json:"last_event_ordinal"`
+	ID                  string             `db:"id" json:"id"`
+	PlanID              *string            `db:"plan_id" json:"plan_id"`
+	AccountID           string             `db:"account_id" json:"account_id"`
+	ClientOrderID       string             `db:"client_order_id" json:"client_order_id"`
+	AccountEpoch        int64              `db:"account_epoch" json:"account_epoch"`
+	InstrumentID        string             `db:"instrument_id" json:"instrument_id"`
+	Side                string             `db:"side" json:"side"`
+	Quantity            interface{}        `db:"quantity" json:"quantity"`
+	State               string             `db:"state" json:"state"`
+	Revision            int64              `db:"revision" json:"revision"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ExchangeStatus      string             `db:"exchange_status" json:"exchange_status"`
+	CumulativeQuantity  interface{}        `db:"cumulative_quantity" json:"cumulative_quantity"`
+	CumulativeFee       interface{}        `db:"cumulative_fee" json:"cumulative_fee"`
+	CumulativeRebate    interface{}        `db:"cumulative_rebate" json:"cumulative_rebate"`
+	LastEventOrdinal    int64              `db:"last_event_ordinal" json:"last_event_ordinal"`
+	RequestedLimitPrice interface{}        `db:"requested_limit_price" json:"requested_limit_price"`
+	SimulationLatencyMs *int64             `db:"simulation_latency_ms" json:"simulation_latency_ms"`
 }
 
 type OrderAttempt struct {
@@ -930,6 +932,9 @@ type ShadowSession struct {
 	ClaimOwner        *string            `db:"claim_owner" json:"claim_owner"`
 	ClaimEpoch        *int64             `db:"claim_epoch" json:"claim_epoch"`
 	ClaimExpiresAt    pgtype.Timestamptz `db:"claim_expires_at" json:"claim_expires_at"`
+	ModelNamespaceID  *string            `db:"model_namespace_id" json:"model_namespace_id"`
+	SlippageModelID   *string            `db:"slippage_model_id" json:"slippage_model_id"`
+	GapModelID        *string            `db:"gap_model_id" json:"gap_model_id"`
 }
 
 type StartupRecoveryAttempt struct {

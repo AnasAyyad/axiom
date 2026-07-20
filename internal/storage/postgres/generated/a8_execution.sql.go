@@ -503,7 +503,7 @@ func (q *Queries) ListCanonicalOutputs(ctx context.Context, runID string) ([]*Ru
 }
 
 const lockCanonicalOrder = `-- name: LockCanonicalOrder :one
-SELECT id, plan_id, account_id, client_order_id, account_epoch, instrument_id, side, quantity, state, revision, created_at, updated_at, exchange_status, cumulative_quantity, cumulative_fee, cumulative_rebate, last_event_ordinal FROM orders WHERE id = $1 FOR UPDATE
+SELECT id, plan_id, account_id, client_order_id, account_epoch, instrument_id, side, quantity, state, revision, created_at, updated_at, exchange_status, cumulative_quantity, cumulative_fee, cumulative_rebate, last_event_ordinal, requested_limit_price, simulation_latency_ms FROM orders WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockCanonicalOrder(ctx context.Context, id string) (*Order, error) {
@@ -527,6 +527,8 @@ func (q *Queries) LockCanonicalOrder(ctx context.Context, id string) (*Order, er
 		&i.CumulativeFee,
 		&i.CumulativeRebate,
 		&i.LastEventOrdinal,
+		&i.RequestedLimitPrice,
+		&i.SimulationLatencyMs,
 	)
 	return &i, err
 }
@@ -536,7 +538,7 @@ UPDATE orders SET state=$2, exchange_status=$3, cumulative_quantity=$4,
   cumulative_fee=$5, cumulative_rebate=$6, last_event_ordinal=$7,
   revision=revision+1, updated_at=$8
 WHERE id=$1 AND revision=$9 AND last_event_ordinal < $7
-RETURNING id, plan_id, account_id, client_order_id, account_epoch, instrument_id, side, quantity, state, revision, created_at, updated_at, exchange_status, cumulative_quantity, cumulative_fee, cumulative_rebate, last_event_ordinal
+RETURNING id, plan_id, account_id, client_order_id, account_epoch, instrument_id, side, quantity, state, revision, created_at, updated_at, exchange_status, cumulative_quantity, cumulative_fee, cumulative_rebate, last_event_ordinal, requested_limit_price, simulation_latency_ms
 `
 
 type ReduceCanonicalOrderParams struct {
@@ -582,6 +584,8 @@ func (q *Queries) ReduceCanonicalOrder(ctx context.Context, arg ReduceCanonicalO
 		&i.CumulativeFee,
 		&i.CumulativeRebate,
 		&i.LastEventOrdinal,
+		&i.RequestedLimitPrice,
+		&i.SimulationLatencyMs,
 	)
 	return &i, err
 }

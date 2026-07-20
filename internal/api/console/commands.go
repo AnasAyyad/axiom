@@ -57,11 +57,13 @@ func validSHA256(value string) bool {
 }
 
 func validOfflineRequest(value generated.OfflineJobRequest) bool {
-	return value.StrategyVersion.Valid() && value.ConfigurationId != "" && value.DatasetId != "" && validSHA256(value.RootSeedHash)
+	return value.StrategyVersion.Valid() && value.ConfigurationId != "" && value.DatasetId != "" &&
+		value.ResearchGenerationId != "" && validSHA256(value.RootSeedHash)
 }
 
 func validReplayRequest(value generated.ReplayJobRequest) bool {
-	if !value.StrategyVersion.Valid() || value.ConfigurationId == "" || value.DatasetId == "" || !validSHA256(value.RootSeedHash) {
+	if !value.StrategyVersion.Valid() || value.ConfigurationId == "" || value.DatasetId == "" ||
+		value.ResearchGenerationId == "" || !validSHA256(value.RootSeedHash) {
 		return false
 	}
 	return value.Speed == nil || value.Speed.Valid()
@@ -220,7 +222,7 @@ func (handler *handler) stopShadow(writer http.ResponseWriter, request *http.Req
 }
 
 func (handler *handler) stream(writer http.ResponseWriter, request *http.Request, principal authentication.Principal) {
-	if !handler.validOrigin(request) {
+	if !handler.validEventStreamOrigin(request) {
 		handler.writeError(writer, request, http.StatusForbidden, "origin_invalid", "Request origin rejected")
 		return
 	}

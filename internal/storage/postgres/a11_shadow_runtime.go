@@ -207,6 +207,10 @@ func (store *A11ShadowStore) startA11ShadowClaim(ctx context.Context, tx pgx.Tx,
 	if _, err = tx.Exec(ctx, `UPDATE shadow_sessions SET run_id=$1 WHERE id=$1`, claim.RunID); err != nil {
 		return err
 	}
+	if _, err = tx.Exec(ctx, `UPDATE shadow_sessions SET model_namespace_id=$2,slippage_model_id=$3,gap_model_id=$4
+	  WHERE id=$1`, claim.ID, claim.Models.ID, claim.SlippageModelID, claim.GapModelID); err != nil {
+		return err
+	}
 	return nil
 }
 

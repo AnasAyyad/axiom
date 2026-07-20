@@ -1,5 +1,6 @@
 .application {
   min-height: 100vh;
+  overflow-x: clip;
   padding-top: 2.4rem;
 }
 .safetyBanner {
@@ -127,6 +128,7 @@
   box-shadow: 0 0 0.8rem var(--color-good);
 }
 .content {
+  min-width: 0;
   width: min(100% - 17.5rem, 92rem);
   margin-left: 16.5rem;
   padding: 2rem 1rem 5rem;

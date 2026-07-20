@@ -17,7 +17,7 @@ func admitCandles(input Input, configuration Configuration) ([]exchangecontracts
 	}
 	unique := make([]exchangecontracts.Candle, 0, len(input.Candles))
 	for _, candle := range input.Candles {
-		if candle.Interval != "4h" || !candle.Closed || candle.Instrument != input.Instrument ||
+		if candle.Exchange != "binance" || candle.Interval != "4h" || !candle.Closed || candle.Instrument != input.Instrument ||
 			!utcAligned(candle) || candle.RawPayloadHash == "" {
 			return nil, ReasonCandleFinality
 		}
@@ -27,8 +27,7 @@ func admitCandles(input Input, configuration Configuration) ([]exchangecontracts
 			case candle.OpenTime.Before(prior.OpenTime):
 				return nil, ReasonCandleOrder
 			case candle.OpenTime.Equal(prior.OpenTime):
-				if candle.RawPayloadHash != prior.RawPayloadHash || candle.Close.Compare(prior.Close) != 0 ||
-					candle.High.Compare(prior.High) != 0 || candle.Low.Compare(prior.Low) != 0 {
+				if !identicalCandle(candle, prior) {
 					return nil, ReasonCandleConflict
 				}
 				continue
@@ -51,6 +50,16 @@ func admitCandles(input Input, configuration Configuration) ([]exchangecontracts
 		return nil, ReasonStaleSignal
 	}
 	return unique, ""
+}
+
+func identicalCandle(left, right exchangecontracts.Candle) bool {
+	return left.Exchange == right.Exchange && left.Instrument == right.Instrument && left.Interval == right.Interval &&
+		left.OpenTime.Equal(right.OpenTime) && left.CloseTime.Equal(right.CloseTime) &&
+		left.Open.Compare(right.Open) == 0 && left.High.Compare(right.High) == 0 &&
+		left.Low.Compare(right.Low) == 0 && left.Close.Compare(right.Close) == 0 &&
+		left.Volume.Compare(right.Volume) == 0 && left.Closed == right.Closed &&
+		left.ReceivedAt.UTC.Equal(right.ReceivedAt.UTC) && left.ReceivedAt.Sequence == right.ReceivedAt.Sequence &&
+		left.RawPayloadHash == right.RawPayloadHash
 }
 
 func utcAligned(candle exchangecontracts.Candle) bool {

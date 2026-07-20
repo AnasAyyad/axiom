@@ -96,7 +96,36 @@ export function ShadowCenter() {
               value={session.data.simulation_only ? "yes" : "no"}
               tone="good"
             />
+            <MetricCard
+              label="Decision grading"
+              value={`${session.data.accepted_decisions} accepted · ${session.data.rejected_decisions} rejected`}
+            />
+            <MetricCard
+              label="Journal impact"
+              value={`${session.data.journal_transactions} transactions`}
+            />
           </div>
+          <section className={styles.card}>
+            <h2>Immutable assumptions</h2>
+            <dl className={styles.facts}>
+              <div>
+                <dt>Configuration</dt>
+                <dd>{session.data.configuration_id}</dd>
+              </div>
+              <div>
+                <dt>Strategy</dt>
+                <dd>{session.data.strategy_version}</dd>
+              </div>
+              <div>
+                <dt>Model namespace</dt>
+                <dd>{session.data.model_namespace_id || "Pending claim"}</dd>
+              </div>
+              <div>
+                <dt>Decision dataset</dt>
+                <dd>{session.data.decision_dataset_id || "Pending flush"}</dd>
+              </div>
+            </dl>
+          </section>
           <ConfirmAction
             trigger={
               <button className={styles.actionDanger}>

@@ -130,6 +130,39 @@ func TestViewerCannotMutateAndBoundaryValidationFailsClosed(t *testing.T) {
 	}
 }
 
+func TestEventSourceOriginValidationAcceptsOnlyAllowlistedSameOriginMetadata(t *testing.T) {
+	_, store := a11HTTPTestHandler(t, []string{"operations.read"})
+	stream := &a11HTTPStream{}
+	handler := a11HTTPTestHandlerWithStream(t, store, stream)
+	session, _ := a11HTTPLogin(t, handler)
+
+	for name, testCase := range map[string]struct {
+		host, site, mode string
+		want             int
+	}{
+		"same origin EventSource": {"localhost:4173", "same-origin", "cors", http.StatusNoContent},
+		"cross site":              {"localhost:4173", "cross-site", "cors", http.StatusForbidden},
+		"wrong host":              {"attacker.example", "same-origin", "cors", http.StatusForbidden},
+		"missing metadata":        {"localhost:4173", "", "", http.StatusForbidden},
+	} {
+		t.Run(name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/stream", nil)
+			request.Host = testCase.host
+			request.Header.Set("Sec-Fetch-Site", testCase.site)
+			request.Header.Set("Sec-Fetch-Mode", testCase.mode)
+			request.AddCookie(session)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != testCase.want {
+				t.Fatalf("stream status = %d, want %d: %s", response.Code, testCase.want, response.Body.String())
+			}
+		})
+	}
+	if stream.calls != 1 {
+		t.Fatalf("stream calls = %d, want 1", stream.calls)
+	}
+}
+
 func TestLoginSourceScopeDropsEphemeralPorts(t *testing.T) {
 	for input, expected := range map[string]string{
 		"127.0.0.1:54231":      "127.0.0.1",
@@ -182,6 +215,26 @@ func a11HTTPTestHandler(t *testing.T, permissions []string) (http.Handler, *a11H
 	mux := http.NewServeMux()
 	Register(mux, Options{Authentication: service, AllowedOrigins: []string{"http://localhost:4173"}})
 	return mux, store
+}
+
+func a11HTTPTestHandlerWithStream(t *testing.T, store *a11HTTPStore, stream StreamService) http.Handler {
+	t.Helper()
+	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC))
+	service, err := authentication.NewService(store, clock, []byte(strings.Repeat("c", 32)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	Register(mux, Options{Authentication: service, AllowedOrigins: []string{"http://localhost:4173"}, Streams: stream})
+	return mux
+}
+
+type a11HTTPStream struct{ calls int }
+
+func (stream *a11HTTPStream) Serve(writer http.ResponseWriter, _ *http.Request, _ authentication.Principal) error {
+	stream.calls++
+	writer.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 type a11HTTPStore struct {

@@ -28,6 +28,12 @@ func TestRouterAppliesSecurityHeaders(t *testing.T) {
 	if response.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatal("missing security headers")
 	}
+	policy := response.Header().Get("Content-Security-Policy")
+	if !strings.Contains(policy, "style-src 'self'") ||
+		!strings.Contains(policy, "script-src 'self'") ||
+		strings.Contains(policy, "script-src 'self' 'unsafe-inline'") || strings.Contains(policy, "unsafe-eval") {
+		t.Fatalf("unexpected content security policy %q", policy)
+	}
 }
 
 func TestPanicRecoveryReturnsOnlyStableRedactedError(t *testing.T) {

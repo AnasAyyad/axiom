@@ -51,6 +51,29 @@ func TestEntryRequiresStrictRegimeConfirmationAndPriorBreakout(t *testing.T) {
 	if err != nil || decision.ReasonCode != ReasonBreakoutFailed {
 		t.Fatalf("breakout equality = %#v, %v", decision, err)
 	}
+	configurationSource := config.DefaultConfiguration().Trend
+	configurationSource.StrategyVersion = "trend.v1a.test-equality"
+	for index := range configurationSource.Parameters {
+		if configurationSource.Parameters[index].ID == "trend.ema_confirmation_period" {
+			configurationSource.Parameters[index].Value = "200"
+		}
+	}
+	equalConfiguration, err := NewConfiguration(configurationSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equalEvaluator, err := NewEvaluator(equalConfiguration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equalInput := input
+	equalInput.Evidence.StrategyVersion = equalConfiguration.Version
+	equalInput.Evidence.ConfigurationHash = equalConfiguration.Hash
+	decision, err = equalEvaluator.Evaluate(equalInput)
+	if err != nil || decision.ReasonCode != ReasonConfirmationFailed ||
+		decision.Explanation.EMA50.Compare(decision.Explanation.EMA200) != 0 {
+		t.Fatalf("EMA equality = %#v, %v", decision, err)
+	}
 }
 
 func TestCandleAdmissionFailsClosedAndIdenticalDuplicateIsIdempotent(t *testing.T) {
@@ -62,11 +85,17 @@ func TestCandleAdmissionFailsClosedAndIdenticalDuplicateIsIdempotent(t *testing.
 	}{
 		{name: "warmup", alter: func(value *Input) { value.Candles = value.Candles[:199] }, reason: ReasonWarmUp},
 		{name: "nonfinal", alter: func(value *Input) { value.Candles[len(value.Candles)-1].Closed = false }, reason: ReasonCandleFinality},
+		{name: "foreign_exchange", alter: func(value *Input) { value.Candles[len(value.Candles)-1].Exchange = "other" }, reason: ReasonCandleFinality},
 		{name: "too_early", alter: func(value *Input) { value.Now = value.Candles[len(value.Candles)-1].ReceivedAt.UTC.Add(time.Second) }, reason: ReasonCandleFinality},
 		{name: "gap", alter: func(value *Input) { value.Candles = append(value.Candles[:100], value.Candles[101:]...) }, reason: ReasonCandleGap},
 		{name: "conflict", alter: func(value *Input) {
 			duplicate := value.Candles[len(value.Candles)-1]
 			duplicate.RawPayloadHash = "conflict"
+			value.Candles = append(value.Candles, duplicate)
+		}, reason: ReasonCandleConflict},
+		{name: "same_hash_conflicting_open", alter: func(value *Input) {
+			duplicate := value.Candles[len(value.Candles)-1]
+			duplicate.Open = price(t, "1")
 			value.Candles = append(value.Candles, duplicate)
 		}, reason: ReasonCandleConflict},
 		{name: "regression", alter: func(value *Input) {
@@ -180,6 +209,28 @@ func TestPositionStopsOnlyTightenAndProtectiveExitPrecedesEMA(t *testing.T) {
 	}
 	if AdvanceCooldown(AdvanceCooldown(AdvanceCooldown(decision.CooldownStart))) != 0 {
 		t.Fatal("three completed candles did not finish cooldown")
+	}
+}
+
+func TestProtectiveCooldownBlocksExactlyThreeCompletedCandles(t *testing.T) {
+	evaluator, input := testEvaluatorAndInput(t)
+	for remaining := uint64(3); remaining > 0; remaining-- {
+		blocked := input
+		blocked.Position.CooldownRemaining = remaining
+		blocked.Candles = cloneCandles(input.Candles)
+		blocked.Candles[len(blocked.Candles)-1].RawPayloadHash = fmt.Sprintf("cooldown-%d", remaining)
+		decision, err := evaluator.Evaluate(blocked)
+		if err != nil || decision.ReasonCode != ReasonCooldown || decision.Candidate != nil {
+			t.Fatalf("cooldown %d = %#v %v", remaining, decision, err)
+		}
+	}
+	eligible := input
+	eligible.Position.CooldownRemaining = 0
+	eligible.Candles = cloneCandles(input.Candles)
+	eligible.Candles[len(eligible.Candles)-1].RawPayloadHash = "cooldown-fourth-candle"
+	decision, err := evaluator.Evaluate(eligible)
+	if err != nil || decision.ReasonCode != ReasonEntryAccepted || decision.Candidate == nil {
+		t.Fatalf("fourth candle not eligible = %#v %v", decision, err)
 	}
 }
 

@@ -3,6 +3,7 @@ package console
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"axiom/internal/authentication"
 )
@@ -120,7 +121,12 @@ func (handler *handler) job(writer http.ResponseWriter, request *http.Request, _
 	if handler.readUnavailable(writer, request) {
 		return
 	}
-	value, err := handler.options.Read.Job(request.Context(), request.PathValue("id"))
+	eventOrdinal := request.URL.Query().Get("event_ordinal")
+	if eventOrdinal != "" && !strings.HasPrefix(request.URL.Path, "/api/v1/replays/") {
+		handler.writeServiceError(writer, request, ErrInvalidRequest)
+		return
+	}
+	value, err := handler.options.Read.Job(request.Context(), request.PathValue("id"), eventOrdinal)
 	handler.writeRead(writer, request, value, err)
 }
 func (handler *handler) shadow(writer http.ResponseWriter, request *http.Request, _ authentication.Principal) {
@@ -139,14 +145,27 @@ func (handler *handler) incidents(writer http.ResponseWriter, request *http.Requ
 	if handler.readUnavailable(writer, request) {
 		return
 	}
-	value, err := handler.options.Read.Incidents(request.Context(), request.URL.Query().Get("cursor"), limit)
+	state := request.URL.Query().Get("state")
+	if state != "" && state != "open" && state != "acknowledged" && state != "resolved" {
+		handler.writeServiceError(writer, request, ErrInvalidRequest)
+		return
+	}
+	value, err := handler.options.Read.Incidents(request.Context(), request.URL.Query().Get("cursor"), limit, state)
 	handler.writeRead(writer, request, value, err)
 }
 func (handler *handler) incident(writer http.ResponseWriter, request *http.Request, principal authentication.Principal) {
 	if handler.readUnavailable(writer, request) {
 		return
 	}
-	raw := authentication.RequirePermission(principal, "incident.raw") == nil
+	raw, err := a11OptionalBool(request.URL.Query().Get("include_raw"))
+	if err != nil {
+		handler.writeServiceError(writer, request, ErrInvalidRequest)
+		return
+	}
+	if raw && authentication.RequirePermission(principal, "incident.raw") != nil {
+		handler.writeError(writer, request, http.StatusForbidden, "forbidden", "Permission denied")
+		return
+	}
 	value, err := handler.options.Read.Incident(request.Context(), request.PathValue("id"), raw)
 	handler.writeRead(writer, request, value, err)
 }
@@ -159,9 +178,33 @@ func (handler *handler) audit(writer http.ResponseWriter, request *http.Request,
 	if handler.readUnavailable(writer, request) {
 		return
 	}
-	raw := authentication.RequirePermission(principal, "audit.raw") == nil
-	value, err := handler.options.Read.Audit(request.Context(), request.URL.Query().Get("cursor"), limit, raw)
+	eventType := request.URL.Query().Get("event_type")
+	if len(eventType) > 80 {
+		handler.writeServiceError(writer, request, ErrInvalidRequest)
+		return
+	}
+	raw, err := a11OptionalBool(request.URL.Query().Get("include_detail"))
+	if err != nil {
+		handler.writeServiceError(writer, request, ErrInvalidRequest)
+		return
+	}
+	if raw && authentication.RequirePermission(principal, "audit.raw") != nil {
+		handler.writeError(writer, request, http.StatusForbidden, "forbidden", "Permission denied")
+		return
+	}
+	value, err := handler.options.Read.Audit(request.Context(), request.URL.Query().Get("cursor"), limit, eventType, raw)
 	handler.writeRead(writer, request, value, err)
+}
+
+func a11OptionalBool(value string) (bool, error) {
+	switch value {
+	case "", "false":
+		return false, nil
+	case "true":
+		return true, nil
+	default:
+		return false, ErrInvalidRequest
+	}
 }
 
 func (handler *handler) writeRead(writer http.ResponseWriter, request *http.Request, value any, err error) {

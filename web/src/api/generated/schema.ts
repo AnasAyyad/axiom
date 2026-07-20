@@ -114,15 +114,22 @@ export interface components {
       "kind": "backtest" | "replay";
       "mode_label": "BACKTEST" | "REPLAY";
       "progress"?: components["schemas"]["NonnegativeDecimal"];
+      "registered_report"?: components["schemas"]["RegisteredResearchReport"];
+      "replay_inspection"?: components["schemas"]["ReplayEventInspection"];
       "result"?: components["schemas"]["JobResult"];
       "revision": components["schemas"]["Revision"];
       "state": "QUEUED" | "RUNNING" | "PAUSE_REQUESTED" | "PAUSED" | "CANCEL_REQUESTED" | "CANCELED" | "SUCCEEDED" | "FAILED";
       "updated_at"?: components["schemas"]["Timestamp"];
     };
     "JobResult": {
+      "confidence_label": "local_tier_b" | "formal_tier_a" | "insufficient" | "rejected";
+      "disclaimer": string;
       "metrics"?: Record<string, components["schemas"]["Decimal"]>;
       "platform_correctness": string;
+      "report_hash": string;
+      "report_id": string;
       "reproducibility": string;
+      "research_coverage": "single_run_incomplete" | "registered_suite_complete";
       "result_hash": string;
       "strategy_evidence": string;
       "viability": "undetermined" | "viable_for_more_research" | "rejected";
@@ -153,6 +160,7 @@ export interface components {
     "OfflineJobRequest": {
       "configuration_id": string;
       "dataset_id": string;
+      "research_generation_id": string;
       "root_seed_hash": string;
       "strategy_version": "trend.v1a.1";
     };
@@ -186,11 +194,48 @@ export interface components {
       "realized_pnl": components["schemas"]["Decimal"];
       "unrealized_pnl": components["schemas"]["Decimal"];
     };
+    "RegisteredResearchReport": {
+      "benchmarks": Array<components["schemas"]["ResearchResultSlice"]>;
+      "canonical_manifest": string;
+      "capacity": Array<components["schemas"]["ResearchCapacityPoint"]>;
+      "confidence_label": "local_tier_b" | "formal_tier_a" | "rejected";
+      "created_at": components["schemas"]["Timestamp"];
+      "disclaimer": string;
+      "id": string;
+      "manifest_hash": string;
+      "platform_correctness": string;
+      "research_generation_id": string;
+      "run_references": Array<string>;
+      "strategy_evidence": string;
+      "stress": Array<components["schemas"]["ResearchResultSlice"]>;
+      "viability": "undetermined" | "viable_for_more_research" | "rejected";
+    };
+    "ReplayEventInspection": {
+      "canonical_balances": string;
+      "canonical_decision": string;
+      "canonical_event": string;
+      "canonical_execution_events": string;
+      "canonical_orders": string;
+      "event_count": components["schemas"]["Revision"];
+      "event_hash": string;
+      "ordinal": components["schemas"]["Revision"];
+    };
     "ReplayJobRequest": components["schemas"]["OfflineJobRequest"] & {
       "first_ordinal"?: components["schemas"]["Revision"];
       "incident_id"?: string;
       "last_ordinal"?: components["schemas"]["Revision"];
       "speed"?: "original" | "accelerated" | "maximum";
+    };
+    "ResearchCapacityPoint": {
+      "fill_rate": components["schemas"]["NonnegativeDecimal"];
+      "net_return": components["schemas"]["Decimal"];
+      "notional": components["schemas"]["NonnegativeDecimal"];
+    };
+    "ResearchResultSlice": {
+      "max_drawdown": components["schemas"]["NonnegativeDecimal"];
+      "name": string;
+      "net_return": components["schemas"]["Decimal"];
+      "trades": number;
     };
     "Revision": string;
     "RevisionCommandRequest": {
@@ -231,19 +276,26 @@ export interface components {
       "strategy_version": "trend.v1a.1";
     };
     "ShadowSessionResource": {
+      "accepted_decisions": number;
+      "configuration_id": string;
       "created_at": components["schemas"]["Timestamp"];
+      "decision_dataset_id": string;
       "entries_enabled": boolean;
       "failure_code"?: string;
       "id": string;
+      "journal_transactions": number;
       "label": "PUBLIC-LIVE SHADOW / VIRTUAL";
+      "model_namespace_id": string;
       "orders"?: Array<components["schemas"]["SimulatedOrder"]>;
       "public_only": true;
+      "rejected_decisions": number;
       "revision": components["schemas"]["Revision"];
       "risk_state"?: "PAUSED" | "RESUMED" | "LOCKED";
       "simulation_only": true;
       "started_at"?: components["schemas"]["Timestamp"];
       "state": "QUEUED" | "RUNNING" | "PAUSED" | "CANCEL_REQUESTED" | "CANCELED" | "FAILED";
       "stopped_at"?: components["schemas"]["Timestamp"];
+      "strategy_version": string;
     };
     "SimulatedOrder": {
       "filled_quantity"?: components["schemas"]["NonnegativeDecimal"];
@@ -353,7 +405,7 @@ export interface operations {
   "createBacktest": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["OfflineJobRequest"]; responses: { "202": components["schemas"]["JobResource"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getBacktest": { path: { "id": string; }; responses: { "200": components["schemas"]["JobResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "createReplay": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ReplayJobRequest"]; responses: { "202": components["schemas"]["JobResource"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; }; };
-  "getReplay": { path: { "id": string; }; responses: { "200": components["schemas"]["JobResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getReplay": { path: { "id": string; }; query: { "event_ordinal"?: components["schemas"]["Revision"]; }; responses: { "200": components["schemas"]["JobResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "pauseReplay": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
   "resumeReplay": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
   "stepReplay": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };

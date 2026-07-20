@@ -99,6 +99,7 @@ type RunManifest struct {
 	Build                BuildIdentity     `json:"build"`
 	Dataset              DatasetDescriptor `json:"dataset"`
 	ConfigurationHash    string            `json:"configuration_hash"`
+	ResearchGenerationID string            `json:"research_generation_id,omitempty"`
 	Seed                 string            `json:"seed"`
 	SchedulerVersion     string            `json:"scheduler_version"`
 	SerializationVersion string            `json:"serialization_version"`

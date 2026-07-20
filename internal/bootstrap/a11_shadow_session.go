@@ -197,7 +197,7 @@ func (session *a11LiveShadowSession) Run(ctx context.Context) error {
 				return err
 			}
 		case <-flush.C:
-			if err := session.Flush(workContext); err != nil {
+			if err := session.FlushAvailable(workContext); err != nil {
 				cancel()
 				group.Wait()
 				return err
@@ -243,26 +243,45 @@ func (session *a11LiveShadowSession) SetEntriesEnabled(enabled bool) { session.e
 
 // Flush finalizes both evidence streams and registers their immutable manifests.
 func (session *a11LiveShadowSession) Flush(ctx context.Context) error {
+	return session.flush(ctx, true)
+}
+
+// FlushAvailable persists only complete event pairs during live collection.
+func (session *a11LiveShadowSession) FlushAvailable(ctx context.Context) error {
+	return session.flush(ctx, false)
+}
+
+func (session *a11LiveShadowSession) flush(ctx context.Context, final bool) error {
 	session.flushMutex.Lock()
 	defer session.flushMutex.Unlock()
-	if err := session.flushRecorder(ctx, session.public, false); err != nil {
+	if err := session.flushRecorder(ctx, session.public, false, final); err != nil {
 		return err
 	}
-	return session.flushRecorder(ctx, session.decisions, true)
+	return session.flushRecorder(ctx, session.decisions, true, final)
 }
 
 func (session *a11LiveShadowSession) flushRecorder(ctx context.Context, recorder *marketrecorder.Recorder,
-	decisionInputs bool) error {
+	decisionInputs, final bool) error {
 	raw, canonical := recorder.PendingCounts()
 	if raw == 0 && canonical == 0 {
 		return nil
 	}
-	if raw != canonical {
+	if final && raw != canonical {
 		return fmt.Errorf("shadow_recorder_segment_incomplete")
 	}
-	manifest, err := recorder.Flush()
+	var manifest marketrecorder.DatasetManifest
+	flushed := true
+	var err error
+	if final {
+		manifest, err = recorder.Flush()
+	} else {
+		manifest, flushed, err = recorder.FlushReady()
+	}
 	if err != nil {
 		return err
+	}
+	if !flushed {
+		return nil
 	}
 	if decisionInputs {
 		id, registerErr := session.catalog.RegisterDecisionInputs(ctx, manifest, session.commit)

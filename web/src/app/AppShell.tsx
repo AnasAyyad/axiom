@@ -2,12 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 
-import {
-  parseStreamEvent,
-  postAPI,
-  setCSRFToken,
-  type APIModel,
-} from "../api/client";
+import { postAPI, setCSRFToken, type APIModel } from "../api/client";
 import {
   binanceQuery,
   incidentsQuery,
@@ -15,6 +10,7 @@ import {
   systemQuery,
 } from "../api/queries";
 import styles from "./Shell.module.css";
+import { useLiveStream } from "./useLiveStream";
 
 const navigation = [
   ["/", "Command Center"],
@@ -41,9 +37,7 @@ export function AppShell({ children, user }: AppShellProps) {
   const binance = useQuery(binanceQuery);
   const risk = useQuery(riskQuery);
   const incidents = useQuery(incidentsQuery);
-  const [streamState, setStreamState] = useState<"live" | "reconnecting">(
-    "reconnecting",
-  );
+  const streamState = useLiveStream(queryClient);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [timeMode, setTimeMode] = useState<"UTC" | "local">("UTC");
   const logout = useMutation({
@@ -57,60 +51,6 @@ export function AppShell({ children, user }: AppShellProps) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
-  useEffect(() => {
-    let source: EventSource | undefined;
-    let reconnect: number | undefined;
-    let disposed = false;
-    let lastRevision = BigInt(
-      sessionStorage.getItem("axiom_stream_revision") ?? "0",
-    );
-    const connect = () => {
-      if (disposed) return;
-      const after =
-        lastRevision > 0n ? `?after_revision=${lastRevision.toString()}` : "";
-      source = new EventSource(`/api/v1/stream${after}`);
-      source.onopen = () => setStreamState("live");
-      source.onmessage = (event) => {
-        try {
-          const parsed = parseStreamEvent(event.data);
-          if (!parsed.success) throw new Error("invalid_stream_event");
-          const revision = BigInt(parsed.data.revision);
-          if (revision <= lastRevision) return;
-          if (lastRevision > 0n && revision !== lastRevision + 1n) {
-            setStreamState("reconnecting");
-            void queryClient.refetchQueries({ type: "active" });
-          }
-          lastRevision = revision;
-          sessionStorage.setItem("axiom_stream_revision", revision.toString());
-          void queryClient.invalidateQueries();
-        } catch {
-          setStreamState("reconnecting");
-          void queryClient.refetchQueries({ type: "active" });
-        }
-      };
-      source.onerror = () => {
-        source?.close();
-        setStreamState("reconnecting");
-        void queryClient.refetchQueries({ type: "active" });
-        reconnect = window.setTimeout(connect, 1_500);
-      };
-    };
-    void queryClient.refetchQueries({ type: "active" }).finally(() => {
-      const snapshot = queryClient.getQueryData<APIModel<"SystemStatus">>([
-        "system",
-      ]);
-      if (snapshot?.revision !== undefined) {
-        const snapshotRevision = BigInt(snapshot.revision);
-        if (snapshotRevision > lastRevision) lastRevision = snapshotRevision;
-      }
-      connect();
-    });
-    return () => {
-      disposed = true;
-      source?.close();
-      if (reconnect !== undefined) window.clearTimeout(reconnect);
-    };
-  }, [queryClient]);
   const serverTime =
     system.data?.server_time === undefined
       ? "Unavailable"

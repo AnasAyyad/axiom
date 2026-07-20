@@ -4,6 +4,7 @@ import type { APIModel } from "../api/client";
 import { MetricCard } from "../components/MetricCard";
 import { StatePanel } from "../components/StatePanel";
 import styles from "./Page.module.css";
+import { RegisteredResearchReport } from "./RegisteredResearchReport";
 import { emptyRun } from "./researchLabModel";
 const EvidenceChart = lazy(() =>
   import("../components/EvidenceChart").then((module) => ({
@@ -39,6 +40,11 @@ export function RunForm({
         label="Dataset ID"
         value={form.dataset}
         set={(dataset) => setForm({ ...form, dataset })}
+      />
+      <Field
+        label="Research generation ID"
+        value={form.researchGeneration}
+        set={(researchGeneration) => setForm({ ...form, researchGeneration })}
       />
       <Field
         label="Strategy version"
@@ -111,13 +117,53 @@ export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
               <dt>Reproducibility</dt>
               <dd>{job.result.reproducibility}</dd>
             </div>
+            <div>
+              <dt>Result hash</dt>
+              <dd>{job.result.result_hash}</dd>
+            </div>
+            <div>
+              <dt>Research report</dt>
+              <dd>{job.result.report_id}</dd>
+            </div>
+            <div>
+              <dt>Report hash</dt>
+              <dd>{job.result.report_hash}</dd>
+            </div>
+            <div>
+              <dt>Confidence</dt>
+              <dd>{job.result.confidence_label}</dd>
+            </div>
+            <div>
+              <dt>Research coverage</dt>
+              <dd>{job.result.research_coverage}</dd>
+            </div>
           </dl>
-          {job.result.metrics && (
-            <Suspense fallback={<StatePanel state="loading" />}>
-              <EvidenceChart metrics={job.result.metrics} />
-            </Suspense>
+          {job.result.research_coverage === "single_run_incomplete" && (
+            <StatePanel
+              state="degraded"
+              detail="Baseline metrics are complete. Walk-forward, confidence, neighborhood, capacity, stress, benchmark, and breakdown evidence are not established by this single run."
+            />
           )}
+          {job.result.metrics && (
+            <>
+              <dl className={styles.facts} aria-label="Exact run metrics">
+                {Object.entries(job.result.metrics).map(([name, value]) => (
+                  <div key={name}>
+                    <dt>{name.replaceAll("_", " ")}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <Suspense fallback={<StatePanel state="loading" />}>
+                <EvidenceChart metrics={job.result.metrics} />
+              </Suspense>
+            </>
+          )}
+          <p role="note">{job.result.disclaimer}</p>
         </section>
+      )}
+      {job.registered_report && (
+        <RegisteredResearchReport report={job.registered_report} />
       )}
     </>
   );

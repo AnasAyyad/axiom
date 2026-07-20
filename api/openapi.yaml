@@ -384,6 +384,10 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceID"
+        - in: query
+          name: event_ordinal
+          description: Select one persisted canonical replay event; defaults to the newest available event.
+          schema: { $ref: "#/components/schemas/Revision" }
       responses:
         "200":
           description: Replay lifecycle and deterministic cursor projection
@@ -1114,11 +1118,19 @@ components:
     OfflineJobRequest:
       type: object
       additionalProperties: false
-      required: [dataset_id, strategy_version, configuration_id, root_seed_hash]
+      required:
+        [
+          dataset_id,
+          strategy_version,
+          configuration_id,
+          research_generation_id,
+          root_seed_hash,
+        ]
       properties:
         dataset_id: { type: string }
         strategy_version: { type: string, enum: [trend.v1a.1] }
         configuration_id: { type: string }
+        research_generation_id: { type: string }
         root_seed_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
     ReplayJobRequest:
       allOf:
@@ -1139,6 +1151,11 @@ components:
           strategy_evidence,
           viability,
           reproducibility,
+          report_id,
+          report_hash,
+          confidence_label,
+          research_coverage,
+          disclaimer,
         ]
       properties:
         result_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
@@ -1150,9 +1167,87 @@ components:
             enum: [undetermined, viable_for_more_research, rejected],
           }
         reproducibility: { type: string }
+        report_id: { type: string }
+        report_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        confidence_label:
+          {
+            type: string,
+            enum: [local_tier_b, formal_tier_a, insufficient, rejected],
+          }
+        research_coverage:
+          {
+            type: string,
+            enum: [single_run_incomplete, registered_suite_complete],
+          }
+        disclaimer: { type: string }
         metrics:
           type: object
           additionalProperties: { $ref: "#/components/schemas/Decimal" }
+    ResearchResultSlice:
+      type: object
+      additionalProperties: false
+      required: [name, net_return, max_drawdown, trades]
+      properties:
+        name: { type: string, minLength: 1 }
+        net_return: { $ref: "#/components/schemas/Decimal" }
+        max_drawdown: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        trades: { type: integer, format: int64, minimum: 0 }
+    ResearchCapacityPoint:
+      type: object
+      additionalProperties: false
+      required: [notional, net_return, fill_rate]
+      properties:
+        notional: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        net_return: { $ref: "#/components/schemas/Decimal" }
+        fill_rate: { $ref: "#/components/schemas/NonnegativeDecimal" }
+    RegisteredResearchReport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          research_generation_id,
+          manifest_hash,
+          confidence_label,
+          platform_correctness,
+          strategy_evidence,
+          viability,
+          disclaimer,
+          run_references,
+          benchmarks,
+          stress,
+          capacity,
+          canonical_manifest,
+          created_at,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        research_generation_id: { type: string, minLength: 1 }
+        manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        confidence_label:
+          { type: string, enum: [local_tier_b, formal_tier_a, rejected] }
+        platform_correctness: { type: string }
+        strategy_evidence: { type: string }
+        viability:
+          {
+            type: string,
+            enum: [undetermined, viable_for_more_research, rejected],
+          }
+        disclaimer: { type: string }
+        run_references:
+          type: array
+          items: { type: string, minLength: 1 }
+        benchmarks:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchResultSlice" }
+        stress:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchResultSlice" }
+        capacity:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchCapacityPoint" }
+        canonical_manifest: { type: string, minLength: 2, maxLength: 1048576 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
     JobResource:
       type: object
       additionalProperties: false
@@ -1181,8 +1276,36 @@ components:
         cursor_ordinal: { $ref: "#/components/schemas/Revision" }
         failure_code: { type: string }
         result: { $ref: "#/components/schemas/JobResult" }
+        registered_report:
+          { $ref: "#/components/schemas/RegisteredResearchReport" }
+        replay_inspection:
+          { $ref: "#/components/schemas/ReplayEventInspection" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ReplayEventInspection:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          event_count,
+          ordinal,
+          event_hash,
+          canonical_event,
+          canonical_decision,
+          canonical_orders,
+          canonical_execution_events,
+          canonical_balances,
+        ]
+      properties:
+        event_count: { $ref: "#/components/schemas/Revision" }
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        event_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        canonical_event: { type: string, minLength: 2, maxLength: 1048576 }
+        canonical_decision: { type: string, minLength: 2, maxLength: 1048576 }
+        canonical_orders: { type: string, minLength: 2, maxLength: 1048576 }
+        canonical_execution_events:
+          { type: string, minLength: 2, maxLength: 1048576 }
+        canonical_balances: { type: string, minLength: 2, maxLength: 1048576 }
     ShadowSessionRequest:
       type: object
       additionalProperties: false
@@ -1218,6 +1341,13 @@ components:
           entries_enabled,
           revision,
           created_at,
+          configuration_id,
+          strategy_version,
+          decision_dataset_id,
+          model_namespace_id,
+          accepted_decisions,
+          rejected_decisions,
+          journal_transactions,
         ]
       properties:
         id: { type: string }
@@ -1231,6 +1361,13 @@ components:
         simulation_only: { type: boolean, enum: [true] }
         entries_enabled: { type: boolean }
         revision: { $ref: "#/components/schemas/Revision" }
+        configuration_id: { type: string }
+        strategy_version: { type: string }
+        decision_dataset_id: { type: string }
+        model_namespace_id: { type: string }
+        accepted_decisions: { type: integer, minimum: 0 }
+        rejected_decisions: { type: integer, minimum: 0 }
+        journal_transactions: { type: integer, minimum: 0 }
         risk_state: { type: string, enum: [PAUSED, RESUMED, LOCKED] }
         orders:
           {

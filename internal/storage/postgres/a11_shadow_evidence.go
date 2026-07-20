@@ -124,7 +124,7 @@ func storeA11ShadowExecution(ctx context.Context, tx pgx.Tx, claim A11ShadowClai
 			return err
 		}
 	}
-	if err = storeA11ShadowOrders(ctx, tx, claim, input, exchangeID, journal, orders, byOrder); err != nil {
+	if err = storeA11ShadowOrders(ctx, tx, claim, input, decision, exchangeID, journal, orders, byOrder); err != nil {
 		return err
 	}
 	return completeA11ShadowPlans(ctx, tx, plans, input.Now)
@@ -151,8 +151,11 @@ func groupA11ShadowExecution(orders []execution.Order,
 }
 
 func storeA11ShadowOrders(ctx context.Context, tx pgx.Tx, claim A11ShadowClaim, input trend.Input,
-	exchangeID string, journal *simulation.FillJournal, orders []execution.Order,
+	decision trend.Decision, exchangeID string, journal *simulation.FillJournal, orders []execution.Order,
 	byOrder map[string][]execution.OrderEvent) error {
+	if decision.Candidate == nil {
+		return fmt.Errorf("a11_shadow_candidate_missing")
+	}
 	baseOrdinal, eventIndex := input.Ordinal*1_000_000, uint64(0)
 	var err error
 	for _, order := range orders {
@@ -160,7 +163,7 @@ func storeA11ShadowOrders(ctx context.Context, tx pgx.Tx, claim A11ShadowClaim, 
 		if len(orderEvents) == 0 {
 			return fmt.Errorf("a11_shadow_order_events_missing")
 		}
-		if err = insertA11ShadowOrder(ctx, tx, claim, order, orderEvents[0].OccurredAt); err != nil {
+		if err = insertA11ShadowOrder(ctx, tx, claim, order, decision.Candidate.LimitPrice, orderEvents[0].OccurredAt); err != nil {
 			return err
 		}
 		if err = verifyA11ShadowOrderStream(order, orderEvents); err != nil {
@@ -207,16 +210,16 @@ func insertA11ShadowPlan(ctx context.Context, tx pgx.Tx, id, decisionID string, 
 }
 
 func insertA11ShadowOrder(ctx context.Context, tx pgx.Tx, claim A11ShadowClaim,
-	order execution.Order, createdAt time.Time) error {
+	order execution.Order, limitPrice domain.Price, createdAt time.Time) error {
 	instrumentID, err := a11ShadowInstrumentID(ctx, tx, order.Identity.Instrument)
 	if err != nil {
 		return err
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO orders(id,plan_id,account_id,client_order_id,account_epoch,
-      instrument_id,side,quantity,state,revision,created_at,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'created',1,$9,$9)`, order.Identity.ID.Value(),
+	  instrument_id,side,quantity,state,revision,created_at,updated_at,requested_limit_price,simulation_latency_ms)
+	  VALUES($1,$2,$3,$4,$5,$6,$7,$8,'created',1,$9,$9,$10,0)`, order.Identity.ID.Value(),
 		order.Identity.PlanID.Value(), claim.AccountID, order.Identity.ClientOrderID, claim.ClaimEpoch,
-		instrumentID, string(order.Identity.Side), order.Identity.Quantity.String(), createdAt)
+		instrumentID, string(order.Identity.Side), order.Identity.Quantity.String(), createdAt, limitPrice.String())
 	return err
 }
 

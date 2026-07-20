@@ -52,7 +52,7 @@ func newRecorderRoleWork(
 	}
 	session := recorderSession(runtimeConfig.InstanceID, time.Now().UTC())
 	commit := segmentCommitter(pool, session)
-	streamRecorder, err := marketrecorder.New(runtimeConfig.Recorder.Root, "binance-public-v1a", session,
+	streamRecorder, err := marketrecorder.New(runtimeConfig.Recorder.Root, recorderDatasetID(session), session,
 		"binance", &runtimecore.IngestOrdinals{}, commit, nil)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 		select {
 		case <-workContext.Done():
 			group.Wait()
-			return work.flushPending(logger)
+			return work.flushPending(logger, true)
 		case err := <-errorsChannel:
 			if err != nil {
 				cancel()
@@ -140,7 +140,7 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 				return err
 			}
 		case <-flushTicker.C:
-			if err := work.flushPending(logger); err != nil {
+			if err := work.flushPending(logger, false); err != nil {
 				return err
 			}
 		}
@@ -179,17 +179,27 @@ func (work *recorderRoleWork) Ready() bool {
 	return true
 }
 
-func (work *recorderRoleWork) flushPending(logger *slog.Logger) error {
+func (work *recorderRoleWork) flushPending(logger *slog.Logger, final bool) error {
 	raw, canonical := work.recorder.PendingCounts()
 	if raw == 0 && canonical == 0 {
 		return nil
 	}
-	if raw != canonical {
+	if final && raw != canonical {
 		return fmt.Errorf("recorder_segment_incomplete")
 	}
-	manifest, err := work.recorder.Flush()
+	var manifest marketrecorder.DatasetManifest
+	flushed := true
+	var err error
+	if final {
+		manifest, err = work.recorder.Flush()
+	} else {
+		manifest, flushed, err = work.recorder.FlushReady()
+	}
 	if err != nil {
 		return err
+	}
+	if !flushed {
+		return nil
 	}
 	if work.catalog == nil {
 		return fmt.Errorf("recorder_catalog_unavailable")
@@ -210,6 +220,8 @@ func recorderSession(instance string, started time.Time) string {
 	digest := sha256.Sum256([]byte(instance + started.Format(time.RFC3339Nano)))
 	return "recorder-" + hex.EncodeToString(digest[:8])
 }
+
+func recorderDatasetID(session string) string { return "binance-public-v1a-" + session }
 
 func segmentCommitter(
 	pool *pgxpool.Pool,

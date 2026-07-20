@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -20,12 +21,15 @@ import (
 )
 
 type a11OfflineRequest struct {
-	ConfigurationID string  `json:"configuration_id"`
-	DatasetID       string  `json:"dataset_id"`
-	RootSeedHash    string  `json:"root_seed_hash"`
-	StrategyVersion string  `json:"strategy_version"`
-	FirstOrdinal    *string `json:"first_ordinal"`
-	LastOrdinal     *string `json:"last_ordinal"`
+	ConfigurationID      string  `json:"configuration_id"`
+	DatasetID            string  `json:"dataset_id"`
+	IncidentID           *string `json:"incident_id,omitempty"`
+	ResearchGenerationID string  `json:"research_generation_id"`
+	RootSeedHash         string  `json:"root_seed_hash"`
+	Speed                *string `json:"speed,omitempty"`
+	StrategyVersion      string  `json:"strategy_version"`
+	FirstOrdinal         *string `json:"first_ordinal"`
+	LastOrdinal          *string `json:"last_ordinal"`
 }
 
 type a11Materializer struct {
@@ -59,7 +63,12 @@ func (materializer *a11Materializer) materialize(ctx context.Context, jobID, kin
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
-	manifest, err := a11RunManifest(jobID, kind, request, configuration, configurationHash, descriptor, namespace)
+	timing, acceleration, err := a11JobTiming(kind, request.Speed)
+	if err != nil {
+		return backtest.JobClaim{}, err
+	}
+	manifest, err := a11RunManifest(jobID, kind, request, configuration, configurationHash, descriptor, namespace,
+		timing, acceleration)
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
@@ -67,7 +76,8 @@ func (materializer *a11Materializer) materialize(ctx context.Context, jobID, kin
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
-	return backtest.JobClaim{ID: jobID, Manifest: manifest, Configuration: configuration, Source: source}, nil
+	return backtest.JobClaim{ID: jobID, Manifest: manifest, Configuration: configuration, Source: source,
+		TimingMode: timing, Acceleration: acceleration}, nil
 }
 
 type a11DatasetInput struct {
@@ -81,8 +91,14 @@ func (materializer *a11Materializer) loadInputs(ctx context.Context, request a11
 	var canonical []byte
 	err := materializer.pool.QueryRow(ctx, `SELECT dm.recorder_dataset_id,dm.dataset_hash,dm.manifest_revision,
       dm.manifest_path,dm.source_commit,cv.configuration_hash,cv.canonical_payload
-      FROM dataset_manifests dm CROSS JOIN configuration_versions cv
-      WHERE dm.id=$1 AND dm.state='qualified' AND dm.dataset_kind='decision_inputs' AND cv.id=$2`, request.DatasetID, request.ConfigurationID).
+	  FROM dataset_manifests dm
+	  JOIN configuration_versions cv ON cv.id=$2
+	  JOIN experiment_registrations experiment ON experiment.configuration_id=cv.id AND experiment.dataset_id=dm.id
+	  JOIN research_generations generation ON generation.experiment_id=experiment.id
+	  WHERE dm.id=$1 AND dm.state='qualified' AND dm.dataset_kind='decision_inputs'
+	    AND generation.id=$3 AND experiment.strategy_version_id=$4
+	    AND experiment.status IN ('registered','running','completed','locked')`, request.DatasetID, request.ConfigurationID,
+		request.ResearchGenerationID, a11StrategyVersionID(request.StrategyVersion)).
 		Scan(&dataset.recorderID, &dataset.hash, &dataset.revision, &dataset.path, &dataset.sourceCommit,
 			&configurationHash, &canonical)
 	if err != nil {
@@ -144,22 +160,37 @@ func (materializer *a11Materializer) modelNamespace(ctx context.Context, configu
 
 func decodeA11OfflineRequest(kind string, payload json.RawMessage) (a11OfflineRequest, error) {
 	var request a11OfflineRequest
-	if json.Unmarshal(payload, &request) != nil {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&request) != nil || decoder.Decode(&struct{}{}) == nil {
 		return request, fmt.Errorf("a11_job_request_invalid")
 	}
 	seed, err := hex.DecodeString(request.RootSeedHash)
 	if (kind != "backtest" && kind != "replay") || request.ConfigurationID == "" || request.DatasetID == "" ||
+		request.ResearchGenerationID == "" ||
 		request.StrategyVersion != "trend.v1a.1" || err != nil || len(seed) != sha256.Size {
 		return request, fmt.Errorf("a11_job_request_invalid")
 	}
 	if (request.FirstOrdinal == nil) != (request.LastOrdinal == nil) {
 		return request, fmt.Errorf("a11_job_window_invalid")
 	}
+	if kind == "backtest" && (request.IncidentID != nil || request.Speed != nil || request.FirstOrdinal != nil) {
+		return request, fmt.Errorf("a11_job_request_invalid")
+	}
+	if kind == "replay" {
+		if request.Speed != nil && *request.Speed != "original" && *request.Speed != "accelerated" && *request.Speed != "maximum" {
+			return request, fmt.Errorf("a11_job_request_invalid")
+		}
+		if request.IncidentID != nil && (*request.IncidentID == "" || request.FirstOrdinal == nil) {
+			return request, fmt.Errorf("a11_job_window_invalid")
+		}
+	}
 	return request, nil
 }
 
 func a11RunManifest(jobID, kind string, request a11OfflineRequest, configuration config.Configuration, configurationHash string,
-	dataset backtest.DatasetDescriptor, namespace backtest.ModelNamespace) (backtest.RunManifest, error) {
+	dataset backtest.DatasetDescriptor, namespace backtest.ModelNamespace, timing replay.TimingMode,
+	acceleration uint64) (backtest.RunManifest, error) {
 	build := buildinfo.Current()
 	if build.Dirty || !a11BuildIdentityValid(build.Commit, build.GoSumHash, build.PNPMLockHash) {
 		return backtest.RunManifest{}, fmt.Errorf("a11_job_build_identity_invalid")
@@ -175,8 +206,30 @@ func a11RunManifest(jobID, kind string, request a11OfflineRequest, configuration
 	return backtest.RunManifest{RunID: runID, Mode: kind, CodeCommit: build.Commit,
 		Build: backtest.CurrentBuildIdentity([]string{"trimpath"}, build.GoSumHash, build.PNPMLockHash), Dataset: dataset,
 		ConfigurationHash: configurationHash, Seed: request.RootSeedHash,
-		SchedulerVersion: "deterministic-scheduler-v1", SerializationVersion: "canonical-json-v1",
-		Models: namespace, StartingBalanceHash: a11SHA256(startingPayload)}, nil
+		ResearchGenerationID: request.ResearchGenerationID,
+		SchedulerVersion:     fmt.Sprintf("deterministic-scheduler-v1:%s:%d", timing, acceleration),
+		SerializationVersion: "canonical-json-v1",
+		Models:               namespace, StartingBalanceHash: a11SHA256(startingPayload)}, nil
+}
+
+func a11JobTiming(kind string, speed *string) (replay.TimingMode, uint64, error) {
+	if kind == "backtest" {
+		return replay.MaximumTiming, 1, nil
+	}
+	selected := "original"
+	if speed != nil {
+		selected = *speed
+	}
+	switch selected {
+	case "original":
+		return replay.OriginalTiming, 1, nil
+	case "accelerated":
+		return replay.AcceleratedTiming, 10, nil
+	case "maximum":
+		return replay.MaximumTiming, 1, nil
+	default:
+		return "", 0, fmt.Errorf("a11_job_timing_invalid")
+	}
 }
 
 func a11ReplaySource(reader *backtest.DatasetReader, request a11OfflineRequest) (replay.Source, error) {

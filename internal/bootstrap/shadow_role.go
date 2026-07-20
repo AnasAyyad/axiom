@@ -22,6 +22,7 @@ type shadowRuntimeStore interface {
 type shadowSession interface {
 	Run(context.Context) error
 	SetEntriesEnabled(bool)
+	FlushAvailable(context.Context) error
 	Flush(context.Context) error
 	Checkpoint(context.Context) error
 }
@@ -95,6 +96,7 @@ func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.A1
 		select {
 		case err = <-result:
 			if err != nil && ctx.Err() == nil {
+				logger.Warn("shadow runtime failed", "event_code", "shadow_runtime_failed", "cause", err)
 				flushContext, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
 				_ = session.Flush(flushContext)
 				flushCancel()
@@ -106,7 +108,7 @@ func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.A1
 		case <-ticker.C:
 			if work.controlClaim(ctx, claim.ID, session, cancel) {
 				<-result
-				work.finishClaim(claim.ID, session)
+				work.finishClaim(claim.ID, session, logger)
 				return
 			}
 		case <-ctx.Done():
@@ -151,11 +153,21 @@ func (work *shadowRoleWork) controlClaim(ctx context.Context, id string, session
 	return false
 }
 
-func (work *shadowRoleWork) finishClaim(id string, session shadowSession) {
+func (work *shadowRoleWork) finishClaim(id string, session shadowSession, logger *slog.Logger) {
 	flushContext, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer flushCancel()
-	if session.Flush(flushContext) != nil || session.Checkpoint(flushContext) != nil ||
-		work.store.CompleteStop(flushContext, id) != nil {
+	if err := session.Flush(flushContext); err != nil {
+		logger.Warn("shadow stop flush failed", "event_code", "shadow_stop_flush_failed", "cause", err)
+		_ = work.store.Fail(flushContext, id, "shadow_stop_failed")
+		return
+	}
+	if err := session.Checkpoint(flushContext); err != nil {
+		logger.Warn("shadow stop checkpoint failed", "event_code", "shadow_stop_checkpoint_failed", "cause", err)
+		_ = work.store.Fail(flushContext, id, "shadow_stop_failed")
+		return
+	}
+	if err := work.store.CompleteStop(flushContext, id); err != nil {
+		logger.Warn("shadow stop completion failed", "event_code", "shadow_stop_completion_failed", "cause", err)
 		_ = work.store.Fail(flushContext, id, "shadow_stop_failed")
 	}
 }

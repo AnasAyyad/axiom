@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getAPI } from "../api/client";
 import {
-  auditQuery,
   decisionsQuery,
-  incidentsQuery,
+  incidentsQueryForState,
   trendQuery,
 } from "../api/queries";
 import { DataTable } from "../components/DataTable";
@@ -69,7 +69,8 @@ export function TrendPage() {
 }
 
 export function IncidentPage() {
-  const incidents = useQuery(incidentsQuery);
+  const [state, setState] = useState("");
+  const incidents = useQuery(incidentsQueryForState(state));
   if (incidents.isLoading) return <StatePanel state="loading" />;
   if (incidents.isError) return <StatePanel state="forbidden" />;
   const incidentData = incidents.data!;
@@ -79,8 +80,29 @@ export function IncidentPage() {
       eyebrow="Correlated evidence"
       description="Redacted immutable timelines link operational failures to deterministic replay windows."
     >
+      <section className={`${styles.card} ${styles.form}`}>
+        <label>
+          Incident state
+          <select
+            value={state}
+            onChange={(event) => setState(event.target.value)}
+          >
+            <option value="">All states</option>
+            <option value="open">Open</option>
+            <option value="acknowledged">Acknowledged</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </label>
+      </section>
       {incidentData.items.length === 0 ? (
-        <StatePanel state="empty" detail="No open or historical incidents." />
+        <StatePanel
+          state="empty"
+          detail={
+            state === ""
+              ? "No open or historical incidents."
+              : `No ${state} incidents match this filter.`
+          }
+        />
       ) : (
         <DataTable
           caption="Incident timeline"
@@ -107,15 +129,28 @@ export function IncidentPage() {
 
 export function IncidentDetailPage() {
   const { id = "" } = useParams();
+  const [includeRaw, setIncludeRaw] = useState(false);
   const incident = useQuery({
     queryKey: ["incident", id],
     queryFn: () => getAPI<"IncidentDetail">(`/api/v1/incidents/${id}`),
     enabled: id !== "",
   });
+  const rawIncident = useQuery({
+    queryKey: ["incident", id, "raw"],
+    queryFn: () =>
+      getAPI<"IncidentDetail">(`/api/v1/incidents/${id}?include_raw=true`),
+    enabled: id !== "" && includeRaw,
+    retry: false,
+  });
   if (incident.isLoading) return <StatePanel state="loading" />;
   if (incident.isError || !incident.data)
     return <StatePanel state="forbidden" />;
-  const detail = incident.data;
+  const detail =
+    includeRaw && rawIncident.data ? rawIncident.data : incident.data;
+  const replayAvailable =
+    detail.replay_window.dataset_id !== "" &&
+    detail.replay_window.first_ordinal !== "" &&
+    detail.replay_window.last_ordinal !== "";
   const replay = new URLSearchParams({
     incident: detail.id,
     dataset: detail.replay_window.dataset_id,
@@ -146,9 +181,35 @@ export function IncidentDetailPage() {
           }}
         />
       </div>
-      <Link className={styles.action} to={`/replays?${replay.toString()}`}>
-        Prepare incident replay
-      </Link>
+      {replayAvailable ? (
+        <Link className={styles.action} to={`/replays?${replay.toString()}`}>
+          Prepare incident replay
+        </Link>
+      ) : (
+        <StatePanel
+          state="degraded"
+          detail="No qualified decision-input dataset covers this incident yet."
+        />
+      )}
+      <section className={styles.card}>
+        <h2>Evidence authorization</h2>
+        <button
+          className={styles.actionSecondary}
+          type="button"
+          onClick={() => setIncludeRaw((current) => !current)}
+        >
+          {includeRaw
+            ? "Use redacted evidence"
+            : "Show authorized evidence hashes"}
+        </button>
+        {includeRaw && rawIncident.isLoading && <StatePanel state="loading" />}
+        {includeRaw && rawIncident.isError && (
+          <StatePanel
+            state="forbidden"
+            detail="The current role cannot inspect raw evidence identities."
+          />
+        )}
+      </section>
       {detail.timeline.length === 0 ? (
         <StatePanel state="empty" detail="No correlated timeline events." />
       ) : (
@@ -160,35 +221,7 @@ export function IncidentDetailPage() {
             { key: "event_type", label: "Event" },
             { key: "correlation_id", label: "Correlation" },
             { key: "redacted", label: "Redacted" },
-          ]}
-        />
-      )}
-    </Page>
-  );
-}
-
-export function AuditPage() {
-  const audit = useQuery(auditQuery);
-  if (audit.isLoading) return <StatePanel state="loading" />;
-  if (audit.isError) return <StatePanel state="forbidden" />;
-  return (
-    <Page
-      title="Audit"
-      eyebrow="Immutable administrative evidence"
-      description="Authorized, redacted command and lifecycle history with correlation and causation identities."
-    >
-      {audit.data!.items.length === 0 ? (
-        <StatePanel state="empty" />
-      ) : (
-        <DataTable
-          caption="Administrative audit events"
-          rows={audit.data!.items.map((item) => ({ ...item }))}
-          columns={[
-            { key: "recorded_at", label: "Recorded UTC" },
-            { key: "event_type", label: "Action" },
-            { key: "actor", label: "Actor" },
-            { key: "correlation_id", label: "Correlation" },
-            { key: "redacted", label: "Redacted" },
+            { key: "safe_detail", label: "Authorized evidence" },
           ]}
         />
       )}

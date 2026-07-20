@@ -2,7 +2,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
-import { getAPI, newIdempotencyKey, postAPI } from "../api/client";
+import {
+  getAPI,
+  newIdempotencyKey,
+  postAPI,
+  type APIModel,
+} from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { StatePanel } from "../components/StatePanel";
 import { JobPanel, Lab, RunForm } from "./ResearchLabShared";
@@ -20,6 +25,7 @@ export function BacktestLab() {
         {
           configuration_id: form.configuration,
           dataset_id: form.dataset,
+          research_generation_id: form.researchGeneration,
           strategy_version: form.strategy,
           root_seed_hash: form.seed,
         },
@@ -31,7 +37,12 @@ export function BacktestLab() {
     queryKey: ["backtest", jobID],
     queryFn: () => getAPI<"JobResource">(`/api/v1/backtests/${jobID}`),
     enabled: jobID !== "",
-    refetchInterval: 2_000,
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === "SUCCEEDED" || state === "FAILED" || state === "CANCELED"
+        ? false
+        : 2_000;
+    },
   });
   return (
     <Lab
@@ -65,6 +76,8 @@ export function ReplayLab() {
     dataset: search.get("dataset") ?? "",
   });
   const [jobID, setJobID] = useState(id ?? "");
+  const [ordinalInput, setOrdinalInput] = useState("");
+  const [inspectionOrdinal, setInspectionOrdinal] = useState("");
   const create = useMutation({
     mutationFn: () =>
       postAPI<"JobResource">(
@@ -72,9 +85,10 @@ export function ReplayLab() {
         {
           configuration_id: form.configuration,
           dataset_id: form.dataset,
+          research_generation_id: form.researchGeneration,
           strategy_version: form.strategy,
           root_seed_hash: form.seed,
-          speed: "original",
+          speed: "maximum",
           incident_id: search.get("incident") ?? undefined,
           first_ordinal: search.get("first") ?? undefined,
           last_ordinal: search.get("last") ?? undefined,
@@ -84,10 +98,21 @@ export function ReplayLab() {
     onSuccess: (job) => setJobID(job.id),
   });
   const job = useQuery({
-    queryKey: ["replay", jobID],
-    queryFn: () => getAPI<"JobResource">(`/api/v1/replays/${jobID}`),
+    queryKey: ["replay", jobID, inspectionOrdinal],
+    queryFn: () => {
+      const selected =
+        inspectionOrdinal === ""
+          ? ""
+          : `?event_ordinal=${encodeURIComponent(inspectionOrdinal)}`;
+      return getAPI<"JobResource">(`/api/v1/replays/${jobID}${selected}`);
+    },
     enabled: jobID !== "",
-    refetchInterval: 2_000,
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === "SUCCEEDED" || state === "FAILED" || state === "CANCELED"
+        ? false
+        : 250;
+    },
   });
   const control = useMutation({
     mutationFn: (action: "pause" | "resume" | "step") =>
@@ -99,7 +124,9 @@ export function ReplayLab() {
         },
         newIdempotencyKey(`replay-${action}`),
       ),
-    onSuccess: () => void job.refetch(),
+    onSuccess: async () => {
+      await job.refetch();
+    },
   });
   return (
     <Lab
@@ -116,15 +143,20 @@ export function ReplayLab() {
       />
       {job.data && (
         <>
-          <JobPanel job={job.data} />
           <section className={styles.card}>
             <h2>Replay controls</h2>
-            <div className={styles.header}>
-              {(["pause", "resume", "step"] as const).map((action) => (
+            <div className={styles.actions}>
+              {(["pause", "step", "resume"] as const).map((action) => (
                 <ConfirmAction
                   key={action}
                   trigger={
-                    <button className={styles.actionSecondary}>{action}</button>
+                    <button
+                      type="button"
+                      className={styles.actionSecondary}
+                      disabled={control.isPending}
+                    >
+                      {action}
+                    </button>
                   }
                   title={`${action} deterministic replay?`}
                   description="The command is idempotent, durable, audited, and checked against the current revision."
@@ -134,8 +166,79 @@ export function ReplayLab() {
               ))}
             </div>
           </section>
+          <section className={styles.card}>
+            <h2>Exact event and decision inspection</h2>
+            <form
+              className={styles.form}
+              onSubmit={(event) => {
+                event.preventDefault();
+                setInspectionOrdinal(ordinalInput);
+              }}
+            >
+              <label>
+                Event ordinal
+                <input
+                  inputMode="numeric"
+                  pattern="[1-9][0-9]*"
+                  placeholder="Newest event"
+                  value={ordinalInput}
+                  onChange={(event) => setOrdinalInput(event.target.value)}
+                />
+              </label>
+              <button type="submit">Inspect persisted event</button>
+            </form>
+            {job.data.replay_inspection ? (
+              <ReplayEvidence inspection={job.data.replay_inspection} />
+            ) : (
+              <StatePanel
+                state={job.data.state === "RUNNING" ? "loading" : "empty"}
+                detail="No persisted replay event is available at this ordinal yet."
+              />
+            )}
+          </section>
+          <JobPanel job={job.data} />
         </>
       )}
     </Lab>
+  );
+}
+
+function ReplayEvidence({
+  inspection,
+}: {
+  readonly inspection: NonNullable<
+    APIModel<"JobResource">["replay_inspection"]
+  >;
+}) {
+  const evidence = [
+    ["Canonical event", inspection.canonical_event],
+    ["Canonical decision", inspection.canonical_decision],
+    ["Canonical orders", inspection.canonical_orders],
+    ["Canonical execution events", inspection.canonical_execution_events],
+    ["Canonical balances", inspection.canonical_balances],
+  ] as const;
+  return (
+    <div>
+      <dl className={styles.facts} aria-label="Replay event identity">
+        <div>
+          <dt>Selected ordinal</dt>
+          <dd>{inspection.ordinal}</dd>
+        </div>
+        <div>
+          <dt>Persisted event count</dt>
+          <dd>{inspection.event_count}</dd>
+        </div>
+        <div>
+          <dt>Canonical event hash</dt>
+          <dd>{inspection.event_hash}</dd>
+        </div>
+      </dl>
+      {evidence.map(([label, value]) => (
+        <details key={label}>
+          <summary>{label}</summary>
+          <pre className={styles.canonical}>{value}</pre>
+        </details>
+      ))}
+    </div>
   );
 }

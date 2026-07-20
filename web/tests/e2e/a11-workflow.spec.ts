@@ -21,6 +21,10 @@ function pageEnvelope<T>(items: T[]) {
 }
 
 test.beforeEach(async ({ page }) => {
+  const state: FixtureState = {
+    replayState: "RUNNING",
+    replayRevision: 1,
+  };
   await page.addInitScript(() => {
     class DeterministicEventSource extends EventTarget {
       static CONNECTING = 0;
@@ -52,7 +56,7 @@ test.beforeEach(async ({ page }) => {
       value: DeterministicEventSource,
     });
   });
-  await page.route("**/api/v1/**", routeAPI);
+  await page.route("**/api/v1/**", (route) => routeAPI(route, state));
 });
 
 test("authenticated research workflow remains virtual and recovers state", async ({
@@ -79,18 +83,48 @@ test("authenticated research workflow remains virtual and recovers state", async
   await page.getByRole("button", { name: "Launch backtest" }).click();
   await expect(page.getByText("SUCCEEDED")).toBeVisible();
   await expect(page.getByText("locally reproducible")).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Registered benchmarks" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Registered stress scenarios" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Registered capacity curve" }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Replay Lab" }).click();
   await fillRun(page);
   await page.getByRole("button", { name: "Create replay" }).click();
-  for (const action of ["pause", "step", "resume"] as const) {
-    await page.getByRole("button", { name: action, exact: true }).click();
+  for (const [action, expectedState] of [
+    ["pause", "PAUSED"],
+    ["step", "PAUSED"],
+    ["resume", "RUNNING"],
+  ] as const) {
+    const trigger = page.getByRole("button", { name: action, exact: true });
+    await expect(trigger).toBeEnabled();
+    await trigger.click();
     await expect(page.getByRole("alertdialog")).toBeVisible();
     await page
       .getByRole("button", { name: action, exact: true })
       .last()
       .click();
+    await expect(page.getByRole("alertdialog")).toBeHidden();
+    await expect(
+      page.getByRole("main").getByText(expectedState, { exact: true }),
+    ).toBeVisible();
+    await page.goto("/replays/replay-a11");
+    await expect(
+      page.getByRole("main").getByText(expectedState, { exact: true }),
+    ).toBeVisible();
   }
+  await expect(
+    page.getByRole("heading", { name: "Exact event and decision inspection" }),
+  ).toBeVisible();
+  await page.getByText("Canonical decision", { exact: true }).click();
+  await expect(
+    page.getByText('{"reason_code":"entry_accepted"}', { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Shadow Center" }).click();
   await page.getByLabel("Configuration ID").fill("configuration-a10");
@@ -123,9 +157,24 @@ test("authenticated research workflow remains virtual and recovers state", async
     .getByRole("link", { name: "Open latest incident evidence" })
     .click();
   await expect(page.getByText("dataset-a11")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Prepare incident replay" }),
-  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Show authorized evidence hashes" })
+    .dispatchEvent("click");
+  await expect(page.getByText(/event_hash.*[a-f0-9]{64}/)).toBeVisible();
+  const incidentReplay = page.getByRole("link", {
+    name: "Prepare incident replay",
+  });
+  await expect(incidentReplay).toBeVisible();
+  const incidentReplayHref = await incidentReplay.getAttribute("href");
+  expect(incidentReplayHref).toContain("dataset=dataset-a11");
+  await page.goto(incidentReplayHref!);
+  await expect(page.getByRole("heading", { name: "Replay Lab" })).toBeVisible();
+  await expect(page.getByLabel("Dataset ID")).toHaveValue("dataset-a11");
+  await page.getByLabel("Configuration ID").fill("configuration-a10");
+  await page.getByLabel("Research generation ID").fill("generation-a10-1");
+  await page.getByLabel("Root seed hash").fill("8".repeat(64));
+  await page.getByRole("button", { name: "Create replay" }).click();
+  await expect(page.getByText("single_run_incomplete")).toBeVisible();
 
   await page.evaluate(() =>
     (
@@ -148,6 +197,11 @@ test("authenticated research workflow remains virtual and recovers state", async
     );
   }
 
+  await page.goto("/shadow/shadow-a11");
+  await page.getByRole("button", { name: "Stop shadow session" }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.getByRole("button", { name: "Stop session" }).click();
+
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(
     page.getByRole("heading", { name: "Owner access" }),
@@ -157,10 +211,16 @@ test("authenticated research workflow remains virtual and recovers state", async
 async function fillRun(page: Page) {
   await page.getByLabel("Configuration ID").fill("configuration-a10");
   await page.getByLabel("Dataset ID").fill("dataset-a11");
+  await page.getByLabel("Research generation ID").fill("generation-a10-1");
   await page.getByLabel("Root seed hash").fill("8".repeat(64));
 }
 
-async function routeAPI(route: Route) {
+interface FixtureState {
+  replayState: "RUNNING" | "PAUSED";
+  replayRevision: number;
+}
+
+async function routeAPI(route: Route, state: FixtureState) {
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname;
@@ -301,13 +361,20 @@ async function routeAPI(route: Route) {
   else if (
     method === "POST" &&
     (path === "/api/v1/backtests" || path === "/api/v1/replays")
-  )
-    body = job(path.includes("backtests") ? "backtest" : "replay");
-  else if (method === "GET" && /^\/api\/v1\/(backtests|replays)\//.test(path))
-    body = job(path.includes("backtests") ? "backtest" : "replay");
-  else if (method === "POST" && /^\/api\/v1\/replays\/[^/]+\//.test(path))
+  ) {
+    if (path === "/api/v1/replays") {
+      state.replayState = "RUNNING";
+      state.replayRevision += 1;
+    }
+    body = job(path.includes("backtests") ? "backtest" : "replay", state);
+  } else if (method === "GET" && /^\/api\/v1\/(backtests|replays)\//.test(path))
+    body = job(path.includes("backtests") ? "backtest" : "replay", state);
+  else if (method === "POST" && /^\/api\/v1\/replays\/[^/]+\//.test(path)) {
+    if (path.endsWith("/pause")) state.replayState = "PAUSED";
+    if (path.endsWith("/resume")) state.replayState = "RUNNING";
+    state.replayRevision += 1;
     body = command("replay-a11");
-  else if (method === "POST" && path === "/api/v1/shadow-sessions")
+  } else if (method === "POST" && path === "/api/v1/shadow-sessions")
     body = shadow();
   else if (method === "GET" && path.startsWith("/api/v1/shadow-sessions/"))
     body = shadow();
@@ -338,7 +405,10 @@ async function routeAPI(route: Route) {
           event_type: "gap",
           occurred_at: now,
           correlation_id: "correlation-a11",
-          redacted: false,
+          redacted: url.searchParams.get("include_raw") !== "true",
+          ...(url.searchParams.get("include_raw") === "true"
+            ? { safe_detail: `{"event_hash":"${"d".repeat(64)}"}` }
+            : {}),
         },
       ],
       replay_window: {
@@ -367,13 +437,13 @@ async function routeAPI(route: Route) {
   });
 }
 
-function job(kind: "backtest" | "replay") {
+function job(kind: "backtest" | "replay", state: FixtureState) {
   return {
     id: `${kind}-a11`,
     kind,
-    state: "SUCCEEDED",
+    state: kind === "backtest" ? "SUCCEEDED" : state.replayState,
     mode_label: kind.toUpperCase(),
-    revision: "4",
+    revision: kind === "backtest" ? "4" : state.replayRevision.toString(10),
     progress: "1",
     created_at: now,
     updated_at: now,
@@ -383,8 +453,72 @@ function job(kind: "backtest" | "replay") {
       strategy_evidence: "Tier B local only",
       viability: "undetermined",
       reproducibility: "byte-identical",
+      report_id: `report-${kind}-a11`,
+      report_hash: "b".repeat(64),
+      confidence_label: "insufficient",
+      research_coverage: "single_run_incomplete",
+      disclaimer:
+        "Backtest, replay, paper, and shadow results are research evidence only and are not evidence or a guarantee of production profitability.",
       metrics: { net_return: "0.01" },
     },
+    registered_report: {
+      id: "registered-report-a11",
+      research_generation_id: "generation-a10-1",
+      manifest_hash: "e".repeat(64),
+      confidence_label: "local_tier_b",
+      platform_correctness: "deterministic registered suite validated",
+      strategy_evidence: "registered local suite",
+      viability: "viable_for_more_research",
+      disclaimer:
+        "Backtest, replay, paper, and shadow results are research evidence only and are not evidence or a guarantee of production profitability.",
+      run_references: ["run-suite-1", "run-suite-2"],
+      benchmarks: [
+        {
+          name: "cash",
+          net_return: "0",
+          max_drawdown: "0",
+          trades: 0,
+        },
+        {
+          name: "buy_and_hold",
+          net_return: "0.02",
+          max_drawdown: "0.03",
+          trades: 1,
+        },
+      ],
+      stress: [
+        {
+          name: "fee",
+          net_return: "0.005",
+          max_drawdown: "0.025",
+          trades: 12,
+        },
+      ],
+      capacity: [
+        { notional: "1000", net_return: "0.01", fill_rate: "1" },
+        { notional: "10000", net_return: "0.006", fill_rate: "0.8" },
+      ],
+      canonical_manifest: JSON.stringify({
+        research_generation_id: "generation-a10-1",
+        evidence: "registered suite",
+      }),
+      created_at: now,
+    },
+    ...(kind === "replay"
+      ? {
+          replay_inspection: {
+            event_count: "20",
+            ordinal: "20",
+            event_hash: "c".repeat(64),
+            canonical_event:
+              '{"ordinal":20,"decision":{"reason_code":"entry_accepted"},"orders":[],"execution_events":[],"balances":{"USDT":"1000"}}',
+            canonical_decision: '{"reason_code":"entry_accepted"}',
+            canonical_orders: "[]",
+            canonical_execution_events: "[]",
+            canonical_balances: '{"USDT":"1000"}',
+          },
+        }
+      : {}),
   };
 }
 function shadow() {
@@ -396,6 +530,13 @@ function shadow() {
     simulation_only: true,
     entries_enabled: true,
     revision: "3",
+    configuration_id: "configuration-a10",
+    strategy_version: "trend.v1a.1",
+    decision_dataset_id: "dataset-a11",
+    model_namespace_id: "production-public-v1a",
+    accepted_decisions: 1,
+    rejected_decisions: 1,
+    journal_transactions: 2,
     risk_state: "RESUMED",
     created_at: now,
     started_at: now,

@@ -80,7 +80,8 @@ WHERE s.token_hash=$1
 GROUP BY s.id,u.id;
 
 -- name: TouchSession :one
-UPDATE sessions SET last_seen_at=$2, idle_expires_at=least(expires_at,$3), revision=revision+1
+UPDATE sessions SET last_seen_at=greatest(last_seen_at,$2),
+  idle_expires_at=greatest(idle_expires_at,least(expires_at,$3)), revision=revision+1
 WHERE id=$1 AND revoked_at IS NULL AND expires_at>$2 AND idle_expires_at>$2
 RETURNING *;
 

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { jobSchema } from "./researchValidation";
+
 const errorSchema = z.object({
   code: z.string(),
   correlation_id: z.string(),
@@ -10,6 +12,19 @@ const decimal = z.string().regex(/^-?(0|[1-9][0-9]*)(\.[0-9]+)?$/);
 const nonnegativeDecimal = z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]+)?$/);
 const revision = z.string().regex(/^(0|[1-9][0-9]*)$/);
 const timestamp = z.string().min(1);
+const canonicalJSON = z
+  .string()
+  .min(2)
+  .max(1_048_576)
+  .refine((value) => {
+    try {
+      JSON.parse(value);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+const safeAuditJSON = canonicalJSON.max(2_000);
 const sessionUser = z
   .object({
     id: z.string().min(1),
@@ -25,25 +40,6 @@ const command = z
     target_id: z.string(),
     revision,
     correlation_id: z.string().min(1),
-    created_at: timestamp,
-  })
-  .loose();
-const job = z
-  .object({
-    id: z.string().min(1),
-    kind: z.enum(["backtest", "replay"]),
-    state: z.enum([
-      "QUEUED",
-      "RUNNING",
-      "PAUSE_REQUESTED",
-      "PAUSED",
-      "CANCEL_REQUESTED",
-      "CANCELED",
-      "SUCCEEDED",
-      "FAILED",
-    ]),
-    mode_label: z.enum(["BACKTEST", "REPLAY"]),
-    revision,
     created_at: timestamp,
   })
   .loose();
@@ -260,8 +256,8 @@ const responseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
       })
       .loose(),
   ],
-  [/^GET \/api\/v1\/(backtests|replays)\//, job],
-  [/^POST \/api\/v1\/(backtests|replays)$/, job],
+  [/^GET \/api\/v1\/(backtests|replays)\//, jobSchema],
+  [/^POST \/api\/v1\/(backtests|replays)$/, jobSchema],
   [/^GET \/api\/v1\/shadow-sessions\//, shadow],
   [/^POST \/api\/v1\/shadow-sessions$/, shadow],
   [
@@ -296,8 +292,17 @@ const responseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
               occurred_at: timestamp,
               correlation_id: z.string(),
               redacted: z.boolean(),
+              safe_detail: safeAuditJSON.optional(),
             })
-            .loose(),
+            .loose()
+            .superRefine((value, context) => {
+              if (!value.redacted && value.safe_detail === undefined) {
+                context.addIssue({
+                  code: "custom",
+                  message: "authorized evidence detail missing",
+                });
+              }
+            }),
         ),
         replay_window: z.object({
           dataset_id: z.string(),
@@ -318,8 +323,17 @@ const responseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
           correlation_id: z.string(),
           recorded_at: timestamp,
           redacted: z.boolean(),
+          safe_detail: safeAuditJSON.optional(),
         })
-        .loose(),
+        .loose()
+        .superRefine((value, context) => {
+          if (!value.redacted && value.safe_detail === undefined) {
+            context.addIssue({
+              code: "custom",
+              message: "authorized audit detail missing",
+            });
+          }
+        }),
     ),
   ],
   [/^POST \/api\/v1\/(risk|replays\/[^/]+|shadow-sessions\/[^/]+)\//, command],

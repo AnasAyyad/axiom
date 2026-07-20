@@ -191,8 +191,13 @@ func a11RecoveryFoundationFacts(ctx context.Context, tx pgx.Tx, build buildinfo.
 	}
 	facts = append(facts, map[string]any{"expired_execution_leases_reclaimed": expiredLeases}, build,
 		map[string]any{"configuration_id": configurationID, "configuration_hash": configurationHash})
+	migrations, migrationErr := Migrations()
+	if migrationErr != nil || len(migrations) == 0 {
+		return nil, "", fmt.Errorf("a11_startup_recovery_schema_invalid")
+	}
+	expectedMigration := migrations[len(migrations)-1].Version
 	var migrationVersion string
-	if err := tx.QueryRow(ctx, `SELECT max(version) FROM schema_migrations`).Scan(&migrationVersion); err != nil || migrationVersion != "000010" {
+	if err := tx.QueryRow(ctx, `SELECT max(version) FROM schema_migrations`).Scan(&migrationVersion); err != nil || migrationVersion != expectedMigration {
 		return nil, "", fmt.Errorf("a11_startup_recovery_schema_invalid")
 	}
 	facts = append(facts, map[string]any{"migration_version": migrationVersion})

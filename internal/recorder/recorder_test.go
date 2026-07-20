@@ -171,6 +171,28 @@ func TestRecorderFlushRetainsInFlightRawSuffix(t *testing.T) {
 	}
 }
 
+func TestRecorderFlushReadyWaitsForFirstCanonicalPair(t *testing.T) {
+	recorder, err := testRecorder(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link, err := recorder.RecordRaw(rawInput(t, 1, []byte(`{"wire":1}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest, flushed, flushErr := recorder.FlushReady(); flushErr != nil || flushed || manifest.Revision != 0 {
+		t.Fatalf("in-flight ready flush = %#v %t %v", manifest, flushed, flushErr)
+	}
+	if err = recorder.RecordCanonical(CanonicalInput{Link: link, EventID: eventID(link.IngestOrdinal),
+		ParserVersion: "parser-v1", NormalizationVersion: "normalizer-v1", Canonical: []byte(`{"canonical":1}`)}); err != nil {
+		t.Fatal(err)
+	}
+	manifest, flushed, err := recorder.FlushReady()
+	if err != nil || !flushed || manifest.RawRecordCount != 1 || manifest.CanonicalCount != 1 {
+		t.Fatalf("completed ready flush = %#v %t %v", manifest, flushed, err)
+	}
+}
+
 func TestRecorderFailsClosedAtConfiguredMemoryBound(t *testing.T) {
 	recorder, err := testRecorder(t)
 	if err != nil {

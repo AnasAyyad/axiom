@@ -44,6 +44,7 @@ type Metrics struct {
 	Turnover                   string            `json:"turnover"`
 	Exposure                   string            `json:"exposure"`
 	Trades                     uint64            `json:"trades"`
+	FeesPaid                   string            `json:"fees_paid"`
 	FeePercentGrossProfit      string            `json:"fee_percent_gross_profit"`
 	SlippagePercentGrossProfit string            `json:"slippage_percent_gross_profit"`
 	RecoveryLoss               string            `json:"recovery_loss"`

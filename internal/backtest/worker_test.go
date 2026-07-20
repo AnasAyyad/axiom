@@ -196,15 +196,16 @@ func (*workerProcessor) Metrics() Metrics {
 func workerClaim() JobClaim {
 	hash := strings.Repeat("a", 64)
 	runID, _ := domain.NewRunID("worker")
-	return JobClaim{ID: "job-worker", Source: &workerSource{}, Manifest: RunManifest{RunID: runID,
-		Mode: "backtest", CodeCommit: strings.Repeat("b", 40), Build: CurrentBuildIdentity(nil, hash, hash),
-		Dataset: DatasetDescriptor{DatasetID: "dataset-worker", ManifestHash: hash, Revision: 1,
-			SourceCommit: strings.Repeat("c", 40), SchemaVersion: "dataset-v1", ParserVersion: "parser-v1",
-			NormalizationVersion: "normalizer-v1", SegmentHashes: []string{hash}, RecordCount: 1,
-			Complete: true, Confidence: ConfidenceB}, ConfigurationHash: hash, Seed: "seed-worker",
-		SchedulerVersion: "scheduler-v1", SerializationVersion: "canonical-json-v1",
-		Models: ModelNamespace{ID: "models-worker", MarketContext: "production-public", LiquidityDomain: "combined",
-			FeeDomain: "fee-v1", LatencyDomain: "latency-v1", FillDomain: "fill-v1"}, StartingBalanceHash: hash}}
+	return JobClaim{ID: "job-worker", Source: &workerSource{}, TimingMode: replay.MaximumTiming, Acceleration: 1,
+		Manifest: RunManifest{RunID: runID,
+			Mode: "backtest", CodeCommit: strings.Repeat("b", 40), Build: CurrentBuildIdentity(nil, hash, hash),
+			Dataset: DatasetDescriptor{DatasetID: "dataset-worker", ManifestHash: hash, Revision: 1,
+				SourceCommit: strings.Repeat("c", 40), SchemaVersion: "dataset-v1", ParserVersion: "parser-v1",
+				NormalizationVersion: "normalizer-v1", SegmentHashes: []string{hash}, RecordCount: 1,
+				Complete: true, Confidence: ConfidenceB}, ConfigurationHash: hash, Seed: "seed-worker",
+			SchedulerVersion: "scheduler-v1", SerializationVersion: "canonical-json-v1",
+			Models: ModelNamespace{ID: "models-worker", MarketContext: "production-public", LiquidityDomain: "combined",
+				FeeDomain: "fee-v1", LatencyDomain: "latency-v1", FillDomain: "fill-v1"}, StartingBalanceHash: hash}}
 }
 
 var _ ControlledJobStore = (*workerStore)(nil)

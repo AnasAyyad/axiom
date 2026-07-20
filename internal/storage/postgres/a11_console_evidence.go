@@ -56,47 +56,23 @@ func (store *A11ConsoleStore) TrendDecisions(ctx context.Context, cursor string,
 	return page, rows.Err()
 }
 
-// Job returns one durable backtest or replay lifecycle record.
-func (store *A11ConsoleStore) Job(ctx context.Context, id string) (generated.JobResource, error) {
-	var item generated.JobResource
-	var kind, state string
-	var revision int64
-	var failure *string
-	var result []byte
-	err := store.pool.QueryRow(ctx, `SELECT id,job_type,state,created_at,updated_at,progress_revision,failure_code,coalesce(result_payload::text,'') FROM jobs WHERE id=$1`, id).
-		Scan(&item.Id, &kind, &state, &item.CreatedAt, &item.UpdatedAt, &revision, &failure, &result)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return generated.JobResource{}, console.ErrNotFound
-	}
-	if err != nil {
-		return generated.JobResource{}, err
-	}
-	item.Kind = generated.JobResourceKind(kind)
-	item.State = generated.JobResourceState(state)
-	item.Revision = strconv.FormatInt(revision, 10)
-	item.FailureCode = failure
-	if kind == "backtest" {
-		item.ModeLabel = generated.BACKTEST
-	} else {
-		item.ModeLabel = generated.REPLAY
-	}
-	if len(result) > 0 {
-		var projection generated.JobResult
-		if err = json.Unmarshal(result, &projection); err != nil {
-			return generated.JobResource{}, err
-		}
-		item.Result = &projection
-	}
-	return item, nil
-}
-
 // Shadow returns one public-only simulation session and its simulated orders.
 func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.ShadowSessionResource, error) {
 	var item generated.ShadowSessionResource
 	var state string
 	var revision int64
-	err := store.pool.QueryRow(ctx, `SELECT id,state,revision,entries_enabled,created_at,started_at,stopped_at,failure_code FROM shadow_sessions WHERE id=$1`, id).
-		Scan(&item.Id, &state, &revision, &item.EntriesEnabled, &item.CreatedAt, &item.StartedAt, &item.StoppedAt, &item.FailureCode)
+	err := store.pool.QueryRow(ctx, `SELECT session.id,session.state,session.revision,session.entries_enabled,
+	  session.created_at,session.started_at,session.stopped_at,session.failure_code,session.configuration_id,
+	  CASE WHEN strategy.id='trend-v1a-1' THEN 'trend.v1a.1' ELSE strategy.version::text END,
+	  coalesce(session.decision_dataset_id,''),coalesce(session.model_namespace_id,''),
+	  (SELECT count(*)::integer FROM decisions WHERE run_id=session.run_id AND outcome='accepted'),
+	  (SELECT count(*)::integer FROM decisions WHERE run_id=session.run_id AND outcome='rejected'),
+	  (SELECT count(*)::integer FROM journal_transactions WHERE run_id=session.run_id)
+	  FROM shadow_sessions session JOIN strategy_versions strategy ON strategy.id=session.strategy_version_id
+	  WHERE session.id=$1`, id).
+		Scan(&item.Id, &state, &revision, &item.EntriesEnabled, &item.CreatedAt, &item.StartedAt, &item.StoppedAt,
+			&item.FailureCode, &item.ConfigurationId, &item.StrategyVersion, &item.DecisionDatasetId,
+			&item.ModelNamespaceId, &item.AcceptedDecisions, &item.RejectedDecisions, &item.JournalTransactions)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return generated.ShadowSessionResource{}, console.ErrNotFound
 	}
@@ -108,7 +84,9 @@ func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.
 	item.Label = generated.PUBLICLIVESHADOWVIRTUAL
 	item.PublicOnly = true
 	item.SimulationOnly = true
-	rows, err := store.pool.Query(ctx, `SELECT o.id,o.instrument_id,o.side,o.quantity::text,coalesce((SELECT sum(f.quantity)::text FROM fills f WHERE f.order_id=o.id),'0'),o.state
+	rows, err := store.pool.Query(ctx, `SELECT o.id,o.instrument_id,o.side,o.quantity::text,
+	coalesce((SELECT sum(f.quantity)::text FROM fills f WHERE f.order_id=o.id),'0'),o.state,
+	o.requested_limit_price::text,o.simulation_latency_ms::text
     FROM orders o JOIN virtual_accounts va ON va.id=o.account_id JOIN shadow_sessions ss ON ss.run_id=va.run_id WHERE ss.id=$1 ORDER BY o.created_at,o.id`, id)
 	if err != nil {
 		return generated.ShadowSessionResource{}, err
@@ -118,11 +96,11 @@ func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.
 	for rows.Next() {
 		var order generated.SimulatedOrder
 		var filled string
-		if err = rows.Scan(&order.Id, &order.Instrument, &order.Side, &order.Quantity, &filled, &order.State); err != nil {
+		if err = rows.Scan(&order.Id, &order.Instrument, &order.Side, &order.Quantity, &filled, &order.State,
+			&order.LimitPrice, &order.LatencyMs); err != nil {
 			return generated.ShadowSessionResource{}, err
 		}
 		order.FilledQuantity = &filled
-		order.LimitPrice = "0"
 		order.Simulated = true
 		orders = append(orders, order)
 	}
@@ -131,14 +109,15 @@ func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.
 }
 
 // Incidents returns immutable operational incident summaries.
-func (store *A11ConsoleStore) Incidents(ctx context.Context, cursor string, limit int) (generated.IncidentPage, error) {
-	occurred, id, _, err := decodeA11TimeCursor(store.cursor, "incidents", cursor)
+func (store *A11ConsoleStore) Incidents(ctx context.Context, cursor string, limit int, state string) (generated.IncidentPage, error) {
+	scope := "incidents:" + state
+	occurred, id, _, err := decodeA11TimeCursor(store.cursor, scope, cursor)
 	if err != nil {
 		return generated.IncidentPage{}, err
 	}
 	rows, err := store.pool.Query(ctx, `SELECT id,severity,state,reason_code,opened_at FROM incidents
-		WHERE ($1::timestamptz IS NULL OR opened_at<$1 OR (opened_at=$1 AND id<$2))
-		ORDER BY opened_at DESC,id DESC LIMIT $3`, nullableA11Time(occurred), id, limit+1)
+		WHERE ($1='' OR state=$1) AND ($2::timestamptz IS NULL OR opened_at<$2 OR (opened_at=$2 AND id<$3))
+		ORDER BY opened_at DESC,id DESC LIMIT $4`, state, nullableA11Time(occurred), id, limit+1)
 	if err != nil {
 		return generated.IncidentPage{}, err
 	}
@@ -161,7 +140,7 @@ func (store *A11ConsoleStore) Incidents(ctx context.Context, cursor string, limi
 		items = items[:limit]
 		page.Items = items
 		last := items[len(items)-1]
-		next := encodeA11TimeCursor(store.cursor, "incidents", last.OpenedAt, last.Id)
+		next := encodeA11TimeCursor(store.cursor, scope, last.OpenedAt, last.Id)
 		page.NextCursor = &next
 	}
 	return page, rows.Err()
@@ -177,37 +156,86 @@ func (store *A11ConsoleStore) Incident(ctx context.Context, id string, raw bool)
 	}
 	item.Revision = strconv.FormatInt(item.OpenedAt.UnixNano(), 10)
 	item.Timeline = []generated.TimelineEvent{}
-	rows, err := store.pool.Query(ctx, `SELECT id,event_type,correlation_id,recorded_at FROM audit_events WHERE causation_id=$1 OR correlation_id=$1 ORDER BY recorded_at,id`, id)
+	rows, err := store.pool.Query(ctx, `SELECT audit.id,audit.event_type,audit.correlation_id,audit.recorded_at,
+	  audit.event_hash::text,command.command_kind,command.target_type,command.target_id,command.reason,
+	  command.state,coalesce(command.result_payload::text,'')
+	  FROM audit_events audit LEFT JOIN LATERAL (SELECT command_kind,target_type,target_id,reason,state,result_payload
+	    FROM command_requests WHERE audit_event_id=audit.id ORDER BY id LIMIT 1) command ON true
+	  WHERE audit.causation_id=$1 OR audit.correlation_id=$1 ORDER BY audit.recorded_at,audit.id`, id)
 	if err != nil {
 		return generated.IncidentDetail{}, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var event generated.TimelineEvent
-		if err = rows.Scan(&event.Id, &event.EventType, &event.CorrelationId, &event.OccurredAt); err != nil {
+		var evidenceHash string
+		var commandKind, targetType, targetID, reason, state *string
+		var result string
+		if err = rows.Scan(&event.Id, &event.EventType, &event.CorrelationId, &event.OccurredAt, &evidenceHash,
+			&commandKind, &targetType, &targetID, &reason, &state, &result); err != nil {
 			return generated.IncidentDetail{}, err
 		}
 		event.Redacted = !raw
+		if raw {
+			detail := a11SafeAuditDetail(evidenceHash, commandKind, targetType, targetID, reason, state, result)
+			event.SafeDetail = &detail
+		}
 		item.Timeline = append(item.Timeline, event)
 	}
-	var dataset string
-	var first, last int64
-	_ = store.pool.QueryRow(ctx, `SELECT id,first_ordinal,last_ordinal FROM market_data_segments WHERE started_at<=$1 AND ended_at>=$1 ORDER BY started_at DESC LIMIT 1`, item.OpenedAt).Scan(&dataset, &first, &last)
-	item.ReplayWindow.DatasetId = dataset
-	item.ReplayWindow.FirstOrdinal = strconv.FormatInt(first, 10)
-	item.ReplayWindow.LastOrdinal = strconv.FormatInt(last, 10)
+	dataset, first, last, replayErr := a11IncidentReplayWindow(ctx, store.pool, id)
+	if replayErr == nil {
+		item.ReplayWindow.DatasetId = dataset
+		item.ReplayWindow.FirstOrdinal = strconv.FormatInt(first, 10)
+		item.ReplayWindow.LastOrdinal = strconv.FormatInt(last, 10)
+	} else if !errors.Is(replayErr, console.ErrPrecondition) {
+		return generated.IncidentDetail{}, replayErr
+	}
 	return item, rows.Err()
 }
 
+type a11RowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func a11IncidentReplayWindow(ctx context.Context, query a11RowQuerier, incidentID string) (string, int64, int64, error) {
+	var dataset string
+	var first, last int64
+	err := query.QueryRow(ctx, `SELECT manifest.id,segment.first_ordinal,segment.last_ordinal
+		FROM incidents incident
+		JOIN market_data_segments segment ON segment.started_at<=incident.opened_at AND segment.ended_at>=incident.opened_at
+		JOIN dataset_segments member ON member.segment_id=segment.id
+		JOIN dataset_manifests manifest ON manifest.id=member.dataset_id
+		WHERE incident.id=$1 AND segment.state='ready' AND manifest.state='qualified'
+		  AND manifest.dataset_kind='decision_inputs'
+		ORDER BY manifest.manifest_revision DESC NULLS LAST,manifest.created_at DESC,manifest.id DESC,member.ordinal DESC
+		LIMIT 1`, incidentID).Scan(&dataset, &first, &last)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", 0, 0, console.ErrPrecondition
+	}
+	if err != nil || dataset == "" || first <= 0 || last < first {
+		if err != nil {
+			return "", 0, 0, err
+		}
+		return "", 0, 0, console.ErrPrecondition
+	}
+	return dataset, first, last, nil
+}
+
 // Audit returns immutable redacted administrative events.
-func (store *A11ConsoleStore) Audit(ctx context.Context, cursor string, limit int, raw bool) (generated.AuditEventPage, error) {
-	occurred, id, _, err := decodeA11TimeCursor(store.cursor, "audit", cursor)
+func (store *A11ConsoleStore) Audit(ctx context.Context, cursor string, limit int, eventType string, raw bool) (generated.AuditEventPage, error) {
+	scope := "audit:" + eventType
+	occurred, id, _, err := decodeA11TimeCursor(store.cursor, scope, cursor)
 	if err != nil {
 		return generated.AuditEventPage{}, err
 	}
-	rows, err := store.pool.Query(ctx, `SELECT id,event_type,actor,causation_id,correlation_id,recorded_at FROM audit_events
-		WHERE ($1::timestamptz IS NULL OR recorded_at<$1 OR (recorded_at=$1 AND id<$2))
-		ORDER BY recorded_at DESC,id DESC LIMIT $3`, nullableA11Time(occurred), id, limit+1)
+	rows, err := store.pool.Query(ctx, `SELECT audit.id,audit.event_type,audit.actor,audit.causation_id,
+	  audit.correlation_id,audit.recorded_at,audit.event_hash::text,command.command_kind,command.target_type,
+	  command.target_id,command.reason,command.state,coalesce(command.result_payload::text,'')
+	  FROM audit_events audit LEFT JOIN LATERAL (SELECT command_kind,target_type,target_id,reason,state,result_payload
+	    FROM command_requests WHERE audit_event_id=audit.id ORDER BY id LIMIT 1) command ON true
+	  WHERE ($1='' OR audit.event_type=$1) AND ($2::timestamptz IS NULL OR audit.recorded_at<$2 OR
+	    (audit.recorded_at=$2 AND audit.id<$3)) ORDER BY audit.recorded_at DESC,audit.id DESC LIMIT $4`,
+		eventType, nullableA11Time(occurred), id, limit+1)
 	if err != nil {
 		return generated.AuditEventPage{}, err
 	}
@@ -215,10 +243,18 @@ func (store *A11ConsoleStore) Audit(ctx context.Context, cursor string, limit in
 	items := make([]generated.AuditEvent, 0, limit+1)
 	for rows.Next() {
 		var item generated.AuditEvent
-		if err = rows.Scan(&item.Id, &item.EventType, &item.Actor, &item.CausationId, &item.CorrelationId, &item.RecordedAt); err != nil {
+		var evidenceHash string
+		var commandKind, targetType, targetID, reason, state *string
+		var result string
+		if err = rows.Scan(&item.Id, &item.EventType, &item.Actor, &item.CausationId, &item.CorrelationId,
+			&item.RecordedAt, &evidenceHash, &commandKind, &targetType, &targetID, &reason, &state, &result); err != nil {
 			return generated.AuditEventPage{}, err
 		}
 		item.Redacted = !raw
+		if raw {
+			detail := a11SafeAuditDetail(evidenceHash, commandKind, targetType, targetID, reason, state, result)
+			item.SafeDetail = &detail
+		}
 		items = append(items, item)
 	}
 	page := generated.AuditEventPage{Items: items, Revision: "0"}
@@ -230,8 +266,31 @@ func (store *A11ConsoleStore) Audit(ctx context.Context, cursor string, limit in
 		items = items[:limit]
 		page.Items = items
 		last := items[len(items)-1]
-		next := encodeA11TimeCursor(store.cursor, "audit", last.RecordedAt, last.Id)
+		next := encodeA11TimeCursor(store.cursor, scope, last.RecordedAt, last.Id)
 		page.NextCursor = &next
 	}
 	return page, rows.Err()
+}
+
+func a11SafeAuditDetail(eventHash string, commandKind, targetType, targetID, reason, state *string, result string) string {
+	detail := struct {
+		EventHash   string          `json:"event_hash"`
+		CommandKind *string         `json:"command_kind,omitempty"`
+		TargetType  *string         `json:"target_type,omitempty"`
+		TargetID    *string         `json:"target_id,omitempty"`
+		Reason      *string         `json:"reason,omitempty"`
+		State       *string         `json:"state,omitempty"`
+		Result      json.RawMessage `json:"result,omitempty"`
+	}{EventHash: eventHash, CommandKind: commandKind, TargetType: targetType, TargetID: targetID,
+		Reason: reason, State: state}
+	if json.Valid([]byte(result)) {
+		detail.Result = json.RawMessage(result)
+	}
+	canonical, err := json.Marshal(detail)
+	if err != nil || len(canonical) > 2000 {
+		canonical, _ = json.Marshal(struct {
+			EventHash string `json:"event_hash"`
+		}{EventHash: eventHash})
+	}
+	return string(canonical)
 }

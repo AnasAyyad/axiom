@@ -15,6 +15,10 @@ func TestRecorderRoleCompositionIsPublicBoundedAndDeterministic(t *testing.T) {
 	if first != repeated || first == recorderSession("instance-a", started.Add(time.Nanosecond)) {
 		t.Fatal("recorder session identity is not deterministic and collision-resistant")
 	}
+	if recorderDatasetID(first) != recorderDatasetID(repeated) ||
+		recorderDatasetID(first) == recorderDatasetID(recorderSession("instance-a", started.Add(time.Nanosecond))) {
+		t.Fatal("recorder dataset identity is not session-scoped and deterministic")
+	}
 	clock, _ := domain.NewReplayClock(started)
 	runtimeConfig := config.Runtime{InstanceID: "instance-a", Recorder: config.RecorderRuntime{
 		Root: t.TempDir(), FlushInterval: 5 * time.Minute, QueueCapacity: 8192, BookDepth: 1000}}

@@ -482,6 +482,48 @@ func (e JobResourceState) Valid() bool {
 	}
 }
 
+// Defines values for JobResultConfidenceLabel.
+const (
+	JobResultConfidenceLabelFormalTierA  JobResultConfidenceLabel = "formal_tier_a"
+	JobResultConfidenceLabelInsufficient JobResultConfidenceLabel = "insufficient"
+	JobResultConfidenceLabelLocalTierB   JobResultConfidenceLabel = "local_tier_b"
+	JobResultConfidenceLabelRejected     JobResultConfidenceLabel = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the JobResultConfidenceLabel enum.
+func (e JobResultConfidenceLabel) Valid() bool {
+	switch e {
+	case JobResultConfidenceLabelFormalTierA:
+		return true
+	case JobResultConfidenceLabelInsufficient:
+		return true
+	case JobResultConfidenceLabelLocalTierB:
+		return true
+	case JobResultConfidenceLabelRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobResultResearchCoverage.
+const (
+	RegisteredSuiteComplete JobResultResearchCoverage = "registered_suite_complete"
+	SingleRunIncomplete     JobResultResearchCoverage = "single_run_incomplete"
+)
+
+// Valid indicates whether the value is a known member of the JobResultResearchCoverage enum.
+func (e JobResultResearchCoverage) Valid() bool {
+	switch e {
+	case RegisteredSuiteComplete:
+		return true
+	case SingleRunIncomplete:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for JobResultViability.
 const (
 	JobResultViabilityRejected              JobResultViability = "rejected"
@@ -623,6 +665,48 @@ func (e PortfolioSummaryMode) Valid() bool {
 	case PortfolioSummaryModeReplay:
 		return true
 	case PortfolioSummaryModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RegisteredResearchReportConfidenceLabel.
+const (
+	RegisteredResearchReportConfidenceLabelFormalTierA RegisteredResearchReportConfidenceLabel = "formal_tier_a"
+	RegisteredResearchReportConfidenceLabelLocalTierB  RegisteredResearchReportConfidenceLabel = "local_tier_b"
+	RegisteredResearchReportConfidenceLabelRejected    RegisteredResearchReportConfidenceLabel = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the RegisteredResearchReportConfidenceLabel enum.
+func (e RegisteredResearchReportConfidenceLabel) Valid() bool {
+	switch e {
+	case RegisteredResearchReportConfidenceLabelFormalTierA:
+		return true
+	case RegisteredResearchReportConfidenceLabelLocalTierB:
+		return true
+	case RegisteredResearchReportConfidenceLabelRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RegisteredResearchReportViability.
+const (
+	RegisteredResearchReportViabilityRejected              RegisteredResearchReportViability = "rejected"
+	RegisteredResearchReportViabilityUndetermined          RegisteredResearchReportViability = "undetermined"
+	RegisteredResearchReportViabilityViableForMoreResearch RegisteredResearchReportViability = "viable_for_more_research"
+)
+
+// Valid indicates whether the value is a known member of the RegisteredResearchReportViability enum.
+func (e RegisteredResearchReportViability) Valid() bool {
+	switch e {
+	case RegisteredResearchReportViabilityRejected:
+		return true
+	case RegisteredResearchReportViabilityUndetermined:
+		return true
+	case RegisteredResearchReportViabilityViableForMoreResearch:
 		return true
 	default:
 		return false
@@ -1189,16 +1273,16 @@ func (e ListIncidentsParamsState) Valid() bool {
 
 // Defines values for ListTrendDecisionsParamsOutcome.
 const (
-	ListTrendDecisionsParamsOutcomeAccepted ListTrendDecisionsParamsOutcome = "accepted"
-	ListTrendDecisionsParamsOutcomeRejected ListTrendDecisionsParamsOutcome = "rejected"
+	Accepted ListTrendDecisionsParamsOutcome = "accepted"
+	Rejected ListTrendDecisionsParamsOutcome = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the ListTrendDecisionsParamsOutcome enum.
 func (e ListTrendDecisionsParamsOutcome) Valid() bool {
 	switch e {
-	case ListTrendDecisionsParamsOutcomeAccepted:
+	case Accepted:
 		return true
-	case ListTrendDecisionsParamsOutcomeRejected:
+	case Rejected:
 		return true
 	default:
 		return false
@@ -1425,16 +1509,18 @@ type InstrumentPage struct {
 // JobResource defines model for JobResource.
 type JobResource struct {
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
-	CreatedAt     Timestamp            `json:"created_at"`
-	CursorOrdinal *Revision            `json:"cursor_ordinal,omitempty"`
-	FailureCode   *string              `json:"failure_code,omitempty"`
-	Id            string               `json:"id"`
-	Kind          JobResourceKind      `json:"kind"`
-	ModeLabel     JobResourceModeLabel `json:"mode_label"`
-	Progress      *NonnegativeDecimal  `json:"progress,omitempty"`
-	Result        *JobResult           `json:"result,omitempty"`
-	Revision      Revision             `json:"revision"`
-	State         JobResourceState     `json:"state"`
+	CreatedAt        Timestamp                 `json:"created_at"`
+	CursorOrdinal    *Revision                 `json:"cursor_ordinal,omitempty"`
+	FailureCode      *string                   `json:"failure_code,omitempty"`
+	Id               string                    `json:"id"`
+	Kind             JobResourceKind           `json:"kind"`
+	ModeLabel        JobResourceModeLabel      `json:"mode_label"`
+	Progress         *NonnegativeDecimal       `json:"progress,omitempty"`
+	RegisteredReport *RegisteredResearchReport `json:"registered_report,omitempty"`
+	ReplayInspection *ReplayEventInspection    `json:"replay_inspection,omitempty"`
+	Result           *JobResult                `json:"result,omitempty"`
+	Revision         Revision                  `json:"revision"`
+	State            JobResourceState          `json:"state"`
 
 	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
 	UpdatedAt *Timestamp `json:"updated_at,omitempty"`
@@ -1451,13 +1537,24 @@ type JobResourceState string
 
 // JobResult defines model for JobResult.
 type JobResult struct {
-	Metrics             *map[string]Decimal `json:"metrics,omitempty"`
-	PlatformCorrectness string              `json:"platform_correctness"`
-	Reproducibility     string              `json:"reproducibility"`
-	ResultHash          string              `json:"result_hash"`
-	StrategyEvidence    string              `json:"strategy_evidence"`
-	Viability           JobResultViability  `json:"viability"`
+	ConfidenceLabel     JobResultConfidenceLabel  `json:"confidence_label"`
+	Disclaimer          string                    `json:"disclaimer"`
+	Metrics             *map[string]Decimal       `json:"metrics,omitempty"`
+	PlatformCorrectness string                    `json:"platform_correctness"`
+	ReportHash          string                    `json:"report_hash"`
+	ReportId            string                    `json:"report_id"`
+	Reproducibility     string                    `json:"reproducibility"`
+	ResearchCoverage    JobResultResearchCoverage `json:"research_coverage"`
+	ResultHash          string                    `json:"result_hash"`
+	StrategyEvidence    string                    `json:"strategy_evidence"`
+	Viability           JobResultViability        `json:"viability"`
 }
+
+// JobResultConfidenceLabel defines model for JobResult.ConfidenceLabel.
+type JobResultConfidenceLabel string
+
+// JobResultResearchCoverage defines model for JobResult.ResearchCoverage.
+type JobResultResearchCoverage string
 
 // JobResultViability defines model for JobResult.Viability.
 type JobResultViability string
@@ -1510,10 +1607,11 @@ type NonnegativeDecimal = string
 
 // OfflineJobRequest defines model for OfflineJobRequest.
 type OfflineJobRequest struct {
-	ConfigurationId string                           `json:"configuration_id"`
-	DatasetId       string                           `json:"dataset_id"`
-	RootSeedHash    string                           `json:"root_seed_hash"`
-	StrategyVersion OfflineJobRequestStrategyVersion `json:"strategy_version"`
+	ConfigurationId      string                           `json:"configuration_id"`
+	DatasetId            string                           `json:"dataset_id"`
+	ResearchGenerationId string                           `json:"research_generation_id"`
+	RootSeedHash         string                           `json:"root_seed_hash"`
+	StrategyVersion      OfflineJobRequestStrategyVersion `json:"strategy_version"`
 }
 
 // OfflineJobRequestStrategyVersion defines model for OfflineJobRequest.StrategyVersion.
@@ -1583,16 +1681,55 @@ type Position struct {
 	UnrealizedPnl Decimal            `json:"unrealized_pnl"`
 }
 
+// RegisteredResearchReport defines model for RegisteredResearchReport.
+type RegisteredResearchReport struct {
+	Benchmarks        []ResearchResultSlice                   `json:"benchmarks"`
+	CanonicalManifest string                                  `json:"canonical_manifest"`
+	Capacity          []ResearchCapacityPoint                 `json:"capacity"`
+	ConfidenceLabel   RegisteredResearchReportConfidenceLabel `json:"confidence_label"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt            Timestamp                         `json:"created_at"`
+	Disclaimer           string                            `json:"disclaimer"`
+	Id                   string                            `json:"id"`
+	ManifestHash         string                            `json:"manifest_hash"`
+	PlatformCorrectness  string                            `json:"platform_correctness"`
+	ResearchGenerationId string                            `json:"research_generation_id"`
+	RunReferences        []string                          `json:"run_references"`
+	StrategyEvidence     string                            `json:"strategy_evidence"`
+	Stress               []ResearchResultSlice             `json:"stress"`
+	Viability            RegisteredResearchReportViability `json:"viability"`
+}
+
+// RegisteredResearchReportConfidenceLabel defines model for RegisteredResearchReport.ConfidenceLabel.
+type RegisteredResearchReportConfidenceLabel string
+
+// RegisteredResearchReportViability defines model for RegisteredResearchReport.Viability.
+type RegisteredResearchReportViability string
+
+// ReplayEventInspection defines model for ReplayEventInspection.
+type ReplayEventInspection struct {
+	CanonicalBalances        string   `json:"canonical_balances"`
+	CanonicalDecision        string   `json:"canonical_decision"`
+	CanonicalEvent           string   `json:"canonical_event"`
+	CanonicalExecutionEvents string   `json:"canonical_execution_events"`
+	CanonicalOrders          string   `json:"canonical_orders"`
+	EventCount               Revision `json:"event_count"`
+	EventHash                string   `json:"event_hash"`
+	Ordinal                  Revision `json:"ordinal"`
+}
+
 // ReplayJobRequest defines model for ReplayJobRequest.
 type ReplayJobRequest struct {
-	ConfigurationId string                          `json:"configuration_id"`
-	DatasetId       string                          `json:"dataset_id"`
-	FirstOrdinal    *Revision                       `json:"first_ordinal,omitempty"`
-	IncidentId      *string                         `json:"incident_id,omitempty"`
-	LastOrdinal     *Revision                       `json:"last_ordinal,omitempty"`
-	RootSeedHash    string                          `json:"root_seed_hash"`
-	Speed           *ReplayJobRequestSpeed          `json:"speed,omitempty"`
-	StrategyVersion ReplayJobRequestStrategyVersion `json:"strategy_version"`
+	ConfigurationId      string                          `json:"configuration_id"`
+	DatasetId            string                          `json:"dataset_id"`
+	FirstOrdinal         *Revision                       `json:"first_ordinal,omitempty"`
+	IncidentId           *string                         `json:"incident_id,omitempty"`
+	LastOrdinal          *Revision                       `json:"last_ordinal,omitempty"`
+	ResearchGenerationId string                          `json:"research_generation_id"`
+	RootSeedHash         string                          `json:"root_seed_hash"`
+	Speed                *ReplayJobRequestSpeed          `json:"speed,omitempty"`
+	StrategyVersion      ReplayJobRequestStrategyVersion `json:"strategy_version"`
 }
 
 // ReplayJobRequestSpeed defines model for ReplayJobRequest.Speed.
@@ -1600,6 +1737,21 @@ type ReplayJobRequestSpeed string
 
 // ReplayJobRequestStrategyVersion defines model for ReplayJobRequest.StrategyVersion.
 type ReplayJobRequestStrategyVersion string
+
+// ResearchCapacityPoint defines model for ResearchCapacityPoint.
+type ResearchCapacityPoint struct {
+	FillRate  NonnegativeDecimal `json:"fill_rate"`
+	NetReturn Decimal            `json:"net_return"`
+	Notional  NonnegativeDecimal `json:"notional"`
+}
+
+// ResearchResultSlice defines model for ResearchResultSlice.
+type ResearchResultSlice struct {
+	MaxDrawdown NonnegativeDecimal `json:"max_drawdown"`
+	Name        string             `json:"name"`
+	NetReturn   Decimal            `json:"net_return"`
+	Trades      int64              `json:"trades"`
+}
 
 // Revision defines model for Revision.
 type Revision = string
@@ -1664,24 +1816,32 @@ type ShadowSessionRequestStrategyVersion string
 
 // ShadowSessionResource defines model for ShadowSessionResource.
 type ShadowSessionResource struct {
+	AcceptedDecisions int    `json:"accepted_decisions"`
+	ConfigurationId   string `json:"configuration_id"`
+
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
-	CreatedAt      Timestamp                           `json:"created_at"`
-	EntriesEnabled bool                                `json:"entries_enabled"`
-	FailureCode    *string                             `json:"failure_code,omitempty"`
-	Id             string                              `json:"id"`
-	Label          ShadowSessionResourceLabel          `json:"label"`
-	Orders         *[]SimulatedOrder                   `json:"orders,omitempty"`
-	PublicOnly     ShadowSessionResourcePublicOnly     `json:"public_only"`
-	Revision       Revision                            `json:"revision"`
-	RiskState      *ShadowSessionResourceRiskState     `json:"risk_state,omitempty"`
-	SimulationOnly ShadowSessionResourceSimulationOnly `json:"simulation_only"`
+	CreatedAt           Timestamp                           `json:"created_at"`
+	DecisionDatasetId   string                              `json:"decision_dataset_id"`
+	EntriesEnabled      bool                                `json:"entries_enabled"`
+	FailureCode         *string                             `json:"failure_code,omitempty"`
+	Id                  string                              `json:"id"`
+	JournalTransactions int                                 `json:"journal_transactions"`
+	Label               ShadowSessionResourceLabel          `json:"label"`
+	ModelNamespaceId    string                              `json:"model_namespace_id"`
+	Orders              *[]SimulatedOrder                   `json:"orders,omitempty"`
+	PublicOnly          ShadowSessionResourcePublicOnly     `json:"public_only"`
+	RejectedDecisions   int                                 `json:"rejected_decisions"`
+	Revision            Revision                            `json:"revision"`
+	RiskState           *ShadowSessionResourceRiskState     `json:"risk_state,omitempty"`
+	SimulationOnly      ShadowSessionResourceSimulationOnly `json:"simulation_only"`
 
 	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
 	StartedAt *Timestamp                 `json:"started_at,omitempty"`
 	State     ShadowSessionResourceState `json:"state"`
 
 	// StoppedAt RFC 3339 timestamp with an explicit UTC offset.
-	StoppedAt *Timestamp `json:"stopped_at,omitempty"`
+	StoppedAt       *Timestamp `json:"stopped_at,omitempty"`
+	StrategyVersion string     `json:"strategy_version"`
 }
 
 // ShadowSessionResourceLabel defines model for ShadowSessionResource.Label.
@@ -1973,6 +2133,12 @@ type CreateReplayParams struct {
 	Origin         Origin         `json:"Origin"`
 	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// GetReplayParams defines parameters for GetReplay.
+type GetReplayParams struct {
+	// EventOrdinal Select one persisted canonical replay event; defaults to the newest available event.
+	EventOrdinal *Revision `form:"event_ordinal,omitempty" json:"event_ordinal,omitempty"`
 }
 
 // PauseReplayParams defines parameters for PauseReplay.

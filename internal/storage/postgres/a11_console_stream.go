@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -19,6 +20,7 @@ const (
 	a11StreamHeartbeat = 15 * time.Second
 	a11StreamBatch     = 256
 	a11MaximumStreams  = 3
+	a11StreamWriteWait = 5 * time.Second
 )
 
 // Serve streams durable outbox events after validating retention and user quota.
@@ -40,6 +42,9 @@ func (store *A11ConsoleStore) Serve(writer http.ResponseWriter, request *http.Re
 	writer.Header().Set("Cache-Control", "no-store")
 	writer.Header().Set("Connection", "keep-alive")
 	writer.Header().Set("X-Accel-Buffering", "no")
+	if err = a11SetStreamWriteDeadline(writer); err != nil {
+		return console.ErrUnavailable
+	}
 	writer.WriteHeader(http.StatusOK)
 	flusher.Flush()
 	return store.runA11Stream(request.Context(), writer, flusher, connectionID, after)
@@ -103,6 +108,9 @@ func (store *A11ConsoleStore) runA11Stream(ctx context.Context, writer http.Resp
 			return nil
 		case <-poll.C:
 		case <-heartbeat.C:
+			if a11SetStreamWriteDeadline(writer) != nil {
+				return nil
+			}
 			if _, err := fmt.Fprint(writer, ": heartbeat\n\n"); err != nil {
 				return nil
 			}
@@ -133,6 +141,9 @@ func (store *A11ConsoleStore) writeA11Events(ctx context.Context, writer http.Re
 			event.Payload = map[string]any{"redacted": true}
 		}
 		encoded, _ := json.Marshal(event)
+		if err = a11SetStreamWriteDeadline(writer); err != nil {
+			return false, after, err
+		}
 		if _, err = fmt.Fprintf(writer, "id: %d\ndata: %s\n\n", rawRevision, encoded); err != nil {
 			return false, after, err
 		}
@@ -140,6 +151,14 @@ func (store *A11ConsoleStore) writeA11Events(ctx context.Context, writer http.Re
 		revision = rawRevision
 	}
 	return sent, revision, rows.Err()
+}
+
+func a11SetStreamWriteDeadline(writer http.ResponseWriter) error {
+	err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(a11StreamWriteWait))
+	if errors.Is(err, http.ErrNotSupported) {
+		return nil
+	}
+	return err
 }
 
 func a11ResumeRevision(request *http.Request) (int64, error) {

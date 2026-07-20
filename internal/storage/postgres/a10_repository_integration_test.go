@@ -4,11 +4,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"axiom/internal/config"
+	"axiom/internal/recorder"
 	"axiom/internal/storage/postgres/generated"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,21 +64,41 @@ func seedA10References(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
 	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
 	hash := strings.Repeat("a", 64)
+	canonicalConfiguration, err := json.Marshal(config.DefaultConfiguration())
+	if err != nil {
+		t.Fatal(err)
+	}
+	configurationHash := a10PayloadHash(canonicalConfiguration)
+	datasetHash, recorderDatasetID, manifestPath, sourceCommit, datasetKind := hash, "", "", "", "public_market"
+	manifestRevision := any(nil)
+	if selected := os.Getenv("AXIOM_A11_E2E_DATASET_MANIFEST"); selected != "" {
+		manifest, manifestErr := recorder.ReadManifest(selected)
+		sourceCommit = os.Getenv("AXIOM_A11_E2E_SOURCE_COMMIT")
+		if manifestErr != nil || !manifest.Complete || len(manifest.Segments) < 2 || !a11BuildIdentityValid(sourceCommit) {
+			t.Fatalf("invalid A11 E2E dataset manifest: %#v %v", manifest, manifestErr)
+		}
+		datasetHash, recorderDatasetID, manifestPath, datasetKind = manifest.Hash, manifest.DatasetID, filepath.Base(selected), "decision_inputs"
+		manifestRevision = int64(manifest.Revision)
+	}
 	statements := []struct {
 		sql  string
 		args []any
 	}{
-		{"INSERT INTO configuration_versions VALUES ('configuration-a10',1,$1,'{}','test',$2)", []any{hash, now}},
+		{"INSERT INTO configuration_versions VALUES ('configuration-a10',1,$1,$2,'test',$3)", []any{configurationHash, canonicalConfiguration, now}},
+		{"INSERT INTO configuration_activations(configuration_id,actor,reason,activated_at) VALUES('configuration-a10','test','A10/A11 qualification baseline',$1)", []any{now}},
 		{`INSERT INTO dataset_manifests
-		  (id,dataset_hash,schema_compatibility,coverage_start,coverage_end,state,created_at)
-		  VALUES ('dataset-a7-formal-pending',$1,'a7-normalized-v1',$2,$2,'building',$2)`, []any{hash, now}},
+		  (id,dataset_hash,schema_compatibility,coverage_start,coverage_end,state,created_at,
+		   recorder_dataset_id,manifest_revision,manifest_path,source_commit,dataset_kind)
+		  VALUES ('dataset-a7-formal-pending',$1,'a7-normalized-v1',$2,$2,'building',$2,
+		          nullif($3,''),$4,nullif($5,''),nullif($6,''),$7)`,
+			[]any{datasetHash, now, recorderDatasetID, manifestRevision, manifestPath, sourceCommit, datasetKind}},
 		{"UPDATE dataset_manifests SET state='ready' WHERE id='dataset-a7-formal-pending'", nil},
 		{"UPDATE dataset_manifests SET state='qualified' WHERE id='dataset-a7-formal-pending'", nil},
-		{"INSERT INTO assets(symbol) VALUES ('USDT'),('BTC')", nil},
+		{"INSERT INTO assets(symbol) VALUES ('USDT'),('BTC'),('ETH')", nil},
 		{"INSERT INTO exchanges VALUES ('exchange-a10','binance','production_public')", nil},
-		{"INSERT INTO instruments VALUES ('instrument-a10','BTC','USDT','spot')", nil},
-		{"INSERT INTO instrument_metadata_versions VALUES ('metadata-a10','exchange-a10','instrument-a10',1,0.01,0.00001,0.00001,10,$1,$1)", []any{now}},
-		{"INSERT INTO model_versions VALUES ('fee-a10','fee',1,$1,'{}',NULL,$2),('latency-a10','latency',1,$1,'{}',NULL,$2),('fill-a10','fill',1,$1,'{}',NULL,$2),('slippage-a10','slippage',1,$1,'{}',NULL,$2),('gap-a10','gap',1,$1,'{}',NULL,$2)", []any{hash, now}},
+		{"INSERT INTO instruments VALUES ('instrument-a10','BTC','USDT','spot'),('instrument-eth-a10','ETH','USDT','spot')", nil},
+		{"INSERT INTO instrument_metadata_versions VALUES ('metadata-a10','exchange-a10','instrument-a10',1,0.01,0.00001,0.00001,10,$1,$1),('metadata-eth-a10','exchange-a10','instrument-eth-a10',1,0.01,0.00001,0.00001,10,$1,$1)", []any{now}},
+		{"INSERT INTO model_versions VALUES ('fixed-bps-v1','fee',1,$1,'{}',NULL,$2),('fixed-zero-v1','latency',1,$1,'{}',NULL,$2),('fill-v1','fill',1,$1,'{}',NULL,$2),('slippage-v1','slippage',1,$1,'{}',NULL,$2),('gap-v1','gap',1,$1,'{}',NULL,$2)", []any{hash, now}},
 	}
 	for index, statement := range statements {
 		if _, err := pool.Exec(ctx, statement.sql, statement.args...); err != nil {
@@ -105,7 +129,7 @@ func a10RegistrationFixture() A10RegistrationWrite {
 			ValidationStart: pgTimestamp(time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)), ValidationEnd: pgTimestamp(time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)),
 			FinalTestStart: pgTimestamp(time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)), FinalTestEnd: pgTimestamp(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
 			SearchSpace: []byte(`{"locked":"baseline"}`), ParameterNeighborhood: []byte(`{"atr":["2.25","2.5","2.75"]}`),
-			ModelAssumptions:     []byte(`{"fee":"fee-a10","spread":"recorded","slippage":"slippage-a10","latency":"latency-a10","fill":"fill-a10","gap":"gap-a10"}`),
+			ModelAssumptions:     []byte(`{"fee":"fixed-bps-v1","spread":"recorded","slippage":"slippage-v1","latency":"fixed-zero-v1","fill":"fill-v1","gap":"gap-v1"}`),
 			BenchmarkAssumptions: []byte(`{"cash":true,"buy_hold":true,"static_inventory":true}`), MinimumSamples: &minimumSamples,
 			StoppingRule: &stop, RejectionRule: &reject, PromotionRule: &promote, RegisteredSeedHash: hash},
 		Generation: generated.InsertResearchGenerationParams{ID: "generation-a10-1", ExperimentID: "experiment-a10", Generation: 1,
@@ -168,8 +192,8 @@ func assertA10Decision(t *testing.T, ctx context.Context, pool *pgxpool.Pool, re
 	write := generated.InsertTrendDecisionParams{DecisionID: "decision-a10", ExplanationHash: hash, CanonicalExplanation: canonical,
 		CandleViewID: "candles-a10", CandleViewRevision: 1, MarketViewID: "market-a10", MarketViewRevision: 1,
 		InstrumentMetadataID: "metadata-a10", AssetEligibilityVersion: 1, PortfolioRevision: 1, PositionRevision: 1,
-		FeeModelID: "fee-a10", LatencyModelID: "latency-a10", FillModelID: "fill-a10", SlippageModelID: "slippage-a10",
-		GapModelID: "gap-a10", CorrelationID: "correlation-a10", CausationID: "cause-a10", RecordedAt: pgTimestamp(now)}
+		FeeModelID: "fixed-bps-v1", LatencyModelID: "fixed-zero-v1", FillModelID: "fill-v1", SlippageModelID: "slippage-v1",
+		GapModelID: "gap-v1", CorrelationID: "correlation-a10", CausationID: "cause-a10", RecordedAt: pgTimestamp(now)}
 	if err := repository.RecordDecision(ctx, write); err != nil {
 		t.Fatal(err)
 	}

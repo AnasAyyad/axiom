@@ -21,6 +21,25 @@ import (
 )
 
 func TestA10TrendUsesRealAllocatorRiskPlannerAndSimulationPipeline(t *testing.T) {
+	operational, input := newTrendOperationalPipeline(t)
+	canonical, _ := json.Marshal(input)
+	result, err := operational.Process(context.Background(), replay.Event{LogicalTime: input.LogicalTime, Ordinal: input.Ordinal, Canonical: canonical})
+	if err != nil || result.Ordinal != input.Ordinal || len(result.Orders) == 0 {
+		t.Fatalf("A10 shared pipeline = %#v %v", result, err)
+	}
+	if strings.Contains(string(result.Orders), input.Candles[len(input.Candles)-1].Close.String()+`\"`) {
+		t.Fatal("signal close appeared as a simulated fill")
+	}
+	metrics := operational.Metrics()
+	if metrics.TotalNetReturn == "unavailable" || metrics.MaximumDrawdown == "unavailable" ||
+		metrics.CurrentDrawdown == "unavailable" || metrics.Turnover == "unavailable" ||
+		metrics.Exposure == "unavailable" || metrics.FeesPaid == "unavailable" || metrics.Trades != 1 {
+		t.Fatalf("portfolio-derived metrics unavailable = %#v", metrics)
+	}
+}
+
+func newTrendOperationalPipeline(t *testing.T) (*OperationalProcessor, Input) {
+	t.Helper()
 	evaluator, input := testEvaluatorAndInput(t)
 	adapter, err := NewAdapter(evaluator)
 	if err != nil {
@@ -52,14 +71,11 @@ func TestA10TrendUsesRealAllocatorRiskPlannerAndSimulationPipeline(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	canonical, _ := json.Marshal(input)
-	result, err := processor.Process(context.Background(), replay.Event{LogicalTime: input.LogicalTime, Ordinal: input.Ordinal, Canonical: canonical})
-	if err != nil || result.Ordinal != input.Ordinal || len(result.Orders) == 0 {
-		t.Fatalf("A10 shared pipeline = %#v %v", result, err)
+	operational, err := NewOperationalProcessor(evaluator, processor, owned)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(string(result.Orders), input.Candles[len(input.Candles)-1].Close.String()+`\"`) {
-		t.Fatal("signal close appeared as a simulated fill")
-	}
+	return operational, input
 }
 
 func TestA10TrendAllocatorRiskP99AtMost25Milliseconds(t *testing.T) {

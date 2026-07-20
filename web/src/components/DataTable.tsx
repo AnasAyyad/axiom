@@ -4,6 +4,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { useMemo } from "react";
 
 import styles from "./UI.module.css";
 
@@ -20,17 +21,24 @@ interface DataTableProps {
 
 /** DataTable is the project-owned TanStack table boundary. */
 export function DataTable({ caption, rows, columns }: DataTableProps) {
-  const helper = createColumnHelper<TableRecord>();
-  const definitions = columns.map(({ key, label }) =>
-    helper.accessor((row) => String(row[key] ?? "—"), {
-      id: key,
-      header: label,
-      cell: (context) => context.getValue(),
-    }),
+  const data = useMemo(() => [...rows], [rows]);
+  const definitions = useMemo(
+    () =>
+      columns.map(({ key, label }) =>
+        createColumnHelper<TableRecord>().accessor(
+          (row) => String(row[key] ?? "—"),
+          {
+            id: key,
+            header: label,
+            cell: (context) => context.getValue(),
+          },
+        ),
+      ),
+    [columns],
   );
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table intentionally owns this project boundary.
   const table = useReactTable({
-    data: [...rows],
+    data,
     columns: definitions,
     getCoreRowModel: getCoreRowModel(),
   });

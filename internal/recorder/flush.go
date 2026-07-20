@@ -22,6 +22,28 @@ func (recorder *Recorder) Flush() (DatasetManifest, error) {
 	if err != nil {
 		return DatasetManifest{}, err
 	}
+	return recorder.flushCompletedLocked(raw, canonical)
+}
+
+// FlushReady finalizes the complete prefix available at this instant. A raw
+// event whose canonical pair is still being built remains pending without
+// turning a routine flush tick into a recorder failure.
+func (recorder *Recorder) FlushReady() (DatasetManifest, bool, error) {
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	raw, canonical, err := recorder.completedPrefix()
+	if failure, ok := err.(*Error); ok && failure.Code == "segment_incomplete" {
+		return DatasetManifest{}, false, nil
+	}
+	if err != nil {
+		return DatasetManifest{}, false, err
+	}
+	manifest, err := recorder.flushCompletedLocked(raw, canonical)
+	return manifest, true, err
+}
+
+func (recorder *Recorder) flushCompletedLocked(raw []segments.WireRow,
+	canonical []segments.CanonicalRow) (DatasetManifest, error) {
 	sort.Slice(raw, func(left, right int) bool { return raw[left].IngestOrdinal < raw[right].IngestOrdinal })
 	sort.Slice(canonical, func(left, right int) bool { return canonical[left].IngestOrdinal < canonical[right].IngestOrdinal })
 	if err := verifyPendingLinks(raw, canonical); err != nil {

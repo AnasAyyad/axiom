@@ -1,7 +1,12 @@
 package research
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -32,6 +37,22 @@ func TestChronologicalSplitAndWalkForwardNeverCrossFutureBoundaries(t *testing.T
 	}
 }
 
+func TestSingleRunReportIsPersistableAndCannotClaimSuiteCoverage(t *testing.T) {
+	hash := strings.Repeat("a", 64)
+	report, canonical, err := BuildRunEvidenceReport(RunEvidenceInput{ResearchGenerationID: "generation-1",
+		RunID: "run-1", Mode: "backtest", ResultHash: hash, ReproducibilityHash: strings.Repeat("b", 64),
+		Metrics:   map[string]string{"total_net_return": "0.01", "trades": "1"},
+		CreatedAt: time.Date(2026, 7, 19, 0, 0, 0, 0, time.UTC)})
+	digest := sha256.Sum256(canonical)
+	if err != nil || report.ManifestHash != hex.EncodeToString(digest[:]) ||
+		report.ConfidenceLabel != "insufficient" || report.Viability != "undetermined" ||
+		report.Coverage["baseline"] != "completed" ||
+		report.Coverage["benchmarks"] != "not_established_by_single_run" ||
+		report.Disclaimer != DisclaimerNoProductionProfitability {
+		t.Fatalf("single-run report = %#v %v", report, err)
+	}
+}
+
 func TestBlockBootstrapIsSeededDeterministicAndPreservesExactMean(t *testing.T) {
 	returns := []string{"0.01", "-0.02", "0.03", "0", "0.02", "-0.01"}
 	first, err := BlockBootstrapMean(returns, 2, 200, "registered-seed-v1")
@@ -56,6 +77,43 @@ func TestReportRequiresAllStressBenchmarksBreakdownsAndNoProfitClaim(t *testing.
 	input.StrategyEvidence = "This strategy will profit"
 	if _, err = BuildReport(input); err == nil {
 		t.Fatal("misleading profitability claim was accepted")
+	}
+}
+
+func TestReportManifestHashAuthenticatesReturnedCanonicalBytes(t *testing.T) {
+	report, err := BuildReport(completeReportInput(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(canonical)
+	if actual := hex.EncodeToString(digest[:]); actual != report.ManifestHash {
+		t.Fatalf("manifest hash = %s, canonical digest = %s", report.ManifestHash, actual)
+	}
+	if bytes.Contains(canonical, []byte("manifest_hash")) {
+		t.Fatalf("self-referential hash leaked into canonical manifest: %s", canonical)
+	}
+}
+
+func TestRegisteredReportCanonicalValidationRejectsTamperingAndMissingRun(t *testing.T) {
+	report, err := BuildReport(completeReportInput(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, _ := json.Marshal(report)
+	validated, err := ValidateReportCanonical(canonical, report.ManifestHash, "generation-1", "run-1")
+	if err != nil || validated.ManifestHash != report.ManifestHash {
+		t.Fatalf("valid report rejected = %#v %v", validated, err)
+	}
+	if _, err = ValidateReportCanonical(canonical, report.ManifestHash, "generation-1", "missing-run"); err == nil {
+		t.Fatal("missing run reference accepted")
+	}
+	tampered := bytes.Replace(canonical, []byte(`"net_return":"0.01"`), []byte(`"net_return":"0.02"`), 1)
+	if _, err = ValidateReportCanonical(tampered, report.ManifestHash, "generation-1", "run-1"); err == nil {
+		t.Fatal("tampered report accepted")
 	}
 }
 

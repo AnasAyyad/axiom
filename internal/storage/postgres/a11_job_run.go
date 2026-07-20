@@ -1,12 +1,14 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"axiom/internal/backtest"
+	"axiom/internal/research"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -14,7 +16,7 @@ import (
 func (store *A11JobStore) attachRun(ctx context.Context, kind string, payload json.RawMessage, claim backtest.JobClaim) error {
 	request, err := decodeA11OfflineRequest(kind, payload)
 	if err != nil || claim.Manifest.RunID.Value() != claim.ID || claim.Manifest.Mode != kind ||
-		claim.Manifest.Seed != request.RootSeedHash {
+		claim.Manifest.Seed != request.RootSeedHash || claim.Manifest.ResearchGenerationID != request.ResearchGenerationID {
 		return fmt.Errorf("a11_job_run_identity_invalid")
 	}
 	manifestHash, err := claim.Manifest.CanonicalHash()
@@ -28,7 +30,7 @@ func (store *A11JobStore) attachRun(ctx context.Context, kind string, payload js
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	var linked string
 	var leaseEnd time.Time
-	if err = tx.QueryRow(ctx, `SELECT coalesce(run_id,''),claim_expires_at FROM jobs WHERE id=$1 AND state='RUNNING'
+	if err = tx.QueryRow(ctx, `SELECT coalesce(run_id,''),claim_expires_at FROM jobs WHERE id=$1 AND state IN ('RUNNING','PAUSE_REQUESTED')
 	      AND claim_owner=$2 FOR UPDATE`, claim.ID, store.owner).Scan(&linked, &leaseEnd); err != nil {
 		return fmt.Errorf("a11_job_lease_lost")
 	}
@@ -47,7 +49,7 @@ func (store *A11JobStore) attachRun(ctx context.Context, kind string, payload js
 	}
 	renewedLeaseEnd := renewedA11JobLease(now, leaseEnd)
 	tag, err := tx.Exec(ctx, `UPDATE jobs SET run_id=$1,claim_expires_at=$2,updated_at=$3,
-      progress_revision=progress_revision+1 WHERE id=$1 AND state='RUNNING' AND claim_owner=$4`,
+	  progress_revision=progress_revision+1 WHERE id=$1 AND state IN ('RUNNING','PAUSE_REQUESTED') AND claim_owner=$4`,
 		claim.ID, renewedLeaseEnd, now, store.owner)
 	if err != nil {
 		return fmt.Errorf("a11_job_run_link_failed: %w", err)
@@ -111,32 +113,129 @@ func verifyA11LinkedRun(ctx context.Context, tx pgx.Tx, runID, manifestHash stri
 }
 
 func (store *A11JobStore) completeRun(ctx context.Context, id string, result backtest.CanonicalResult,
-	canonical, projection []byte, now time.Time) error {
+	canonical []byte, now time.Time) error {
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	var runID string
-	if err = tx.QueryRow(ctx, `SELECT run_id FROM jobs WHERE id=$1 AND state='RUNNING' AND claim_owner=$2
-	  FOR UPDATE`, id, store.owner).Scan(&runID); err != nil || runID == "" {
+	var runID, kind string
+	var requestPayload []byte
+	if err = tx.QueryRow(ctx, `SELECT run_id,job_type,request_payload FROM jobs WHERE id=$1 AND state='RUNNING' AND claim_owner=$2
+	  FOR UPDATE`, id, store.owner).Scan(&runID, &kind, &requestPayload); err != nil || runID == "" {
 		return fmt.Errorf("a11_job_run_missing")
+	}
+	request, err := decodeA11OfflineRequest(kind, requestPayload)
+	if err != nil || request.ResearchGenerationID == "" || result.ManifestHash == "" {
+		return fmt.Errorf("a11_job_report_identity_invalid")
+	}
+	reportID, reportHash, err := insertA11RunEvidenceReport(ctx, tx, id, runID, kind, request, result, now)
+	if err != nil {
+		return err
+	}
+	projection, err := json.Marshal(a11JobResult(result, reportID, reportHash))
+	if err != nil {
+		return fmt.Errorf("a11_job_result_invalid")
+	}
+	if err = insertA11CanonicalOutputs(ctx, tx, runID, result.Events); err != nil {
+		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO run_results(run_id,result_hash,canonical_payload,completed_at)
 	  VALUES($1,$2,$3,$4)`, runID, result.ResultHash, canonical, now); err != nil {
 		return err
 	}
+	if err = finishA11RunAndJob(ctx, tx, id, runID, store.owner, projection, now); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func insertA11RunEvidenceReport(ctx context.Context, tx pgx.Tx, id, runID, kind string, request a11OfflineRequest,
+	result backtest.CanonicalResult, now time.Time) (string, string, error) {
+	metricValues := a11JobMetrics(result)
+	reportMetrics := make(map[string]string, len(metricValues))
+	for key, value := range metricValues {
+		reportMetrics[key] = string(value)
+	}
+	report, reportCanonical, err := research.BuildRunEvidenceReport(research.RunEvidenceInput{
+		ResearchGenerationID: request.ResearchGenerationID, RunID: runID, Mode: kind,
+		ResultHash: result.ResultHash, ReproducibilityHash: result.ManifestHash,
+		Metrics: reportMetrics, CreatedAt: now,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	reportID := "report-" + id
+	runReferences, _ := json.Marshal([]string{runID})
+	if _, err = tx.Exec(ctx, `INSERT INTO research_reports(id,research_generation_id,manifest_hash,artifact_hash,
+	  canonical_manifest,run_references,confidence_label,platform_correctness,strategy_evidence,
+	  viability_disposition,disclaimer_policy,created_at) VALUES($1,$2,$3,$4,$5,$6,'insufficient',
+	  'canonical_pipeline_completed','single_registered_run_only','undetermined',
+	  'no_production_profitability_claim',$7)`, reportID, request.ResearchGenerationID, report.ManifestHash,
+		result.ResultHash, reportCanonical, runReferences, now); err != nil {
+		return "", "", err
+	}
+	return reportID, report.ManifestHash, nil
+}
+
+func finishA11RunAndJob(ctx context.Context, tx pgx.Tx, id, runID, owner string, projection []byte, now time.Time) error {
 	runTag, updateErr := tx.Exec(ctx, `UPDATE runs SET state='completed',completed_at=$2 WHERE id=$1 AND state='running'`, runID, now)
 	if updateErr != nil || runTag.RowsAffected() != 1 {
 		return fmt.Errorf("a11_run_completion_conflict")
 	}
 	tag, err := tx.Exec(ctx, `UPDATE jobs SET state='SUCCEEDED',claim_owner=NULL,claim_expires_at=NULL,
 	  result_payload=$1,failure_code=NULL,completed_at=$2,updated_at=$2,progress_revision=progress_revision+1
-	  WHERE id=$3 AND state='RUNNING' AND claim_owner=$4`, projection, now, id, store.owner)
+	  WHERE id=$3 AND state='RUNNING' AND claim_owner=$4`, projection, now, id, owner)
 	if err != nil || tag.RowsAffected() != 1 {
 		return fmt.Errorf("a11_job_completion_conflict")
 	}
-	return tx.Commit(ctx)
+	return nil
+}
+
+func insertA11CanonicalOutputs(ctx context.Context, tx pgx.Tx, runID string, events []backtest.EventResult) error {
+	for _, event := range events {
+		if event.Ordinal == 0 || event.Ordinal > uint64(^uint64(0)>>1) || !json.Valid(event.Decision) || !json.Valid(event.Orders) ||
+			!json.Valid(event.Balances) || (len(event.ExecutionEvents) > 0 && !json.Valid(event.ExecutionEvents)) {
+			return fmt.Errorf("a11_run_output_invalid")
+		}
+		executionEvents := event.ExecutionEvents
+		if len(executionEvents) == 0 {
+			executionEvents = json.RawMessage("[]")
+		}
+		canonical, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("a11_run_output_invalid")
+		}
+		outputs := []struct {
+			kind    string
+			payload []byte
+		}{
+			{kind: "event", payload: canonical},
+			{kind: "decision", payload: event.Decision},
+			{kind: "order", payload: event.Orders},
+			{kind: "projection", payload: executionEvents},
+			{kind: "balance", payload: event.Balances},
+		}
+		for _, output := range outputs {
+			hash := a11SHA256(output.payload)
+			tag, insertErr := tx.Exec(ctx, `INSERT INTO run_canonical_outputs
+			  (run_id,output_kind,ordinal,output_hash,canonical_payload) VALUES($1,$2,$3,$4,$5)
+			  ON CONFLICT (run_id,output_kind,ordinal) DO NOTHING`, runID, output.kind, int64(event.Ordinal), hash, output.payload)
+			if insertErr != nil {
+				return fmt.Errorf("a11_run_output_persist_failed")
+			}
+			if tag.RowsAffected() == 0 {
+				var storedHash string
+				var storedPayload []byte
+				if err = tx.QueryRow(ctx, `SELECT output_hash::text,canonical_payload FROM run_canonical_outputs
+				  WHERE run_id=$1 AND output_kind=$2 AND ordinal=$3`, runID, output.kind, int64(event.Ordinal)).
+					Scan(&storedHash, &storedPayload); err != nil || storedHash != hash || !bytes.Equal(storedPayload, output.payload) {
+					return fmt.Errorf("a11_run_output_conflict")
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (store *A11JobStore) failRun(ctx context.Context, id, reason string, now time.Time) error {

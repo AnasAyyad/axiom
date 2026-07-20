@@ -47,7 +47,29 @@ export const incidentsQuery = queryOptions({
   queryFn: () => getAPI<"IncidentPage">("/api/v1/incidents?page_size=50"),
 });
 
+export function incidentsQueryForState(state: string) {
+  const filter = state === "" ? "" : `&state=${encodeURIComponent(state)}`;
+  return queryOptions({
+    queryKey: ["incidents", state],
+    queryFn: () =>
+      getAPI<"IncidentPage">(`/api/v1/incidents?page_size=50${filter}`),
+  });
+}
+
 export const auditQuery = queryOptions({
   queryKey: ["audit"],
   queryFn: () => getAPI<"AuditEventPage">("/api/v1/audit-events?page_size=50"),
 });
+
+export function auditQueryForType(eventType: string, includeDetail = false) {
+  const eventFilter =
+    eventType === "" ? "" : `&event_type=${encodeURIComponent(eventType)}`;
+  const detailFilter = includeDetail ? "&include_detail=true" : "";
+  return queryOptions({
+    queryKey: ["audit", eventType, includeDetail],
+    queryFn: () =>
+      getAPI<"AuditEventPage">(
+        `/api/v1/audit-events?page_size=50${eventFilter}${detailFilter}`,
+      ),
+  });
+}
