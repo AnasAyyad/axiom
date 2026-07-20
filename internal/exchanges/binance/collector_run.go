@@ -37,7 +37,7 @@ func (collector *InstrumentCollector) beginGeneration(
 			exchangecontracts.StreamCandle},
 	}, collector.recorder)
 	if err != nil {
-		return nil, "", 0, generationOutcome{}, false
+		return nil, "", 0, generationOutcome{reason: reconnectSubscription}, false
 	}
 	connectionID, generation := stream.ConnectionID(), stream.Generation()
 	if err = collector.book.BeginGeneration(connectionID, generation); err != nil {
@@ -56,8 +56,12 @@ func (collector *InstrumentCollector) beginGeneration(
 	}
 	health, _, err := collector.source.SampleServerTimeRecorded(ctx, collector.config.Instrument,
 		connectionID, generation, collector.recorder)
+	if isRecorderFailure(err) {
+		_ = stream.Close()
+		return nil, "", 0, generationOutcome{fatal: err}, false
+	}
 	if err != nil || !health.Eligible {
-		outcome := collector.pauseOutcome(ctx, connectionID, generation, 0, "clock_ineligible")
+		outcome := collector.pauseOutcome(ctx, connectionID, generation, 0, reconnectClock)
 		_ = stream.Close()
 		return nil, "", 0, outcome, false
 	}
@@ -102,18 +106,15 @@ func (collector *InstrumentCollector) awaitSynchronization(
 		case <-ctx.Done():
 			return generationOutcome{}
 		case <-channels.overflow:
-			return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), "queue_overflow")
+			return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectQueue)
 		case observed := <-channels.events:
 			if observed.err != nil {
-				if exchangecontracts.KindOf(observed.err) == exchangecontracts.ErrorValidation {
-					collector.stats.decoderErrors.Add(1)
-				}
-				return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), "stream_failed")
+				return collector.streamFailureOutcome(ctx, connectionID, generation, observed.err)
 			}
 			collector.stats.observeQueue(len(channels.events))
 			if observed.event.Event.Kind == exchangecontracts.StreamDepth {
 				if len(pending) == cap(pending) {
-					return collector.pauseOutcome(ctx, connectionID, generation, 0, "snapshot_buffer_overflow")
+					return collector.pauseOutcome(ctx, connectionID, generation, 0, reconnectBuffer)
 				}
 				pending = append(pending, observed.event)
 			}
@@ -121,6 +122,21 @@ func (collector *InstrumentCollector) awaitSynchronization(
 			return collector.completeSynchronization(ctx, channels, result, pending, connectionID, generation, resyncStarted)
 		}
 	}
+}
+
+func (collector *InstrumentCollector) streamFailureOutcome(
+	ctx context.Context,
+	connectionID string,
+	generation uint64,
+	err error,
+) generationOutcome {
+	if isRecorderFailure(err) {
+		return generationOutcome{fatal: err}
+	}
+	if exchangecontracts.KindOf(err) == exchangecontracts.ErrorValidation {
+		collector.stats.decoderErrors.Add(1)
+	}
+	return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectStream)
 }
 
 func (collector *InstrumentCollector) completeSynchronization(
@@ -132,17 +148,19 @@ func (collector *InstrumentCollector) completeSynchronization(
 	generation uint64,
 	resyncStarted time.Time,
 ) generationOutcome {
+	if isRecorderFailure(result.err) {
+		return generationOutcome{fatal: result.err}
+	}
 	if result.err != nil || result.token.IngestOrdinal == 0 {
-		return collector.pauseOutcome(ctx, connectionID, generation, 0, "snapshot_failed")
+		return collector.pauseOutcome(ctx, connectionID, generation, 0, reconnectSnapshot)
 	}
 	if err := collector.installSnapshot(ctx, result, pending, connectionID, generation); err != nil {
 		if isFatalCollectorError(err) {
 			return generationOutcome{fatal: err}
 		}
-		return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), "snapshot_bridge_failed")
+		return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectSnapshotBridge)
 	}
 	collector.stats.rebuilds.Add(1)
-	collector.stats.resync.record(time.Since(resyncStarted))
 	if _, err := collector.recordFact(ctx, RecordRebuild, connectionID, generation,
 		rebuildFact{SnapshotSequence: result.snapshot.LastSequence, BufferedDepth: len(pending), Generation: generation}); err != nil {
 		return generationOutcome{fatal: err}
@@ -151,7 +169,10 @@ func (collector *InstrumentCollector) completeSynchronization(
 		lifecycleFact{State: "HEALTHY", Generation: generation}); err != nil {
 		return generationOutcome{fatal: err}
 	}
-	return collector.runHealthy(ctx, channels.events, channels.overflow, connectionID, generation)
+	collector.recordResynchronization(resyncStarted)
+	outcome := collector.runHealthy(ctx, channels.events, channels.overflow, connectionID, generation)
+	outcome.reachedHealthy = true
+	return outcome
 }
 
 func (collector *InstrumentCollector) receiveGeneration(

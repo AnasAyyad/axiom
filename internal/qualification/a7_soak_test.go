@@ -2,7 +2,6 @@ package qualification
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -46,6 +45,7 @@ func TestA7PublicSoakHarnessSmoke(t *testing.T) {
 
 type soakEvidence struct {
 	SchemaVersion       string                                    `json:"schema_version"`
+	SourceCommit        string                                    `json:"source_commit"`
 	Formal              bool                                      `json:"formal"`
 	Qualified           bool                                      `json:"qualified"`
 	StartedAt           time.Time                                 `json:"started_at"`
@@ -102,7 +102,11 @@ type soakComponents struct {
 
 func runA7Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time.Duration, formal bool) {
 	t.Helper()
-	if err := prepareEmptyRoot(root); err != nil {
+	sourceCommit, err := qualificationSourceCommit()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = prepareEmptyRoot(root); err != nil {
 		t.Fatal(err)
 	}
 	components := newSoakComponents(t, root)
@@ -110,9 +114,14 @@ func runA7Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
 	collectorErrors, group := startSoakCollectors(ctx, components.collectors)
-	evidence := newSoakEvidence(started, flushEvery, formal)
+	evidence := newSoakEvidence(started, flushEvery, formal, sourceCommit)
 	var latestManifest recorder.DatasetManifest
-	monitorSoak(ctx, components.recorder, components.collectors, flushEvery, sampleEvery, &latestManifest, &evidence)
+	monitorFailure := monitorSoakFailClosed(ctx, root, components.client, components.recorder,
+		components.collectors, flushEvery, sampleEvery, &latestManifest, &evidence, writeSoakStatus)
+	if monitorFailure != "" {
+		evidence.Failures = append(evidence.Failures, monitorFailure)
+		cancel()
+	}
 	group.Wait()
 	collectSoakErrors(collectorErrors, &evidence)
 	manifest, flushErr := finalFlush(components.recorder, latestManifest)
@@ -121,8 +130,12 @@ func runA7Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time
 	}
 	evidence.EndedAt, evidence.ActualDuration = time.Now().UTC(), time.Since(started)
 	completeSoakEvidence(root, components.client, components.collectors, manifest, &evidence)
+	if err = writeFinalSoakStatus(root, components.client, components.collectors, manifest, &evidence); err != nil {
+		evidence.Failures = append(evidence.Failures, "status_write_failed")
+	}
+	sort.Strings(evidence.Failures)
 	evidence.Qualified = len(evidence.Failures) == 0 && (!formal || evidence.ActualDuration >= formalSoakDuration)
-	if err := writeSoakEvidence(root, evidence); err != nil {
+	if err = writeSoakEvidence(root, evidence); err != nil {
 		t.Fatal(err)
 	}
 	if !evidence.Qualified {
@@ -175,11 +188,12 @@ func startSoakCollectors(
 	return collectorErrors, group
 }
 
-func newSoakEvidence(started time.Time, flushEvery time.Duration, formal bool) soakEvidence {
-	return soakEvidence{SchemaVersion: "axiom.a7-soak.v1", Formal: formal, StartedAt: started,
-		RequiredDuration: formalSoakDuration, EndpointSet: "market-data-only-v1",
-		Instruments: []string{"BTCUSDT", "ETHUSDT"}, Streams: []string{"depth@100ms", "trade", "kline_4h"},
-		SnapshotDepth: 5000, QueueCapacity: 8192, FlushEvery: flushEvery, HeapLimitBytes: declaredHeapLimit,
+func newSoakEvidence(started time.Time, flushEvery time.Duration, formal bool, sourceCommit string) soakEvidence {
+	return soakEvidence{SchemaVersion: "axiom.a7-soak.v2", SourceCommit: sourceCommit,
+		Formal: formal, StartedAt: started, RequiredDuration: formalSoakDuration,
+		EndpointSet: "market-data-only-v1", Instruments: []string{"BTCUSDT", "ETHUSDT"},
+		Streams: []string{"depth@100ms", "trade", "kline_4h"}, SnapshotDepth: 5000,
+		QueueCapacity: 8192, FlushEvery: flushEvery, HeapLimitBytes: declaredHeapLimit,
 		Collectors: make(map[string]binance.CollectorStatsSnapshot), FinalBooks: make(map[string]bookSample)}
 }
 
@@ -188,40 +202,6 @@ func collectSoakErrors(collectorErrors chan error, evidence *soakEvidence) {
 	for collectorErr := range collectorErrors {
 		if collectorErr != nil {
 			evidence.Failures = append(evidence.Failures, "collector_failed")
-		}
-	}
-}
-
-func monitorSoak(
-	ctx context.Context,
-	streamRecorder *recorder.Recorder,
-	collectors map[string]*binance.InstrumentCollector,
-	flushEvery, sampleEvery time.Duration,
-	latestManifest *recorder.DatasetManifest,
-	evidence *soakEvidence,
-) {
-	flushTicker, sampleTicker := time.NewTicker(flushEvery), time.NewTicker(sampleEvery)
-	defer flushTicker.Stop()
-	defer sampleTicker.Stop()
-	previous := make(map[string]binance.CollectorStatsSnapshot, len(collectors))
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-flushTicker.C:
-			if manifest, err := streamRecorder.Flush(); err == nil {
-				*latestManifest = manifest
-			}
-		case observed := <-sampleTicker.C:
-			evidence.Memory = append(evidence.Memory, readMemory(observed.UTC()))
-			for symbol, collector := range collectors {
-				current, prior := collector.Stats(), previous[symbol]
-				if current.Reconnects != prior.Reconnects || current.Rebuilds != prior.Rebuilds || current.Gaps != prior.Gaps {
-					evidence.Incidents = append(evidence.Incidents, incidentSample{ObservedAt: observed.UTC(),
-						Instrument: symbol, Reconnects: current.Reconnects, Rebuilds: current.Rebuilds, Gaps: current.Gaps})
-				}
-				previous[symbol] = current
-			}
 		}
 	}
 }
@@ -276,7 +256,7 @@ func completeSoakEvidence(
 }
 
 func finalFlush(
-	streamRecorder *recorder.Recorder,
+	streamRecorder pendingSoakFlusher,
 	latest recorder.DatasetManifest,
 ) (recorder.DatasetManifest, error) {
 	raw, canonical := streamRecorder.PendingCounts()
@@ -346,10 +326,5 @@ func medianHeap(samples []memorySample) uint64 {
 }
 
 func writeSoakEvidence(root string, evidence soakEvidence) error {
-	payload, err := json.MarshalIndent(evidence, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(root, "a7-soak-evidence.json")
-	return os.WriteFile(path, append(payload, '\n'), 0o640)
+	return writeAtomicJSON(filepath.Join(root, "a7-soak-evidence.json"), evidence)
 }

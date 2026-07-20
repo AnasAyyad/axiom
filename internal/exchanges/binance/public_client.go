@@ -142,7 +142,9 @@ func (client *PublicClient) sampleServerTime(
 	}
 	server, err := normalizeServerTime(body)
 	if err != nil {
-		client.recordDecodeFailure(ctx, recorder, token)
+		if recordErr := client.recordDecodeFailure(ctx, recorder, token); recordErr != nil {
+			return TimeHealth{}, token, recorderFailure{recordErr}
+		}
 		return TimeHealth{}, token, err
 	}
 	if err = client.timeSync.Observe(sent.UTC, received.UTC, server, sentMonotonic, receivedMonotonic); err != nil {
@@ -157,7 +159,7 @@ func (client *PublicClient) sampleServerTime(
 		if err = recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordClockSample,
 			Token: token, Canonical: encoded, SourceSequence: strconv.FormatInt(server.UnixMilli(), 10),
 			ExchangeTime: &server}); err != nil {
-			return TimeHealth{}, token, err
+			return TimeHealth{}, token, recorderFailure{err}
 		}
 	}
 	return health, token, nil
@@ -214,7 +216,9 @@ func (client *PublicClient) snapshot(
 	}
 	snapshot, err := NormalizeSnapshot(body, request.Instrument, received)
 	if err != nil {
-		client.recordDecodeFailure(ctx, recorder, token)
+		if recordErr := client.recordDecodeFailure(ctx, recorder, token); recordErr != nil {
+			return exchangecontracts.BookSnapshot{}, token, recorderFailure{recordErr}
+		}
 		return exchangecontracts.BookSnapshot{}, token, err
 	}
 	if recorder != nil {
@@ -224,7 +228,7 @@ func (client *PublicClient) snapshot(
 		}
 		if err = recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordSnapshot, Token: token,
 			Canonical: encoded, SourceSequence: strconv.FormatUint(snapshot.LastSequence, 10)}); err != nil {
-			return exchangecontracts.BookSnapshot{}, token, err
+			return exchangecontracts.BookSnapshot{}, token, recorderFailure{err}
 		}
 	}
 	return snapshot, token, nil
@@ -238,18 +242,23 @@ func (client *PublicClient) recordRaw(
 	if recorder == nil {
 		return StreamRecordToken{}, nil
 	}
-	return recorder.RecordPublicRaw(ctx, record)
+	token, err := recorder.RecordPublicRaw(ctx, record)
+	if err != nil {
+		return StreamRecordToken{}, recorderFailure{err}
+	}
+	return token, nil
 }
 
 func (client *PublicClient) recordDecodeFailure(
 	ctx context.Context,
 	recorder PublicRecorder,
 	token StreamRecordToken,
-) {
-	if recorder != nil {
-		_ = recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordDecoderError,
-			Token: token, Canonical: []byte(`{"kind":"decoder_error"}`)})
+) error {
+	if recorder == nil {
+		return nil
 	}
+	return recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordDecoderError,
+		Token: token, Canonical: []byte(`{"kind":"decoder_error"}`)})
 }
 
 func positiveOffset(value time.Duration) uint64 {

@@ -12,15 +12,16 @@ import (
 
 // InstrumentCollector owns the single ordered writer for one public spot instrument.
 type InstrumentCollector struct {
-	config   CollectorConfig
-	source   collectorSource
-	recorder PublicRecorder
-	clock    domain.Clock
-	book     *marketdata.Book
-	candles  *marketdata.CandleStore
-	provider *marketdata.Provider
-	stats    *CollectorStats
-	running  atomic.Bool
+	config    CollectorConfig
+	source    collectorSource
+	recorder  PublicRecorder
+	clock     domain.Clock
+	book      *marketdata.Book
+	candles   *marketdata.CandleStore
+	provider  *marketdata.Provider
+	stats     *CollectorStats
+	running   atomic.Bool
+	lifecycle collectorLifecycle
 }
 
 // NewInstrumentCollector constructs one fail-closed bounded collector.
@@ -46,7 +47,8 @@ func NewInstrumentCollector(
 		return nil, streamError()
 	}
 	return &InstrumentCollector{config: config, source: source, recorder: recorder, clock: clock,
-		book: book, candles: candles, provider: provider, stats: newCollectorStats()}, nil
+		book: book, candles: candles, provider: provider, stats: newCollectorStats(),
+		lifecycle: systemCollectorLifecycle{}}, nil
 }
 
 // Views exposes immutable book and candle snapshots.
@@ -65,37 +67,15 @@ func (collector *InstrumentCollector) Run(ctx context.Context) error {
 		return streamError()
 	}
 	defer collector.running.Store(false)
-	var attempt uint32
-	resyncStarted := time.Now()
-	for ctx.Err() == nil {
-		outcome := collector.runGeneration(ctx, resyncStarted)
-		if outcome.fatal != nil {
-			return outcome.fatal
-		}
-		if ctx.Err() != nil {
-			return nil
-		}
-		attempt++
-		resyncStarted = time.Now()
-		collector.stats.reconnects.Add(1)
-		delay, err := collector.config.ConnectionPolicy.Backoff(attempt)
-		if err != nil {
-			return err
-		}
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			if !timer.Stop() {
-				<-timer.C
-			}
-			return nil
-		case <-timer.C:
-		}
-	}
-	return nil
+	return collector.runLifecycle(ctx, collector.runGeneration)
 }
 
-type generationOutcome struct{ fatal error }
+type generationOutcome struct {
+	fatal          error
+	reachedHealthy bool
+	reason         reconnectReason
+	lostHealthAt   time.Time
+}
 
 type fatalCollectorError struct{ error }
 
@@ -125,14 +105,15 @@ func (collector *InstrumentCollector) pauseOutcome(
 	ctx context.Context,
 	connectionID string,
 	generation, sequence uint64,
-	reason string,
+	reason reconnectReason,
 ) generationOutcome {
-	_ = collector.book.Invalidate(reason, sequence)
+	lostHealthAt := collector.lifecycle.Now()
+	_ = collector.book.Invalidate(reason.String(), sequence)
 	if _, err := collector.recordFact(ctx, RecordLifecycle, connectionID, generation,
-		lifecycleFact{State: "PAUSED", Reason: reason, Generation: generation}); err != nil && ctx.Err() == nil {
-		return generationOutcome{fatal: err}
+		lifecycleFact{State: "PAUSED", Reason: reason.String(), Generation: generation}); err != nil && ctx.Err() == nil {
+		return generationOutcome{fatal: err, reason: reason, lostHealthAt: lostHealthAt}
 	}
-	return generationOutcome{}
+	return generationOutcome{reason: reason, lostHealthAt: lostHealthAt}
 }
 
 func (collector *InstrumentCollector) recordFact(

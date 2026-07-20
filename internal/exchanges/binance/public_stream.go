@@ -213,7 +213,7 @@ func (stream *publicStream) normalizeRead(ctx context.Context, read streamRead) 
 			Raw: append([]byte(nil), read.payload...), Instrument: stream.instrument, ReceivedAt: received,
 			ConnectionID: stream.id, ConnectionGeneration: stream.generation, MonotonicOffsetNanos: receivedOffset})
 		if err != nil {
-			return ObservedStreamEvent{}, streamError()
+			return ObservedStreamEvent{}, recorderFailure{err}
 		}
 	}
 	decodeStarted := time.Now()
@@ -224,8 +224,10 @@ func (stream *publicStream) normalizeRead(ctx context.Context, read streamRead) 
 		RecordToken: token, DecodeNanos: decodeNanos, ReceivedOffsetNanos: receivedOffset}
 	if err != nil {
 		if stream.recorder != nil {
-			_ = stream.recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordDecoderError,
-				Token: token, Canonical: []byte(`{"kind":"decoder_error"}`)})
+			if recordErr := stream.recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordDecoderError,
+				Token: token, Canonical: []byte(`{"kind":"decoder_error"}`)}); recordErr != nil {
+				return observed, recorderFailure{recordErr}
+			}
 		}
 		return observed, err
 	}
@@ -239,7 +241,7 @@ func (stream *publicStream) normalizeRead(ctx context.Context, read streamRead) 
 	sequence, exchangeTime := canonicalStreamEvidence(event)
 	if err = stream.recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordStreamFrame,
 		Token: token, Canonical: encoded, SourceSequence: sequence, ExchangeTime: exchangeTime}); err != nil {
-		return ObservedStreamEvent{}, streamError()
+		return ObservedStreamEvent{}, recorderFailure{err}
 	}
 	return observed, nil
 }
