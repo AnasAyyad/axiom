@@ -129,6 +129,55 @@ func TestDecodeJSONRejectsUnknownFieldsAndTrailingDocuments(t *testing.T) {
 	}
 }
 
+func TestV1BConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T) {
+	configuration := DefaultV1BConfiguration()
+	if err := Validate(configuration); err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeJSON(encoded)
+	if err != nil || len(decoded.PublicExchanges()) != 2 || decoded.Exchanges[1].ID != "bybit" ||
+		len(decoded.Exchanges[1].Instruments) != 3 || len(decoded.Exchanges[1].CandleIntervals) != 3 ||
+		len(decoded.Secrets) != 0 {
+		t.Fatalf("V1B graph = %#v, %v", decoded.Exchanges, err)
+	}
+	legacy := DefaultConfiguration().PublicExchanges()
+	if len(legacy) != 1 || legacy[0].ID != "binance" || len(legacy[0].Instruments) != 2 {
+		t.Fatalf("legacy projection = %#v", legacy)
+	}
+	decoded.Exchanges[0].Instruments[0].Base = "MUTATED"
+	if configuration.Exchanges[0].Instruments[0].Base == "MUTATED" {
+		t.Fatal("V1B clone shares exchange instruments")
+	}
+}
+
+func TestV1BConfigurationRejectsArbitraryPublicOriginsAndOrder(t *testing.T) {
+	configuration := DefaultV1BConfiguration()
+	configuration.Exchanges[1].REST = "https://example.invalid"
+	if code := configurationErrorCode(Validate(configuration)); code != "endpoint_rejected" {
+		t.Fatalf("origin error = %q", code)
+	}
+	configuration = DefaultV1BConfiguration()
+	configuration.Exchanges[0], configuration.Exchanges[1] = configuration.Exchanges[1], configuration.Exchanges[0]
+	if code := configurationErrorCode(Validate(configuration)); code != "invalid_configuration" {
+		t.Fatalf("order error = %q", code)
+	}
+}
+
+func TestReviewedV1BRecorderConfigurationDecodes(t *testing.T) {
+	payload, err := os.ReadFile(filepath.Join("..", "..", "deploy", "config", "platform-shadow-v1b.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuration, err := DecodeJSON(payload)
+	if err != nil || configuration.SchemaVersion != SchemaVersionV1B || len(configuration.Exchanges) != 2 {
+		t.Fatalf("reviewed V1B configuration = %#v, %v", configuration.Exchanges, err)
+	}
+}
+
 func configurationErrorCode(err error) string {
 	var failure *Error
 	if errors.As(err, &failure) {

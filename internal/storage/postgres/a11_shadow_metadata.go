@@ -13,8 +13,17 @@ import (
 // RegisterMetadata returns an existing exact public metadata version or appends a new one.
 func (store *A11ShadowStore) RegisterMetadata(ctx context.Context,
 	metadata domain.InstrumentMetadata) (A11MetadataEvidence, error) {
+	return store.RegisterPublicMetadata(ctx, "binance", metadata)
+}
+
+// RegisterPublicMetadata appends metadata under one allowlisted production-public venue.
+func (store *A11ShadowStore) RegisterPublicMetadata(ctx context.Context, exchange string,
+	metadata domain.InstrumentMetadata) (A11MetadataEvidence, error) {
 	if metadata.Instrument.Product != domain.ProductSpot || metadata.Version == 0 {
 		return A11MetadataEvidence{}, fmt.Errorf("a11_shadow_metadata_invalid")
+	}
+	if exchange != "binance" && exchange != "bybit" {
+		return A11MetadataEvidence{}, fmt.Errorf("a11_shadow_exchange_invalid")
 	}
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
@@ -22,10 +31,10 @@ func (store *A11ShadowStore) RegisterMetadata(ctx context.Context,
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`,
-		"axiom:metadata:"+metadata.Instrument.Symbol()); err != nil {
+		"axiom:metadata:"+exchange+":"+metadata.Instrument.Symbol()); err != nil {
 		return A11MetadataEvidence{}, err
 	}
-	exchangeID, instrumentID, err := a11MetadataReferences(ctx, tx, metadata.Instrument)
+	exchangeID, instrumentID, err := a11MetadataReferences(ctx, tx, exchange, metadata.Instrument)
 	if err != nil {
 		return A11MetadataEvidence{}, err
 	}
@@ -39,13 +48,13 @@ func (store *A11ShadowStore) RegisterMetadata(ctx context.Context,
 	return appendA11Metadata(ctx, tx, exchangeID, instrumentID, metadata, store.clock.Now().UTC)
 }
 
-func a11MetadataReferences(ctx context.Context, tx pgx.Tx,
+func a11MetadataReferences(ctx context.Context, tx pgx.Tx, exchange string,
 	instrument domain.Instrument) (string, string, error) {
 	var exchangeID, instrumentID string
 	err := tx.QueryRow(ctx, `SELECT exchange.id,instrument.id FROM exchanges exchange CROSS JOIN instruments instrument
-      WHERE exchange.id='binance' AND exchange.environment='production_public' AND
-      instrument.base_asset=$1 AND instrument.quote_asset=$2 AND instrument.product='spot'`,
-		instrument.Base, instrument.Quote).Scan(&exchangeID, &instrumentID)
+	  WHERE exchange.id=$1 AND exchange.environment='production_public' AND
+      instrument.base_asset=$2 AND instrument.quote_asset=$3 AND instrument.product='spot'`,
+		exchange, instrument.Base, instrument.Quote).Scan(&exchangeID, &instrumentID)
 	if err == pgx.ErrNoRows {
 		return "", "", fmt.Errorf("a11_shadow_metadata_reference_missing")
 	}
@@ -82,7 +91,7 @@ func appendA11Metadata(ctx context.Context, tx pgx.Tx, exchangeID, instrumentID 
       WHERE exchange_id=$1 AND instrument_id=$2`, exchangeID, instrumentID).Scan(&version); err != nil {
 		return A11MetadataEvidence{}, err
 	}
-	id := fmt.Sprintf("metadata-binance-%s-%d", metadata.Instrument.Symbol(), version)
+	id := fmt.Sprintf("metadata-%s-%s-%d", exchangeID, metadata.Instrument.Symbol(), version)
 	_, err := tx.Exec(ctx, `INSERT INTO instrument_metadata_versions(id,exchange_id,instrument_id,version,
       price_tick,quantity_step,minimum_quantity,minimum_notional,effective_at,recorded_at)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`, id, exchangeID, instrumentID, version,

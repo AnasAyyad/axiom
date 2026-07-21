@@ -187,21 +187,37 @@ func (collector *InstrumentCollector) processObserved(ctx context.Context, obser
 		}
 		collector.stats.trades.Add(1)
 	case exchangecontracts.StreamCandle:
-		if observed.Event.Candle == nil {
-			return streamError()
+		if err := collector.processCandle(observed); err != nil {
+			return err
 		}
-		if observed.Event.Candle.Closed {
-			sequence := uint64(observed.Event.Candle.CloseTime.UnixMilli())
-			if err := collector.candles.Add(*observed.Event.Candle,
-				collector.streamObservation(observed, observed.Event.Candle.CloseTime, sequence)); err != nil {
-				return err
-			}
-			collector.stats.candles.Add(1)
+	case exchangecontracts.StreamTicker:
+		if observed.Event.Ticker == nil {
+			return streamError()
 		}
 	default:
 		return streamError()
 	}
 	collector.stats.hotPath.record(time.Duration(observed.DecodeNanos) + time.Since(started))
+	return nil
+}
+
+func (collector *InstrumentCollector) processCandle(observed ObservedStreamEvent) error {
+	if observed.Event.Candle == nil {
+		return streamError()
+	}
+	if !observed.Event.Candle.Closed {
+		return nil
+	}
+	sequence := uint64(observed.Event.Candle.CloseTime.UnixMilli())
+	store := collector.candleStores[observed.Event.Candle.Interval]
+	if store == nil {
+		return streamError()
+	}
+	if err := store.Add(*observed.Event.Candle,
+		collector.streamObservation(observed, observed.Event.Candle.CloseTime, sequence)); err != nil {
+		return err
+	}
+	collector.stats.candles.Add(1)
 	return nil
 }
 

@@ -101,7 +101,7 @@ func validAggregateQuery(query url.Values) bool {
 
 func validCandleQuery(query url.Values) bool {
 	if !exactKeys(query, "endTime", "interval", "limit", "startTime", "symbol", "timeZone") ||
-		!validSymbol(query.Get("symbol")) || query.Get("interval") != "4h" || query.Get("timeZone") != "0" ||
+		!validSymbol(query.Get("symbol")) || !supportedCandleInterval(query.Get("interval")) || query.Get("timeZone") != "0" ||
 		!boundedUint(query.Get("limit"), 1, 1000) || !optionalMillis(query.Get("startTime")) ||
 		!optionalMillis(query.Get("endTime")) {
 		return false
@@ -141,12 +141,12 @@ func validateWebSocketTarget(target *url.URL) (publicRoute, error) {
 
 func validStreamName(stream string) bool {
 	parts := strings.Split(stream, "@")
-	if len(parts) < 2 || (parts[0] != "btcusdt" && parts[0] != "ethusdt") {
+	if len(parts) < 2 || (parts[0] != "btcusdt" && parts[0] != "ethusdt" && parts[0] != "ethbtc") {
 		return false
 	}
 	suffix := strings.Join(parts[1:], "@")
 	switch suffix {
-	case "depth", "depth@100ms", "trade", "aggTrade", "kline_4h":
+	case "depth", "depth@100ms", "trade", "aggTrade", "bookTicker", "kline_15m", "kline_1h", "kline_4h":
 		return true
 	default:
 		return false
@@ -174,7 +174,9 @@ func onlyKeys(query url.Values, allowed map[string]bool) bool {
 	return true
 }
 
-func validSymbol(symbol string) bool { return symbol == "BTCUSDT" || symbol == "ETHUSDT" }
+func validSymbol(symbol string) bool {
+	return symbol == "BTCUSDT" || symbol == "ETHUSDT" || symbol == "ETHBTC"
+}
 
 func boundedUint(value string, minimum, maximum uint64) bool {
 	parsed, err := strconv.ParseUint(value, 10, 64)

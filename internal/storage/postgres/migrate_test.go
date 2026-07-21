@@ -27,6 +27,24 @@ func TestEmbeddedMigrationsAreOrderedForwardOnlyAndChecksummed(t *testing.T) {
 	}
 }
 
+func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	latest := migrations[len(migrations)-1]
+	lower := strings.ToLower(latest.SQL)
+	for _, required := range []string{"'bybit'", "public_clock_samples", "public_connection_events",
+		"public_clock_samples_immutable", "public_connection_events_immutable"} {
+		if !strings.Contains(lower, required) {
+			t.Fatalf("B1 migration missing %q", required)
+		}
+	}
+	if latest.Version != "000012" {
+		t.Fatalf("latest migration = %s", latest.Version)
+	}
+}
+
 func TestMigrationVersionRejectsNonCanonicalNames(t *testing.T) {
 	for _, name := range []string{"1_bad.sql", "000001.sql", "00000x_bad.sql", "000001_.sql"} {
 		if _, ok := migrationVersion(name); ok {

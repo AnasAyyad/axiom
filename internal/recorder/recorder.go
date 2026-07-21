@@ -249,7 +249,7 @@ func validateRawInput(input RawInput, exchange, session string) error {
 func validEventType(eventType EventType) bool {
 	switch eventType {
 	case EventDepth, EventTrade, EventCandle, EventSnapshot, EventLifecycle, EventSubscription,
-		EventGap, EventRebuild, EventDecoderError, EventClockSample, EventStreamFrame, EventDecisionInput:
+		EventHeartbeat, EventGap, EventRebuild, EventDecoderError, EventClockSample, EventStreamFrame, EventDecisionInput:
 		return true
 	default:
 		return false

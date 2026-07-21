@@ -6,24 +6,30 @@ import (
 )
 
 func instrumentForSymbol(symbol string) (domain.Instrument, error) {
-	var base domain.AssetSymbol
+	var base, quote domain.AssetSymbol
 	switch symbol {
 	case "BTCUSDT":
-		base = "BTC"
+		base, quote = "BTC", "USDT"
 	case "ETHUSDT":
-		base = "ETH"
+		base, quote = "ETH", "USDT"
+	case "ETHBTC":
+		base, quote = "ETH", "BTC"
 	default:
 		return domain.Instrument{}, exchangecontracts.NewError(
 			exchangecontracts.ErrorValidation, exchangecontracts.OperationMetadata, 0,
 		)
 	}
-	instrument, err := domain.NewSpotInstrument(base, "USDT")
+	instrument, err := domain.NewSpotInstrument(base, quote)
 	if err != nil {
 		return domain.Instrument{}, exchangecontracts.NewError(
 			exchangecontracts.ErrorValidation, exchangecontracts.OperationMetadata, 0,
 		)
 	}
 	return instrument, nil
+}
+
+func supportedCandleInterval(interval string) bool {
+	return interval == "15m" || interval == "1h" || interval == "4h"
 }
 
 func validSpotInstrument(instrument domain.Instrument) bool {

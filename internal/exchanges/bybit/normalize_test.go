@@ -1,0 +1,144 @@
+package bybit
+
+import (
+	"testing"
+	"time"
+
+	"axiom/internal/domain"
+	exchangecontracts "axiom/internal/exchanges/contracts"
+	"axiom/internal/marketdata"
+)
+
+func TestB1BybitPublicNormalizationContract(t *testing.T) {
+	clock, err := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	received := clock.Now()
+	instrument := approvedInstruments()[0]
+	tests := []struct {
+		name string
+		run  func() error
+	}{
+		{name: "server time", run: func() error {
+			_, normalizeErr := NormalizeServerTime([]byte(`{"retCode":0,"retMsg":"OK","result":{"timeSecond":"1784592000","timeNano":"1784592000123456789"},"retExtInfo":{},"time":1784592000123}`))
+			return normalizeErr
+		}},
+		{name: "snapshot", run: func() error {
+			_, normalizeErr := NormalizeSnapshot([]byte(`{"retCode":0,"retMsg":"OK","result":{"s":"BTCUSDT","b":[["100","2"]],"a":[["101","3"]],"ts":1784592000000,"u":42,"seq":99,"cts":1784592000000},"retExtInfo":{},"time":1784592000000}`), instrument, received)
+			return normalizeErr
+		}},
+		{name: "ticker", run: func() error {
+			_, normalizeErr := NormalizeTicker([]byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","list":[{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}]},"retExtInfo":{},"time":1784592000000}`), instrument, received)
+			return normalizeErr
+		}},
+		{name: "candles", run: func() error {
+			_, normalizeErr := NormalizeCandleHistory([]byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","symbol":"BTCUSDT","list":[["1784592000000","100","102","99","101","4","404"]]},"retExtInfo":{},"time":1784592000000}`), instrument, "1h", received)
+			return normalizeErr
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.run(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestB1BybitSnapshotDeltaDeleteAndUpdateIDOneReplacement(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
+	received := clock.Now()
+	tickerState := make(map[string]tickerPayload)
+	snapshotJSON := []byte(`{"topic":"orderbook.1000.BTCUSDT","type":"snapshot","ts":1784592000000,"data":{"s":"BTCUSDT","b":[["100","2"],["99","1"]],"a":[["101","3"]],"u":10,"seq":50,"cts":1784592000000},"cts":1784592000000}`)
+	_, snapshotEvent, err := normalizeStream(snapshotJSON, received, tickerState)
+	if err != nil || snapshotEvent.Snapshot == nil {
+		t.Fatalf("snapshot = %#v, %v", snapshotEvent, err)
+	}
+	book, err := marketdata.NewBook("bybit", approvedInstruments()[0], 1000, 8192, nil)
+	if err != nil || book.BeginGeneration("connection-1", 1) != nil {
+		t.Fatal(err)
+	}
+	if err = book.ReplaceSnapshot(*snapshotEvent.Snapshot, testObservation(clock, received, 1, 10)); err != nil {
+		t.Fatal(err)
+	}
+	deltaJSON := []byte(`{"topic":"orderbook.1000.BTCUSDT","type":"delta","ts":1784592000010,"data":{"s":"BTCUSDT","b":[["100","0"],["98","5"]],"a":[["101","4"]],"u":11,"seq":51,"cts":1784592000010},"cts":1784592000010}`)
+	_, deltaEvent, err := normalizeStream(deltaJSON, clock.Now(), tickerState)
+	if err != nil || deltaEvent.Depth == nil {
+		t.Fatalf("delta = %#v, %v", deltaEvent, err)
+	}
+	if err = book.Apply(marketdata.DepthEvent{Update: *deltaEvent.Depth,
+		Observation: testObservation(clock, deltaEvent.Depth.ReceivedAt, 2, 11)}); err != nil {
+		t.Fatal(err)
+	}
+	if bids := book.View().Bids(); len(bids) != 2 || bids[0].Price.String() != "99" {
+		t.Fatalf("delete semantics = %#v", bids)
+	}
+	resetJSON := []byte(`{"topic":"orderbook.1000.BTCUSDT","type":"delta","ts":1784592000020,"data":{"s":"BTCUSDT","b":[["97","7"]],"a":[["103","8"]],"u":1,"seq":52,"cts":1784592000020},"cts":1784592000020}`)
+	_, resetEvent, err := normalizeStream(resetJSON, clock.Now(), tickerState)
+	if err != nil || resetEvent.Snapshot == nil {
+		t.Fatalf("u=1 reset = %#v, %v", resetEvent, err)
+	}
+	if err = book.ReplaceSnapshot(*resetEvent.Snapshot,
+		testObservation(clock, resetEvent.Snapshot.ReceivedAt, 3, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if bids := book.View().Bids(); len(bids) != 1 || bids[0].Price.String() != "97" || book.View().Sequence() != 1 {
+		t.Fatalf("replacement = %#v sequence=%d", bids, book.View().Sequence())
+	}
+}
+
+func TestB1BybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
+	state := make(map[string]tickerPayload)
+	_, event, err := normalizeStream([]byte(`{"success":true,"ret_msg":"subscribe","conn_id":"public-1","op":"subscribe"}`), clock.Now(), state)
+	if err != nil || event.Lifecycle == nil || event.Lifecycle.State != "SUBSCRIBED" {
+		t.Fatalf("lifecycle = %#v, %v", event, err)
+	}
+	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"snapshot","ts":1784592000000,"data":{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}}`), clock.Now(), state)
+	if err != nil || event.Ticker == nil {
+		t.Fatalf("ticker snapshot = %#v, %v", event, err)
+	}
+	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"delta","ts":1784592000010,"data":{"symbol":"BTCUSDT","lastPrice":"100.75"}}`), clock.Now(), state)
+	if err != nil || event.Ticker == nil || event.Ticker.BidPrice.String() != "100" || event.Ticker.LastPrice.String() != "100.75" {
+		t.Fatalf("ticker delta = %#v, %v", event, err)
+	}
+	if _, _, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"delta","ts":1784592000010,"data":{"symbol":"BTCUSDT","lastPrice":"100.75","unexpected":true}}`), clock.Now(), state); err == nil {
+		t.Fatal("unknown field accepted")
+	}
+}
+
+func testObservation(
+	clock domain.Clock,
+	received domain.EventTime,
+	ordinal uint64,
+	sequence uint64,
+) marketdata.Observation {
+	processed := clock.Now()
+	published := clock.Now()
+	return marketdata.Observation{ReceivedAt: received, ProcessedAt: processed, PublishedAt: published,
+		ConnectionID: "connection-1", ConnectionGeneration: 1, SourceSequence: sequence,
+		IngestOrdinal: ordinal, ReceivedOffsetNanos: ordinal, ProcessedOffsetNanos: ordinal,
+		PublishedOffsetNanos: ordinal}
+}
+
+func TestB1BybitCapabilitiesRemainCredentialFree(t *testing.T) {
+	descriptor, err := Capabilities(time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC))
+	if err != nil || descriptor.Exchange != "bybit" || descriptor.AccountMode != exchangecontracts.AccountModePublicOnly {
+		t.Fatalf("descriptor = %#v, %v", descriptor, err)
+	}
+	for _, capability := range descriptor.Capabilities {
+		if (capability.Feature == exchangecontracts.FeaturePrivateData ||
+			capability.Feature == exchangecontracts.FeatureOrders) && capability.Support != exchangecontracts.Unsupported {
+			t.Fatalf("private capability enabled: %#v", capability)
+		}
+	}
+}
+
+func FuzzNormalizeBybitPublicStream(f *testing.F) {
+	f.Add([]byte(`{"success":true,"ret_msg":"subscribe","conn_id":"public-1","op":"subscribe"}`))
+	f.Fuzz(func(t *testing.T, payload []byte) {
+		clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
+		_, _, _ = normalizeStream(payload, clock.Now(), make(map[string]tickerPayload))
+	})
+}

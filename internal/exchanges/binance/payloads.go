@@ -58,6 +58,15 @@ type streamTradePayload struct {
 	BestMatch     bool   `json:"M"`
 }
 
+type streamTickerPayload struct {
+	UpdateID    uint64 `json:"u"`
+	Symbol      string `json:"s"`
+	BidPrice    string `json:"b"`
+	BidQuantity string `json:"B"`
+	AskPrice    string `json:"a"`
+	AskQuantity string `json:"A"`
+}
+
 type candleBodyPayload struct {
 	OpenTime      int64  `json:"t"`
 	CloseTime     int64  `json:"T"`

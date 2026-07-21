@@ -116,7 +116,7 @@ func NormalizeTrades(
 func NormalizeCandle(payload []byte, receivedAt domain.EventTime) (exchangecontracts.Candle, error) {
 	var native candlePayload
 	if err := strictDecode(payload, &native); err != nil || native.EventType != "kline" ||
-		native.EventTime <= 0 || native.Symbol != native.Candle.Symbol || native.Candle.Interval != "4h" ||
+		native.EventTime <= 0 || native.Symbol != native.Candle.Symbol || !supportedCandleInterval(native.Candle.Interval) ||
 		native.Candle.OpenTime <= 0 || native.Candle.CloseTime <= native.Candle.OpenTime || receivedAt.Validate() != nil {
 		return exchangecontracts.Candle{}, exchangecontracts.NewError(
 			exchangecontracts.ErrorValidation, exchangecontracts.OperationCandles, 0,

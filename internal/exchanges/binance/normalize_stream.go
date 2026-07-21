@@ -35,6 +35,12 @@ func normalizeCombinedStream(
 			return wrapper.Stream, exchangecontracts.StreamEvent{}, err
 		}
 		return wrapper.Stream, exchangecontracts.StreamEvent{Kind: kind, Trade: &trade}, nil
+	case exchangecontracts.StreamTicker:
+		ticker, err := normalizeStreamTicker(wrapper.Data, receivedAt)
+		if err != nil {
+			return wrapper.Stream, exchangecontracts.StreamEvent{}, err
+		}
+		return wrapper.Stream, exchangecontracts.StreamEvent{Kind: kind, Ticker: &ticker}, nil
 	case exchangecontracts.StreamCandle:
 		candle, err := NormalizeCandle(wrapper.Data, receivedAt)
 		if err != nil {
@@ -44,6 +50,27 @@ func normalizeCombinedStream(
 	default:
 		return wrapper.Stream, exchangecontracts.StreamEvent{}, streamError()
 	}
+}
+
+func normalizeStreamTicker(payload json.RawMessage, receivedAt domain.EventTime) (exchangecontracts.Ticker, error) {
+	var native streamTickerPayload
+	if err := strictDecode(payload, &native); err != nil || native.UpdateID == 0 || receivedAt.Validate() != nil {
+		return exchangecontracts.Ticker{}, streamError()
+	}
+	instrument, err := instrumentForSymbol(native.Symbol)
+	if err != nil {
+		return exchangecontracts.Ticker{}, err
+	}
+	bid, bidErr := domain.ParsePrice(native.BidPrice)
+	bidQuantity, bidQuantityErr := domain.ParseQuantity(native.BidQuantity)
+	ask, askErr := domain.ParsePrice(native.AskPrice)
+	askQuantity, askQuantityErr := domain.ParseQuantity(native.AskQuantity)
+	if bidErr != nil || bidQuantityErr != nil || askErr != nil || askQuantityErr != nil || bid.Compare(ask) >= 0 {
+		return exchangecontracts.Ticker{}, streamError()
+	}
+	return exchangecontracts.Ticker{Exchange: "binance", Instrument: instrument, BidPrice: bid,
+		BidQuantity: bidQuantity, AskPrice: ask, AskQuantity: askQuantity, LastPrice: bid,
+		ExchangeTime: receivedAt.UTC, ReceivedAt: receivedAt, RawPayloadHash: payloadHash(payload)}, nil
 }
 
 func normalizeStreamTrade(payload json.RawMessage, receivedAt domain.EventTime) (exchangecontracts.Trade, error) {

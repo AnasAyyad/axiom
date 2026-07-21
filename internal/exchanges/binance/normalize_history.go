@@ -16,7 +16,7 @@ func NormalizeCandleHistory(
 	receivedAt domain.EventTime,
 ) ([]exchangecontracts.Candle, error) {
 	var native [][]json.RawMessage
-	if err := strictDecode(payload, &native); err != nil || interval != "4h" ||
+	if err := strictDecode(payload, &native); err != nil || !supportedCandleInterval(interval) ||
 		receivedAt.Validate() != nil || !validSpotInstrument(instrument) {
 		return nil, historyError()
 	}

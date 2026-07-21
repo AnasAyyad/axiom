@@ -30,6 +30,7 @@ const (
 	FeatureInstrumentMetadata Feature = "instrument_metadata"
 	FeatureHistoricalTrades   Feature = "historical_trades"
 	FeatureHistoricalCandles  Feature = "historical_candles"
+	FeatureTickers            Feature = "tickers"
 	FeatureBookSnapshots      Feature = "book_snapshots"
 	FeatureIncrementalDepth   Feature = "incremental_depth"
 	FeatureChecksums          Feature = "checksums"
@@ -130,7 +131,7 @@ func validConstraints(constraints []Constraint) bool {
 func validFeature(feature Feature) bool {
 	switch feature {
 	case FeaturePublicMarketData, FeatureInstrumentMetadata, FeatureHistoricalTrades,
-		FeatureHistoricalCandles, FeatureBookSnapshots, FeatureIncrementalDepth,
+		FeatureHistoricalCandles, FeatureTickers, FeatureBookSnapshots, FeatureIncrementalDepth,
 		FeatureChecksums, FeaturePrivateData, FeatureOrders, FeatureImmediateOrCancel,
 		FeatureFillOrKill, FeaturePostOnly, FeatureCancellation, FeatureClientGeneratedIDs,
 		FeatureReconciliation:

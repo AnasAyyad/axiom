@@ -2,8 +2,11 @@ package config
 
 import "axiom/internal/domain"
 
-// SchemaVersion is the current immutable configuration schema identifier.
-const SchemaVersion = "axiom.config.v1a.2"
+// Configuration schema identifiers remain immutable and explicitly accepted.
+const (
+	SchemaVersion    = "axiom.config.v1a.2"
+	SchemaVersionV1B = "axiom.config.v1b.1"
+)
 
 // Environment identifies an allowed V1A deployment class.
 type Environment string
@@ -24,6 +27,7 @@ type Configuration struct {
 	Product       domain.ProductKind      `json:"product"`
 	Safety        SafetyConfiguration     `json:"safety"`
 	Endpoint      EndpointConfiguration   `json:"endpoint"`
+	Exchanges     []ExchangeConfiguration `json:"exchanges,omitempty"`
 	Assets        []domain.Asset          `json:"assets"`
 	Instruments   []Instrument            `json:"instruments"`
 	Risk          RiskConfiguration       `json:"risk"`
@@ -32,6 +36,16 @@ type Configuration struct {
 	Trend         TrendConfiguration      `json:"trend"`
 	Capabilities  []CapabilityDisposition `json:"capabilities"`
 	Secrets       []SecretReference       `json:"secrets"`
+}
+
+// ExchangeConfiguration selects one code-owned public venue and recording universe.
+type ExchangeConfiguration struct {
+	ID              string       `json:"id"`
+	EndpointSet     string       `json:"endpoint_set"`
+	REST            string       `json:"rest"`
+	WebSocket       string       `json:"websocket"`
+	Instruments     []Instrument `json:"instruments"`
+	CandleIntervals []string     `json:"candle_intervals"`
 }
 
 // SafetyConfiguration declares mandatory fail-closed runtime posture.

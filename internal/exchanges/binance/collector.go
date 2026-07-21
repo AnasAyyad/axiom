@@ -19,6 +19,7 @@ type InstrumentCollector struct {
 	clock            domain.Clock
 	book             *marketdata.Book
 	candles          *marketdata.CandleStore
+	candleStores     map[string]*marketdata.CandleStore
 	provider         *marketdata.Provider
 	stats            *CollectorStats
 	running          atomic.Bool
@@ -41,16 +42,21 @@ func NewInstrumentCollector(
 	if err != nil {
 		return nil, streamError()
 	}
-	candles, err := marketdata.NewCandleStore(collectorExchange, config.Instrument, "4h", config.CandleCapacity)
-	if err != nil {
+	provider := marketdata.NewProvider()
+	if provider.RegisterBook(book) != nil {
 		return nil, streamError()
 	}
-	provider := marketdata.NewProvider()
-	if provider.RegisterBook(book) != nil || provider.RegisterCandles(candles) != nil {
-		return nil, streamError()
+	stores := make(map[string]*marketdata.CandleStore, len(config.CandleIntervals))
+	for _, interval := range config.CandleIntervals {
+		store, storeErr := marketdata.NewCandleStore(collectorExchange, config.Instrument,
+			interval, config.CandleCapacity)
+		if storeErr != nil || provider.RegisterCandles(store) != nil {
+			return nil, streamError()
+		}
+		stores[interval] = store
 	}
 	return &InstrumentCollector{config: config, source: source, recorder: recorder, clock: clock,
-		book: book, candles: candles, provider: provider, stats: newCollectorStats(),
+		book: book, candles: stores["4h"], candleStores: stores, provider: provider, stats: newCollectorStats(),
 		lifecycle: systemCollectorLifecycle{}}, nil
 }
 
