@@ -19,6 +19,7 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0011](0011-a7-resynchronization-attribution.md) | Accepted | A7 retains the 15-second all-sample resynchronization gate and records objective bounded fault attribution separately. |
 | [0012](0012-trend-version-and-research-generation.md) | Accepted | Trend decisions and final-test use are locked to immutable versions and visible generations. |
 | [0013](0013-a11-authentication-and-session-policy.md) | Accepted | A11 uses file-bootstrapped Argon2id credentials and hashed opaque sessions. |
+| [0014](0014-v1b-public-multi-exchange-recording.md) | Accepted | B1 uses compiled credential-free Bybit routes, common recording facts, and separate immutable per-exchange datasets. |
 
 ## Naming and lifecycle
 

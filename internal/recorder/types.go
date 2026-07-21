@@ -27,6 +27,7 @@ const (
 	EventSnapshot      EventType = "snapshot"
 	EventLifecycle     EventType = "lifecycle"
 	EventSubscription  EventType = "subscription"
+	EventHeartbeat     EventType = "heartbeat"
 	EventGap           EventType = "gap"
 	EventRebuild       EventType = "rebuild"
 	EventDecoderError  EventType = "decoder_error"

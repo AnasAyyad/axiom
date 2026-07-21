@@ -29,6 +29,9 @@ func Validate(configuration Configuration) error {
 	if err := validateInstruments(configuration.Instruments, approved); err != nil {
 		return err
 	}
+	if err := validateExchangeDefinitions(configuration, approved); err != nil {
+		return err
+	}
 	if err := validateRisk(configuration.Risk); err != nil {
 		return err
 	}
@@ -45,7 +48,8 @@ func Validate(configuration Configuration) error {
 }
 
 func validateIdentity(configuration Configuration) error {
-	if configuration.SchemaVersion != SchemaVersion || configuration.Revision == 0 {
+	if (configuration.SchemaVersion != SchemaVersion && configuration.SchemaVersion != SchemaVersionV1B) ||
+		configuration.Revision == 0 {
 		return configError("invalid_configuration", "schema")
 	}
 	switch configuration.Environment {
@@ -61,6 +65,54 @@ func validateIdentity(configuration Configuration) error {
 	}
 	if configuration.Product != domain.ProductSpot {
 		return configError("prohibited_product", "product")
+	}
+	return nil
+}
+
+func validateExchangeDefinitions(
+	configuration Configuration,
+	approved map[domain.AssetSymbol]struct{},
+) error {
+	if configuration.SchemaVersion == SchemaVersion {
+		if len(configuration.Exchanges) != 0 {
+			return configError("invalid_configuration", "exchanges")
+		}
+		return nil
+	}
+	if len(configuration.Exchanges) != 2 || configuration.Exchanges[0].ID != "binance" ||
+		configuration.Exchanges[1].ID != "bybit" {
+		return configError("invalid_configuration", "exchanges")
+	}
+	for _, exchange := range configuration.Exchanges {
+		if err := validateExchangeDefinition(exchange, approved); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateExchangeDefinition(
+	exchange ExchangeConfiguration,
+	approved map[domain.AssetSymbol]struct{},
+) error {
+	wantedSet, wantedREST, wantedWS := "market-data-only-v1",
+		"https://data-api.binance.vision", "wss://data-stream.binance.vision"
+	if exchange.ID == "bybit" {
+		wantedSet, wantedREST, wantedWS = "bybit-public-v1", "https://api.bybit.com",
+			"wss://stream.bybit.com/v5/public/spot"
+	}
+	if exchange.EndpointSet != wantedSet || exchange.REST != wantedREST || exchange.WebSocket != wantedWS ||
+		len(exchange.Instruments) != 3 || !equalStrings(exchange.CandleIntervals, []string{"15m", "1h", "4h"}) {
+		return configError("endpoint_rejected", "exchanges."+exchange.ID)
+	}
+	if err := validateInstruments(exchange.Instruments, approved); err != nil {
+		return err
+	}
+	wanted := []string{"BTCUSDT", "ETHUSDT", "ETHBTC"}
+	for index, instrument := range exchange.Instruments {
+		if instrument.Base+instrument.Quote != wanted[index] {
+			return configError("invalid_configuration", "exchanges.instruments")
+		}
 	}
 	return nil
 }

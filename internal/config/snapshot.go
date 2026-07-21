@@ -105,6 +105,11 @@ func cloneConfiguration(configuration Configuration) Configuration {
 	cloned := configuration
 	cloned.Assets = append([]domain.Asset(nil), configuration.Assets...)
 	cloned.Instruments = append([]Instrument(nil), configuration.Instruments...)
+	cloned.Exchanges = append([]ExchangeConfiguration(nil), configuration.Exchanges...)
+	for index := range cloned.Exchanges {
+		cloned.Exchanges[index].Instruments = append([]Instrument(nil), configuration.Exchanges[index].Instruments...)
+		cloned.Exchanges[index].CandleIntervals = append([]string(nil), configuration.Exchanges[index].CandleIntervals...)
+	}
 	cloned.Trend.Parameters = append([]StrategyParameter(nil), configuration.Trend.Parameters...)
 	for index := range cloned.Trend.Parameters {
 		cloned.Trend.Parameters[index].ModelDependencies = append([]string(nil), configuration.Trend.Parameters[index].ModelDependencies...)

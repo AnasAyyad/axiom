@@ -122,12 +122,12 @@ func newA11ShadowRecorders(pool *pgxpool.Pool, root, id string) (*marketrecorder
 	}
 	publicSession, decisionSession := id+"-public", id+"-decisions"
 	publicRecorder, err := marketrecorder.New(root, id+"-public-evidence", publicSession, "binance",
-		&runtimecore.IngestOrdinals{}, segmentCommitter(pool, publicSession), nil)
+		&runtimecore.IngestOrdinals{}, segmentCommitter(pool, publicSession, "binance"), nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	decisionRecorder, err := marketrecorder.New(root, id+"-decision-inputs", decisionSession, "binance",
-		&runtimecore.IngestOrdinals{}, segmentCommitter(pool, decisionSession), nil)
+		&runtimecore.IngestOrdinals{}, segmentCommitter(pool, decisionSession, "binance"), nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}

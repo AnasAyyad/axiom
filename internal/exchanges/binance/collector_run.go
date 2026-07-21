@@ -36,7 +36,8 @@ func (collector *InstrumentCollector) beginGeneration(
 	stream, err := collector.source.SubscribeRecorded(ctx, exchangecontracts.StreamRequest{
 		Instrument: collector.config.Instrument,
 		Kinds: []exchangecontracts.StreamKind{exchangecontracts.StreamDepth, exchangecontracts.StreamTrades,
-			exchangecontracts.StreamCandle},
+			exchangecontracts.StreamTicker, exchangecontracts.StreamCandle},
+		CandleIntervals: append([]string(nil), collector.config.CandleIntervals...),
 	}, collector.recorder)
 	if err != nil {
 		return nil, "", 0, generationFailure(generationOutcome{reason: reconnectSubscription},
@@ -71,11 +72,19 @@ func (collector *InstrumentCollector) prepareGeneration(
 			"recorder", "recorder", err), false
 	}
 	if _, err := collector.recordFact(ctx, RecordSubscription, connectionID, generation,
-		subscriptionFact{Streams: []string{"depth@100ms", "kline_4h", "trade"}, Generation: generation}); err != nil {
+		subscriptionFact{Streams: collector.subscriptionNames(), Generation: generation}); err != nil {
 		return generationFailure(generationOutcome{fatal: err, generation: generation},
 			"recorder", "recorder", err), false
 	}
 	return generationOutcome{}, true
+}
+
+func (collector *InstrumentCollector) subscriptionNames() []string {
+	names := []string{"depth@100ms", "trade", "bookTicker"}
+	for _, interval := range collector.config.CandleIntervals {
+		names = append(names, "kline_"+interval)
+	}
+	return names
 }
 
 func (collector *InstrumentCollector) sampleGenerationClock(

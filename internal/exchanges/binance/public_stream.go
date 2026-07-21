@@ -14,86 +14,52 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-// ObservedStreamEvent retains the exact raw frame and connection identity
-// beside the normalized event so recording can precede downstream publication.
-type ObservedStreamEvent struct {
-	Raw                  []byte                        `json:"raw"`
-	StreamName           string                        `json:"stream_name"`
-	ReceivedAt           domain.EventTime              `json:"received_at"`
-	ConnectionID         string                        `json:"connection_id"`
-	ConnectionGeneration uint64                        `json:"connection_generation"`
-	Event                exchangecontracts.StreamEvent `json:"event"`
-	RecordToken          StreamRecordToken             `json:"record_token"`
-	DecodeNanos          uint64                        `json:"decode_nanos"`
-	ReceivedOffsetNanos  uint64                        `json:"received_offset_nanos"`
-}
+// Compatibility aliases preserve the V1A Binance API while recording facts are
+// now owned by the exchange-neutral consumer contract.
+type ObservedStreamEvent = exchangecontracts.ObservedStreamEvent
 
-// StreamRecordToken is an opaque raw-to-canonical linkage value.
-type StreamRecordToken struct {
-	IngestOrdinal uint64
-	PayloadHash   [32]byte
-}
+// StreamRecordToken is the V1A name for the common recording link.
+type StreamRecordToken = exchangecontracts.StreamRecordToken
 
-// PublicRecordKind classifies one public raw/canonical recorder fact.
-type PublicRecordKind string
+// PublicRecordKind is the V1A name for a common public recording class.
+type PublicRecordKind = exchangecontracts.PublicRecordKind
 
-// A7 public recorder classes.
+// PublicRawRecord is the V1A name for a common raw public fact.
+type PublicRawRecord = exchangecontracts.PublicRawRecord
+
+// PublicCanonicalRecord is the V1A name for a common canonical public fact.
+type PublicCanonicalRecord = exchangecontracts.PublicCanonicalRecord
+
+// PublicRecorder is the V1A name for the common public recorder contract.
+type PublicRecorder = exchangecontracts.PublicRecorder
+
+// SourceGap is the V1A name for a common public source gap.
+type SourceGap = exchangecontracts.SourceGap
+
+// ObservedStream is the V1A name for the common raw-plus-canonical stream.
+type ObservedStream = exchangecontracts.ObservedStream
+
+// V1A public recording constants remain aliases of the common contract.
 const (
-	RecordStreamFrame  PublicRecordKind = "stream_frame"
-	RecordSnapshot     PublicRecordKind = "snapshot"
-	RecordClockSample  PublicRecordKind = "clock_sample"
-	RecordLifecycle    PublicRecordKind = "lifecycle"
-	RecordSubscription PublicRecordKind = "subscription"
-	RecordRebuild      PublicRecordKind = "rebuild"
-	RecordGap          PublicRecordKind = "gap"
-	RecordDecoderError PublicRecordKind = "decoder_error"
+	// RecordStreamFrame preserves the V1A stream-frame constant.
+	RecordStreamFrame = exchangecontracts.RecordStreamFrame
+	// RecordSnapshot preserves the V1A snapshot constant.
+	RecordSnapshot = exchangecontracts.RecordSnapshot
+	// RecordClockSample preserves the V1A clock-sample constant.
+	RecordClockSample = exchangecontracts.RecordClockSample
+	// RecordLifecycle preserves the V1A lifecycle constant.
+	RecordLifecycle = exchangecontracts.RecordLifecycle
+	// RecordSubscription preserves the V1A subscription constant.
+	RecordSubscription = exchangecontracts.RecordSubscription
+	// RecordHeartbeat exposes the common heartbeat recording class.
+	RecordHeartbeat = exchangecontracts.RecordHeartbeat
+	// RecordRebuild preserves the V1A rebuild constant.
+	RecordRebuild = exchangecontracts.RecordRebuild
+	// RecordGap preserves the V1A gap constant.
+	RecordGap = exchangecontracts.RecordGap
+	// RecordDecoderError preserves the V1A decoder-error constant.
+	RecordDecoderError = exchangecontracts.RecordDecoderError
 )
-
-// PublicRawRecord is captured before payload decoding or normalization.
-type PublicRawRecord struct {
-	Kind                 PublicRecordKind
-	Raw                  []byte
-	Instrument           domain.Instrument
-	ReceivedAt           domain.EventTime
-	ConnectionID         string
-	ConnectionGeneration uint64
-	MonotonicOffsetNanos uint64
-}
-
-// PublicCanonicalRecord links canonical bytes and native ordering evidence.
-type PublicCanonicalRecord struct {
-	Kind           PublicRecordKind
-	Token          StreamRecordToken
-	Canonical      []byte
-	SourceSequence string
-	ExchangeTime   *time.Time
-}
-
-// PublicRecorder persists raw bytes first and then their canonical outcome.
-type PublicRecorder interface {
-	RecordPublicRaw(context.Context, PublicRawRecord) (StreamRecordToken, error)
-	RecordPublicCanonical(context.Context, PublicCanonicalRecord) error
-	RecordSourceGap(context.Context, SourceGap) error
-}
-
-// SourceGap is a bounded exact-or-conservative missing source interval.
-type SourceGap struct {
-	Instrument           domain.Instrument
-	ConnectionGeneration uint64
-	FirstSequence        uint64
-	LastSequence         uint64
-	StartedAt            time.Time
-	EndedAt              time.Time
-	Reason               string
-}
-
-// ObservedStream is a bounded raw-plus-canonical public source.
-type ObservedStream interface {
-	exchangecontracts.Stream
-	ReceiveObserved(context.Context) (ObservedStreamEvent, error)
-	ConnectionID() string
-	Generation() uint64
-}
 
 type publicStream struct {
 	connection websocketConnection
@@ -140,7 +106,7 @@ func (client *PublicClient) subscribe(
 	request exchangecontracts.StreamRequest,
 	recorder PublicRecorder,
 ) (ObservedStream, error) {
-	if !approvedInstrument(request.Instrument) || len(request.Kinds) == 0 || len(request.Kinds) > 3 {
+	if !approvedInstrument(request.Instrument) || len(request.Kinds) == 0 || len(request.Kinds) > 4 {
 		return nil, streamError()
 	}
 	expected, names, err := requestedStreams(request)
@@ -260,6 +226,11 @@ func canonicalStreamEvidence(event exchangecontracts.StreamEvent) (string, *time
 			value := event.Trade.ExchangeTime
 			return event.Trade.NativeID, &value
 		}
+	case exchangecontracts.StreamTicker:
+		if event.Ticker != nil {
+			value := event.Ticker.ExchangeTime
+			return strconv.FormatInt(value.UnixMilli(), 10), &value
+		}
 	case exchangecontracts.StreamCandle:
 		if event.Candle != nil {
 			value := event.Candle.CloseTime
@@ -293,26 +264,39 @@ func requestedStreams(request exchangecontracts.StreamRequest) (
 	error,
 ) {
 	prefix := strings.ToLower(request.Instrument.Symbol())
-	expected := make(map[string]exchangecontracts.StreamKind, len(request.Kinds))
-	names := make([]string, 0, len(request.Kinds))
+	expected := make(map[string]exchangecontracts.StreamKind, len(request.Kinds)+len(request.CandleIntervals))
+	names := make([]string, 0, len(request.Kinds)+len(request.CandleIntervals))
 	for _, kind := range request.Kinds {
-		var suffix string
+		var suffixes []string
 		switch kind {
 		case exchangecontracts.StreamDepth:
-			suffix = "depth@100ms"
+			suffixes = []string{"depth@100ms"}
 		case exchangecontracts.StreamTrades:
-			suffix = "trade"
+			suffixes = []string{"trade"}
+		case exchangecontracts.StreamTicker:
+			suffixes = []string{"bookTicker"}
 		case exchangecontracts.StreamCandle:
-			suffix = "kline_4h"
+			intervals := request.CandleIntervals
+			if len(intervals) == 0 {
+				intervals = []string{"4h"}
+			}
+			if !validCandleIntervals(intervals) {
+				return nil, nil, streamError()
+			}
+			for _, interval := range intervals {
+				suffixes = append(suffixes, "kline_"+interval)
+			}
 		default:
 			return nil, nil, streamError()
 		}
-		name := prefix + "@" + suffix
-		if _, duplicate := expected[name]; duplicate {
-			return nil, nil, streamError()
+		for _, suffix := range suffixes {
+			name := prefix + "@" + suffix
+			if _, duplicate := expected[name]; duplicate {
+				return nil, nil, streamError()
+			}
+			expected[name] = kind
+			names = append(names, name)
 		}
-		expected[name] = kind
-		names = append(names, name)
 	}
 	sort.Strings(names)
 	return expected, names, nil

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"axiom/internal/exchanges/binance"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
 const (
@@ -12,30 +12,43 @@ const (
 	binanceNormalizerVersion = "binance-public-normalizer.v1"
 )
 
-// BinanceStreamSink adapts append-before-normalize frames to Recorder.
-type BinanceStreamSink struct{ recorder *Recorder }
+// PublicStreamSink adapts exchange-neutral append-before-normalize facts to Recorder.
+type PublicStreamSink struct {
+	recorder          *Recorder
+	parserVersion     string
+	normalizerVersion string
+}
 
-var _ binance.PublicRecorder = (*BinanceStreamSink)(nil)
+var _ exchangecontracts.PublicRecorder = (*PublicStreamSink)(nil)
+
+// BinanceStreamSink is the V1A compatibility name for PublicStreamSink.
+type BinanceStreamSink = PublicStreamSink
+
+// NewPublicStreamSink constructs one session-scoped exchange-neutral public sink.
+func NewPublicStreamSink(recorder *Recorder, parserVersion, normalizerVersion string) (*PublicStreamSink, error) {
+	if recorder == nil || parserVersion == "" || normalizerVersion == "" {
+		return nil, recorderError("recorder_missing")
+	}
+	return &PublicStreamSink{recorder: recorder, parserVersion: parserVersion,
+		normalizerVersion: normalizerVersion}, nil
+}
 
 // NewBinanceStreamSink constructs a session-scoped public frame sink.
 func NewBinanceStreamSink(recorder *Recorder) (*BinanceStreamSink, error) {
-	if recorder == nil {
-		return nil, recorderError("recorder_missing")
-	}
-	return &BinanceStreamSink{recorder: recorder}, nil
+	return NewPublicStreamSink(recorder, binanceParserVersion, binanceNormalizerVersion)
 }
 
 // RecordPublicRaw persists immutable wire bytes before the adapter decodes them.
-func (sink *BinanceStreamSink) RecordPublicRaw(
+func (sink *PublicStreamSink) RecordPublicRaw(
 	ctx context.Context,
-	record binance.PublicRawRecord,
-) (binance.StreamRecordToken, error) {
+	record exchangecontracts.PublicRawRecord,
+) (exchangecontracts.StreamRecordToken, error) {
 	if err := ctx.Err(); err != nil {
-		return binance.StreamRecordToken{}, recorderError("record_canceled")
+		return exchangecontracts.StreamRecordToken{}, recorderError("record_canceled")
 	}
 	eventType, err := publicEventType(record.Kind)
 	if err != nil {
-		return binance.StreamRecordToken{}, err
+		return exchangecontracts.StreamRecordToken{}, err
 	}
 	link, err := sink.recorder.RecordRaw(RawInput{Exchange: sink.recorder.exchange, EventType: eventType,
 		Instrument: record.Instrument, SessionID: sink.recorder.sessionID, ConnectionID: record.ConnectionID,
@@ -43,27 +56,27 @@ func (sink *BinanceStreamSink) RecordPublicRaw(
 		RecordedLogicalTime: record.MonotonicOffsetNanos, ReceivedAt: record.ReceivedAt.UTC,
 		Payload: append([]byte(nil), record.Raw...)})
 	if err != nil {
-		return binance.StreamRecordToken{}, err
+		return exchangecontracts.StreamRecordToken{}, err
 	}
-	return binance.StreamRecordToken{IngestOrdinal: link.IngestOrdinal, PayloadHash: link.PayloadHash}, nil
+	return exchangecontracts.StreamRecordToken{IngestOrdinal: link.IngestOrdinal, PayloadHash: link.PayloadHash}, nil
 }
 
 // RecordPublicCanonical links normalized bytes to their exact wire record.
-func (sink *BinanceStreamSink) RecordPublicCanonical(
+func (sink *PublicStreamSink) RecordPublicCanonical(
 	_ context.Context,
-	record binance.PublicCanonicalRecord,
+	record exchangecontracts.PublicCanonicalRecord,
 ) error {
 	// Once raw append succeeds, its bounded local outcome must be completed even
 	// if the source context is canceled between decode and canonical append.
 	return sink.recorder.RecordCanonical(CanonicalInput{Link: RawLink(record.Token),
 		EventID:       sink.recorder.sessionID + ":" + strconv.FormatUint(record.Token.IngestOrdinal, 10),
-		ParserVersion: binanceParserVersion, NormalizationVersion: binanceNormalizerVersion,
+		ParserVersion: sink.parserVersion, NormalizationVersion: sink.normalizerVersion,
 		Canonical: append([]byte(nil), record.Canonical...), SourceSequence: record.SourceSequence,
 		ExchangeTime: record.ExchangeTime})
 }
 
 // RecordSourceGap appends a manifest-visible missing source interval.
-func (sink *BinanceStreamSink) RecordSourceGap(ctx context.Context, gap binance.SourceGap) error {
+func (sink *PublicStreamSink) RecordSourceGap(ctx context.Context, gap exchangecontracts.SourceGap) error {
 	if err := ctx.Err(); err != nil {
 		return recorderError("record_canceled")
 	}
@@ -73,23 +86,25 @@ func (sink *BinanceStreamSink) RecordSourceGap(ctx context.Context, gap binance.
 		Reason: gap.Reason})
 }
 
-func publicEventType(kind binance.PublicRecordKind) (EventType, error) {
+func publicEventType(kind exchangecontracts.PublicRecordKind) (EventType, error) {
 	switch kind {
-	case binance.RecordStreamFrame:
+	case exchangecontracts.RecordStreamFrame:
 		return EventStreamFrame, nil
-	case binance.RecordSnapshot:
+	case exchangecontracts.RecordSnapshot:
 		return EventSnapshot, nil
-	case binance.RecordClockSample:
+	case exchangecontracts.RecordClockSample:
 		return EventClockSample, nil
-	case binance.RecordLifecycle:
+	case exchangecontracts.RecordLifecycle:
 		return EventLifecycle, nil
-	case binance.RecordSubscription:
+	case exchangecontracts.RecordSubscription:
 		return EventSubscription, nil
-	case binance.RecordRebuild:
+	case exchangecontracts.RecordHeartbeat:
+		return EventHeartbeat, nil
+	case exchangecontracts.RecordRebuild:
 		return EventRebuild, nil
-	case binance.RecordGap:
+	case exchangecontracts.RecordGap:
 		return EventGap, nil
-	case binance.RecordDecoderError:
+	case exchangecontracts.RecordDecoderError:
 		return EventDecoderError, nil
 	default:
 		return "", recorderError("record_kind_invalid")

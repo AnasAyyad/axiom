@@ -90,10 +90,7 @@ func bootstrapA11Configuration(ctx context.Context, tx pgx.Tx, configuration con
 
 func bootstrapA11MarketReferences(ctx context.Context, tx pgx.Tx, configuration config.Configuration,
 	configurationID string, now time.Time) error {
-	if _, err := tx.Exec(ctx, `INSERT INTO exchanges(id,name,environment)
-      VALUES('binance','binance','production_public') ON CONFLICT (id) DO NOTHING`); err != nil {
-		return err
-	}
+	exchanges := configuration.PublicExchanges()
 	for _, asset := range configuration.Assets {
 		if _, err := tx.Exec(ctx, `INSERT INTO assets(symbol) VALUES($1) ON CONFLICT DO NOTHING`, asset.Symbol); err != nil {
 			return err
@@ -102,7 +99,25 @@ func bootstrapA11MarketReferences(ctx context.Context, tx pgx.Tx, configuration 
 			return err
 		}
 	}
-	for _, instrument := range configuration.Instruments {
+	for _, exchange := range exchanges {
+		if err := bootstrapPublicExchange(ctx, tx, exchange, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func bootstrapPublicExchange(ctx context.Context, tx pgx.Tx,
+	exchange config.ExchangeConfiguration, now time.Time) error {
+	name := "Binance"
+	if exchange.ID == "bybit" {
+		name = "Bybit"
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO exchanges(id,name,environment)
+      VALUES($1,$2,'production_public') ON CONFLICT (id) DO NOTHING`, exchange.ID, name); err != nil {
+		return err
+	}
+	for _, instrument := range exchange.Instruments {
 		id := "instrument-" + instrument.Base + "-" + instrument.Quote
 		if _, err := tx.Exec(ctx, `INSERT INTO instruments(id,base_asset,quote_asset,product)
         VALUES($1,$2,$3,'spot') ON CONFLICT(base_asset,quote_asset,product) DO NOTHING`,
@@ -117,7 +132,7 @@ func bootstrapA11MarketReferences(ctx context.Context, tx pgx.Tx, configuration 
 		"public_trades": true, "public_candles": true, "public_order_book": true}
 	for capability, supported := range capabilities {
 		if _, err := tx.Exec(ctx, `INSERT INTO exchange_capabilities(exchange_id,version,capability,supported,recorded_at)
-        VALUES('binance',1,$1,$2,$3) ON CONFLICT DO NOTHING`, capability, supported, now); err != nil {
+        VALUES($1,1,$2,$3,$4) ON CONFLICT DO NOTHING`, exchange.ID, capability, supported, now); err != nil {
 			return err
 		}
 	}

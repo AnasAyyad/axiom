@@ -69,6 +69,7 @@ readonly -a EXCLUDES=(
   --glob '!**/*.spec.jsx'
   --glob '!**/check-prohibited-capabilities.sh'
   --glob '!**/test-check-prohibited-capabilities.sh'
+  --glob '!scripts/check-b1-public-boundary.mjs'
 )
 
 readonly -a ALL_INPUT_GLOBS=(
@@ -176,6 +177,39 @@ is_compiled_rejection_literal() {
   esac
 }
 
+# B1 compiles only Bybit's reviewed production-public hosts and explicit
+# credential-header denials. The allowlist is intentionally file- and
+# line-shaped so no arbitrary endpoint, credential input, or capability can
+# become dormant executable configuration.
+is_b1_public_boundary_literal() {
+  local rule_id="$1"
+  local file="$2"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    private-endpoint:./internal/exchanges/bybit/endpoint_policy.go | \
+    private-endpoint:internal/exchanges/bybit/endpoint_policy.go | \
+    private-endpoint:./internal/exchanges/bybit/public_connection.go | \
+    private-endpoint:internal/exchanges/bybit/public_connection.go | \
+    private-endpoint:./internal/exchanges/bybit/public_websocket_transport.go | \
+    private-endpoint:internal/exchanges/bybit/public_websocket_transport.go | \
+    private-endpoint:./internal/config/v1b.go | private-endpoint:internal/config/v1b.go | \
+    private-endpoint:./internal/config/validation.go | private-endpoint:internal/config/validation.go | \
+    private-endpoint:./deploy/config/platform-shadow-v1b.json | private-endpoint:deploy/config/platform-shadow-v1b.json)
+      [[ "${line_text}" == *"https://api.bybit.com"* || "${line_text}" == *"wss://stream.bybit.com/v5/public/spot"* ||
+         "${line_text}" == *'api.bybit.com'* || "${line_text}" == *'stream.bybit.com'* ]]
+      ;;
+    exchange-credential-key:./internal/exchanges/bybit/endpoint_policy.go | \
+    exchange-credential-key:internal/exchanges/bybit/endpoint_policy.go)
+      [[ "${line_text}" == *'"Authorization", "Cookie", "X-Bapi-Api-Key", "X-Bapi-Sign", "X-Bapi-Timestamp", "X-Bapi-Recv-Window"'* ]]
+      ;;
+    prohibited-product:./internal/exchanges/bybit/payloads.go | \
+    prohibited-product:internal/exchanges/bybit/payloads.go)
+      [[ "${line_text}" == *'MarginTrading'*'string'*'`json:"marginTrading"`'* ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 # run_rule ID DESCRIPTION REGEX ALLOW_POLICY GLOB_ARRAY TARGET...
 run_rule() {
   local rule_id="$1"
@@ -226,6 +260,10 @@ run_rule() {
       continue
     fi
 
+    if is_b1_public_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
     printf 'ERROR [%s] %s:%s: %s\n' \
       "${rule_id}" "${file}" "${line_number}" "${description}" >&2
     VIOLATIONS=$((VIOLATIONS + 1))
@@ -246,10 +284,10 @@ readonly FINANCIAL_FLOAT_RE='(?x)(?:\btype[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(?:\
 
 run_rule 'exchange-credential-key' \
   'authenticated exchange credential key/reference is forbidden in V1A' \
-  "${EXCHANGE_CREDENTIAL_RE}" 'none' ALL_INPUT_GLOBS .
+  "${EXCHANGE_CREDENTIAL_RE}" 'b1-public' ALL_INPUT_GLOBS .
 run_rule 'private-endpoint' \
   'private, account, order, or later-release exchange endpoint is forbidden in V1A' \
-  "${PRIVATE_ENDPOINT_RE}" 'none' ALL_INPUT_GLOBS .
+  "${PRIVATE_ENDPOINT_RE}" 'b1-public' ALL_INPUT_GLOBS .
 run_rule 'later-release-sandbox' \
   'testnet/demo executable input is forbidden before V1C' \
   "${LATER_SANDBOX_RE}" 'typed-unsupported' ALL_INPUT_GLOBS .

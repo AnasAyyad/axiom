@@ -63,7 +63,7 @@ func (client *PublicClient) Candles(
 	ctx context.Context,
 	request exchangecontracts.CandleRequest,
 ) ([]exchangecontracts.Candle, error) {
-	if !approvedInstrument(request.Instrument) || request.Interval != "4h" || request.Limit == 0 ||
+	if !approvedInstrument(request.Instrument) || !supportedCandleInterval(request.Interval) || request.Limit == 0 ||
 		request.Limit > 1000 || request.Start.IsZero() || request.End.Before(request.Start) {
 		return nil, exchangecontracts.NewError(exchangecontracts.ErrorValidation, exchangecontracts.OperationCandles, 0)
 	}

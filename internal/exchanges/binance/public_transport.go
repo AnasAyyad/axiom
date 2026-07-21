@@ -107,8 +107,9 @@ func transportFailureCause(err error) string {
 }
 
 func approvedInstrument(instrument domain.Instrument) bool {
-	return instrument.Product == domain.ProductSpot && instrument.Quote == "USDT" &&
-		(instrument.Base == "BTC" || instrument.Base == "ETH")
+	return instrument.Product == domain.ProductSpot &&
+		((instrument.Quote == "USDT" && (instrument.Base == "BTC" || instrument.Base == "ETH")) ||
+			(instrument.Base == "ETH" && instrument.Quote == "BTC"))
 }
 
 func validSnapshotDepth(depth uint32) bool {

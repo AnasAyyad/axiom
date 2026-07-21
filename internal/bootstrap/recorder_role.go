@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -16,6 +17,8 @@ import (
 	"axiom/internal/config"
 	"axiom/internal/domain"
 	"axiom/internal/exchanges/binance"
+	"axiom/internal/exchanges/bybit"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	marketrecorder "axiom/internal/recorder"
 	runtimecore "axiom/internal/runtime"
 	postgresstore "axiom/internal/storage/postgres"
@@ -27,13 +30,16 @@ import (
 )
 
 type recorderRoleWork struct {
-	client     *binance.PublicClient
-	collectors map[domain.Instrument]*binance.InstrumentCollector
-	recorder   *marketrecorder.Recorder
-	catalog    *postgresstore.A11DatasetCatalog
-	metadata   *postgresstore.A11ShadowStore
-	commit     string
-	flush      time.Duration
+	client          *binance.PublicClient
+	collectors      map[domain.Instrument]*binance.InstrumentCollector
+	recorder        *marketrecorder.Recorder
+	bybitClient     *bybit.PublicClient
+	bybitCollectors map[domain.Instrument]*bybit.InstrumentCollector
+	bybitRecorder   *marketrecorder.Recorder
+	catalog         *postgresstore.A11DatasetCatalog
+	metadata        *postgresstore.A11ShadowStore
+	commit          string
+	flush           time.Duration
 }
 
 func newRecorderRoleWork(
@@ -46,49 +52,107 @@ func newRecorderRoleWork(
 	if err := os.MkdirAll(runtimeConfig.Recorder.Root, 0o750); err != nil {
 		return nil, fmt.Errorf("recorder_root_unavailable")
 	}
-	client, err := binance.NewPublicClient(product.Endpoint.Set, clock)
+	exchanges := product.PublicExchanges()
+	client, err := binance.NewPublicClient(exchanges[0].EndpointSet, clock)
 	if err != nil {
 		return nil, err
 	}
 	session := recorderSession(runtimeConfig.InstanceID, time.Now().UTC())
-	commit := segmentCommitter(pool, session)
-	streamRecorder, err := marketrecorder.New(runtimeConfig.Recorder.Root, recorderDatasetID(session), session,
-		"binance", &runtimecore.IngestOrdinals{}, commit, nil)
+	ordinals := &runtimecore.IngestOrdinals{}
+	root := recorderExchangeRoot(runtimeConfig.Recorder.Root, "binance", len(exchanges))
+	streamRecorder, err := marketrecorder.New(root, recorderDatasetID(session), session,
+		"binance", ordinals, segmentCommitter(pool, session, "binance"), nil)
 	if err != nil {
 		return nil, err
 	}
-	var catalog *postgresstore.A11DatasetCatalog
-	if pool != nil {
-		catalog, err = postgresstore.NewA11DatasetCatalog(pool)
-		if err != nil {
-			return nil, err
-		}
-	}
-	var metadataStore *postgresstore.A11ShadowStore
-	if pool != nil {
-		metadataStore, err = postgresstore.NewA11ShadowStore(pool, runtimeConfig.InstanceID, clock)
-		if err != nil {
-			return nil, err
-		}
+	catalog, metadataStore, err := newRecorderStores(pool, runtimeConfig.InstanceID, clock)
+	if err != nil {
+		return nil, err
 	}
 	sink, err := marketrecorder.NewBinanceStreamSink(streamRecorder)
 	if err != nil {
 		return nil, err
 	}
-	collectors, err := newRecorderCollectors(product, runtimeConfig.Recorder, client, sink, clock)
+	collectors, err := newBinanceCollectors(exchanges[0], runtimeConfig.Recorder, client, sink, clock)
 	if err != nil {
 		return nil, err
 	}
-	return &recorderRoleWork{client: client, collectors: collectors, recorder: streamRecorder,
+	work := &recorderRoleWork{client: client, collectors: collectors, recorder: streamRecorder,
 		catalog: catalog, metadata: metadataStore, commit: buildinfo.Current().Commit,
-		flush: runtimeConfig.Recorder.FlushInterval}, nil
+		flush: runtimeConfig.Recorder.FlushInterval}
+	if len(exchanges) == 2 {
+		if err = work.addBybit(runtimeConfig.Recorder, exchanges[1], session, ordinals, pool, clock); err != nil {
+			return nil, err
+		}
+	}
+	return work, nil
+}
+
+func recorderExchangeRoot(root, exchange string, exchangeCount int) string {
+	if exchangeCount > 1 {
+		return filepath.Join(root, exchange)
+	}
+	return root
+}
+
+func newRecorderStores(pool *pgxpool.Pool, instance string,
+	clock domain.Clock) (*postgresstore.A11DatasetCatalog, *postgresstore.A11ShadowStore, error) {
+	if pool == nil {
+		return nil, nil, nil
+	}
+	catalog, err := postgresstore.NewA11DatasetCatalog(pool)
+	if err != nil {
+		return nil, nil, err
+	}
+	metadata, err := postgresstore.NewA11ShadowStore(pool, instance, clock)
+	if err != nil {
+		return nil, nil, err
+	}
+	return catalog, metadata, nil
+}
+
+func (work *recorderRoleWork) addBybit(
+	runtimeConfig config.RecorderRuntime,
+	exchange config.ExchangeConfiguration,
+	session string,
+	ordinals *runtimecore.IngestOrdinals,
+	pool *pgxpool.Pool,
+	clock domain.Clock,
+) error {
+	client, err := bybit.NewPublicClient(exchange.EndpointSet, clock)
+	if err != nil {
+		return err
+	}
+	recorder, err := marketrecorder.New(filepath.Join(runtimeConfig.Root, "bybit"),
+		bybitRecorderDatasetID(session), session+"-bybit", "bybit", ordinals,
+		segmentCommitter(pool, session+"-bybit", "bybit"), nil)
+	if err != nil {
+		return err
+	}
+	sink, err := marketrecorder.NewPublicStreamSink(recorder,
+		"bybit-public-parser.v1", "bybit-public-normalizer.v1")
+	if err != nil {
+		return err
+	}
+	collectors, err := newBybitCollectors(exchange, runtimeConfig, client, sink, clock)
+	if err != nil {
+		return err
+	}
+	work.bybitClient, work.bybitRecorder, work.bybitCollectors = client, recorder, collectors
+	return nil
 }
 
 func newRecorderCollectors(product config.Configuration, runtimeConfig config.RecorderRuntime,
 	client *binance.PublicClient, sink binance.PublicRecorder, clock domain.Clock,
 ) (map[domain.Instrument]*binance.InstrumentCollector, error) {
-	collectors := make(map[domain.Instrument]*binance.InstrumentCollector, len(product.Instruments))
-	for _, configured := range product.Instruments {
+	return newBinanceCollectors(product.PublicExchanges()[0], runtimeConfig, client, sink, clock)
+}
+
+func newBinanceCollectors(exchange config.ExchangeConfiguration, runtimeConfig config.RecorderRuntime,
+	client *binance.PublicClient, sink exchangecontracts.PublicRecorder, clock domain.Clock,
+) (map[domain.Instrument]*binance.InstrumentCollector, error) {
+	collectors := make(map[domain.Instrument]*binance.InstrumentCollector, len(exchange.Instruments))
+	for _, configured := range exchange.Instruments {
 		base, baseErr := domain.ParseAssetSymbol(configured.Base)
 		quote, quoteErr := domain.ParseAssetSymbol(configured.Quote)
 		instrument, instrumentErr := domain.NewSpotInstrument(base, quote)
@@ -98,13 +162,41 @@ func newRecorderCollectors(product config.Configuration, runtimeConfig config.Re
 		collectorConfig := binance.DefaultCollectorConfig(instrument)
 		collectorConfig.BookDepth = runtimeConfig.BookDepth
 		collectorConfig.QueueCapacity = runtimeConfig.QueueCapacity
+		collectorConfig.CandleIntervals = append([]string(nil), exchange.CandleIntervals...)
 		collector, collectorErr := binance.NewInstrumentCollector(collectorConfig, client, sink, clock)
 		if collectorErr != nil {
 			return nil, collectorErr
 		}
 		collectors[instrument] = collector
 	}
-	if len(collectors) != 2 {
+	if len(collectors) != len(exchange.Instruments) {
+		return nil, fmt.Errorf("recorder_universe_invalid")
+	}
+	return collectors, nil
+}
+
+func newBybitCollectors(exchange config.ExchangeConfiguration, runtimeConfig config.RecorderRuntime,
+	client *bybit.PublicClient, sink exchangecontracts.PublicRecorder, clock domain.Clock,
+) (map[domain.Instrument]*bybit.InstrumentCollector, error) {
+	collectors := make(map[domain.Instrument]*bybit.InstrumentCollector, len(exchange.Instruments))
+	for _, configured := range exchange.Instruments {
+		base, baseErr := domain.ParseAssetSymbol(configured.Base)
+		quote, quoteErr := domain.ParseAssetSymbol(configured.Quote)
+		instrument, instrumentErr := domain.NewSpotInstrument(base, quote)
+		if baseErr != nil || quoteErr != nil || instrumentErr != nil {
+			return nil, fmt.Errorf("recorder_instrument_invalid")
+		}
+		collectorConfig := bybit.DefaultCollectorConfig(instrument)
+		collectorConfig.BookDepth = runtimeConfig.BookDepth
+		collectorConfig.QueueCapacity = runtimeConfig.QueueCapacity
+		collectorConfig.CandleIntervals = append([]string(nil), exchange.CandleIntervals...)
+		collector, collectorErr := bybit.NewInstrumentCollector(collectorConfig, client, sink, clock)
+		if collectorErr != nil {
+			return nil, collectorErr
+		}
+		collectors[instrument] = collector
+	}
+	if len(collectors) != 3 {
 		return nil, fmt.Errorf("recorder_universe_invalid")
 	}
 	return collectors, nil
@@ -117,9 +209,16 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 	}
 	workContext, cancel := context.WithCancel(ctx)
 	defer cancel()
-	errorsChannel := make(chan error, len(work.collectors))
+	errorsChannel := make(chan error, len(work.collectors)+len(work.bybitCollectors))
 	var group sync.WaitGroup
 	for _, collector := range work.collectors {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			errorsChannel <- collector.Run(workContext)
+		}()
+	}
+	for _, collector := range work.bybitCollectors {
 		group.Add(1)
 		go func() {
 			defer group.Done()
@@ -151,21 +250,49 @@ func (work *recorderRoleWork) registerMetadata(ctx context.Context) error {
 	if work.metadata == nil {
 		return fmt.Errorf("recorder_metadata_store_unavailable")
 	}
-	instruments := make([]domain.Instrument, 0, len(work.collectors))
-	for instrument := range work.collectors {
-		instruments = append(instruments, instrument)
+	if err := work.registerExchangeMetadata(ctx, "binance", work.client, binanceInstruments(work.collectors)); err != nil {
+		return err
 	}
+	if work.bybitClient != nil {
+		return work.registerExchangeMetadata(ctx, "bybit", work.bybitClient,
+			bybitInstruments(work.bybitCollectors))
+	}
+	return nil
+}
+
+type publicMetadataClient interface {
+	Instruments(context.Context, []domain.Instrument) ([]exchangecontracts.InstrumentRecord, error)
+}
+
+func (work *recorderRoleWork) registerExchangeMetadata(ctx context.Context, exchange string,
+	client publicMetadataClient, instruments []domain.Instrument) error {
 	sort.Slice(instruments, func(left, right int) bool { return instruments[left].Symbol() < instruments[right].Symbol() })
-	records, err := work.client.Instruments(ctx, instruments)
+	records, err := client.Instruments(ctx, instruments)
 	if err != nil || len(records) != len(instruments) {
 		return fmt.Errorf("recorder_metadata_unavailable")
 	}
 	for _, record := range records {
-		if _, err = work.metadata.RegisterMetadata(ctx, record.Metadata); err != nil {
+		if _, err = work.metadata.RegisterPublicMetadata(ctx, exchange, record.Metadata); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func binanceInstruments(collectors map[domain.Instrument]*binance.InstrumentCollector) []domain.Instrument {
+	instruments := make([]domain.Instrument, 0, len(collectors))
+	for instrument := range collectors {
+		instruments = append(instruments, instrument)
+	}
+	return instruments
+}
+
+func bybitInstruments(collectors map[domain.Instrument]*bybit.InstrumentCollector) []domain.Instrument {
+	instruments := make([]domain.Instrument, 0, len(collectors))
+	for instrument := range collectors {
+		instruments = append(instruments, instrument)
+	}
+	return instruments
 }
 
 // Ready requires both approved books to be healthy and fresh.
@@ -176,11 +303,28 @@ func (work *recorderRoleWork) Ready() bool {
 			return false
 		}
 	}
+	for instrument, collector := range work.bybitCollectors {
+		view, err := collector.Views().Book("bybit", instrument)
+		if err != nil || !view.Eligible(work.bybitClient.MonotonicOffset(), 5*time.Second) {
+			return false
+		}
+	}
 	return true
 }
 
 func (work *recorderRoleWork) flushPending(logger *slog.Logger, final bool) error {
-	raw, canonical := work.recorder.PendingCounts()
+	if err := work.flushRecorder(logger, work.recorder, final); err != nil {
+		return err
+	}
+	if work.bybitRecorder != nil {
+		return work.flushRecorder(logger, work.bybitRecorder, final)
+	}
+	return nil
+}
+
+func (work *recorderRoleWork) flushRecorder(logger *slog.Logger,
+	recorder *marketrecorder.Recorder, final bool) error {
+	raw, canonical := recorder.PendingCounts()
 	if raw == 0 && canonical == 0 {
 		return nil
 	}
@@ -191,9 +335,9 @@ func (work *recorderRoleWork) flushPending(logger *slog.Logger, final bool) erro
 	flushed := true
 	var err error
 	if final {
-		manifest, err = work.recorder.Flush()
+		manifest, err = recorder.Flush()
 	} else {
-		manifest, flushed, err = work.recorder.FlushReady()
+		manifest, flushed, err = recorder.FlushReady()
 	}
 	if err != nil {
 		return err
@@ -226,6 +370,7 @@ func recorderDatasetID(session string) string { return "binance-public-v1a-" + s
 func segmentCommitter(
 	pool *pgxpool.Pool,
 	session string,
+	exchange string,
 ) segments.Committer {
 	queries := postgresgenerated.New(pool)
 	return func(manifest segments.Manifest) error {
@@ -237,7 +382,7 @@ func segmentCommitter(
 		commitContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_, err := queries.InsertMarketDataSegment(commitContext, postgresgenerated.InsertMarketDataSegmentParams{
-			ID: manifest.Spec.Name, RecorderSession: session, ExchangeID: "binance", EventType: "mixed_public",
+			ID: manifest.Spec.Name, RecorderSession: session, ExchangeID: exchange, EventType: "mixed_public",
 			SchemaVersion: manifest.Spec.SchemaVersion, ParserVersion: manifest.Spec.ParserVersion,
 			NormalizationVersion: manifest.Spec.NormalizationVersion, Path: manifest.Path,
 			Checksum: manifest.Checksum, OrderedContentHash: manifest.OrderedContentHash,

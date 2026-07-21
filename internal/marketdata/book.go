@@ -104,6 +104,31 @@ func (book *Book) InstallSnapshot(snapshot exchangecontracts.BookSnapshot, obser
 	return nil
 }
 
+// ReplaceSnapshot atomically replaces an active generation for exchanges whose
+// stream protocol can publish a full snapshot at any time.
+func (book *Book) ReplaceSnapshot(snapshot exchangecontracts.BookSnapshot, observation Observation) error {
+	book.mutex.Lock()
+	defer book.finishMutation()
+	if (book.health != HealthSyncing && book.health != HealthHealthy) || observation.Validate() != nil ||
+		observation.ConnectionID != book.connection || observation.ConnectionGeneration != book.generation ||
+		observation.SourceSequence != snapshot.LastSequence || snapshot.Exchange != exchangecontracts.ExchangeID(book.exchange) ||
+		snapshot.Instrument != book.instrument || snapshot.LastSequence == 0 {
+		return marketError("snapshot_replacement_rejected")
+	}
+	bids, err := normalizeSide(snapshot.Bids, true, book.bufferLimit, false)
+	if err != nil {
+		return book.invalidateAndReturn("snapshot_replacement_invalid", snapshot.LastSequence)
+	}
+	asks, err := normalizeSide(snapshot.Asks, false, book.bufferLimit, false)
+	if err != nil || len(bids) == 0 || len(asks) == 0 || crossed(bids, asks) || snapshot.RawPayloadHash == "" {
+		return book.invalidateAndReturn("snapshot_replacement_invalid", snapshot.LastSequence)
+	}
+	book.bids, book.asks, book.buffer = bids, asks, nil
+	book.sequence, book.version, book.observation = snapshot.LastSequence, book.version+1, observation
+	book.lastHash, book.hasSnapshot, book.health = snapshot.RawPayloadHash, true, HealthHealthy
+	return nil
+}
+
 // Apply validates and commits the next live delta or invalidates the generation.
 func (book *Book) Apply(event DepthEvent) error {
 	book.mutex.Lock()

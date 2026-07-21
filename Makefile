@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b3-model-qualify b3-postgres-qualify b3-research-qualify b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -49,6 +49,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a5-observability-boundary.mjs
 	@$(NODE) scripts/check-a6-exchange-boundary.mjs
 	@$(NODE) scripts/check-a7-public-boundary.mjs
+	@$(NODE) scripts/check-b1-public-boundary.mjs
 	@$(NODE) scripts/check-a10-strategy-boundary.mjs
 	@$(NODE) scripts/check-a11-console-boundary.mjs
 
@@ -233,6 +234,37 @@ a11-e2e-qualify: ## Run the unmocked authenticated workflow against a clean inte
 a11-security-qualify: ## Run A11 ownership checks plus repository secret/capability scans.
 	@$(NODE) scripts/check-a11-console-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)"
+
+b1-model-qualify: ## Exercise common public contracts, Bybit semantics, local books, and recorder linkage.
+	@$(GO) test ./internal/exchanges/contracts ./internal/exchanges/bybit ./internal/exchanges/emulator ./internal/marketdata ./internal/recorder -count=1
+
+b1-postgres-qualify: ## Run the B1 migration gate against a dedicated *_b1_test database.
+	@test -n "$(AXIOM_B1_TEST_DSN)" || { echo "AXIOM_B1_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_B1_TEST_DSN="$(AXIOM_B1_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestB1PostgresBybitPublicMigrationQualification$$' -count=1 -v
+
+b1-adapter-qualify: ## Run Bybit normalization, endpoint, lifecycle, conformance, and fuzz qualification.
+	@$(GO) test ./internal/exchanges/bybit -count=1 -v
+	@$(GO) test ./internal/exchanges/bybit -run '^$$' -fuzz '^FuzzNormalizeBybitPublicStream$$' -fuzztime 3s
+
+b1-security-qualify: ## Prove B1 remains credential-free, public-only, and free of order/transfer methods.
+	@$(NODE) scripts/check-b1-public-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)"
+
+b1-live-qualify: ## Run explicitly enabled short Bybit production-public qualification.
+	@test "$(AXIOM_B1_LIVE_PUBLIC)" = "1" || { echo "AXIOM_B1_LIVE_PUBLIC=1 is required" >&2; exit 1; }
+	@AXIOM_B1_LIVE_PUBLIC=1 $(GO) test ./internal/exchanges/bybit \
+		-run '^TestProductionPublicBybitSurface$$' -count=1 -v
+
+b2-model-qualify b2-postgres-qualify b2-live-qualify \
+b3-model-qualify b3-postgres-qualify b3-research-qualify \
+b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify \
+b6-model-qualify b6-postgres-qualify b6-security-qualify \
+b7-model-qualify b7-postgres-qualify b7-research-qualify \
+b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify \
+b8-security-qualify b8-live-qualify:
+	@echo "$@ is reserved for its sequential V1B phase and is not implemented by B1" >&2
+	@exit 2
 
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \
