@@ -16,7 +16,7 @@ import (
 	"axiom/internal/recorder"
 )
 
-const qualificationJournalSchema = "axiom.a7-soak-events.v1"
+const qualificationJournalSchema = "axiom.a7-soak-events.v2"
 
 type qualificationFailure struct {
 	ObservedAt time.Time       `json:"observed_at"`
@@ -33,6 +33,7 @@ type qualificationEvent struct {
 	SchemaVersion    string          `json:"schema_version"`
 	Sequence         uint64          `json:"sequence"`
 	SourceCommit     string          `json:"source_commit"`
+	ObservedAt       time.Time       `json:"observed_at,omitempty"`
 	RecordedAt       time.Time       `json:"recorded_at"`
 	Elapsed          time.Duration   `json:"elapsed_nanos"`
 	Phase            string          `json:"phase"`
@@ -75,11 +76,10 @@ func (journal *qualificationJournal) Append(event qualificationEvent) error {
 	event.SchemaVersion = qualificationJournalSchema
 	event.Sequence = journal.sequence + 1
 	event.SourceCommit = journal.sourceCommit
-	if event.RecordedAt.IsZero() {
-		event.RecordedAt = time.Now().UTC()
-	} else {
-		event.RecordedAt = event.RecordedAt.UTC()
+	if !event.RecordedAt.IsZero() && event.ObservedAt.IsZero() {
+		event.ObservedAt = event.RecordedAt.UTC()
 	}
+	event.RecordedAt = time.Now().UTC()
 	event.Elapsed = event.RecordedAt.Sub(journal.started)
 	if event.Elapsed < 0 {
 		event.Elapsed = 0
@@ -153,6 +153,7 @@ func verifyQualificationJournal(path, sourceCommit string, expectedSequence uint
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	sequence, priorHash := uint64(0), ""
+	var previousRecordedAt time.Time
 	for scanner.Scan() {
 		var event qualificationEvent
 		if err = json.Unmarshal(scanner.Bytes(), &event); err != nil {
@@ -160,7 +161,8 @@ func verifyQualificationJournal(path, sourceCommit string, expectedSequence uint
 		}
 		sequence++
 		if event.SchemaVersion != qualificationJournalSchema || event.SourceCommit != sourceCommit ||
-			event.Sequence != sequence || event.PreviousHash != priorHash {
+			event.Sequence != sequence || event.PreviousHash != priorHash ||
+			event.RecordedAt.Before(previousRecordedAt) {
 			return errors.New("qualification journal metadata or chain mismatch")
 		}
 		storedHash := event.Hash
@@ -174,6 +176,7 @@ func verifyQualificationJournal(path, sourceCommit string, expectedSequence uint
 			return errors.New("qualification journal hash mismatch")
 		}
 		priorHash = storedHash
+		previousRecordedAt = event.RecordedAt
 	}
 	if err = scanner.Err(); err != nil {
 		return err

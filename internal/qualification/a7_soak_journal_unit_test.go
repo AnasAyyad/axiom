@@ -45,6 +45,7 @@ func assertQualificationJournal(t *testing.T, path, expectedHash string) {
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	var prior string
+	var previousRecordedAt time.Time
 	count := 0
 	for scanner.Scan() {
 		var event qualificationEvent
@@ -59,10 +60,12 @@ func assertQualificationJournal(t *testing.T, path, expectedHash string) {
 		}
 		digest := sha256.Sum256(payload)
 		if stored != hex.EncodeToString(digest[:]) || event.PreviousHash != prior ||
-			event.SourceCommit != testSourceCommit || event.SchemaVersion != qualificationJournalSchema {
+			event.SourceCommit != testSourceCommit || event.SchemaVersion != qualificationJournalSchema ||
+			event.RecordedAt.Before(previousRecordedAt) || event.ObservedAt.IsZero() {
 			t.Fatalf("invalid event=%#v", event)
 		}
 		prior = stored
+		previousRecordedAt = event.RecordedAt
 		count++
 	}
 	if err = scanner.Err(); err != nil || count != 2 || prior != expectedHash {
