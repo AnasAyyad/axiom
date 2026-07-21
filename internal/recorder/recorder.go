@@ -31,6 +31,7 @@ type Recorder struct {
 	now            func() time.Time
 	revision       uint64
 	previous       string
+	latest         DatasetManifest
 	raw            []segments.WireRow
 	canonical      []segments.CanonicalRow
 	links          map[uint64]*rawRecord
@@ -80,11 +81,21 @@ func (recorder *Recorder) RecordRaw(input RawInput) (RawLink, error) {
 	if err := validateRawInput(input, recorder.exchange, recorder.sessionID); err != nil {
 		return RawLink{}, err
 	}
+	hash := sha256.Sum256(input.Payload)
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	charge := uint64(len(input.Payload) + recordMemoryOverhead)
+	reservation := uint64(maximumEventBytes + recordMemoryOverhead)
+	used, required := recorder.pendingBytes+recorder.reservedBytes, charge+reservation
+	if used > recorder.pendingLimit || required > recorder.pendingLimit-used {
+		return RawLink{}, recorderError("recorder_capacity_exceeded")
+	}
+	// Allocate and append under the same lock. This prevents a later ordinal
+	// from becoming flush-visible before an earlier concurrent RecordRaw call.
 	ordinal, err := recorder.ordinals.Next()
 	if err != nil {
 		return RawLink{}, recorderError("ordinal_exhausted")
 	}
-	hash := sha256.Sum256(input.Payload)
 	row := segments.WireRow{IngestOrdinal: ordinal, Exchange: input.Exchange, EventType: string(input.EventType),
 		BaseAsset: string(input.Instrument.Base), QuoteAsset: string(input.Instrument.Quote),
 		SourceSessionID: input.SessionID, ConnectionID: input.ConnectionID,
@@ -94,14 +105,6 @@ func (recorder *Recorder) RecordRaw(input RawInput) (RawLink, error) {
 		Payload: append([]byte(nil), input.Payload...), PayloadSHA256: hash}
 	if err = segments.ValidateWireRow(row); err != nil {
 		return RawLink{}, recorderError("wire_row_invalid")
-	}
-	recorder.mutex.Lock()
-	defer recorder.mutex.Unlock()
-	charge := uint64(len(input.Payload) + recordMemoryOverhead)
-	reservation := uint64(maximumEventBytes + recordMemoryOverhead)
-	used, required := recorder.pendingBytes+recorder.reservedBytes, charge+reservation
-	if used > recorder.pendingLimit || required > recorder.pendingLimit-used {
-		return RawLink{}, recorderError("recorder_capacity_exceeded")
 	}
 	recorder.raw = append(recorder.raw, row)
 	recorder.links[ordinal] = &rawRecord{row: row}

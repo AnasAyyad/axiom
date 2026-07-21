@@ -109,6 +109,16 @@ func TestLifecyclePreHealthFailuresEscalateAndRecoveryResets(t *testing.T) {
 			t.Fatalf("wait %d = %s, want %s; all=%v", index, clock.waits[index], want[index], clock.waits)
 		}
 	}
+	diagnostics := collector.Stats().ReconnectDiagnostics
+	if len(diagnostics) != len(outcomes) {
+		t.Fatalf("diagnostics=%#v", diagnostics)
+	}
+	wantAttempts := []uint32{1, 2, 1, 1}
+	for index, diagnostic := range diagnostics {
+		if diagnostic.Attempt != wantAttempts[index] {
+			t.Fatalf("diagnostic %d attempt=%d want=%d", index, diagnostic.Attempt, wantAttempts[index])
+		}
+	}
 }
 
 func TestLifecycleResyncIncludesConsecutiveFailuresAndBackoff(t *testing.T) {
@@ -126,7 +136,7 @@ func TestLifecycleResyncIncludesConsecutiveFailuresAndBackoff(t *testing.T) {
 			clock.Advance(3 * time.Second)
 			return generationOutcome{reason: reconnectSubscription}
 		case 3:
-			collector.recordResynchronization(resyncStarted)
+			collector.recordResynchronization(resyncStarted, 3)
 			return generationOutcome{reachedHealthy: true, reason: reconnectScheduledRenewal}
 		default:
 			cancel()
@@ -141,6 +151,12 @@ func TestLifecycleResyncIncludesConsecutiveFailuresAndBackoff(t *testing.T) {
 	want := first + 3*time.Second + second
 	stats := collector.Stats()
 	if stats.ResyncSamples != 1 || stats.ResyncMax != want {
+		diagnostics := collector.Stats().ReconnectDiagnostics
+		for _, diagnostic := range diagnostics {
+			if diagnostic.Phase == "health_lost" && diagnostic.ResyncElapsed != 0 {
+				t.Fatalf("new health-loss cycle retained old resync elapsed: %#v", diagnostic)
+			}
+		}
 		t.Fatalf("resync = samples %d max %s, want 1 and %s", stats.ResyncSamples, stats.ResyncMax, want)
 	}
 }
@@ -280,5 +296,68 @@ func TestLifecycleHighCycleReconnectStress(t *testing.T) {
 		if delay != first {
 			t.Fatalf("cycle %d delay=%s want=%s", index, delay, first)
 		}
+	}
+}
+
+func TestReconnectAttributionUsesBoundedObjectiveEvidence(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		diagnostic ReconnectDiagnostic
+		want       string
+	}{
+		{diagnostic: ReconnectDiagnostic{Phase: "health_restored"}, want: "recovered"},
+		{diagnostic: ReconnectDiagnostic{Reason: reconnectScheduledRenewal.String()}, want: "scheduled"},
+		{diagnostic: ReconnectDiagnostic{Reason: reconnectSequenceGap.String()}, want: "internal"},
+		{diagnostic: ReconnectDiagnostic{FailureKind: "rate_limit", HTTPStatus: 429}, want: "upstream"},
+		{diagnostic: ReconnectDiagnostic{FailureKind: "rate_limit"}, want: "internal"},
+		{diagnostic: ReconnectDiagnostic{FailureKind: "maintenance"}, want: "upstream"},
+		{diagnostic: ReconnectDiagnostic{FailureKind: "transient_outage", HTTPStatus: 503}, want: "upstream"},
+		{diagnostic: ReconnectDiagnostic{FailureKind: "transient_outage", Cause: "dns_failure"}, want: "network"},
+		{diagnostic: ReconnectDiagnostic{FailureKind: "transient_outage", Cause: "transport_failure"},
+			want: "external_unclassified"},
+		{diagnostic: ReconnectDiagnostic{Cause: "recorder"}, want: "internal"},
+		{diagnostic: ReconnectDiagnostic{}, want: "unclassified"},
+	}
+	for _, test := range tests {
+		if got := reconnectAttribution(test.diagnostic); got != test.want {
+			t.Fatalf("diagnostic=%#v attribution=%q want=%q", test.diagnostic, got, test.want)
+		}
+	}
+}
+
+func TestReconnectDiagnosticRingIsBoundedAndReportsDroppedEvents(t *testing.T) {
+	stats := newCollectorStats()
+	for sequence := 0; sequence < maximumReconnectDiagnostics+17; sequence++ {
+		stats.recordDiagnostic(ReconnectDiagnostic{Cycle: uint64(sequence)})
+	}
+	snapshot := stats.Snapshot()
+	if len(snapshot.ReconnectDiagnostics) != maximumReconnectDiagnostics || snapshot.DiagnosticsDropped != 17 {
+		t.Fatalf("diagnostics=%d dropped=%d", len(snapshot.ReconnectDiagnostics), snapshot.DiagnosticsDropped)
+	}
+	if snapshot.ReconnectDiagnostics[0].Cycle != 17 ||
+		snapshot.ReconnectDiagnostics[len(snapshot.ReconnectDiagnostics)-1].Cycle != maximumReconnectDiagnostics+16 {
+		t.Fatalf("diagnostic boundaries=%d..%d", snapshot.ReconnectDiagnostics[0].Cycle,
+			snapshot.ReconnectDiagnostics[len(snapshot.ReconnectDiagnostics)-1].Cycle)
+	}
+}
+
+func TestSuccessfulOperationDiagnosticRetainsPhaseTimingAndClockSnapshot(t *testing.T) {
+	clock := newDeterministicCollectorLifecycle()
+	collector := lifecycleTestCollector(clock, lifecycleTestPolicy())
+	collector.lifecycleCycle.Store(4)
+	collector.lifecycleAttempt.Store(2)
+	collector.recordOperationDiagnostic("clock", 9, 17*time.Millisecond, -3*time.Millisecond,
+		8*time.Millisecond, 12345, 27)
+	snapshot := collector.Stats()
+	if len(snapshot.ReconnectDiagnostics) != 1 {
+		t.Fatalf("diagnostics=%#v", snapshot.ReconnectDiagnostics)
+	}
+	diagnostic := snapshot.ReconnectDiagnostics[0]
+	if diagnostic.Phase != "operation_succeeded" || diagnostic.Stage != "clock" ||
+		diagnostic.Attribution != "observed" || diagnostic.Cycle != 4 || diagnostic.Attempt != 2 ||
+		diagnostic.Generation != 9 || diagnostic.AttemptDuration != 17*time.Millisecond ||
+		diagnostic.ClockOffset != -3*time.Millisecond || diagnostic.ClockUncertainty != 8*time.Millisecond ||
+		diagnostic.SnapshotSequence != 12345 || diagnostic.BufferedDepth != 27 {
+		t.Fatalf("diagnostic=%#v", diagnostic)
 	}
 }

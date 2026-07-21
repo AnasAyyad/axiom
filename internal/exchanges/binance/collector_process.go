@@ -87,7 +87,8 @@ func (collector *InstrumentCollector) runHealthy(
 		case <-renewal.C:
 			return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectScheduledRenewal)
 		case <-overflow:
-			return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectQueue)
+			return generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
+				collector.book.View().Sequence(), reconnectQueue), "healthy_queue", "queue_overflow", nil)
 		case <-clockTicker.C:
 			if outcome, failed := collector.clockHealthOutcome(ctx, connectionID, generation); failed {
 				return outcome
@@ -95,26 +96,41 @@ func (collector *InstrumentCollector) runHealthy(
 		case <-staleTicker.C:
 			if collector.book.MarkStale(collector.source.MonotonicOffset(),
 				uint64(collector.config.MaximumBookAge.Nanoseconds())) != nil {
-				return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectStaleBook)
+				return generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
+					collector.book.View().Sequence(), reconnectStaleBook), "stale_check", "book_stale", nil)
 			}
 		case result := <-events:
-			if result.err != nil {
-				return collector.streamFailureOutcome(ctx, connectionID, generation, result.err)
-			}
-			collector.stats.observeQueue(len(events))
-			priorGaps := collector.stats.gaps.Load()
-			if err := collector.processObserved(ctx, result.event, generation); err != nil {
-				if isFatalCollectorError(err) {
-					return generationOutcome{fatal: err}
-				}
-				reason := reconnectInvalidEvent
-				if collector.stats.gaps.Load() > priorGaps {
-					reason = reconnectSequenceGap
-				}
-				return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reason)
+			if outcome, failed := collector.healthyEventOutcome(ctx, result, len(events), connectionID, generation); failed {
+				return outcome
 			}
 		}
 	}
+}
+
+func (collector *InstrumentCollector) healthyEventOutcome(
+	ctx context.Context,
+	result observedResult,
+	queueDepth int,
+	connectionID string,
+	generation uint64,
+) (generationOutcome, bool) {
+	if result.err != nil {
+		return collector.streamFailureOutcome(ctx, connectionID, generation, result.err), true
+	}
+	collector.stats.observeQueue(queueDepth)
+	priorGaps := collector.stats.gaps.Load()
+	if err := collector.processObserved(ctx, result.event, generation); err != nil {
+		if isFatalCollectorError(err) {
+			return generationOutcome{fatal: err}, true
+		}
+		reason, cause := reconnectInvalidEvent, "invalid_event"
+		if collector.stats.gaps.Load() > priorGaps {
+			reason, cause = reconnectSequenceGap, "sequence_gap"
+		}
+		return generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
+			collector.book.View().Sequence(), reason), "event_process", cause, err), true
+	}
+	return generationOutcome{}, false
 }
 
 func (collector *InstrumentCollector) clockHealthOutcome(
@@ -125,10 +141,18 @@ func (collector *InstrumentCollector) clockHealthOutcome(
 	health, _, err := collector.source.SampleServerTimeRecorded(ctx, collector.config.Instrument,
 		connectionID, generation, collector.recorder)
 	if isRecorderFailure(err) {
-		return generationOutcome{fatal: err}, true
+		return generationFailure(generationOutcome{fatal: err, generation: generation},
+			"clock", "recorder", err), true
 	}
 	if err != nil || !health.Eligible {
-		return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectClock), true
+		cause := "clock_uncertainty"
+		if err != nil {
+			cause = "clock_sample_failed"
+		}
+		outcome := generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
+			collector.book.View().Sequence(), reconnectClock), "clock", cause, err)
+		outcome.clockOffset, outcome.clockUncertainty = health.Offset, health.Uncertainty
+		return outcome, true
 	}
 	return generationOutcome{}, false
 }

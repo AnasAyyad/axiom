@@ -2,7 +2,9 @@ package binance
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -43,7 +45,8 @@ func (client *PublicClient) get(
 		if ctx.Err() != nil {
 			return nil, domain.EventTime{}, exchangecontracts.NewError(exchangecontracts.ErrorCanceled, operation, 0)
 		}
-		return nil, domain.EventTime{}, exchangecontracts.NewError(exchangecontracts.ErrorTransient, operation, 0)
+		return nil, domain.EventTime{}, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
+			operation, 0, 0, transportFailureCause(err))
 	}
 	defer response.Body.Close()
 	if err = responseError(response, operation); err != nil {
@@ -67,15 +70,40 @@ func responseError(response *http.Response, operation exchangecontracts.Operatio
 				retry = time.Duration(seconds) * time.Second
 			}
 		}
-		return exchangecontracts.NewError(exchangecontracts.ErrorRateLimit, operation, retry)
+		return exchangecontracts.NewDetailedError(exchangecontracts.ErrorRateLimit, operation, retry,
+			response.StatusCode, "http_rate_limit")
 	}
 	if response.StatusCode >= 500 {
-		return exchangecontracts.NewError(exchangecontracts.ErrorTransient, operation, 0)
+		return exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient, operation, 0,
+			response.StatusCode, "http_server_error")
 	}
 	if response.StatusCode >= 300 && response.StatusCode < 400 {
-		return policyError(operation)
+		return exchangecontracts.NewDetailedError(exchangecontracts.ErrorCapability, operation, 0,
+			response.StatusCode, "http_redirect")
 	}
-	return exchangecontracts.NewError(exchangecontracts.ErrorValidation, operation, 0)
+	return exchangecontracts.NewDetailedError(exchangecontracts.ErrorValidation, operation, 0,
+		response.StatusCode, "http_client_error")
+}
+
+func transportFailureCause(err error) string {
+	var dns *net.DNSError
+	if errors.As(err, &dns) {
+		return "dns_failure"
+	}
+	var network net.Error
+	if errors.As(err, &network) && network.Timeout() {
+		return "network_timeout"
+	}
+	var operation *net.OpError
+	if errors.As(err, &operation) {
+		switch operation.Op {
+		case "dial":
+			return "tcp_connect_failure"
+		case "read", "write":
+			return "network_io_failure"
+		}
+	}
+	return "transport_failure"
 }
 
 func approvedInstrument(instrument domain.Instrument) bool {

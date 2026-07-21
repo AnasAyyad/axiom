@@ -28,6 +28,8 @@ type Error struct {
 	Kind       ErrorKind
 	Operation  Operation
 	RetryAfter time.Duration
+	HTTPStatus int
+	Cause      string
 }
 
 // Error returns a stable string without payloads, URLs, or exchange responses.
@@ -57,6 +59,36 @@ func NewError(kind ErrorKind, operation Operation, retryAfter time.Duration) err
 		return &Error{Kind: ErrorValidation, Operation: operation}
 	}
 	return &Error{Kind: kind, Operation: operation, RetryAfter: retryAfter}
+}
+
+// NewDetailedError adds only bounded diagnostic metadata. Cause must be a
+// short lowercase code and must never contain an address, URL, or raw message.
+func NewDetailedError(
+	kind ErrorKind,
+	operation Operation,
+	retryAfter time.Duration,
+	httpStatus int,
+	cause string,
+) error {
+	err := NewError(kind, operation, retryAfter)
+	failure, ok := err.(*Error)
+	if !ok || (httpStatus != 0 && (httpStatus < 100 || httpStatus > 599)) || !validDiagnosticCause(cause) {
+		return &Error{Kind: ErrorValidation, Operation: operation}
+	}
+	failure.HTTPStatus, failure.Cause = httpStatus, cause
+	return failure
+}
+
+func validDiagnosticCause(cause string) bool {
+	if len(cause) == 0 || len(cause) > 64 {
+		return false
+	}
+	for _, value := range cause {
+		if (value < 'a' || value > 'z') && value != '_' && (value < '0' || value > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // KindOf returns a stable kind without exposing wrapped details.

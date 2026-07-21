@@ -7,21 +7,24 @@ import (
 	"time"
 
 	"axiom/internal/domain"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/marketdata"
 )
 
 // InstrumentCollector owns the single ordered writer for one public spot instrument.
 type InstrumentCollector struct {
-	config    CollectorConfig
-	source    collectorSource
-	recorder  PublicRecorder
-	clock     domain.Clock
-	book      *marketdata.Book
-	candles   *marketdata.CandleStore
-	provider  *marketdata.Provider
-	stats     *CollectorStats
-	running   atomic.Bool
-	lifecycle collectorLifecycle
+	config           CollectorConfig
+	source           collectorSource
+	recorder         PublicRecorder
+	clock            domain.Clock
+	book             *marketdata.Book
+	candles          *marketdata.CandleStore
+	provider         *marketdata.Provider
+	stats            *CollectorStats
+	running          atomic.Bool
+	lifecycle        collectorLifecycle
+	lifecycleCycle   atomic.Uint64
+	lifecycleAttempt atomic.Uint64
 }
 
 // NewInstrumentCollector constructs one fail-closed bounded collector.
@@ -71,10 +74,19 @@ func (collector *InstrumentCollector) Run(ctx context.Context) error {
 }
 
 type generationOutcome struct {
-	fatal          error
-	reachedHealthy bool
-	reason         reconnectReason
-	lostHealthAt   time.Time
+	fatal            error
+	reachedHealthy   bool
+	reason           reconnectReason
+	lostHealthAt     time.Time
+	generation       uint64
+	stage            string
+	cause            string
+	failureKind      exchangecontracts.ErrorKind
+	operation        exchangecontracts.Operation
+	retryAfter       time.Duration
+	httpStatus       int
+	clockOffset      time.Duration
+	clockUncertainty time.Duration
 }
 
 type fatalCollectorError struct{ error }
@@ -111,9 +123,11 @@ func (collector *InstrumentCollector) pauseOutcome(
 	_ = collector.book.Invalidate(reason.String(), sequence)
 	if _, err := collector.recordFact(ctx, RecordLifecycle, connectionID, generation,
 		lifecycleFact{State: "PAUSED", Reason: reason.String(), Generation: generation}); err != nil && ctx.Err() == nil {
-		return generationOutcome{fatal: err, reason: reason, lostHealthAt: lostHealthAt}
+		return generationFailure(generationOutcome{fatal: err, reason: reason, lostHealthAt: lostHealthAt,
+			generation: generation}, "recorder", "recorder", err)
 	}
-	return generationOutcome{reason: reason, lostHealthAt: lostHealthAt}
+	return generationOutcome{reason: reason, lostHealthAt: lostHealthAt, generation: generation,
+		stage: reason.String(), cause: reason.String()}
 }
 
 func (collector *InstrumentCollector) recordFact(

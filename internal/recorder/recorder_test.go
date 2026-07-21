@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -95,8 +96,8 @@ func TestRecorderRejectsMissingDuplicateAndMutatedLinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = recorder.Flush(); recorderCode(err) != "segment_incomplete" {
-		t.Fatalf("incomplete flush error = %v", err)
+	if manifest, flushErr := recorder.Flush(); flushErr != nil || manifest.Revision != 0 {
+		t.Fatalf("in-flight flush manifest=%#v error=%v", manifest, flushErr)
 	}
 	bad := link
 	bad.PayloadHash[0]++
@@ -111,6 +112,78 @@ func TestRecorderRejectsMissingDuplicateAndMutatedLinks(t *testing.T) {
 	}
 	if err = recorder.RecordCanonical(canonical); recorderCode(err) != "raw_link_invalid" {
 		t.Fatalf("duplicate canonical error = %v", err)
+	}
+}
+
+func TestRecorderPeriodicFlushKeepsInFlightSuffix(t *testing.T) {
+	recorder, err := testRecorder(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordPair(t, recorder, 1, `{"kind":"depth"}`, `{"sequence":1}`)
+	second, err := recorder.RecordRaw(rawInput(t, 2, []byte(`{"kind":"depth"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstManifest, err := recorder.Flush()
+	if err != nil || firstManifest.Revision != 1 || firstManifest.RawRecordCount != 1 {
+		t.Fatalf("first flush=%#v error=%v", firstManifest, err)
+	}
+	if raw, canonical := recorder.PendingCounts(); raw != 1 || canonical != 0 {
+		t.Fatalf("deferred counts=%d/%d", raw, canonical)
+	}
+	if err = recorder.RecordCanonical(CanonicalInput{Link: second, EventID: eventID(second.IngestOrdinal),
+		ParserVersion: "parser-v1", NormalizationVersion: "normalizer-v1", Canonical: []byte(`{"sequence":2}`)}); err != nil {
+		t.Fatal(err)
+	}
+	secondManifest, err := recorder.Flush()
+	if err != nil || secondManifest.Revision != 2 || secondManifest.RawRecordCount != 2 ||
+		secondManifest.PreviousHash != firstManifest.Hash {
+		t.Fatalf("second flush=%#v error=%v", secondManifest, err)
+	}
+	if _, err = ValidateDataset(recorder.root, secondManifest); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRecorderFlushRetainsInjectedFilesystemCause(t *testing.T) {
+	recorder, err := New(t.TempDir(), "dataset-a7", "session-a7", "binance",
+		&runtimecore.IngestOrdinals{}, func(segments.Manifest) error { return nil },
+		func(stage segments.Stage) error {
+			if stage == segments.StageCreated {
+				return syscall.ENOSPC
+			}
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordPair(t, recorder, 1, `{"kind":"depth"}`, `{"sequence":1}`)
+	_, err = recorder.Flush()
+	detail, ok := FailureDetail(err)
+	if !ok || detail.Code != "wire_finalize_failed" || detail.Stage != "wire_finalize" ||
+		detail.Cause != "disk_full" || detail.Class != "filesystem" || detail.Errno != int(syscall.ENOSPC) {
+		t.Fatalf("flush detail=%#v error=%v", detail, err)
+	}
+}
+
+func TestRecorderIOErrorClassifiesQualificationFailures(t *testing.T) {
+	tests := []struct {
+		err   error
+		cause string
+	}{
+		{syscall.ENOSPC, "disk_full"},
+		{syscall.EDQUOT, "quota_exceeded"},
+		{syscall.EIO, "io_failure"},
+		{syscall.EMFILE, "file_descriptor_exhausted"},
+		{syscall.EACCES, "permission_denied"},
+		{syscall.EROFS, "read_only_filesystem"},
+	}
+	for _, test := range tests {
+		detail, ok := FailureDetail(recorderIOError("flush_failed", "manifest_write", test.err))
+		if !ok || detail.Cause != test.cause || detail.Errno == 0 || detail.Stage != "manifest_write" {
+			t.Fatalf("error=%v detail=%#v", test.err, detail)
+		}
 	}
 }
 

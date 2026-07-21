@@ -1,6 +1,8 @@
 package recorder
 
 import (
+	"errors"
+	"syscall"
 	"time"
 
 	"axiom/internal/domain"
@@ -100,10 +102,67 @@ type DatasetManifest struct {
 	Hash           string             `json:"hash"`
 }
 
-// Error is a bounded recorder failure without paths or payloads.
-type Error struct{ Code string }
+// Error is a bounded recorder failure without paths, payloads, or arbitrary
+// operating-system messages. Stage and Cause retain the safe failure boundary
+// needed by qualification evidence.
+type Error struct {
+	Code  string `json:"code"`
+	Stage string `json:"stage,omitempty"`
+	Cause string `json:"cause,omitempty"`
+	Class string `json:"class,omitempty"`
+	Errno int    `json:"errno,omitempty"`
+}
 
 // Error returns a bounded recorder reason code.
 func (failure *Error) Error() string { return "recorder:" + failure.Code }
 
 func recorderError(code string) error { return &Error{Code: code} }
+
+func recorderStageError(code, stage, cause, class string, errno int) error {
+	return &Error{Code: code, Stage: stage, Cause: cause, Class: class, Errno: errno}
+}
+
+// FailureDetail returns a defensive, sanitized recorder failure description.
+func FailureDetail(err error) (Error, bool) {
+	var failure *Error
+	if !errors.As(err, &failure) || failure == nil {
+		return Error{}, false
+	}
+	return *failure, true
+}
+
+func recorderIOError(code, stage string, err error) error {
+	cause := "filesystem_failure"
+	switch {
+	case errors.Is(err, syscall.ENOSPC):
+		cause = "disk_full"
+	case errors.Is(err, syscall.EDQUOT):
+		cause = "quota_exceeded"
+	case errors.Is(err, syscall.EIO):
+		cause = "io_failure"
+	case errors.Is(err, syscall.EMFILE), errors.Is(err, syscall.ENFILE):
+		cause = "file_descriptor_exhausted"
+	case errors.Is(err, syscall.EACCES), errors.Is(err, syscall.EPERM):
+		cause = "permission_denied"
+	case errors.Is(err, syscall.EROFS):
+		cause = "read_only_filesystem"
+	case errors.Is(err, syscall.EEXIST):
+		cause = "path_collision"
+	case errors.Is(err, syscall.ENOENT):
+		cause = "path_unavailable"
+	}
+	var errno syscall.Errno
+	errnoValue := 0
+	if errors.As(err, &errno) {
+		errnoValue = int(errno)
+	}
+	return recorderStageError(code, stage, cause, "filesystem", errnoValue)
+}
+
+func recorderFinalizeError(code, stage string, err error) error {
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		return recorderIOError(code, stage, err)
+	}
+	return recorderStageError(code, stage, boundedCause(err), "storage", 0)
+}

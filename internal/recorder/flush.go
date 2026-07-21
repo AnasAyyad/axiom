@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"axiom/internal/storage/segments"
@@ -18,13 +17,13 @@ import (
 func (recorder *Recorder) Flush() (DatasetManifest, error) {
 	recorder.mutex.Lock()
 	defer recorder.mutex.Unlock()
-	if len(recorder.raw) == 0 || len(recorder.raw) != len(recorder.canonical) {
-		return DatasetManifest{}, recorderError("segment_incomplete")
+	raw, canonical := recorder.completePrefix()
+	if len(raw) == 0 {
+		// A raw row may legitimately be between RecordRaw and RecordCanonical
+		// when the periodic ticker fires. Defer it without weakening the final
+		// shutdown check or converting normal concurrency into a soak failure.
+		return cloneManifest(recorder.latest), nil
 	}
-	raw := append([]segments.WireRow(nil), recorder.raw...)
-	canonical := append([]segments.CanonicalRow(nil), recorder.canonical...)
-	sort.Slice(raw, func(left, right int) bool { return raw[left].IngestOrdinal < raw[right].IngestOrdinal })
-	sort.Slice(canonical, func(left, right int) bool { return canonical[left].IngestOrdinal < canonical[right].IngestOrdinal })
 	if err := verifyPendingLinks(raw, canonical); err != nil {
 		return DatasetManifest{}, err
 	}
@@ -39,20 +38,72 @@ func (recorder *Recorder) Flush() (DatasetManifest, error) {
 	}
 	references := []SegmentReference{{Kind: "wire", Manifest: wireManifest},
 		{Kind: "canonical", Manifest: canonicalManifest}}
-	recorder.segments = append(recorder.segments, references...)
-	recorder.rawCount += uint64(len(raw))
-	recorder.canonicalCount += uint64(len(canonical))
-	manifest := recorder.newManifest(revision)
+	segmentReferences := append(cloneReferences(recorder.segments), references...)
+	rawCount := recorder.rawCount + uint64(len(raw))
+	canonicalCount := recorder.canonicalCount + uint64(len(canonical))
+	manifest := recorder.newManifest(revision, segmentReferences, rawCount, canonicalCount)
 	if err = writeManifest(recorder.root, manifest); err != nil {
 		return DatasetManifest{}, err
 	}
-	recorder.revision, recorder.previous = revision, manifest.Hash
+	recorder.segments, recorder.rawCount, recorder.canonicalCount = segmentReferences, rawCount, canonicalCount
+	recorder.revision, recorder.previous, recorder.latest = revision, manifest.Hash, cloneManifest(manifest)
+	recorder.discardFlushed(len(raw))
+	return cloneManifest(manifest), nil
+}
+
+func (recorder *Recorder) completePrefix() ([]segments.WireRow, []segments.CanonicalRow) {
+	ready := 0
+	for ready < len(recorder.raw) {
+		record := recorder.links[recorder.raw[ready].IngestOrdinal]
+		if record == nil || !record.canonical {
+			break
+		}
+		ready++
+	}
+	if ready == 0 {
+		return nil, nil
+	}
+	raw := append([]segments.WireRow(nil), recorder.raw[:ready]...)
+	canonicalByOrdinal := make(map[uint64]segments.CanonicalRow, ready)
+	for _, row := range recorder.canonical {
+		canonicalByOrdinal[row.IngestOrdinal] = row
+	}
+	canonical := make([]segments.CanonicalRow, 0, ready)
 	for _, row := range raw {
+		value, ok := canonicalByOrdinal[row.IngestOrdinal]
+		if !ok {
+			return nil, nil
+		}
+		canonical = append(canonical, value)
+	}
+	return raw, canonical
+}
+
+func (recorder *Recorder) discardFlushed(count int) {
+	flushed := make(map[uint64]struct{}, count)
+	for _, row := range recorder.raw[:count] {
+		flushed[row.IngestOrdinal] = struct{}{}
 		delete(recorder.links, row.IngestOrdinal)
 	}
-	recorder.raw, recorder.canonical = nil, nil
+	recorder.raw = append([]segments.WireRow(nil), recorder.raw[count:]...)
+	remainingCanonical := recorder.canonical[:0]
+	for _, row := range recorder.canonical {
+		if _, ok := flushed[row.IngestOrdinal]; !ok {
+			remainingCanonical = append(remainingCanonical, row)
+		}
+	}
+	recorder.canonical = append([]segments.CanonicalRow(nil), remainingCanonical...)
 	recorder.pendingBytes, recorder.reservedBytes = 0, 0
-	return cloneManifest(manifest), nil
+	for _, row := range recorder.raw {
+		recorder.pendingBytes += uint64(len(row.Payload) + recordMemoryOverhead)
+		record := recorder.links[row.IngestOrdinal]
+		if record != nil && !record.canonical {
+			recorder.reservedBytes += uint64(maximumEventBytes + recordMemoryOverhead)
+		}
+	}
+	for _, row := range recorder.canonical {
+		recorder.pendingBytes += uint64(len(row.CanonicalEvent) + recordMemoryOverhead)
+	}
 }
 
 func (recorder *Recorder) finalizeWire(revision uint64, rows []segments.WireRow) (segments.Manifest, error) {
@@ -69,7 +120,7 @@ func (recorder *Recorder) finalizeWire(revision uint64, rows []segments.WireRow)
 		rows[len(rows)-1].ReceivedAtUnixNano, segments.WireSchemaVersion, "wire", "wire", hash)
 	manifest, err := recorder.finalizer.Finalize(spec, writer, recorder.commit)
 	if err != nil {
-		return segments.Manifest{}, recorderError("wire_finalize_failed")
+		return segments.Manifest{}, recorderFinalizeError("wire_finalize_failed", "wire_finalize", err)
 	}
 	return manifest, nil
 }
@@ -92,7 +143,7 @@ func (recorder *Recorder) finalizeCanonical(
 		rows[0].ParserVersion, rows[0].NormalizationVersion, hash)
 	manifest, err := recorder.finalizer.Finalize(spec, writer, recorder.commit)
 	if err != nil {
-		return segments.Manifest{}, recorderError("canonical_finalize_failed")
+		return segments.Manifest{}, recorderFinalizeError("canonical_finalize_failed", "canonical_finalize", err)
 	}
 	return manifest, nil
 }
@@ -119,12 +170,32 @@ func verifyPendingLinks(raw []segments.WireRow, canonical []segments.CanonicalRo
 	return nil
 }
 
-func (recorder *Recorder) newManifest(revision uint64) DatasetManifest {
+func boundedCause(err error) string {
+	if err == nil {
+		return ""
+	}
+	value := err.Error()
+	for _, character := range value {
+		if (character < 'a' || character > 'z') && character != '_' && (character < '0' || character > '9') {
+			return "storage_failure"
+		}
+	}
+	if len(value) == 0 || len(value) > 96 {
+		return "storage_failure"
+	}
+	return value
+}
+
+func (recorder *Recorder) newManifest(
+	revision uint64,
+	references []SegmentReference,
+	rawCount, canonicalCount uint64,
+) DatasetManifest {
 	manifest := DatasetManifest{SchemaVersion: datasetSchemaVersion, DatasetID: recorder.datasetID,
 		SessionID: recorder.sessionID, Exchange: recorder.exchange, Revision: revision,
-		PreviousHash: recorder.previous, CreatedAt: recorder.now(), Segments: cloneReferences(recorder.segments),
-		Gaps: append([]Gap(nil), recorder.gaps...), RawRecordCount: recorder.rawCount,
-		CanonicalCount: recorder.canonicalCount, Complete: len(recorder.gaps) == 0}
+		PreviousHash: recorder.previous, CreatedAt: recorder.now(), Segments: cloneReferences(references),
+		Gaps: append([]Gap(nil), recorder.gaps...), RawRecordCount: rawCount,
+		CanonicalCount: canonicalCount, Complete: len(recorder.gaps) == 0}
 	manifest.Hash = manifestHash(manifest)
 	return manifest
 }
@@ -145,7 +216,7 @@ func writeManifest(root string, manifest DatasetManifest) error {
 	partial, final := filepath.Join(root, name+".partial"), filepath.Join(root, name)
 	file, err := os.OpenFile(partial, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o640)
 	if err != nil {
-		return recorderError("manifest_create_failed")
+		return recorderIOError("manifest_create_failed", "manifest_create", err)
 	}
 	if _, err = file.Write(encoded); err == nil {
 		err = file.Sync()
@@ -155,19 +226,22 @@ func writeManifest(root string, manifest DatasetManifest) error {
 		err = closeErr
 	}
 	if err != nil {
-		return recorderError("manifest_write_failed")
+		return recorderIOError("manifest_write_failed", "manifest_write_sync_close", err)
 	}
 	if err = os.Rename(partial, final); err != nil {
-		return recorderError("manifest_rename_failed")
+		return recorderIOError("manifest_rename_failed", "manifest_rename", err)
 	}
 	directory, err := os.Open(root)
 	if err != nil {
-		return recorderError("manifest_sync_failed")
+		return recorderIOError("manifest_sync_failed", "manifest_directory_open", err)
 	}
 	err = directory.Sync()
 	closeErr = directory.Close()
-	if err != nil || closeErr != nil {
-		return recorderError("manifest_sync_failed")
+	if err != nil {
+		return recorderIOError("manifest_sync_failed", "manifest_directory_sync", err)
+	}
+	if closeErr != nil {
+		return recorderIOError("manifest_sync_failed", "manifest_directory_close", closeErr)
 	}
 	return nil
 }

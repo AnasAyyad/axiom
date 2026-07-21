@@ -43,8 +43,12 @@ type soakStatus struct {
 	ProvisionalSLOs      map[string]provisionalCollectorSLO        `json:"provisional_slos"`
 	Collectors           map[string]binance.CollectorStatsSnapshot `json:"collectors"`
 	Memory               memorySample                              `json:"memory"`
+	Storage              storageSample                             `json:"storage"`
 	Books                map[string]bookSample                     `json:"books"`
 	ManifestRevision     uint64                                    `json:"manifest_revision"`
+	FailureDetails       []qualificationFailure                    `json:"failure_details,omitempty"`
+	EventJournalSequence uint64                                    `json:"event_journal_sequence"`
+	EventJournalHash     string                                    `json:"event_journal_hash,omitempty"`
 }
 
 type provisionalCollectorSLO struct {
@@ -87,9 +91,22 @@ func monitorSoakFailClosed(
 	latestManifest *recorder.DatasetManifest,
 	evidence *soakEvidence,
 	writer soakStatusWriter,
+	journal *qualificationJournal,
 ) string {
-	if writer == nil || writer(root, captureSoakStatus(time.Now().UTC(), client, collectors, *latestManifest, evidence)) != nil {
+	if writer == nil {
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "initial_status", "writer_missing", nil))
 		return statusWriteFailure
+	}
+	initial := captureSoakStatus(time.Now().UTC(), client, collectors, *latestManifest, evidence, journal)
+	if err := writer(root, initial); err != nil {
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "initial_status", "atomic_status_write", err))
+		return statusWriteFailure
+	}
+	if !appendQualificationEvent(journal, evidence, qualificationEvent{RecordedAt: initial.ObservedAt,
+		Phase: "initial_status", Outcome: "passed"}) {
+		return "event_journal_failed"
 	}
 	flushTicker, sampleTicker := time.NewTicker(flushEvery), time.NewTicker(sampleEvery)
 	defer flushTicker.Stop()
@@ -100,31 +117,98 @@ func monitorSoakFailClosed(
 		case <-ctx.Done():
 			return ""
 		case <-flushTicker.C:
-			manifest, err := streamRecorder.Flush()
-			if err != nil {
-				return periodicFlushFailure
-			}
-			*latestManifest = manifest
-			if writer(root, captureSoakStatus(time.Now().UTC(), client, collectors, manifest, evidence)) != nil {
-				return statusWriteFailure
+			if failure := flushSoakStep(root, client, streamRecorder, collectors, latestManifest, evidence, writer, journal); failure != "" {
+				return failure
 			}
 		case observed := <-sampleTicker.C:
-			evidence.Memory = append(evidence.Memory, readMemory(observed.UTC()))
-			for symbol, collector := range collectors {
-				current, prior := collector.Stats(), previous[symbol]
-				if current.Reconnects != prior.Reconnects || current.Rebuilds != prior.Rebuilds ||
-					current.Gaps != prior.Gaps {
-					evidence.Incidents = append(evidence.Incidents, incidentSample{ObservedAt: observed.UTC(),
-						Instrument: symbol, Reconnects: current.Reconnects, Rebuilds: current.Rebuilds,
-						Gaps: current.Gaps})
-				}
-				previous[symbol] = current
-			}
-			if writer(root, captureSoakStatus(observed.UTC(), client, collectors, *latestManifest, evidence)) != nil {
-				return statusWriteFailure
+			if failure := sampleSoakStep(observed.UTC(), root, client, collectors, previous, latestManifest, evidence, writer, journal); failure != "" {
+				return failure
 			}
 		}
 	}
+}
+
+func flushSoakStep(
+	root string,
+	client *binance.PublicClient,
+	streamRecorder soakFlusher,
+	collectors map[string]*binance.InstrumentCollector,
+	latestManifest *recorder.DatasetManifest,
+	evidence *soakEvidence,
+	writer soakStatusWriter,
+	journal *qualificationJournal,
+) string {
+	var pendingRaw, pendingCanonical uint64
+	if pending, ok := streamRecorder.(interface{ PendingCounts() (uint64, uint64) }); ok {
+		pendingRaw, pendingCanonical = pending.PendingCounts()
+	}
+	started := time.Now()
+	manifest, err := streamRecorder.Flush()
+	duration := time.Since(started)
+	if err != nil {
+		detail := boundedQualificationFailure(periodicFlushFailure, "recorder_flush", "flush", err)
+		evidence.FailureDetails = append(evidence.FailureDetails, detail)
+		appendQualificationEvent(journal, evidence, qualificationEvent{Phase: "recorder_flush", Outcome: "failed",
+			Code: periodicFlushFailure, PendingRaw: pendingRaw, PendingCanonical: pendingCanonical,
+			Duration: duration, Recorder: detail.Recorder})
+		return periodicFlushFailure
+	}
+	*latestManifest = manifest
+	if !appendQualificationEvent(journal, evidence, qualificationEvent{Phase: "recorder_flush", Outcome: "passed",
+		ManifestRevision: manifest.Revision, PendingRaw: pendingRaw, PendingCanonical: pendingCanonical,
+		Duration: duration}) {
+		return "event_journal_failed"
+	}
+	status := captureSoakStatus(time.Now().UTC(), client, collectors, manifest, evidence, journal)
+	if err = writer(root, status); err != nil {
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "periodic_status", "atomic_status_write", err))
+		appendQualificationEvent(journal, evidence, qualificationEvent{Phase: "periodic_status", Outcome: "failed",
+			Code: statusWriteFailure, ManifestRevision: manifest.Revision})
+		return statusWriteFailure
+	}
+	if !appendQualificationEvent(journal, evidence, qualificationEvent{RecordedAt: status.ObservedAt,
+		Phase: "periodic_status", Outcome: "passed", ManifestRevision: manifest.Revision}) {
+		return "event_journal_failed"
+	}
+	return ""
+}
+
+func sampleSoakStep(
+	observed time.Time,
+	root string,
+	client *binance.PublicClient,
+	collectors map[string]*binance.InstrumentCollector,
+	previous map[string]binance.CollectorStatsSnapshot,
+	latestManifest *recorder.DatasetManifest,
+	evidence *soakEvidence,
+	writer soakStatusWriter,
+	journal *qualificationJournal,
+) string {
+	evidence.Memory = append(evidence.Memory, readMemory(observed))
+	evidence.Storage = append(evidence.Storage, readStorage(observed, evidence.root))
+	for symbol, collector := range collectors {
+		current, prior := collector.Stats(), previous[symbol]
+		if current.Reconnects != prior.Reconnects || current.Rebuilds != prior.Rebuilds || current.Gaps != prior.Gaps {
+			evidence.Incidents = append(evidence.Incidents, incidentSample{ObservedAt: observed,
+				Instrument: symbol, Reconnects: current.Reconnects, Rebuilds: current.Rebuilds, Gaps: current.Gaps})
+		}
+		previous[symbol] = current
+	}
+	status := captureSoakStatus(observed, client, collectors, *latestManifest, evidence, journal)
+	if err := writer(root, status); err != nil {
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "sample_status", "atomic_status_write", err))
+		appendQualificationEvent(journal, evidence, qualificationEvent{RecordedAt: observed,
+			Phase: "sample_status", Outcome: "failed", Code: statusWriteFailure,
+			ManifestRevision: latestManifest.Revision})
+		return statusWriteFailure
+	}
+	if !appendQualificationEvent(journal, evidence, qualificationEvent{RecordedAt: observed,
+		Phase: "sample_status", Outcome: "passed", ManifestRevision: latestManifest.Revision}) {
+		return "event_journal_failed"
+	}
+	return ""
 }
 
 func captureSoakStatus(
@@ -133,8 +217,38 @@ func captureSoakStatus(
 	collectors map[string]*binance.InstrumentCollector,
 	manifest recorder.DatasetManifest,
 	evidence *soakEvidence,
+	journal *qualificationJournal,
 ) soakStatus {
-	failures := append([]string(nil), evidence.Failures...)
+	failures, statsBySymbol, slos, books := provisionalCollectorSnapshots(client, collectors, evidence.Failures)
+	sort.Strings(failures)
+	memory := readMemory(observed)
+	if count := len(evidence.Memory); count > 0 {
+		memory = evidence.Memory[count-1]
+	}
+	storage := readStorage(observed, evidence.root)
+	if count := len(evidence.Storage); count > 0 {
+		storage = evidence.Storage[count-1]
+	}
+	elapsed := observed.Sub(evidence.StartedAt)
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	journalSequence, journalHash := journal.Snapshot()
+	return soakStatus{SchemaVersion: "axiom.a7-soak-status.v2", SourceCommit: evidence.SourceCommit,
+		Formal: evidence.Formal, StartedAt: evidence.StartedAt, ObservedAt: observed, Elapsed: elapsed,
+		RequiredDuration: evidence.RequiredDuration, ProvisionalQualified: len(failures) == 0,
+		ProvisionalFailures: failures, ProvisionalSLOs: slos, Collectors: statsBySymbol,
+		Memory: memory, Storage: storage, Books: books, ManifestRevision: manifest.Revision,
+		FailureDetails:       append([]qualificationFailure(nil), evidence.FailureDetails...),
+		EventJournalSequence: journalSequence, EventJournalHash: journalHash}
+}
+
+func provisionalCollectorSnapshots(
+	client *binance.PublicClient,
+	collectors map[string]*binance.InstrumentCollector,
+	priorFailures []string,
+) ([]string, map[string]binance.CollectorStatsSnapshot, map[string]provisionalCollectorSLO, map[string]bookSample) {
+	failures := append([]string(nil), priorFailures...)
 	statsBySymbol := make(map[string]binance.CollectorStatsSnapshot, len(collectors))
 	slos := make(map[string]provisionalCollectorSLO, len(collectors))
 	books := make(map[string]bookSample, len(collectors))
@@ -160,20 +274,7 @@ func captureSoakStatus(
 			failures = append(failures, symbol+"_ineligible")
 		}
 	}
-	sort.Strings(failures)
-	memory := readMemory(observed)
-	if count := len(evidence.Memory); count > 0 {
-		memory = evidence.Memory[count-1]
-	}
-	elapsed := observed.Sub(evidence.StartedAt)
-	if elapsed < 0 {
-		elapsed = 0
-	}
-	return soakStatus{SchemaVersion: "axiom.a7-soak-status.v1", SourceCommit: evidence.SourceCommit,
-		Formal: evidence.Formal, StartedAt: evidence.StartedAt, ObservedAt: observed, Elapsed: elapsed,
-		RequiredDuration: evidence.RequiredDuration, ProvisionalQualified: len(failures) == 0,
-		ProvisionalFailures: failures, ProvisionalSLOs: slos, Collectors: statsBySymbol,
-		Memory: memory, Books: books, ManifestRevision: manifest.Revision}
+	return failures, statsBySymbol, slos, books
 }
 
 func currentBookSample(
@@ -211,8 +312,9 @@ func writeFinalSoakStatus(
 	collectors map[string]*binance.InstrumentCollector,
 	manifest recorder.DatasetManifest,
 	evidence *soakEvidence,
+	journal *qualificationJournal,
 ) error {
-	status := captureSoakStatus(time.Now().UTC(), client, collectors, manifest, evidence)
+	status := captureSoakStatus(time.Now().UTC(), client, collectors, manifest, evidence, journal)
 	status.ProvisionalFailures = append([]string(nil), evidence.Failures...)
 	sort.Strings(status.ProvisionalFailures)
 	status.ProvisionalQualified = len(status.ProvisionalFailures) == 0

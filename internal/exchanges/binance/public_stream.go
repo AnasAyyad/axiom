@@ -155,7 +155,8 @@ func (client *PublicClient) subscribe(
 	}
 	connection, err := client.connector.Connect(ctx, &target)
 	if err != nil {
-		return nil, exchangecontracts.NewError(exchangecontracts.ErrorTransient, exchangecontracts.OperationStream, 0)
+		return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
+			exchangecontracts.OperationStream, 0, 0, "websocket_connect_failure")
 	}
 	generation := client.streamGeneration.Add(1)
 	if generation == 0 {
@@ -198,7 +199,8 @@ func (stream *publicStream) readFrame(ctx context.Context) (streamRead, error) {
 		return streamRead{}, exchangecontracts.NewError(exchangecontracts.ErrorCanceled, exchangecontracts.OperationStream, 0)
 	case read := <-result:
 		if read.err != nil {
-			return streamRead{}, exchangecontracts.NewError(exchangecontracts.ErrorTransient, exchangecontracts.OperationStream, 0)
+			return streamRead{}, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
+				exchangecontracts.OperationStream, 0, 0, "websocket_receive_failure")
 		}
 		return read, nil
 	}

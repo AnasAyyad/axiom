@@ -38,15 +38,42 @@ func (systemCollectorLifecycle) Wait(ctx context.Context, delay time.Duration) e
 
 type generationRunner func(context.Context, time.Time) generationOutcome
 
+type lifecycleState struct {
+	attempt       uint32
+	cycle         uint64
+	resyncStarted time.Time
+}
+
+func (state lifecycleState) generationAttempt() (uint32, error) {
+	if state.resyncStarted.IsZero() {
+		if state.attempt == ^uint32(0) {
+			return 0, streamError()
+		}
+		return state.attempt + 1, nil
+	}
+	if state.attempt == 0 {
+		return 1, nil
+	}
+	return state.attempt, nil
+}
+
 func (collector *InstrumentCollector) runLifecycle(ctx context.Context, run generationRunner) error {
-	var attempt uint32
-	var resyncStarted time.Time
+	state := lifecycleState{}
 	for ctx.Err() == nil {
-		outcome := run(ctx, resyncStarted)
+		generationAttempt, err := state.generationAttempt()
+		if err != nil {
+			return err
+		}
+		collector.lifecycleCycle.Store(state.cycle)
+		collector.lifecycleAttempt.Store(uint64(generationAttempt))
+		attemptStarted := collector.lifecycle.Now()
+		outcome := run(ctx, state.resyncStarted)
+		attemptDuration := maxDuration(collector.lifecycle.Now().Sub(attemptStarted), 0)
 		if outcome.reason.valid() {
 			collector.stats.recordReconnectReason(outcome.reason)
 		}
 		if outcome.fatal != nil {
+			collector.recordDiagnostic(collector.outcomeDiagnostic(outcome, "fatal", attemptDuration, 0, 0))
 			return outcome.fatal
 		}
 		if ctx.Err() != nil {
@@ -55,23 +82,12 @@ func (collector *InstrumentCollector) runLifecycle(ctx context.Context, run gene
 		if !outcome.reason.valid() {
 			return streamError()
 		}
-		if outcome.reachedHealthy {
-			attempt = 1
-			resyncStarted = outcome.lostHealthAt
-			if resyncStarted.IsZero() {
-				resyncStarted = collector.lifecycle.Now()
-			}
-		} else {
-			if attempt == ^uint32(0) {
-				return streamError()
-			}
-			attempt++
+		diagnostic, delay, advanceErr := collector.advanceLifecycle(&state, outcome, attemptDuration)
+		if advanceErr != nil {
+			return advanceErr
 		}
+		collector.recordDiagnostic(diagnostic)
 		collector.stats.reconnects.Add(1)
-		delay, err := collector.config.ConnectionPolicy.Backoff(attempt)
-		if err != nil {
-			return err
-		}
 		if err = collector.lifecycle.Wait(ctx, delay); err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -82,12 +98,54 @@ func (collector *InstrumentCollector) runLifecycle(ctx context.Context, run gene
 	return nil
 }
 
-func (collector *InstrumentCollector) recordResynchronization(started time.Time) {
+func (collector *InstrumentCollector) advanceLifecycle(
+	state *lifecycleState,
+	outcome generationOutcome,
+	attemptDuration time.Duration,
+) (ReconnectDiagnostic, time.Duration, error) {
+	backoffAttempt, phase := uint32(0), "attempt_failed"
+	resyncElapsed := time.Duration(0)
+	if !outcome.reachedHealthy && !state.resyncStarted.IsZero() {
+		resyncElapsed = maxDuration(collector.lifecycle.Now().Sub(state.resyncStarted), 0)
+	}
+	if outcome.reachedHealthy {
+		state.cycle++
+		state.attempt, backoffAttempt, phase = 1, 1, "health_lost"
+		collector.lifecycleCycle.Store(state.cycle)
+		collector.lifecycleAttempt.Store(1)
+		state.resyncStarted = outcome.lostHealthAt
+		if state.resyncStarted.IsZero() {
+			state.resyncStarted = collector.lifecycle.Now()
+		}
+	} else {
+		if state.attempt == ^uint32(0) {
+			return ReconnectDiagnostic{}, 0, streamError()
+		}
+		state.attempt++
+		backoffAttempt = state.attempt
+	}
+	delay, err := collector.config.ConnectionPolicy.Backoff(backoffAttempt)
+	if err != nil {
+		return ReconnectDiagnostic{}, 0, err
+	}
+	return collector.outcomeDiagnostic(outcome, phase, attemptDuration, delay, resyncElapsed), delay, nil
+}
+
+func maxDuration(left, right time.Duration) time.Duration {
+	if left > right {
+		return left
+	}
+	return right
+}
+
+func (collector *InstrumentCollector) recordResynchronization(started time.Time, generation uint64) {
 	if started.IsZero() {
 		return
 	}
 	duration := collector.lifecycle.Now().Sub(started)
 	collector.stats.resync.record(duration)
+	collector.recordDiagnostic(collector.outcomeDiagnostic(generationOutcome{reachedHealthy: true,
+		generation: generation, stage: "healthy", cause: "healthy"}, "health_restored", duration, 0, duration))
 }
 
 type recorderFailure struct{ error }

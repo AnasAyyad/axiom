@@ -31,12 +31,36 @@ Review found that reconnect attempts continued escalating after a collector had
 returned to `HEALTHY`. The repair records a typed generation outcome, resets
 backoff after health, escalates only consecutive pre-health failures, and measures
 one resynchronization interval from loss of health through every failed attempt
-and delay until health returns. Qualification evidence now includes the exact
-source commit, bounded reconnect-reason counts, dedicated resynchronization
-sample/over-limit/p95/exact-maximum metrics, and an atomically replaced
-five-minute `a7-soak-status.json`. Periodic flush and status-write failures fail
-qualification closed. Recorded market data remains outside Git and all earlier
-qualification directories remain preserved.
+and delay until health returns.
+
+The preserved `a7-eb96f15-r1` repair run used source commit
+`eb96f1531c8053de68eeb21f3708c065bd644d4b`. It stopped after approximately
+15.5 hours with `periodic_flush_failed`. Its terminal dataset still verified
+5,718,748 records across 186 segment pairs. Review reproduced a local recorder
+race: raw and canonical calls intentionally occur in order but held the recorder
+lock separately, so the periodic flush could observe the in-flight raw suffix
+and reject it as incomplete. The absence of leftover partial files and a later
+successful final flush were consistent with that interleaving; this failure was
+not attributed to Binance.
+
+The recorder repair allocates and appends ordinals under one lock, flushes only
+the complete ordered raw/canonical prefix, defers an in-flight suffix, and
+commits recorder state only after the cumulative manifest is durable. Terminal
+flush remains strict. Filesystem and finalizer failures retain only fixed stage,
+class, cause, and errno evidence.
+
+Qualification evidence now includes the exact source commit, bounded reconnect
+reason counts, dedicated resynchronization sample/over-limit/p95/exact-maximum
+metrics, stage timings, HTTP status/retry-after, clock offset/uncertainty,
+bounded objective fault attribution, process RSS/high-water/open-FD samples,
+and filesystem capacity/inode samples. The five-minute
+`a7-soak-status.json` is atomically replaced. The append-only
+`a7-soak-events.jsonl` is synchronized per event, hash-chained, mirrored as
+`A7_EVENT` service-log records, and verified at termination. Periodic flush,
+status-write, or journal failures fail qualification closed. Recorded market
+data remains outside Git and all earlier qualification directories remain
+preserved. ADR-0011 keeps the all-sample 15-second SLO unchanged and records
+attribution separately; attribution never converts a failed run into a pass.
 
 ## Retained checks
 
@@ -73,12 +97,15 @@ go test ./internal/qualification \
 ```
 
 The resulting directory retains raw/canonical Parquet segments, cumulative
-dataset manifests, rolling `a7-soak-status.json`, terminal
-`a7-soak-evidence.json`, the exact source commit, bounded reconnect reasons,
+dataset manifests, append-only `a7-soak-events.jsonl`, rolling
+`a7-soak-status.json`, terminal `a7-soak-evidence.json`, the exact source
+commit, bounded reconnect reasons and lifecycle diagnostics,
 resynchronization sample/over-limit/p95/exact-maximum metrics, incident/rebuild
-samples, heap samples, final book eligibility, and the bounded canonical replay
-checksum. A7 advances only if the terminal artifact says `qualified: true` and
-the final cumulative candidate checks pass.
+samples, Go heap and process resource samples, storage-capacity samples, final
+book eligibility, and the bounded canonical replay checksum. The service log
+retains immediate structured `binance_collector_lifecycle`, `A7_EVENT`, and
+emergency fallback records. A7 advances only if the terminal artifact says
+`qualified: true` and the final cumulative candidate checks pass.
 
 ## Limitations
 

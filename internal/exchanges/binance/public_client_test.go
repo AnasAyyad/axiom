@@ -2,6 +2,7 @@ package binance
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -109,6 +110,42 @@ func TestPublicStreamRetainsRawFrameAndNormalizesExpectedStream(t *testing.T) {
 	}
 	if err = stream.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestResponseErrorRetainsBoundedUpstreamEvidence(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		status     int
+		retryAfter string
+		kind       exchangecontracts.ErrorKind
+		cause      string
+		retry      time.Duration
+	}{
+		{status: http.StatusTooManyRequests, retryAfter: "15", kind: exchangecontracts.ErrorRateLimit,
+			cause: "http_rate_limit", retry: 15 * time.Second},
+		{status: http.StatusTeapot, retryAfter: "999", kind: exchangecontracts.ErrorRateLimit,
+			cause: "http_rate_limit"},
+		{status: http.StatusServiceUnavailable, kind: exchangecontracts.ErrorTransient,
+			cause: "http_server_error"},
+		{status: http.StatusFound, kind: exchangecontracts.ErrorCapability, cause: "http_redirect"},
+		{status: http.StatusBadRequest, kind: exchangecontracts.ErrorValidation, cause: "http_client_error"},
+	}
+	for _, test := range tests {
+		response := &http.Response{StatusCode: test.status, Header: make(http.Header)}
+		if test.retryAfter != "" {
+			response.Header.Set("Retry-After", test.retryAfter)
+		}
+		err := responseError(response, exchangecontracts.OperationSnapshot)
+		var failure *exchangecontracts.Error
+		if !errors.As(err, &failure) || failure.Kind != test.kind || failure.HTTPStatus != test.status ||
+			failure.Cause != test.cause || failure.RetryAfter != test.retry {
+			t.Fatalf("status=%d failure=%#v", test.status, err)
+		}
+	}
+	if err := responseError(&http.Response{StatusCode: http.StatusNoContent},
+		exchangecontracts.OperationSnapshot); err != nil {
+		t.Fatalf("success response=%v", err)
 	}
 }
 
