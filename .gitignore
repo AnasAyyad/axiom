@@ -15,9 +15,13 @@ backups/
 bin/
 dist/
 coverage/
+playwright-report/
+test-results/
 node_modules/
 *.test
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 .tools/
 .pnpm-store/
 

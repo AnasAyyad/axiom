@@ -13,9 +13,12 @@ import (
 
 const closeReservation = `-- name: CloseReservation :one
 UPDATE reservations
-SET state = $2, revision = revision + 1, updated_at = $3
+SET state = $2,
+    remaining_quantity = CASE WHEN $2 = 'quarantined' THEN remaining_quantity ELSE 0 END,
+    revision = revision + 1,
+    updated_at = $3
 WHERE id = $1 AND state = 'active' AND revision = $4 AND fencing_token = $5
-RETURNING id, account_id, asset_symbol, quantity, state, fencing_token, revision, order_id, created_at, updated_at
+RETURNING id, account_id, asset_symbol, quantity, state, fencing_token, revision, order_id, created_at, updated_at, remaining_quantity
 `
 
 type CloseReservationParams struct {
@@ -46,6 +49,7 @@ func (q *Queries) CloseReservation(ctx context.Context, arg CloseReservationPara
 		&i.OrderID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RemainingQuantity,
 	)
 	return &i, err
 }
@@ -72,6 +76,42 @@ func (q *Queries) ConsumeVirtualBalance(ctx context.Context, arg ConsumeVirtualB
 		arg.AssetSymbol,
 		arg.Reserved,
 		arg.UpdatedAt,
+	)
+	var i VirtualBalance
+	err := row.Scan(
+		&i.AccountID,
+		&i.AssetSymbol,
+		&i.Available,
+		&i.Reserved,
+		&i.Revision,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const creditVirtualBalance = `-- name: CreditVirtualBalance :one
+UPDATE virtual_balances
+SET available = available + $1,
+    revision = revision + 1,
+    updated_at = $2
+WHERE account_id = $3 AND asset_symbol = $4
+  AND $1 > 0
+RETURNING account_id, asset_symbol, available, reserved, revision, updated_at
+`
+
+type CreditVirtualBalanceParams struct {
+	Quantity    interface{}        `db:"quantity" json:"quantity"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	AccountID   string             `db:"account_id" json:"account_id"`
+	AssetSymbol string             `db:"asset_symbol" json:"asset_symbol"`
+}
+
+func (q *Queries) CreditVirtualBalance(ctx context.Context, arg CreditVirtualBalanceParams) (*VirtualBalance, error) {
+	row := q.db.QueryRow(ctx, creditVirtualBalance,
+		arg.Quantity,
+		arg.UpdatedAt,
+		arg.AccountID,
+		arg.AssetSymbol,
 	)
 	var i VirtualBalance
 	err := row.Scan(
@@ -194,9 +234,10 @@ func (q *Queries) InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryPa
 
 const insertReservation = `-- name: InsertReservation :one
 INSERT INTO reservations (
-  id, account_id, asset_symbol, quantity, state, fencing_token, revision, created_at, updated_at
-) VALUES ($1, $2, $3, $4, 'active', $5, 1, $6, $6)
-RETURNING id, account_id, asset_symbol, quantity, state, fencing_token, revision, order_id, created_at, updated_at
+  id, account_id, asset_symbol, quantity, remaining_quantity, state,
+  fencing_token, revision, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $4, 'active', $5, 1, $6, $6)
+RETURNING id, account_id, asset_symbol, quantity, state, fencing_token, revision, order_id, created_at, updated_at, remaining_quantity
 `
 
 type InsertReservationParams struct {
@@ -229,6 +270,7 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		&i.OrderID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RemainingQuantity,
 	)
 	return &i, err
 }
@@ -268,7 +310,7 @@ func (q *Queries) JournalAssetDifferences(ctx context.Context, transactionID str
 }
 
 const lockReservation = `-- name: LockReservation :one
-SELECT id, account_id, asset_symbol, quantity, state, fencing_token, revision, order_id, created_at, updated_at FROM reservations
+SELECT id, account_id, asset_symbol, quantity, state, fencing_token, revision, order_id, created_at, updated_at, remaining_quantity FROM reservations
 WHERE id = $1
 FOR UPDATE
 `
@@ -287,6 +329,7 @@ func (q *Queries) LockReservation(ctx context.Context, id string) (*Reservation,
 		&i.OrderID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RemainingQuantity,
 	)
 	return &i, err
 }
@@ -418,6 +461,94 @@ func (q *Queries) ReserveVirtualBalance(ctx context.Context, arg ReserveVirtualB
 		arg.AssetSymbol,
 		arg.Available,
 		arg.UpdatedAt,
+	)
+	var i VirtualBalance
+	err := row.Scan(
+		&i.AccountID,
+		&i.AssetSymbol,
+		&i.Available,
+		&i.Reserved,
+		&i.Revision,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const settleReservationFill = `-- name: SettleReservationFill :one
+UPDATE reservations
+SET state = CASE WHEN $1::boolean THEN 'consumed' ELSE 'active' END,
+    remaining_quantity = CASE WHEN $1::boolean THEN remaining_quantity * 0 ELSE remaining_quantity - $2 END,
+    revision = revision + 1,
+    updated_at = $3
+WHERE id = $4 AND state = 'active' AND revision = $5
+  AND fencing_token = $6 AND $2 > remaining_quantity * 0
+  AND remaining_quantity >= $2
+  AND ($1::boolean OR remaining_quantity > $2)
+RETURNING id, account_id, asset_symbol, quantity, state, fencing_token, revision, order_id, created_at, updated_at, remaining_quantity
+`
+
+type SettleReservationFillParams struct {
+	FinalFill     bool               `db:"final_fill" json:"final_fill"`
+	DebitQuantity interface{}        `db:"debit_quantity" json:"debit_quantity"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID            string             `db:"id" json:"id"`
+	Revision      int64              `db:"revision" json:"revision"`
+	FencingToken  int64              `db:"fencing_token" json:"fencing_token"`
+}
+
+func (q *Queries) SettleReservationFill(ctx context.Context, arg SettleReservationFillParams) (*Reservation, error) {
+	row := q.db.QueryRow(ctx, settleReservationFill,
+		arg.FinalFill,
+		arg.DebitQuantity,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.Revision,
+		arg.FencingToken,
+	)
+	var i Reservation
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.AssetSymbol,
+		&i.Quantity,
+		&i.State,
+		&i.FencingToken,
+		&i.Revision,
+		&i.OrderID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RemainingQuantity,
+	)
+	return &i, err
+}
+
+const settleReservedVirtualBalance = `-- name: SettleReservedVirtualBalance :one
+UPDATE virtual_balances
+SET available = available + $1,
+    reserved = reserved - $2,
+    revision = revision + 1,
+    updated_at = $3
+WHERE account_id = $4 AND asset_symbol = $5
+  AND $1 >= 0 AND $2 > 0
+  AND reserved >= $2
+RETURNING account_id, asset_symbol, available, reserved, revision, updated_at
+`
+
+type SettleReservedVirtualBalanceParams struct {
+	ReleaseQuantity   interface{}        `db:"release_quantity" json:"release_quantity"`
+	ReservedReduction interface{}        `db:"reserved_reduction" json:"reserved_reduction"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	AccountID         string             `db:"account_id" json:"account_id"`
+	AssetSymbol       string             `db:"asset_symbol" json:"asset_symbol"`
+}
+
+func (q *Queries) SettleReservedVirtualBalance(ctx context.Context, arg SettleReservedVirtualBalanceParams) (*VirtualBalance, error) {
+	row := q.db.QueryRow(ctx, settleReservedVirtualBalance,
+		arg.ReleaseQuantity,
+		arg.ReservedReduction,
+		arg.UpdatedAt,
+		arg.AccountID,
+		arg.AssetSymbol,
 	)
 	var i VirtualBalance
 	err := row.Scan(

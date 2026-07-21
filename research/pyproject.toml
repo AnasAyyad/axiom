@@ -1,0 +1,9 @@
+[project]
+name = "axiom-research"
+version = "0.1.0"
+description = "Independent Axiom A10 analysis and report validation"
+requires-python = "==3.12.3"
+dependencies = []
+
+[tool.uv]
+package = false

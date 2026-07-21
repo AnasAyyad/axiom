@@ -1,0 +1,137 @@
+.metric {
+  display: grid;
+  min-height: 8.25rem;
+  padding: 1.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    145deg,
+    var(--color-surface-raised),
+    var(--color-surface)
+  );
+  box-shadow: var(--shadow-card);
+}
+
+.metric span,
+.metric small {
+  color: var(--color-text-muted);
+}
+
+.metric strong {
+  align-self: center;
+  color: var(--tone, var(--color-text));
+  font: 700 clamp(1.3rem, 3vw, 2rem) / 1 var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+.metric[data-tone="good"] {
+  --tone: var(--color-good);
+}
+.metric[data-tone="warn"] {
+  --tone: var(--color-warning);
+}
+.metric[data-tone="critical"] {
+  --tone: var(--color-critical);
+}
+
+.statePanel {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+}
+
+.statePanel strong {
+  color: var(--color-text);
+}
+
+.tableFrame {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.tableFrame table {
+  width: 100%;
+  min-width: 42rem;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.tableFrame caption {
+  padding: 0.8rem 1rem;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.tableFrame th,
+.tableFrame td {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tableFrame th {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tableFrame tbody tr:hover {
+  background: var(--color-surface-raised);
+}
+
+.dialog::backdrop {
+  background: rgb(2 7 12 / 78%);
+  backdrop-filter: blur(0.25rem);
+}
+
+.dialog {
+  width: min(30rem, calc(100% - 2rem));
+  padding: 1.5rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-modal);
+}
+
+.dialog h2 {
+  margin: 0;
+  font: 700 1.4rem var(--font-display);
+}
+.dialog p {
+  color: var(--color-text-muted);
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.secondaryButton,
+.dangerButton {
+  min-height: 2.7rem;
+  padding: 0 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryButton {
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text);
+}
+.dangerButton {
+  border: 1px solid var(--color-critical);
+  background: var(--color-critical);
+  color: #160406;
+}

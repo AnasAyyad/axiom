@@ -170,9 +170,17 @@ services:
     command: ["api"]
     environment:
       <<: *runtime-environment
+      AUTH_BOOTSTRAP_OWNER_EMAIL_FILE: /run/secrets/bootstrap_owner_email
+      AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE: /run/secrets/bootstrap_owner_password_hash
+      AUTH_CSRF_KEY_FILE: /run/secrets/csrf_key
+      AUTH_SESSION_SIGNING_KEY_FILE: /run/secrets/session_signing_key
     secrets:
       - postgres_runtime_password
       - health_detail_token
+      - bootstrap_owner_email
+      - bootstrap_owner_password_hash
+      - csrf_key
+      - session_signing_key
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -237,7 +245,7 @@ services:
 
   recorder:
     <<: *app-base
-    profiles: [record]
+    profiles: [app, record]
     command: ["recorder"]
     environment:
       <<: *runtime-environment
@@ -294,7 +302,7 @@ services:
 
   backtest-worker:
     <<: *app-base
-    profiles: [workers]
+    profiles: [app, workers]
     command: ["worker"]
     environment:
       <<: *runtime-environment
@@ -528,3 +536,11 @@ secrets:
     file: ${SECRETS_DIR:-./.secrets}/grafana_admin_password
   health_detail_token:
     file: ${SECRETS_DIR:-./.secrets}/health_detail_token
+  bootstrap_owner_email:
+    file: ${SECRETS_DIR:-./.secrets}/bootstrap_owner_email
+  bootstrap_owner_password_hash:
+    file: ${SECRETS_DIR:-./.secrets}/bootstrap_owner_password_hash
+  csrf_key:
+    file: ${SECRETS_DIR:-./.secrets}/csrf_key
+  session_signing_key:
+    file: ${SECRETS_DIR:-./.secrets}/session_signing_key

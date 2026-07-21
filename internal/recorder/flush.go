@@ -19,11 +19,30 @@ func (recorder *Recorder) Flush() (DatasetManifest, error) {
 	defer recorder.mutex.Unlock()
 	raw, canonical := recorder.completePrefix()
 	if len(raw) == 0 {
-		// A raw row may legitimately be between RecordRaw and RecordCanonical
-		// when the periodic ticker fires. Defer it without weakening the final
-		// shutdown check or converting normal concurrency into a soak failure.
-		return cloneManifest(recorder.latest), nil
+		if len(recorder.raw) == 0 {
+			return cloneManifest(recorder.latest), nil
+		}
+		return DatasetManifest{}, recorderError("segment_incomplete")
 	}
+	return recorder.flushCompletedLocked(raw, canonical)
+}
+
+// FlushReady finalizes the complete prefix available at this instant. A raw
+// event whose canonical pair is still being built remains pending without
+// turning a routine flush tick into a recorder failure.
+func (recorder *Recorder) FlushReady() (DatasetManifest, bool, error) {
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	raw, canonical := recorder.completePrefix()
+	if len(raw) == 0 {
+		return cloneManifest(recorder.latest), false, nil
+	}
+	manifest, err := recorder.flushCompletedLocked(raw, canonical)
+	return manifest, true, err
+}
+
+func (recorder *Recorder) flushCompletedLocked(raw []segments.WireRow,
+	canonical []segments.CanonicalRow) (DatasetManifest, error) {
 	if err := verifyPendingLinks(raw, canonical); err != nil {
 		return DatasetManifest{}, err
 	}

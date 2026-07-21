@@ -3,7 +3,7 @@ package config
 import "axiom/internal/domain"
 
 // SchemaVersion is the current immutable configuration schema identifier.
-const SchemaVersion = "axiom.config.v1a.1"
+const SchemaVersion = "axiom.config.v1a.2"
 
 // Environment identifies an allowed V1A deployment class.
 type Environment string
@@ -29,6 +29,7 @@ type Configuration struct {
 	Risk          RiskConfiguration       `json:"risk"`
 	Portfolio     PortfolioConfiguration  `json:"portfolio"`
 	Models        ModelConfiguration      `json:"models"`
+	Trend         TrendConfiguration      `json:"trend"`
 	Capabilities  []CapabilityDisposition `json:"capabilities"`
 	Secrets       []SecretReference       `json:"secrets"`
 }
@@ -83,6 +84,31 @@ type FinancialValue struct {
 type ModelConfiguration struct {
 	Fee     string `json:"fee"`
 	Latency string `json:"latency"`
+}
+
+// TrendConfiguration identifies one immutable baseline Trend strategy graph.
+type TrendConfiguration struct {
+	StrategyVersion string              `json:"strategy_version"`
+	Timeframe       string              `json:"timeframe"`
+	Parameters      []StrategyParameter `json:"parameters"`
+}
+
+// StrategyParameter is the complete auditable contract for one numeric rule.
+type StrategyParameter struct {
+	ID                string   `json:"id"`
+	Description       string   `json:"description"`
+	Value             string   `json:"value"`
+	Unit              string   `json:"unit"`
+	Minimum           string   `json:"minimum"`
+	Maximum           string   `json:"maximum"`
+	MinimumInclusive  bool     `json:"minimum_inclusive"`
+	MaximumInclusive  bool     `json:"maximum_inclusive"`
+	Scale             uint8    `json:"scale"`
+	Rounding          string   `json:"rounding"`
+	Cadence           string   `json:"cadence"`
+	WarmUp            string   `json:"warm_up"`
+	Mutability        string   `json:"mutability"`
+	ModelDependencies []string `json:"model_dependencies"`
 }
 
 // SecretReference names a required file without storing secret material.

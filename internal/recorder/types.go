@@ -21,18 +21,32 @@ type EventType string
 
 // A7 recorder event classes.
 const (
-	EventDepth        EventType = "depth"
-	EventTrade        EventType = "trade"
-	EventCandle       EventType = "candle"
-	EventSnapshot     EventType = "snapshot"
-	EventLifecycle    EventType = "lifecycle"
-	EventSubscription EventType = "subscription"
-	EventGap          EventType = "gap"
-	EventRebuild      EventType = "rebuild"
-	EventDecoderError EventType = "decoder_error"
-	EventClockSample  EventType = "clock_sample"
-	EventStreamFrame  EventType = "stream_frame"
+	EventDepth         EventType = "depth"
+	EventTrade         EventType = "trade"
+	EventCandle        EventType = "candle"
+	EventSnapshot      EventType = "snapshot"
+	EventLifecycle     EventType = "lifecycle"
+	EventSubscription  EventType = "subscription"
+	EventGap           EventType = "gap"
+	EventRebuild       EventType = "rebuild"
+	EventDecoderError  EventType = "decoder_error"
+	EventClockSample   EventType = "clock_sample"
+	EventStreamFrame   EventType = "stream_frame"
+	EventDecisionInput EventType = "decision_input"
 )
+
+// DecisionInput is one exact in-process strategy/model input. Its raw and
+// canonical bytes are identical because no external wire parser is involved.
+type DecisionInput struct {
+	Instrument  domain.Instrument
+	EventID     string
+	LogicalTime uint64
+	ReceivedAt  time.Time
+	Payload     []byte
+}
+
+// DecisionInputBuilder binds the payload's ordinal to the recorder-assigned ordinal.
+type DecisionInputBuilder func(uint64) ([]byte, error)
 
 // RawInput is one immutable wire envelope recorded before normalization.
 type RawInput struct {

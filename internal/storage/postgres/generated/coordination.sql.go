@@ -76,19 +76,27 @@ func (q *Queries) AdvanceConsumerCursor(ctx context.Context, arg AdvanceConsumer
 const claimNextJob = `-- name: ClaimNextJob :one
 WITH candidate AS (
   SELECT id FROM jobs
-  WHERE (state = 'queued' OR
-      (state IN ('claimed','running') AND claim_expires_at <= $1))
+  WHERE (state = 'QUEUED' OR
+      (state = 'RUNNING' AND claim_expires_at <= $1))
     AND (claim_epoch IS NULL OR claim_epoch < $3)
+    AND (owner_user_id IS NULL OR state = 'RUNNING' OR
+      (SELECT count(*) FROM jobs active
+       WHERE active.owner_user_id = jobs.owner_user_id
+         AND active.state IN ('RUNNING','PAUSE_REQUESTED','CANCEL_REQUESTED')) < 2)
+    AND (state = 'RUNNING' OR
+      (SELECT count(*) FROM jobs active
+       WHERE active.state IN ('RUNNING','PAUSE_REQUESTED','CANCEL_REQUESTED')) < 8)
   ORDER BY created_at, id
   FOR UPDATE SKIP LOCKED
   LIMIT 1
 )
 UPDATE jobs
-SET state = 'claimed', claim_owner = $2, claim_epoch = $3,
-    claim_expires_at = $4, updated_at = $1
+SET state = 'RUNNING', claim_owner = $2, claim_epoch = $3,
+    claim_expires_at = $4, started_at = coalesce(started_at, $1),
+    progress_revision = progress_revision + 1, updated_at = $1
 FROM candidate
 WHERE jobs.id = candidate.id
-RETURNING jobs.id, jobs.job_type, jobs.idempotency_key, jobs.state, jobs.claim_owner, jobs.claim_epoch, jobs.claim_expires_at, jobs.payload_hash, jobs.created_at, jobs.updated_at
+RETURNING jobs.id, jobs.job_type, jobs.idempotency_key, jobs.state, jobs.claim_owner, jobs.claim_epoch, jobs.claim_expires_at, jobs.payload_hash, jobs.created_at, jobs.updated_at, jobs.owner_user_id, jobs.run_id, jobs.request_payload, jobs.result_payload, jobs.failure_code, jobs.retry_count, jobs.max_attempts, jobs.progress_revision, jobs.resume_ordinal, jobs.single_step, jobs.checkpoint_payload, jobs.started_at, jobs.completed_at
 `
 
 type ClaimNextJobParams struct {
@@ -117,24 +125,38 @@ func (q *Queries) ClaimNextJob(ctx context.Context, arg ClaimNextJobParams) (*Jo
 		&i.PayloadHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.RunID,
+		&i.RequestPayload,
+		&i.ResultPayload,
+		&i.FailureCode,
+		&i.RetryCount,
+		&i.MaxAttempts,
+		&i.ProgressRevision,
+		&i.ResumeOrdinal,
+		&i.SingleStep,
+		&i.CheckpointPayload,
+		&i.StartedAt,
+		&i.CompletedAt,
 	)
 	return &i, err
 }
 
 const completeJob = `-- name: CompleteJob :one
 UPDATE jobs
-SET state = $4, claim_expires_at = NULL, updated_at = $5
+SET state = $4, claim_expires_at = NULL, completed_at = $5,
+    progress_revision = progress_revision + 1, updated_at = $5
 WHERE id = $1 AND claim_owner = $2 AND claim_epoch = $3
-  AND state IN ('claimed','running') AND $4 IN ('completed','failed','cancelled')
-RETURNING id, job_type, idempotency_key, state, claim_owner, claim_epoch, claim_expires_at, payload_hash, created_at, updated_at
+  AND state = 'RUNNING' AND $4 IN ('SUCCEEDED','FAILED')
+RETURNING id, job_type, idempotency_key, state, claim_owner, claim_epoch, claim_expires_at, payload_hash, created_at, updated_at, owner_user_id, run_id, request_payload, result_payload, failure_code, retry_count, max_attempts, progress_revision, resume_ordinal, single_step, checkpoint_payload, started_at, completed_at
 `
 
 type CompleteJobParams struct {
-	ID         string             `db:"id" json:"id"`
-	ClaimOwner *string            `db:"claim_owner" json:"claim_owner"`
-	ClaimEpoch *int64             `db:"claim_epoch" json:"claim_epoch"`
-	State      string             `db:"state" json:"state"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID          string             `db:"id" json:"id"`
+	ClaimOwner  *string            `db:"claim_owner" json:"claim_owner"`
+	ClaimEpoch  *int64             `db:"claim_epoch" json:"claim_epoch"`
+	State       string             `db:"state" json:"state"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 }
 
 func (q *Queries) CompleteJob(ctx context.Context, arg CompleteJobParams) (*Job, error) {
@@ -143,7 +165,7 @@ func (q *Queries) CompleteJob(ctx context.Context, arg CompleteJobParams) (*Job,
 		arg.ClaimOwner,
 		arg.ClaimEpoch,
 		arg.State,
-		arg.UpdatedAt,
+		arg.CompletedAt,
 	)
 	var i Job
 	err := row.Scan(
@@ -157,6 +179,19 @@ func (q *Queries) CompleteJob(ctx context.Context, arg CompleteJobParams) (*Job,
 		&i.PayloadHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.RunID,
+		&i.RequestPayload,
+		&i.ResultPayload,
+		&i.FailureCode,
+		&i.RetryCount,
+		&i.MaxAttempts,
+		&i.ProgressRevision,
+		&i.ResumeOrdinal,
+		&i.SingleStep,
+		&i.CheckpointPayload,
+		&i.StartedAt,
+		&i.CompletedAt,
 	)
 	return &i, err
 }
@@ -222,14 +257,14 @@ INSERT INTO command_requests (
   id, deduplication_key, payload_hash, configuration_id, state, created_at
 ) VALUES ($1, $2, $3, $4, 'pending', $5)
 ON CONFLICT (deduplication_key) DO NOTHING
-RETURNING id, deduplication_key, payload_hash, configuration_id, state, created_at, applied_at
+RETURNING id, deduplication_key, payload_hash, configuration_id, state, created_at, applied_at, actor_user_id, session_id, command_kind, target_type, target_id, reason, idempotency_key, expected_revision, correlation_id, causation_id, result_payload, audit_event_id, updated_at, entity_revision
 `
 
 type InsertCommandParams struct {
 	ID               string             `db:"id" json:"id"`
 	DeduplicationKey string             `db:"deduplication_key" json:"deduplication_key"`
 	PayloadHash      interface{}        `db:"payload_hash" json:"payload_hash"`
-	ConfigurationID  string             `db:"configuration_id" json:"configuration_id"`
+	ConfigurationID  *string            `db:"configuration_id" json:"configuration_id"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -250,6 +285,20 @@ func (q *Queries) InsertCommand(ctx context.Context, arg InsertCommandParams) (*
 		&i.State,
 		&i.CreatedAt,
 		&i.AppliedAt,
+		&i.ActorUserID,
+		&i.SessionID,
+		&i.CommandKind,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Reason,
+		&i.IdempotencyKey,
+		&i.ExpectedRevision,
+		&i.CorrelationID,
+		&i.CausationID,
+		&i.ResultPayload,
+		&i.AuditEventID,
+		&i.UpdatedAt,
+		&i.EntityRevision,
 	)
 	return &i, err
 }
@@ -257,7 +306,7 @@ func (q *Queries) InsertCommand(ctx context.Context, arg InsertCommandParams) (*
 const insertOutbox = `-- name: InsertOutbox :one
 INSERT INTO outbox_events (id, topic, payload_hash, created_at)
 VALUES ($1, $2, $3, $4)
-RETURNING revision, id, topic, payload_hash, created_at, published_at
+RETURNING revision, id, topic, payload_hash, created_at, published_at, stream, schema_version, entity_type, entity_id, entity_revision, event_time, correlation_id, causation_id, payload
 `
 
 type InsertOutboxParams struct {
@@ -282,12 +331,21 @@ func (q *Queries) InsertOutbox(ctx context.Context, arg InsertOutboxParams) (*Ou
 		&i.PayloadHash,
 		&i.CreatedAt,
 		&i.PublishedAt,
+		&i.Stream,
+		&i.SchemaVersion,
+		&i.EntityType,
+		&i.EntityID,
+		&i.EntityRevision,
+		&i.EventTime,
+		&i.CorrelationID,
+		&i.CausationID,
+		&i.Payload,
 	)
 	return &i, err
 }
 
 const listOutboxAfter = `-- name: ListOutboxAfter :many
-SELECT revision, id, topic, payload_hash, created_at, published_at FROM outbox_events
+SELECT revision, id, topic, payload_hash, created_at, published_at, stream, schema_version, entity_type, entity_id, entity_revision, event_time, correlation_id, causation_id, payload FROM outbox_events
 WHERE revision > $1
 ORDER BY revision
 LIMIT $2
@@ -314,6 +372,15 @@ func (q *Queries) ListOutboxAfter(ctx context.Context, arg ListOutboxAfterParams
 			&i.PayloadHash,
 			&i.CreatedAt,
 			&i.PublishedAt,
+			&i.Stream,
+			&i.SchemaVersion,
+			&i.EntityType,
+			&i.EntityID,
+			&i.EntityRevision,
+			&i.EventTime,
+			&i.CorrelationID,
+			&i.CausationID,
+			&i.Payload,
 		); err != nil {
 			return nil, err
 		}
@@ -343,7 +410,7 @@ UPDATE command_requests
 SET state = $2,
     applied_at = $3
 WHERE id = $1 AND state = 'pending' AND $2 IN ('applied','rejected','failed')
-RETURNING id, deduplication_key, payload_hash, configuration_id, state, created_at, applied_at
+RETURNING id, deduplication_key, payload_hash, configuration_id, state, created_at, applied_at, actor_user_id, session_id, command_kind, target_type, target_id, reason, idempotency_key, expected_revision, correlation_id, causation_id, result_payload, audit_event_id, updated_at, entity_revision
 `
 
 type MarkCommandStateParams struct {
@@ -363,6 +430,20 @@ func (q *Queries) MarkCommandState(ctx context.Context, arg MarkCommandStatePara
 		&i.State,
 		&i.CreatedAt,
 		&i.AppliedAt,
+		&i.ActorUserID,
+		&i.SessionID,
+		&i.CommandKind,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Reason,
+		&i.IdempotencyKey,
+		&i.ExpectedRevision,
+		&i.CorrelationID,
+		&i.CausationID,
+		&i.ResultPayload,
+		&i.AuditEventID,
+		&i.UpdatedAt,
+		&i.EntityRevision,
 	)
 	return &i, err
 }
@@ -371,7 +452,7 @@ const markOutboxPublished = `-- name: MarkOutboxPublished :one
 UPDATE outbox_events
 SET published_at = $2
 WHERE id = $1 AND published_at IS NULL
-RETURNING revision, id, topic, payload_hash, created_at, published_at
+RETURNING revision, id, topic, payload_hash, created_at, published_at, stream, schema_version, entity_type, entity_id, entity_revision, event_time, correlation_id, causation_id, payload
 `
 
 type MarkOutboxPublishedParams struct {
@@ -389,6 +470,15 @@ func (q *Queries) MarkOutboxPublished(ctx context.Context, arg MarkOutboxPublish
 		&i.PayloadHash,
 		&i.CreatedAt,
 		&i.PublishedAt,
+		&i.Stream,
+		&i.SchemaVersion,
+		&i.EntityType,
+		&i.EntityID,
+		&i.EntityRevision,
+		&i.EventTime,
+		&i.CorrelationID,
+		&i.CausationID,
+		&i.Payload,
 	)
 	return &i, err
 }
@@ -414,10 +504,10 @@ func (q *Queries) ReleaseLease(ctx context.Context, arg ReleaseLeaseParams) (int
 
 const renewJobClaim = `-- name: RenewJobClaim :one
 UPDATE jobs
-SET claim_expires_at = $4, updated_at = $5
+SET claim_expires_at = $4, progress_revision = progress_revision + 1, updated_at = $5
 WHERE id = $1 AND claim_owner = $2 AND claim_epoch = $3
-  AND state IN ('claimed','running') AND claim_expires_at > $5 AND $4 > $5
-RETURNING id, job_type, idempotency_key, state, claim_owner, claim_epoch, claim_expires_at, payload_hash, created_at, updated_at
+  AND state = 'RUNNING' AND claim_expires_at > $5 AND $4 > $5
+RETURNING id, job_type, idempotency_key, state, claim_owner, claim_epoch, claim_expires_at, payload_hash, created_at, updated_at, owner_user_id, run_id, request_payload, result_payload, failure_code, retry_count, max_attempts, progress_revision, resume_ordinal, single_step, checkpoint_payload, started_at, completed_at
 `
 
 type RenewJobClaimParams struct {
@@ -448,6 +538,19 @@ func (q *Queries) RenewJobClaim(ctx context.Context, arg RenewJobClaimParams) (*
 		&i.PayloadHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.RunID,
+		&i.RequestPayload,
+		&i.ResultPayload,
+		&i.FailureCode,
+		&i.RetryCount,
+		&i.MaxAttempts,
+		&i.ProgressRevision,
+		&i.ResumeOrdinal,
+		&i.SingleStep,
+		&i.CheckpointPayload,
+		&i.StartedAt,
+		&i.CompletedAt,
 	)
 	return &i, err
 }
@@ -487,18 +590,16 @@ func (q *Queries) RenewLease(ctx context.Context, arg RenewLeaseParams) (*Execut
 }
 
 const startJob = `-- name: StartJob :one
-UPDATE jobs
-SET state = 'running', updated_at = $4
+SELECT id, job_type, idempotency_key, state, claim_owner, claim_epoch, claim_expires_at, payload_hash, created_at, updated_at, owner_user_id, run_id, request_payload, result_payload, failure_code, retry_count, max_attempts, progress_revision, resume_ordinal, single_step, checkpoint_payload, started_at, completed_at FROM jobs
 WHERE id = $1 AND claim_owner = $2 AND claim_epoch = $3
-  AND state = 'claimed' AND claim_expires_at > $4
-RETURNING id, job_type, idempotency_key, state, claim_owner, claim_epoch, claim_expires_at, payload_hash, created_at, updated_at
+  AND state = 'RUNNING' AND claim_expires_at > $4
 `
 
 type StartJobParams struct {
-	ID         string             `db:"id" json:"id"`
-	ClaimOwner *string            `db:"claim_owner" json:"claim_owner"`
-	ClaimEpoch *int64             `db:"claim_epoch" json:"claim_epoch"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID             string             `db:"id" json:"id"`
+	ClaimOwner     *string            `db:"claim_owner" json:"claim_owner"`
+	ClaimEpoch     *int64             `db:"claim_epoch" json:"claim_epoch"`
+	ClaimExpiresAt pgtype.Timestamptz `db:"claim_expires_at" json:"claim_expires_at"`
 }
 
 func (q *Queries) StartJob(ctx context.Context, arg StartJobParams) (*Job, error) {
@@ -506,7 +607,7 @@ func (q *Queries) StartJob(ctx context.Context, arg StartJobParams) (*Job, error
 		arg.ID,
 		arg.ClaimOwner,
 		arg.ClaimEpoch,
-		arg.UpdatedAt,
+		arg.ClaimExpiresAt,
 	)
 	var i Job
 	err := row.Scan(
@@ -520,6 +621,19 @@ func (q *Queries) StartJob(ctx context.Context, arg StartJobParams) (*Job, error
 		&i.PayloadHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.RunID,
+		&i.RequestPayload,
+		&i.ResultPayload,
+		&i.FailureCode,
+		&i.RetryCount,
+		&i.MaxAttempts,
+		&i.ProgressRevision,
+		&i.ResumeOrdinal,
+		&i.SingleStep,
+		&i.CheckpointPayload,
+		&i.StartedAt,
+		&i.CompletedAt,
 	)
 	return &i, err
 }

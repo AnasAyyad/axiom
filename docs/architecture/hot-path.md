@@ -1,14 +1,15 @@
 # V1A hot path
 
-**Status:** Normative architecture contract; A3 composition boundary implemented
+**Status:** Normative architecture contract; A10 strategy/allocator/risk/simulation composition locally implemented
 
 ## A3 implementation checkpoint
 
 `internal/runtime.Pipeline` fixes the twelve in-process stages and preserves
 event, configuration, and market-view causation across every handler. The A3
 boundary scanner rejects internal HTTP/RPC and shared-random dependencies.
-Most stage handlers are intentionally absent until their owning A4-A10 phases;
-the pipeline contract is not evidence that those engines already operate.
+A8-A10 now supply locally tested simulation, portfolio/risk, and Trend handlers
+on stacked candidate branches. Live shadow composition and durable API delivery
+remain A11 work, and formal acceptance remains blocked by predecessor gates.
 
 ## Purpose
 

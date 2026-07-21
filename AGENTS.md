@@ -138,6 +138,16 @@ After editing:
 
 ---
 
+## Frontend MCP Usage
+
+Use frontend MCP tools only for UI/UX work.
+
+* **shadcn**: Use for standard, accessible UI components before creating custom ones.
+* **21st.dev**: Use when a page or component would benefit from higher-quality visual design or modern UI patterns.
+* **Playwright**: After major frontend changes, verify the UI, responsiveness, navigation, overflow, loading states, and basic accessibility, then fix any issues found.
+
+Do not use these tools for backend work, infrastructure, small styling tweaks, text-only changes, or unrelated tasks. Only call the MCP that provides clear value for the current frontend task.
+
 ## Validation expectations
 
 Use the smallest relevant checks available for the change:

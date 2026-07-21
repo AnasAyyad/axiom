@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -49,6 +49,8 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a5-observability-boundary.mjs
 	@$(NODE) scripts/check-a6-exchange-boundary.mjs
 	@$(NODE) scripts/check-a7-public-boundary.mjs
+	@$(NODE) scripts/check-a10-strategy-boundary.mjs
+	@$(NODE) scripts/check-a11-console-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -137,6 +139,100 @@ a4-postgres-qualify: ## Run the destructive A4 gate against a dedicated *_a4_tes
 	@$(MAKE) a4-sqlc GO="$(GO)" SQLC="$(SQLC)"
 	@AXIOM_A4_TEST_DSN="$(AXIOM_A4_TEST_DSN)" $(GO) test ./internal/storage/postgres \
 		-run '^TestA4PostgresMigrationJournalAndReservationIntegration$$' -count=1 -v
+
+a8-sqlc: ## Generate and compile the reviewed A8 PostgreSQL queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A8_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a8-postgres-qualify: ## Run the A8 atomic repository gate against a dedicated *_a8_test database.
+	@test -n "$(AXIOM_A8_TEST_DSN)" || { echo "AXIOM_A8_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a8-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A8_TEST_DSN="$(AXIOM_A8_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA8PostgresAtomicOrderFillJournalCheckpoint$$' -count=1 -v
+
+a8-local-qualify: ## Verify and stream the ignored A7 engineering recordings without exporting payloads.
+	@AXIOM_A8_DATASET_43_ROOT=$(CURDIR)/.local/a7-soak-a641cd4 \
+		AXIOM_A8_DATASET_R2_ROOT=$(CURDIR)/.local/a7-soak-a641cd4-r2 \
+		$(GO) test ./internal/backtest -run '^TestA8IgnoredLocalDatasetQualification$$' -count=1 -v
+
+a9-sqlc: ## Generate and compile the reviewed A9 PostgreSQL queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A9_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a9-postgres-qualify: ## Run the A9 ownership/risk/recovery gate against a dedicated *_a9_test database.
+	@test -n "$(AXIOM_A9_TEST_DSN)" || { echo "AXIOM_A9_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a9-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A9_TEST_DSN="$(AXIOM_A9_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA9PostgresPortfolioRiskRecoveryQualification$$' -count=1 -v
+
+a9-model-qualify: ## Exercise exact A9 portfolio, risk, reconciliation, and shared A8 pipeline models.
+	@$(GO) test ./internal/portfolio ./internal/risk ./internal/reconciliation -count=1
+	@$(GO) test ./internal/backtest -run '^TestA9.*Pipeline.*$$' -count=1 -v
+
+a10-sqlc: ## Generate and compile the reviewed A10 Trend and research queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A10_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a10-postgres-qualify: ## Run the A10 immutable research gate against a dedicated *_a10_test database.
+	@test -n "$(AXIOM_A10_TEST_DSN)" || { echo "AXIOM_A10_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a10-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A10_TEST_DSN="$(AXIOM_A10_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA10PostgresTrendResearchQualification$$' -count=1 -v
+
+a10-model-qualify: ## Exercise exact Trend decisions through the shared allocator/risk pipeline.
+	@$(GO) test ./internal/strategies/trend -count=1 -v
+	@$(GO) test ./internal/backtest -count=1
+	@$(NODE) scripts/check-a10-strategy-boundary.mjs
+
+a10-research-qualify: ## Verify deterministic Go research and the independent locked Python checker.
+	@python3 -c 'import sys; assert sys.version_info[:3] == (3, 12, 3), sys.version'
+	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
+	@$(GO) test ./internal/research -count=1 -v
+
+a11-sqlc: ## Generate and compile reviewed A11 authentication and console queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_A11_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+a11-postgres-qualify: ## Run A11 auth, command, projection, stream, and immutability qualification.
+	@test -n "$(AXIOM_A11_TEST_DSN)" || { echo "AXIOM_A11_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) a11-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_A11_TEST_DSN="$(AXIOM_A11_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA11PostgresAuthenticationCommandsAndConsoleQualification$$' -count=1 -v
+
+a11-contract-qualify: ## Prove exact OpenAPI operations, generated models, and boundary ownership.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-a11-console-boundary.mjs
+	@$(GO) test ./internal/api/... -count=1
+
+a11-api-qualify: ## Exercise A11 authentication, authorization, API, bootstrap, and storage policy.
+	@$(GO) test ./internal/authentication ./internal/api/... ./internal/bootstrap ./internal/config -count=1
+
+a11-frontend-qualify: ## Type-check, lint, test, and build the routed accessible console.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+
+a11-ui-fixture-qualify: ## Run deterministic desktop/mobile UI coverage with contract-shaped fixtures.
+	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e
+
+a11-e2e-qualify: ## Run the unmocked authenticated workflow against a clean integrated A11 environment.
+	@test -n "$(AXIOM_A11_E2E_BASE_URL)" || { echo "AXIOM_A11_E2E_BASE_URL is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_CONFIGURATION_ID)" || { echo "AXIOM_A11_E2E_CONFIGURATION_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_DATASET_ID)" || { echo "AXIOM_A11_E2E_DATASET_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_RESEARCH_GENERATION_ID)" || { echo "AXIOM_A11_E2E_RESEARCH_GENERATION_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_PORTFOLIO_ID)" || { echo "AXIOM_A11_E2E_PORTFOLIO_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_EVIDENCE_SHADOW_ID)" || { echo "AXIOM_A11_E2E_EVIDENCE_SHADOW_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_A11_E2E_PASSWORD)" || { echo "AXIOM_A11_E2E_PASSWORD is required" >&2; exit 1; }
+	@$(PNPM) --filter @axiom/web test:e2e
+
+a11-security-qualify: ## Run A11 ownership checks plus repository secret/capability scans.
+	@$(NODE) scripts/check-a11-console-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)"
 
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \

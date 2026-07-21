@@ -60,26 +60,23 @@ func assertJobGuards(t *testing.T, ctx context.Context, pool *pgxpool.Pool, now 
 	t.Helper()
 	if _, err := pool.Exec(ctx, `INSERT INTO jobs
       (id,job_type,idempotency_key,state,claim_owner,claim_epoch,claim_expires_at,payload_hash,created_at,updated_at)
-      VALUES ('job-invalid','test','job-invalid','claimed','worker',1,$1,$2,$3,$3)`,
+      VALUES ('job-invalid','test','job-invalid','RUNNING','worker',1,$1,$2,$3,$3)`,
 		now.Add(time.Minute), fixedHash("1"), now); err == nil {
 		t.Fatal("job inserted directly as claimed")
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO jobs
       (id,job_type,idempotency_key,state,payload_hash,created_at,updated_at)
-      VALUES ('job-a','test','job-a','queued',$1,$2,$2)`, fixedHash("2"), now); err != nil {
+      VALUES ('job-a','test','job-a','QUEUED',$1,$2,$2)`, fixedHash("2"), now); err != nil {
 		t.Fatalf("job seed failed: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `UPDATE jobs SET state='claimed',claim_owner='worker',claim_epoch=1,
-      claim_expires_at=$1,updated_at=$2 WHERE id='job-a'`, now.Add(time.Minute), now); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE jobs SET state='RUNNING',claim_owner='worker',claim_epoch=1,
+      claim_expires_at=$1,started_at=$2,progress_revision=2,updated_at=$2 WHERE id='job-a'`, now.Add(time.Minute), now); err != nil {
 		t.Fatalf("job claim rejected: %v", err)
-	}
-	if _, err := pool.Exec(ctx, "UPDATE jobs SET state='running',updated_at=$1 WHERE id='job-a'", now.Add(time.Second)); err != nil {
-		t.Fatalf("job start rejected: %v", err)
 	}
 	if _, err := pool.Exec(ctx, "UPDATE jobs SET claim_owner='other',updated_at=$1 WHERE id='job-a'", now.Add(2*time.Second)); err == nil {
 		t.Fatal("active job ownership mutated")
 	}
-	if _, err := pool.Exec(ctx, "UPDATE jobs SET state='completed',claim_expires_at=NULL,updated_at=$1 WHERE id='job-a'", now.Add(2*time.Second)); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE jobs SET state='SUCCEEDED',claim_expires_at=NULL,completed_at=$1,progress_revision=3,updated_at=$1 WHERE id='job-a'", now.Add(2*time.Second)); err != nil {
 		t.Fatalf("job completion rejected: %v", err)
 	}
 }

@@ -1,4 +1,4 @@
-# A7 local validation in progress
+# A7 implementation complete — formal 72-hour qualification pending
 
 **Date:** 2026-07-20
 
@@ -11,6 +11,8 @@
 The A7 implementation and short checks pass, but A7 is not a completed phase.
 The first continuous 72-hour production-public run completed and did not qualify;
 a new formal run from the repaired candidate commit remains required.
+The owner separately authorized speculative A8-A11 work on isolated branches;
+that exception does not satisfy or bypass the formal A7 gate.
 
 Implemented scope includes the compiled credential-free Binance public
 transport, server-time uncertainty, metadata/trades/candles, stream-first

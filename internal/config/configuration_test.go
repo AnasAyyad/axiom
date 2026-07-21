@@ -43,6 +43,11 @@ func TestConfigurationNegativeMatrix(t *testing.T) {
 		{name: "whole percent", alter: func(c *Configuration) { c.Risk.MaximumAssetAllocation.Value = "25" }, code: "financial_value_out_of_range"},
 		{name: "unit", alter: func(c *Configuration) { c.Risk.MaximumDailyLoss.Unit = "percent" }, code: "invalid_unit"},
 		{name: "model", alter: func(c *Configuration) { c.Models.Fee = "remote-latest" }, code: "model_rejected"},
+		{name: "missing trend", alter: func(c *Configuration) { c.Trend = TrendConfiguration{} }, code: "invalid_trend_configuration"},
+		{name: "trend timeframe", alter: func(c *Configuration) { c.Trend.Timeframe = "1h" }, code: "invalid_trend_configuration"},
+		{name: "trend parameter metadata", alter: func(c *Configuration) { c.Trend.Parameters[0].Rounding = "ceiling" }, code: "invalid_trend_parameter"},
+		{name: "trend parameter range", alter: func(c *Configuration) { c.Trend.Parameters[0].Value = "0" }, code: "trend_parameter_out_of_range"},
+		{name: "trend duplicate", alter: func(c *Configuration) { c.Trend.Parameters[1].ID = c.Trend.Parameters[0].ID }, code: "invalid_trend_parameter"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -52,6 +57,26 @@ func TestConfigurationNegativeMatrix(t *testing.T) {
 				t.Fatalf("error code = %q, want %q", code, test.code)
 			}
 		})
+	}
+}
+
+func TestTrendConfigurationRecordsCompleteImmutableParameterContracts(t *testing.T) {
+	configuration := DefaultConfiguration()
+	if configuration.SchemaVersion != "axiom.config.v1a.2" || configuration.Trend.StrategyVersion != "trend.v1a.1" ||
+		configuration.Trend.Timeframe != "4h" || len(configuration.Trend.Parameters) != 16 {
+		t.Fatalf("trend graph = %#v", configuration.Trend)
+	}
+	for _, parameter := range configuration.Trend.Parameters {
+		if parameter.ID == "" || parameter.Description == "" || parameter.Value == "" || parameter.Unit == "" ||
+			parameter.Minimum == "" || parameter.Maximum == "" || parameter.Cadence == "" || parameter.WarmUp == "" ||
+			parameter.Mutability != "immutable_per_run" || len(parameter.ModelDependencies) == 0 {
+			t.Fatalf("incomplete trend parameter = %#v", parameter)
+		}
+	}
+	cloned := cloneConfiguration(configuration)
+	cloned.Trend.Parameters[0].ModelDependencies[0] = "mutated"
+	if configuration.Trend.Parameters[0].ModelDependencies[0] == "mutated" {
+		t.Fatal("configuration clone shared trend dependencies")
 	}
 }
 

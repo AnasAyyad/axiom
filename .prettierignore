@@ -1,5 +1,7 @@
 node_modules
 web/dist
+web/playwright-report
+web/test-results
 internal/api/static/dist
 web/src/api/generated
 pnpm-lock.yaml

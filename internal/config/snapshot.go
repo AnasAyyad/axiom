@@ -105,6 +105,10 @@ func cloneConfiguration(configuration Configuration) Configuration {
 	cloned := configuration
 	cloned.Assets = append([]domain.Asset(nil), configuration.Assets...)
 	cloned.Instruments = append([]Instrument(nil), configuration.Instruments...)
+	cloned.Trend.Parameters = append([]StrategyParameter(nil), configuration.Trend.Parameters...)
+	for index := range cloned.Trend.Parameters {
+		cloned.Trend.Parameters[index].ModelDependencies = append([]string(nil), configuration.Trend.Parameters[index].ModelDependencies...)
+	}
 	cloned.Capabilities = append([]CapabilityDisposition(nil), configuration.Capabilities...)
 	cloned.Secrets = append([]SecretReference(nil), configuration.Secrets...)
 	return cloned

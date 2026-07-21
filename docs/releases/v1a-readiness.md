@@ -15,21 +15,21 @@ current phase status is [implementation-status.md](../implementation-status.md).
 
 ## Release identity
 
-| Field                              | Value   |
-| ---------------------------------- | ------- |
-| Candidate version                  | `0.1.0-a6` local phase candidate |
-| Source commit                      | `6bbda3029031c8226bfaaba3478ecba958176a2a` plus the following evidence-only commit |
-| Clean-tree proof                   | Local predecessor fresh-checkout proof plus owner-verified clean hosted run for current commit |
-| Build/toolchain identity           | Local predecessor identity plus owner-verified hosted run `#4` for current commit |
+| Field                              | Value                                                                                                             |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Candidate version                  | `0.1.0-a6` local phase candidate                                                                                  |
+| Source commit                      | `6bbda3029031c8226bfaaba3478ecba958176a2a` plus the following evidence-only commit                                |
+| Clean-tree proof                   | Local predecessor fresh-checkout proof plus owner-verified clean hosted run for current commit                    |
+| Build/toolchain identity           | Local predecessor identity plus owner-verified hosted run `#4` for current commit                                 |
 | Image digest and SBOM              | Local predecessor digests; current hosted image/SBOM artifacts owner-verified, hashes not independently inspected |
-| Configuration/safety-manifest hash | Pending |
-| Dataset/soak manifest              | Pending |
-| Reference machine/load profile     | Pending |
-| Qualification start/end UTC        | Pending |
-| Product approver                   | Pending |
-| Security approver                  | Pending |
-| QA approver                        | Pending |
-| SRE approver                       | Pending |
+| Configuration/safety-manifest hash | Pending                                                                                                           |
+| Dataset/soak manifest              | Pending                                                                                                           |
+| Reference machine/load profile     | Pending                                                                                                           |
+| Qualification start/end UTC        | Pending                                                                                                           |
+| Product approver                   | Pending                                                                                                           |
+| Security approver                  | Pending                                                                                                           |
+| QA approver                        | Pending                                                                                                           |
+| SRE approver                       | Pending                                                                                                           |
 
 ## Evidence rules
 
@@ -58,20 +58,20 @@ current phase status is [implementation-status.md](../implementation-status.md).
 
 ## Phase summary
 
-| Phase | Owner                           | Entry dependency                      | Gate status | Evidence bundle                    |
-| ----- | ------------------------------- | ------------------------------------- | ----------- | ---------------------------------- |
-| A0    | Product, Architecture, Security | Authoritative spec and plan available | Verified    | [A0 review](evidence/a0-review.md) |
+| Phase | Owner                           | Entry dependency                      | Gate status | Evidence bundle                                                                                                                                                                  |
+| ----- | ------------------------------- | ------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A0    | Product, Architecture, Security | Authoritative spec and plan available | Verified    | [A0 review](evidence/a0-review.md)                                                                                                                                               |
 | A1    | Platform Engineering            | A0 verified                           | Verified    | [Local validation](evidence/a1-local-validation.md); [owner-verified hosted CI](evidence/a1-hosted-ci.md); [clean-machine walkthrough](evidence/a1-clean-machine-walkthrough.md) |
-| A2    | Domain Engineering              | A1 verified                           | Verified    | [Local validation](evidence/a2-local-validation.md) |
-| A3    | Runtime/Platform Engineering    | A2 verified                           | Verified    | [Local validation](evidence/a3-local-validation.md) |
-| A4    | Storage/Accounting              | A3 verified                           | Verified    | [Local validation](evidence/a4-local-progress.md) |
-| A5    | Security/SRE                    | A4 verified                           | Verified    | [Completion evidence](evidence/a5-local-progress.md) |
-| A6    | Exchange Platform               | A5 verified                           | Verified    | [Local validation](evidence/a6-local-validation.md) |
-| A7    | Binance Adapter Team            | A6 verified                           | Not started | Pending                            |
-| A8    | Execution/Research Platform     | A7 verified                           | Not started | Pending                            |
-| A9    | Portfolio/Risk Engineering      | A8 verified                           | Not started | Pending                            |
-| A10   | Strategy/Research               | A9 verified                           | Not started | Pending                            |
-| A11   | API/Frontend/Security           | A10 verified                          | Not started | Pending                            |
+| A2    | Domain Engineering              | A1 verified                           | Verified    | [Local validation](evidence/a2-local-validation.md)                                                                                                                              |
+| A3    | Runtime/Platform Engineering    | A2 verified                           | Verified    | [Local validation](evidence/a3-local-validation.md)                                                                                                                              |
+| A4    | Storage/Accounting              | A3 verified                           | Verified    | [Local validation](evidence/a4-local-progress.md)                                                                                                                                |
+| A5    | Security/SRE                    | A4 verified                           | Verified    | [Completion evidence](evidence/a5-local-progress.md)                                                                                                                             |
+| A6    | Exchange Platform               | A5 verified                           | Verified    | [Local validation](evidence/a6-local-validation.md)                                                                                                                              |
+| A7    | Binance Adapter Team            | A6 verified                           | Not started | Pending                                                                                                                                                                          |
+| A8    | Execution/Research Platform     | A7 verified                           | Not started | Pending                                                                                                                                                                          |
+| A9    | Portfolio/Risk Engineering      | A8 verified                           | Not started | Pending                                                                                                                                                                          |
+| A10   | Strategy/Research               | A9 verified                           | Not started | Pending                                                                                                                                                                          |
+| A11   | API/Frontend/Security           | A10 verified                          | Implemented | Local API/auth/worker/shadow/console acceptance passed; formal entry gate remains open                                                                                           |
 
 ## A0
 
@@ -221,7 +221,7 @@ Requirements: all `AX-V1A-A08-*` IDs. Entry: A7 verified.
 - [ ] Combined liquidity cannot be reused and confidence namespaces cannot mix.
 - [ ] Kill-point/fault matrix resumes without duplicate order/fill or lost state.
 
-Evidence register: pending.
+Evidence register: [A8 local validation](evidence/a8-local-validation.md).
 
 ## A9
 
@@ -235,7 +235,7 @@ Requirements: all `AX-V1A-A09-*` IDs. Entry: A8 verified.
 - [ ] Startup/reconciliation/restart tests reproduce exact portfolio and journal
       state and block entries on unresolved state.
 
-Evidence register: pending.
+Evidence register: [A9 local validation](evidence/a9-local-validation.md).
 
 ## A10
 
@@ -250,7 +250,9 @@ Requirements: all `AX-V1A-A10-*` IDs. Entry: A9 verified.
 - [ ] Backtest/replay/shadow, stress, confidence-interval, stability, benchmark,
       and uncertainty evidence is reproducible and makes no profitability claim.
 
-Evidence register: pending.
+Evidence register: [A10 local validation](evidence/a10-local-validation.md).
+Formal acceptance remains pending; the unchecked items above are not
+pre-approved by local implementation evidence.
 
 ## A11
 
@@ -267,7 +269,13 @@ Requirements: all `AX-V1A-A11-*` IDs. Entry: A10 verified.
 - [ ] Dependency/route/bundle/network inspection proves API/UI cannot enable real
       trading or bypass backend allocation/risk.
 
-Evidence register: pending.
+Evidence register: [A11 local implementation evidence](evidence/a11-local-validation.md).
+
+All six A11 behaviors above have passing local implementation evidence from a
+clean PostgreSQL 18 and unmocked browser qualification plus full repository,
+image, and Compose gates. The checkboxes remain open because the normative A10
+entry gate and prerequisite-ordered formal A7-A10 acceptance are not verified;
+local qualification does not pre-approve formal A11 acceptance.
 
 ## V1A release gate
 
@@ -298,16 +306,18 @@ Release decision: **Not evaluated; all evidence pending.**
 
 ## Known current limitations
 
-- The repository contains verified A1-A6 foundations and the implemented A7
-  production-public Binance collector/recorder. A7 remains gated on continuous
-  soak and final inspection; A8-A11 remain unimplemented.
+- The repository contains verified A1-A6 foundations, the implemented A7
+  production-public Binance collector/recorder, and locally implemented A8-A11
+  candidates. A7 remains gated on continuous soak and final inspection; formal
+  acceptance of the stacked A8-A11 candidates remains prerequisite-ordered.
 - A1 has a committed source identity, owner-verified hosted CI/supply-chain
   artifacts, local immutable-candidate evidence, and a completed clean-machine
   setup/governance walkthrough.
 - The A0 review is an independent Codex architecture/static audit, not an
   external human security assessment and not runtime or release certification.
 - A7 targeted unit, emulator, race, public-network, recorder-role, and short
-  qualification evidence exists. Later-phase accessibility and end-to-end
-  workflow evidence does not.
+  qualification evidence exists. A11 has current PostgreSQL 18,
+  desktop/mobile Playwright, image, and image-backed Compose evidence; it is
+  local implementation evidence, not formal phase acceptance.
 - The 72-hour Binance soak and clean backup/restore drill have not been executed.
 - A passing documentation review alone cannot advance A1–A11 or the release gate.

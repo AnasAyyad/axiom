@@ -1,15 +1,16 @@
 # Deterministic replay
 
-**Status:** Normative architecture contract; A3 runtime primitives implemented
+**Status:** Normative architecture contract; A10 cross-mode Trend composition locally implemented
 
 ## A3 implementation checkpoint
 
 `internal/runtime` now implements the canonical envelope, pre-fan-out ingest
 ordinal, strict two-field replay cursor, five-field derived-work scheduler,
 real and deterministic clocks, keyed random draws, sequence validation, and
-immutable market-view vectors described here. Strategy, simulator, checkpoint,
-and dataset compatibility behavior remains owned by A7-A10 and must not be
-inferred from these primitives.
+immutable market-view vectors described here. A8-A10 add the shared simulator,
+portfolio/risk, and Trend adapters with byte-identical candidate tests.
+Formal dataset qualification and the complete live-shadow workflow remain
+blocked by A7 and A11 respectively.
 
 ## Purpose
 
