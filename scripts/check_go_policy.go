@@ -142,6 +142,9 @@ func exportedSpecificationLeaks(specification ast.Spec, aliases map[string]struc
 }
 
 func containsAPD(node ast.Node, aliases map[string]struct{}) bool {
+	if node == nil {
+		return false
+	}
 	found := false
 	ast.Inspect(node, func(current ast.Node) bool {
 		selector, ok := current.(*ast.SelectorExpr)

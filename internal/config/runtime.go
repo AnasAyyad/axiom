@@ -50,6 +50,17 @@ type RecorderRuntime struct {
 	BookDepth     int
 }
 
+// AuthenticationRuntime contains only file references and exact browser origins.
+// It never carries a plaintext bootstrap password or exchange credential.
+type AuthenticationRuntime struct {
+	BootstrapOwnerEmailFile        string
+	BootstrapOwnerPasswordHashFile string
+	CSRFKeyFile                    string
+	SessionSigningKeyFile          string
+	AllowedOrigins                 []string
+	SecureCookies                  bool
+}
+
 // Runtime is the immutable A1 process configuration.
 type Runtime struct {
 	DeploymentEnvironment string
@@ -62,6 +73,7 @@ type Runtime struct {
 	ShutdownTimeout       time.Duration
 	Database              Database
 	Recorder              RecorderRuntime
+	Authentication        AuthenticationRuntime
 }
 
 // LoadRuntime validates the narrow A1 runtime configuration before resources open.
@@ -92,6 +104,10 @@ func LoadRuntime() (Runtime, error) {
 	if err != nil {
 		return Runtime{}, err
 	}
+	authenticationRuntime, err := loadAuthenticationRuntime()
+	if err != nil {
+		return Runtime{}, err
+	}
 	runtimeConfig := Runtime{
 		DeploymentEnvironment: value("DEPLOYMENT_ENV", "local"),
 		InstanceID:            value("APP_INSTANCE_ID", "axiom-local-01"),
@@ -103,11 +119,56 @@ func LoadRuntime() (Runtime, error) {
 		ShutdownTimeout:       shutdown,
 		Database:              database,
 		Recorder:              recorderRuntime,
+		Authentication:        authenticationRuntime,
 	}
 	if err := validateRuntime(runtimeConfig); err != nil {
 		return Runtime{}, err
 	}
 	return runtimeConfig, nil
+}
+
+func loadAuthenticationRuntime() (AuthenticationRuntime, error) {
+	origins, err := exactOrigins(value("WEB_ALLOWED_ORIGINS", "http://127.0.0.1:8080,http://localhost:8080"))
+	if err != nil {
+		return AuthenticationRuntime{}, err
+	}
+	secure := value("DEPLOYMENT_ENV", "local") != "local"
+	return AuthenticationRuntime{
+		BootstrapOwnerEmailFile:        value("AUTH_BOOTSTRAP_OWNER_EMAIL_FILE", "/run/secrets/bootstrap_owner_email"),
+		BootstrapOwnerPasswordHashFile: value("AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE", "/run/secrets/bootstrap_owner_password_hash"),
+		CSRFKeyFile:                    value("AUTH_CSRF_KEY_FILE", "/run/secrets/csrf_key"),
+		SessionSigningKeyFile:          value("AUTH_SESSION_SIGNING_KEY_FILE", "/run/secrets/session_signing_key"),
+		AllowedOrigins:                 origins,
+		SecureCookies:                  secure,
+	}, nil
+}
+
+func exactOrigins(raw string) ([]string, error) {
+	seen := make(map[string]struct{})
+	origins := make([]string, 0, 2)
+	for _, candidate := range strings.Split(raw, ",") {
+		candidate = strings.TrimSpace(candidate)
+		parsed, err := url.Parse(candidate)
+		if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" ||
+			(parsed.Path != "" && parsed.Path != "/") || (parsed.Scheme != "https" && parsed.Scheme != "http") ||
+			strings.Contains(candidate, "*") {
+			return nil, fmt.Errorf("invalid_configuration:WEB_ALLOWED_ORIGINS")
+		}
+		host := parsed.Hostname()
+		if parsed.Scheme == "http" && host != "localhost" && net.ParseIP(host) == nil {
+			return nil, fmt.Errorf("invalid_configuration:WEB_ALLOWED_ORIGINS")
+		}
+		canonical := parsed.Scheme + "://" + parsed.Host
+		if _, exists := seen[canonical]; exists {
+			continue
+		}
+		seen[canonical] = struct{}{}
+		origins = append(origins, canonical)
+	}
+	if len(origins) == 0 {
+		return nil, fmt.Errorf("invalid_configuration:WEB_ALLOWED_ORIGINS")
+	}
+	return origins, nil
 }
 
 func loadRecorderRuntime() (RecorderRuntime, error) {
@@ -220,6 +281,16 @@ func validateRuntime(runtimeConfig Runtime) error {
 	}
 	if !strings.HasPrefix(runtimeConfig.Database.PasswordFile, "/") {
 		return fmt.Errorf("invalid_configuration:DB_PASSWORD_FILE")
+	}
+	for _, secretPath := range []string{
+		runtimeConfig.Authentication.BootstrapOwnerEmailFile,
+		runtimeConfig.Authentication.BootstrapOwnerPasswordHashFile,
+		runtimeConfig.Authentication.CSRFKeyFile,
+		runtimeConfig.Authentication.SessionSigningKeyFile,
+	} {
+		if !filepath.IsAbs(secretPath) {
+			return fmt.Errorf("invalid_configuration:AUTH_SECRET_FILE")
+		}
 	}
 	switch runtimeConfig.Database.SSLMode {
 	case "disable", "require", "verify-ca", "verify-full":

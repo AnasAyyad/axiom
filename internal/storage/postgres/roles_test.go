@@ -47,6 +47,14 @@ func TestRuntimeMutationGrantsExcludeImmutableHistory(t *testing.T) {
 	}
 }
 
+func TestRuntimeMigrationLedgerGrantIsReadOnly(t *testing.T) {
+	read := grantSQL("SELECT", runtimeReadTables, `"axiom_runtime"`)
+	write := grantSQL("SELECT, INSERT", runtimeReadInsertTables, `"axiom_runtime"`)
+	if !strings.Contains(read, `"public"."schema_migrations"`) || strings.Contains(write, `"schema_migrations"`) {
+		t.Fatalf("runtime migration-ledger grants are not read-only: %s / %s", read, write)
+	}
+}
+
 func TestReadOnlyReportingExcludesCredentialTables(t *testing.T) {
 	statement := grantSQL("SELECT", readOnlyTables, `"axiom_readonly"`)
 	for _, forbidden := range []string{"users", "sessions", "authorization_roles", "user_roles"} {
@@ -67,7 +75,7 @@ func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 	}
 	groups := map[string][]string{
 		"runtime read/insert": runtimeReadInsertTables, "runtime update": runtimeUpdateTables,
-		"runtime delete": runtimeDeleteTables, "recorder read": recorderReadTables,
+		"runtime read": runtimeReadTables, "runtime delete": runtimeDeleteTables, "recorder read": recorderReadTables,
 		"recorder write": recorderWriteTables, "recorder append": recorderAppendTables,
 		"reporting read": readOnlyTables,
 	}
@@ -78,7 +86,9 @@ func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 				t.Fatalf("%s repeats %s", name, table)
 			}
 			seen[table] = struct{}{}
-			if !strings.Contains(schema.String(), "create table "+table+" (") {
+			// The migration ledger is created transactionally by ApplyMigrations
+			// before the versioned migration files are executed.
+			if table != "schema_migrations" && !strings.Contains(schema.String(), "create table "+table+" (") {
 				t.Fatalf("%s references absent table %s", name, table)
 			}
 		}

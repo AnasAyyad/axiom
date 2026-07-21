@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"sort"
 	"sync"
 
 	"axiom/internal/domain"
@@ -34,12 +35,25 @@ type BalanceSnapshot struct {
 
 // Reservation is immutable reservation state at one revision.
 type Reservation struct {
-	ID       domain.ReservationID
-	Balance  BalanceKey
-	Quantity domain.Balance
-	State    ReservationState
-	Fence    runtimecore.FencingToken
-	Revision uint64
+	ID        domain.ReservationID
+	Balance   BalanceKey
+	Quantity  domain.Balance
+	Remaining domain.Balance
+	State     ReservationState
+	Fence     runtimecore.FencingToken
+	Revision  uint64
+}
+
+// OwnedBalanceState is one canonical ledger-owned balance projection.
+type OwnedBalanceState struct {
+	Key      BalanceKey
+	Snapshot BalanceSnapshot
+}
+
+// ReservationLedgerState is a canonical restart-safe ownership checkpoint.
+type ReservationLedgerState struct {
+	Balances     []OwnedBalanceState
+	Reservations []Reservation
 }
 
 // ReservationLedger serializes virtual ownership and reservation lifecycle.
@@ -54,6 +68,85 @@ func NewReservationLedger() *ReservationLedger {
 	return &ReservationLedger{
 		balances: make(map[BalanceKey]BalanceSnapshot), reservations: make(map[string]Reservation),
 	}
+}
+
+// State returns deterministically ordered owned balances and reservation facts.
+func (ledger *ReservationLedger) State() ReservationLedgerState {
+	ledger.mutex.Lock()
+	defer ledger.mutex.Unlock()
+	state := ReservationLedgerState{Balances: make([]OwnedBalanceState, 0, len(ledger.balances)),
+		Reservations: make([]Reservation, 0, len(ledger.reservations))}
+	for key, snapshot := range ledger.balances {
+		state.Balances = append(state.Balances, OwnedBalanceState{Key: key, Snapshot: snapshot})
+	}
+	for _, reservation := range ledger.reservations {
+		state.Reservations = append(state.Reservations, reservation)
+	}
+	sort.Slice(state.Balances, func(left, right int) bool {
+		leftKey := state.Balances[left].Key.Account.String() + "/" + string(state.Balances[left].Key.Asset)
+		rightKey := state.Balances[right].Key.Account.String() + "/" + string(state.Balances[right].Key.Asset)
+		return leftKey < rightKey
+	})
+	sort.Slice(state.Reservations, func(left, right int) bool {
+		return state.Reservations[left].ID.String() < state.Reservations[right].ID.String()
+	})
+	return state
+}
+
+// RestoreReservationLedger validates and restores one complete ownership checkpoint.
+func RestoreReservationLedger(state ReservationLedgerState) (*ReservationLedger, error) {
+	if len(state.Balances) == 0 {
+		return nil, accountingError("reservation_state_invalid")
+	}
+	ledger := NewReservationLedger()
+	zero, _ := domain.ParseBalance("0")
+	held := make(map[BalanceKey]domain.Balance)
+	for _, item := range state.Balances {
+		if !validBalanceKey(item.Key) || item.Snapshot.Revision == 0 {
+			return nil, accountingError("reservation_state_invalid")
+		}
+		if _, exists := ledger.balances[item.Key]; exists {
+			return nil, accountingError("reservation_state_invalid")
+		}
+		ledger.balances[item.Key] = item.Snapshot
+		held[item.Key] = zero
+	}
+	for _, reservation := range state.Reservations {
+		if reservation.ID.Value() == "" || reservation.Revision == 0 || reservation.Fence == 0 ||
+			!positive(reservation.Quantity) || !knownReservationState(reservation.State) ||
+			reservation.Remaining.Compare(reservation.Quantity) > 0 {
+			return nil, accountingError("reservation_state_invalid")
+		}
+		open := reservation.State == ReservationActive || reservation.State == ReservationQuarantined
+		if (open && !positive(reservation.Remaining)) || (!open && reservation.Remaining.Compare(zero) != 0) {
+			return nil, accountingError("reservation_state_invalid")
+		}
+		if _, exists := ledger.balances[reservation.Balance]; !exists {
+			return nil, accountingError("reservation_state_invalid")
+		}
+		if _, exists := ledger.reservations[reservation.ID.String()]; exists {
+			return nil, accountingError("reservation_state_invalid")
+		}
+		if open {
+			quantity, err := held[reservation.Balance].Add(reservation.Remaining)
+			if err != nil {
+				return nil, accountingError("reservation_state_invalid")
+			}
+			held[reservation.Balance] = quantity
+		}
+		ledger.reservations[reservation.ID.String()] = reservation
+	}
+	for key, balance := range ledger.balances {
+		if balance.Reserved.Compare(held[key]) != 0 {
+			return nil, accountingError("reservation_state_invalid")
+		}
+	}
+	return ledger, nil
+}
+
+func knownReservationState(state ReservationState) bool {
+	return state == ReservationActive || state == ReservationConsumed || state == ReservationReleased ||
+		state == ReservationExpired || state == ReservationQuarantined
 }
 
 // OpenBalance creates one unique virtual balance with no reserved amount.
@@ -95,7 +188,8 @@ func (ledger *ReservationLedger) Reserve(id domain.ReservationID, key BalanceKey
 	}
 	balance.Available, balance.Reserved, balance.Revision = available, reserved, balance.Revision+1
 	reservation := Reservation{
-		ID: id, Balance: key, Quantity: quantity, State: ReservationActive, Fence: fence, Revision: 1,
+		ID: id, Balance: key, Quantity: quantity, Remaining: quantity,
+		State: ReservationActive, Fence: fence, Revision: 1,
 	}
 	ledger.balances[key], ledger.reservations[id.String()] = balance, reservation
 	return reservation, nil
@@ -119,6 +213,87 @@ func (ledger *ReservationLedger) Expire(id domain.ReservationID, expectedRevisio
 // Quarantine closes uncertain ownership while keeping its quantity unavailable.
 func (ledger *ReservationLedger) Quarantine(id domain.ReservationID, expectedRevision uint64, fence runtimecore.FencingToken) error {
 	return ledger.transition(id, expectedRevision, fence, ReservationQuarantined, false, false)
+}
+
+// Settle atomically consumes reserved source ownership and credits acquired proceeds.
+func (ledger *ReservationLedger) Settle(
+	id domain.ReservationID,
+	expectedRevision uint64,
+	fence runtimecore.FencingToken,
+	debitQuantity domain.Balance,
+	creditKey BalanceKey,
+	creditQuantity domain.Balance,
+) error {
+	_, err := ledger.SettleFill(id, expectedRevision, fence, debitQuantity, creditKey, creditQuantity, true)
+	return err
+}
+
+// SettleFill atomically settles one fill while retaining unused ownership for later partial fills.
+func (ledger *ReservationLedger) SettleFill(
+	id domain.ReservationID,
+	expectedRevision uint64,
+	fence runtimecore.FencingToken,
+	debitQuantity domain.Balance,
+	creditKey BalanceKey,
+	creditQuantity domain.Balance,
+	final bool,
+) (Reservation, error) {
+	ledger.mutex.Lock()
+	defer ledger.mutex.Unlock()
+	reservation, exists := ledger.reservations[id.String()]
+	credit, creditExists := ledger.balances[creditKey]
+	if !exists || !creditExists || reservation.State != ReservationActive || reservation.Revision != expectedRevision ||
+		reservation.Fence != fence || reservation.Balance == creditKey || !positive(debitQuantity) || !positive(creditQuantity) {
+		return Reservation{}, accountingError("reservation_settlement_rejected")
+	}
+	return ledger.settleFillLocked(id, reservation, creditKey, credit, debitQuantity, creditQuantity, final)
+}
+
+func (ledger *ReservationLedger) settleFillLocked(
+	id domain.ReservationID,
+	reservation Reservation,
+	creditKey BalanceKey,
+	credit BalanceSnapshot,
+	debitQuantity domain.Balance,
+	creditQuantity domain.Balance,
+	final bool,
+) (Reservation, error) {
+	source := ledger.balances[reservation.Balance]
+	remaining, err := reservation.Remaining.Subtract(debitQuantity)
+	if err != nil {
+		return Reservation{}, accountingError("reservation_settlement_rejected")
+	}
+	zero, _ := domain.ParseBalance("0")
+	if !final && remaining.Compare(zero) == 0 {
+		return Reservation{}, accountingError("reservation_settlement_rejected")
+	}
+	reserved, err := source.Reserved.Subtract(debitQuantity)
+	if err != nil {
+		return Reservation{}, accountingError("reservation_projection_invalid")
+	}
+	availableSource := source.Available
+	if final {
+		reserved, err = reserved.Subtract(remaining)
+		if err == nil {
+			availableSource, err = availableSource.Add(remaining)
+		}
+		if err != nil {
+			return Reservation{}, accountingError("reservation_projection_invalid")
+		}
+	}
+	available, err := credit.Available.Add(creditQuantity)
+	if err != nil {
+		return Reservation{}, accountingError("balance_overflow")
+	}
+	source.Available, source.Reserved, source.Revision = availableSource, reserved, source.Revision+1
+	credit.Available, credit.Revision = available, credit.Revision+1
+	reservation.Remaining, reservation.Revision = remaining, reservation.Revision+1
+	if final {
+		reservation.Remaining, reservation.State = zero, ReservationConsumed
+	}
+	ledger.balances[reservation.Balance], ledger.balances[creditKey] = source, credit
+	ledger.reservations[id.String()] = reservation
+	return reservation, nil
 }
 
 // Balance returns a consistent exact ownership snapshot.
@@ -153,13 +328,13 @@ func (ledger *ReservationLedger) transition(
 	}
 	balance := ledger.balances[reservation.Balance]
 	if removeReserved {
-		reserved, err := balance.Reserved.Subtract(reservation.Quantity)
+		reserved, err := balance.Reserved.Subtract(reservation.Remaining)
 		if err != nil {
 			return accountingError("reservation_projection_invalid")
 		}
 		balance.Reserved = reserved
 		if release {
-			balance.Available, err = balance.Available.Add(reservation.Quantity)
+			balance.Available, err = balance.Available.Add(reservation.Remaining)
 			if err != nil {
 				return accountingError("balance_overflow")
 			}
@@ -167,6 +342,9 @@ func (ledger *ReservationLedger) transition(
 		balance.Revision++
 	}
 	reservation.State, reservation.Revision = next, reservation.Revision+1
+	if removeReserved {
+		reservation.Remaining, _ = domain.ParseBalance("0")
+	}
 	ledger.balances[reservation.Balance], ledger.reservations[id.String()] = balance, reservation
 	return nil
 }

@@ -22,6 +22,29 @@ func TestLoadRuntimeUsesSafeDefaults(t *testing.T) {
 		configuration.Recorder.BookDepth != 1000 {
 		t.Fatalf("unexpected recorder defaults: %#v", configuration.Recorder)
 	}
+	if configuration.Authentication.SecureCookies || len(configuration.Authentication.AllowedOrigins) != 2 {
+		t.Fatalf("unexpected authentication defaults: %#v", configuration.Authentication)
+	}
+}
+
+func TestLoadRuntimeValidatesAuthenticationBoundary(t *testing.T) {
+	clearRuntimeEnvironment(t)
+	for _, origins := range []string{"", "*", "https://user@example.invalid", "http://example.invalid", "https://example.invalid/path"} {
+		t.Setenv("WEB_ALLOWED_ORIGINS", origins)
+		if _, err := LoadRuntime(); err == nil {
+			t.Fatalf("unsafe origins accepted: %q", origins)
+		}
+	}
+	t.Setenv("WEB_ALLOWED_ORIGINS", "https://research.example.invalid,http://localhost:5173")
+	t.Setenv("DEPLOYMENT_ENV", "shadow")
+	configuration, err := LoadRuntime()
+	if err != nil || !configuration.Authentication.SecureCookies {
+		t.Fatalf("secure deployment authentication rejected: %#v %v", configuration.Authentication, err)
+	}
+	t.Setenv("AUTH_CSRF_KEY_FILE", "relative")
+	if _, err := LoadRuntime(); err == nil {
+		t.Fatal("relative authentication secret accepted")
+	}
 }
 
 func TestLoadRuntimeRejectsUnsafeSafetyValues(t *testing.T) {
@@ -126,6 +149,8 @@ func clearRuntimeEnvironment(t *testing.T) {
 		"ALERT_WEBHOOK_ENABLED", "ALERT_WEBHOOK_URL", "ALERT_WEBHOOK_ALLOWED_HOST", "ALERT_WEBHOOK_TOKEN_FILE",
 		"OTEL_TRACING_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT",
 		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH",
+		"AUTH_BOOTSTRAP_OWNER_EMAIL_FILE", "AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE", "AUTH_CSRF_KEY_FILE", "AUTH_SESSION_SIGNING_KEY_FILE", "WEB_ALLOWED_ORIGINS",
+		"DEPLOYMENT_ENV",
 	} {
 		t.Setenv(key, "")
 	}
@@ -138,6 +163,8 @@ func clearRuntimeEnvironment(t *testing.T) {
 		"ALERT_WEBHOOK_ENABLED", "ALERT_WEBHOOK_URL", "ALERT_WEBHOOK_ALLOWED_HOST", "ALERT_WEBHOOK_TOKEN_FILE",
 		"OTEL_TRACING_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT",
 		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH",
+		"AUTH_BOOTSTRAP_OWNER_EMAIL_FILE", "AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE", "AUTH_CSRF_KEY_FILE", "AUTH_SESSION_SIGNING_KEY_FILE", "WEB_ALLOWED_ORIGINS",
+		"DEPLOYMENT_ENV",
 	} {
 		t.Setenv(key, defaultForUnset(key))
 	}
@@ -156,6 +183,11 @@ func defaultForUnset(key string) string {
 		"OTEL_TRACING_ENABLED": "false", "OTEL_EXPORTER_OTLP_ENDPOINT": "",
 		"RECORDER_ROOT": "/var/lib/axiom/market-data", "RECORDER_FLUSH_INTERVAL": "5m",
 		"MARKET_EVENT_QUEUE_CAPACITY": "16384", "ORDER_BOOK_RETAINED_DEPTH": "1000",
+		"AUTH_BOOTSTRAP_OWNER_EMAIL_FILE":         "/run/secrets/bootstrap_owner_email",
+		"AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE": "/run/secrets/bootstrap_owner_password_hash",
+		"AUTH_CSRF_KEY_FILE":                      "/run/secrets/csrf_key",
+		"AUTH_SESSION_SIGNING_KEY_FILE":           "/run/secrets/session_signing_key",
+		"WEB_ALLOWED_ORIGINS":                     "http://127.0.0.1:8080,http://localhost:8080", "DEPLOYMENT_ENV": "local",
 	}
 	return defaults[key]
 }

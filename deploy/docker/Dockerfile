@@ -27,14 +27,17 @@ ARG DIRTY=true
 ENV CGO_ENABLED=0
 WORKDIR /src
 COPY go.mod go.sum ./
+COPY pnpm-lock.yaml ./
 RUN --mount=type=cache,id=axiom-go-mod,target=/go/pkg/mod \
     go mod download
 COPY cmd cmd
 COPY internal internal
 COPY --from=web-build /src/web/dist /src/internal/api/static/dist
 RUN --mount=type=cache,id=axiom-go-build,target=/root/.cache/go-build \
+    GO_SUM_HASH="$(sha256sum go.sum | cut -d' ' -f1)" && \
+    PNPM_LOCK_HASH="$(sha256sum pnpm-lock.yaml | cut -d' ' -f1)" && \
     go build -trimpath \
-    -ldflags "-s -w -X axiom/internal/buildinfo.Version=${VERSION} -X axiom/internal/buildinfo.Commit=${COMMIT} -X axiom/internal/buildinfo.BuiltAt=${BUILT_AT} -X axiom/internal/buildinfo.Dirty=${DIRTY}" \
+    -ldflags "-s -w -X axiom/internal/buildinfo.Version=${VERSION} -X axiom/internal/buildinfo.Commit=${COMMIT} -X axiom/internal/buildinfo.BuiltAt=${BUILT_AT} -X axiom/internal/buildinfo.Dirty=${DIRTY} -X axiom/internal/buildinfo.GoSumHash=${GO_SUM_HASH} -X axiom/internal/buildinfo.PNPMLockHash=${PNPM_LOCK_HASH}" \
     -o /out/platform ./cmd/platform
 
 FROM scratch AS runtime

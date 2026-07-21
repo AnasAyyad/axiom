@@ -31,6 +31,8 @@ type Options struct {
 	Dependency Dependency
 	Lifecycle  LifecycleState
 	Authorize  func(*http.Request) bool
+	Phase      generated.HealthResponsePhase
+	OmitStatus bool
 }
 
 // NewBearerAuthorizer returns a constant-time authorizer that retains only a
@@ -57,7 +59,9 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("/health/ready", getOnly(readiness(options)))
 	mux.HandleFunc("/api/v1/system/version", getOnly(version(options)))
 	mux.HandleFunc("/api/v1/system/build", getOnly(build(options)))
-	mux.HandleFunc("/api/v1/system/status", getOnly(status(options)))
+	if !options.OmitStatus {
+		mux.HandleFunc("/api/v1/system/status", getOnly(status(options)))
+	}
 	mux.HandleFunc("/api/v1/system/health", getOnly(detailed(options)))
 }
 
@@ -80,8 +84,10 @@ func detailed(options Options) http.HandlerFunc {
 		var reason *generated.HealthComponentReasonCode
 		if options.Dependency == nil || options.Dependency.Ping(ctx) != nil {
 			status, componentStatus, statusCode = generated.DetailedHealthResponseStatusNotReady, generated.HealthComponentStatusNotReady, http.StatusServiceUnavailable
-			value := generated.RequiredDependencyUnavailable
+			value := generated.HealthComponentReasonCodeRequiredDependencyUnavailable
 			reason = &value
+		} else if !lifecycleReady(options) {
+			status, statusCode = generated.DetailedHealthResponseStatusNotReady, http.StatusServiceUnavailable
 		}
 		writeJSON(writer, statusCode, generated.DetailedHealthResponse{
 			Status: status, Role: options.Role, LifecycleState: generated.DetailedHealthResponseLifecycleState(state),
@@ -96,7 +102,7 @@ func liveness(options Options) http.HandlerFunc {
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
 			Status: generated.Live,
 			Role:   options.Role,
-			Phase:  generated.HealthResponsePhaseA1,
+			Phase:  responsePhase(options),
 		})
 	}
 }
@@ -105,18 +111,35 @@ func readiness(options Options) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		ctx, cancel := context.WithTimeout(request.Context(), readinessTimeout)
 		defer cancel()
-		if options.Dependency == nil || options.Dependency.Ping(ctx) != nil {
-			reason := "required_dependency_unavailable"
+		reason := ""
+		switch {
+		case options.Dependency == nil || options.Dependency.Ping(ctx) != nil:
+			reason = "required_dependency_unavailable"
+		case !lifecycleReady(options):
+			reason = "bootstrap_required"
+		}
+		if reason != "" {
 			writeJSON(writer, http.StatusServiceUnavailable, generated.HealthResponse{
 				Status: generated.NotReady, Role: options.Role,
-				Phase: generated.HealthResponsePhaseA1, ReasonCode: &reason,
+				Phase: responsePhase(options), ReasonCode: &reason,
 			})
 			return
 		}
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
-			Status: generated.Ready, Role: options.Role, Phase: generated.HealthResponsePhaseA1,
+			Status: generated.Ready, Role: options.Role, Phase: responsePhase(options),
 		})
 	}
+}
+
+func lifecycleReady(options Options) bool {
+	return options.Lifecycle == nil || options.Lifecycle() == generated.SystemStatusLifecycleStateREADYPAUSED
+}
+
+func responsePhase(options Options) generated.HealthResponsePhase {
+	if options.Phase.Valid() {
+		return options.Phase
+	}
+	return generated.HealthResponsePhaseA1
 }
 
 func version(options Options) http.HandlerFunc {
@@ -144,7 +167,8 @@ func status(options Options) http.HandlerFunc {
 		writeJSON(writer, http.StatusOK, generated.SystemStatus{
 			Release: generated.V1A, Phase: generated.SystemStatusPhaseA1,
 			Role: options.Role, LifecycleState: state,
-			StrategyActivation: generated.Unavailable, RealTradingEnabled: generated.SystemStatusRealTradingEnabledFalse,
+			StrategyActivation: generated.SystemStatusStrategyActivationUnavailable,
+			RealTradingEnabled: generated.SystemStatusRealTradingEnabledFalse,
 		})
 	}
 }

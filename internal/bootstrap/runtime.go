@@ -11,6 +11,8 @@ import (
 
 	"axiom/internal/alerting"
 	"axiom/internal/api"
+	"axiom/internal/api/console"
+	"axiom/internal/api/generated"
 	"axiom/internal/api/health"
 	"axiom/internal/buildinfo"
 	"axiom/internal/config"
@@ -38,7 +40,7 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product conf
 	if err != nil {
 		return err
 	}
-	recorderWork, err := recorderWorkForRole(ctx, pool, runtimeConfig, product, role)
+	work, err := workForRole(ctx, pool, runtimeConfig, product, role)
 	if err != nil {
 		return err
 	}
@@ -51,8 +53,8 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product conf
 	)
 	roleContext, cancelRole := context.WithCancel(tracedContext)
 	defer cancelRole()
-	workState, serveErrors := attachRecorderWork(roleContext, recorderWork, serveErrors, logger)
-	go markReady(roleContext, pool, state, services.metrics, services.alerts, logger, role, workState.ready)
+	workState, serveErrors := attachRoleWork(roleContext, work, serveErrors, logger)
+	go markReady(roleContext, services.health.Dependency, state, services.metrics, services.alerts, logger, role, workState.ready)
 	if services.sink != nil {
 		go retryAlertDeliveries(roleContext, services.alerts, logger)
 	}
@@ -69,17 +71,28 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product conf
 	return runErr
 }
 
-func recorderWorkForRole(
+type roleWork interface {
+	Run(context.Context, *slog.Logger) error
+	Ready() bool
+}
+
+func workForRole(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	role string,
-) (*recorderRoleWork, error) {
-	if role != "recorder" {
+) (roleWork, error) {
+	switch role {
+	case "recorder":
+		return newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
+	case "worker":
+		return newA11WorkerRoleWork(pool, runtimeConfig)
+	case "engine-shadow":
+		return newA11LiveShadowRoleWork(pool, runtimeConfig)
+	default:
 		return nil, nil
 	}
-	return newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
 }
 
 type roleWorkState struct {
@@ -88,9 +101,9 @@ type roleWorkState struct {
 	result   *error
 }
 
-func attachRecorderWork(
+func attachRoleWork(
 	ctx context.Context,
-	work *recorderRoleWork,
+	work roleWork,
 	serveErrors <-chan error,
 	logger *slog.Logger,
 ) (roleWorkState, <-chan error) {
@@ -101,6 +114,9 @@ func attachRecorderWork(
 	var result error
 	go func() {
 		result = work.Run(ctx, logger)
+		if result != nil {
+			logger.Error("role work failed", "event_code", "role_work_failed", "cause", result)
+		}
 		workErrors <- result
 		close(finished)
 	}()
@@ -113,7 +129,7 @@ func (state roleWorkState) wait(runErr error) error {
 	}
 	<-state.finished
 	if *state.result != nil && runErr == nil {
-		return fmt.Errorf("recorder_role_failed")
+		return fmt.Errorf("role_work_failed")
 	}
 	return runErr
 }
@@ -133,6 +149,7 @@ type roleServices struct {
 	alerts  *alerting.Service
 	sink    alerting.Sink
 	tracing *observability.Tracing
+	console *console.Options
 }
 
 func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig config.Runtime, product config.Configuration, role string, state *lifecycleState) (roleServices, error) {
@@ -146,6 +163,13 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	}
 	options := health.Options{
 		Role: role, Build: buildinfo.Current(), Dependency: pool, Lifecycle: state.current, Authorize: authorize,
+	}
+	var consoleOptions *console.Options
+	if role == "api" {
+		setup := setupA11Console(ctx, pool, runtimeConfig)
+		options.Dependency = setup.dependency
+		options.Phase = generated.HealthResponsePhaseA11
+		consoleOptions = setup.options
 	}
 	metrics, err := observability.NewMetrics(role, metricCatalog(product))
 	if err != nil {
@@ -171,7 +195,7 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	if err != nil {
 		return roleServices{}, err
 	}
-	return roleServices{health: options, metrics: metrics, alerts: alertService, sink: sink, tracing: tracing}, nil
+	return roleServices{health: options, metrics: metrics, alerts: alertService, sink: sink, tracing: tracing, console: consoleOptions}, nil
 }
 
 func newAlertSink(configuration config.AlertWebhook) (alerting.Sink, error) {
@@ -193,7 +217,11 @@ func startRoleServers(runtimeConfig config.Runtime, includeUI bool, services rol
 	operationalServer := newHTTPServer(runtimeConfig.MetricsBindAddress, api.NewOperationalRouter(services.health, services.metrics.Handler()))
 	servers := []*http.Server{operationalServer}
 	if includeUI {
-		servers = append(servers, newHTTPServer(runtimeConfig.HTTPBindAddress, api.NewRouter(services.health)))
+		if services.console != nil {
+			servers = append(servers, newHTTPServer(runtimeConfig.HTTPBindAddress, api.NewRouter(services.health, *services.console)))
+		} else {
+			servers = append(servers, newHTTPServer(runtimeConfig.HTTPBindAddress, api.NewRouter(services.health)))
+		}
 	}
 	listeners := make([]net.Listener, 0, len(servers))
 	for _, server := range servers {
@@ -251,7 +279,7 @@ func newHTTPServer(address string, handler http.Handler) *http.Server {
 
 func markReady(
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	dependency health.Dependency,
 	state *lifecycleState,
 	metrics *observability.Metrics,
 	alerts *alerting.Service,
@@ -265,7 +293,7 @@ func markReady(
 	faultPending := false
 	for {
 		pingContext, cancel := context.WithTimeout(ctx, 2*time.Second)
-		err := pool.Ping(pingContext)
+		err := dependency.Ping(pingContext)
 		cancel()
 		ready := err == nil && (additionalReady == nil || additionalReady())
 		_ = metrics.SetDependencyReady("postgres", ready)

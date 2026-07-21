@@ -180,6 +180,7 @@ jobs:
           output: artifacts/trivy.sarif
           scanners: vuln,secret,misconfig,license
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           ignore-unfixed: false
           exit-code: "1"
       - name: Record image digest

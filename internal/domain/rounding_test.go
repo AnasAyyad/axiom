@@ -25,6 +25,19 @@ func TestExchangeRoundingDirections(t *testing.T) {
 	}
 }
 
+func TestMarketableLimitRoundingUsesSideSafeDirections(t *testing.T) {
+	requested := mustPrice(t, "100.001")
+	tick := mustPrice(t, "0.01")
+	buy, err := RoundMarketableLimitPrice(SideBuy, requested, tick)
+	if err != nil || buy.String() != "100.01" {
+		t.Fatalf("marketable buy = %s %v", buy.String(), err)
+	}
+	sell, err := RoundMarketableLimitPrice(SideSell, requested, tick)
+	if err != nil || sell.String() != "100" {
+		t.Fatalf("marketable sell = %s %v", sell.String(), err)
+	}
+}
+
 func TestNotionalAndFeeRounding(t *testing.T) {
 	notional, err := CalculateNotional(mustPrice(t, "12.345"), mustQuantity(t, "2"), 2)
 	if err != nil || notional.String() != "24.69" {

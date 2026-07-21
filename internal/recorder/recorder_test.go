@@ -49,6 +49,33 @@ func TestRecorderLinksWireCanonicalAndValidatesManifestChain(t *testing.T) {
 	verifySecondManifest(t, root, recorder, manifest, created)
 }
 
+func TestDecisionInputUsesRawBeforeCanonicalDatasetBoundary(t *testing.T) {
+	recorder, err := testRecorder(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte(`{"ordinal":1,"logical_time":10}`)
+	ordinal, err := recorder.RecordDecisionInputBuilt(DecisionInput{Instrument: recorderInstrument(t),
+		EventID: "decision-input-1", LogicalTime: 10, ReceivedAt: time.Unix(1, 0).UTC()},
+		func(assigned uint64) ([]byte, error) {
+			if assigned != 1 {
+				t.Fatalf("assigned ordinal = %d", assigned)
+			}
+			return payload, nil
+		})
+	if err != nil || ordinal != 1 {
+		t.Fatalf("decision input ordinal = %d, %v", ordinal, err)
+	}
+	manifest, err := recorder.Flush()
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := ValidateDataset(recorder.root, manifest)
+	if err != nil || len(records) != 1 || string(records[0].Canonical) != string(payload) {
+		t.Fatalf("decision dataset = %#v, %v", records, err)
+	}
+}
+
 func verifyFirstManifest(t *testing.T, root string, recorder *Recorder, manifest DatasetManifest) {
 	t.Helper()
 	path := filepath.Join(root, "session-a7-000001.dataset.json")
@@ -96,8 +123,8 @@ func TestRecorderRejectsMissingDuplicateAndMutatedLinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if manifest, flushErr := recorder.Flush(); flushErr != nil || manifest.Revision != 0 {
-		t.Fatalf("in-flight flush manifest=%#v error=%v", manifest, flushErr)
+	if _, flushErr := recorder.Flush(); recorderCode(flushErr) != "segment_incomplete" {
+		t.Fatalf("in-flight final flush error=%v", flushErr)
 	}
 	bad := link
 	bad.PayloadHash[0]++
@@ -125,9 +152,9 @@ func TestRecorderPeriodicFlushKeepsInFlightSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstManifest, err := recorder.Flush()
-	if err != nil || firstManifest.Revision != 1 || firstManifest.RawRecordCount != 1 {
-		t.Fatalf("first flush=%#v error=%v", firstManifest, err)
+	firstManifest, flushed, err := recorder.FlushReady()
+	if err != nil || !flushed || firstManifest.Revision != 1 || firstManifest.RawRecordCount != 1 {
+		t.Fatalf("first periodic flush=%#v flushed=%t error=%v", firstManifest, flushed, err)
 	}
 	if raw, canonical := recorder.PendingCounts(); raw != 1 || canonical != 0 {
 		t.Fatalf("deferred counts=%d/%d", raw, canonical)
@@ -184,6 +211,28 @@ func TestRecorderIOErrorClassifiesQualificationFailures(t *testing.T) {
 		if !ok || detail.Cause != test.cause || detail.Errno == 0 || detail.Stage != "manifest_write" {
 			t.Fatalf("error=%v detail=%#v", test.err, detail)
 		}
+	}
+}
+
+func TestRecorderFlushReadyWaitsForFirstCanonicalPair(t *testing.T) {
+	recorder, err := testRecorder(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link, err := recorder.RecordRaw(rawInput(t, 1, []byte(`{"wire":1}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest, flushed, flushErr := recorder.FlushReady(); flushErr != nil || flushed || manifest.Revision != 0 {
+		t.Fatalf("in-flight ready flush = %#v %t %v", manifest, flushed, flushErr)
+	}
+	if err = recorder.RecordCanonical(CanonicalInput{Link: link, EventID: eventID(link.IngestOrdinal),
+		ParserVersion: "parser-v1", NormalizationVersion: "normalizer-v1", Canonical: []byte(`{"canonical":1}`)}); err != nil {
+		t.Fatal(err)
+	}
+	manifest, flushed, err := recorder.FlushReady()
+	if err != nil || !flushed || manifest.RawRecordCount != 1 || manifest.CanonicalCount != 1 {
+		t.Fatalf("completed ready flush = %#v %t %v", manifest, flushed, err)
 	}
 }
 

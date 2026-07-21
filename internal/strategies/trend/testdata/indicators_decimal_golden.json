@@ -1,0 +1,21 @@
+{
+  "generator": "research/src/axiom_research/indicators.py",
+  "precision": 38,
+  "scale": 18,
+  "rounding": "ROUND_HALF_EVEN",
+  "ema": {
+    "period": 3,
+    "values": ["1", "2", "3", "4", "5"],
+    "expected": "4"
+  },
+  "atr": {
+    "period": 3,
+    "candles": [
+      {"high": "10", "low": "8", "close": "9"},
+      {"high": "12", "low": "9", "close": "11"},
+      {"high": "13", "low": "10", "close": "12"},
+      {"high": "14", "low": "11", "close": "13"}
+    ],
+    "expected": "2.777777777777777778"
+  }
+}

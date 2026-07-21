@@ -96,6 +96,18 @@ func (value Notional) Compare(other Notional) int { return value.compare(other.d
 // Compare orders money amounts by numeric value.
 func (value Money) Compare(other Money) int { return value.compare(other.decimalValue) }
 
+// Compare orders fees by numeric value.
+func (value Fee) Compare(other Fee) int { return value.compare(other.decimalValue) }
+
+// Add returns an exact fee sum in the same commodity.
+func (value Fee) Add(other Fee) (Fee, error) {
+	result, err := addDecimal("fee_add", value.decimalValue, other.decimalValue)
+	return Fee{result}, err
+}
+
+// Compare orders rates by numeric value.
+func (value Rate) Compare(other Rate) int { return value.compare(other.decimalValue) }
+
 // Add returns an exact money sum.
 func (value Money) Add(other Money) (Money, error) {
 	result, err := addDecimal("money_add", value.decimalValue, other.decimalValue)
@@ -116,6 +128,18 @@ func (value Money) Subtract(other Money) (Money, error) {
 
 // Compare orders decimal percentages by numeric value.
 func (value Percent) Compare(other Percent) int { return value.compare(other.decimalValue) }
+
+// Add returns an exact percentage sum.
+func (value Percent) Add(other Percent) (Percent, error) {
+	result, err := addDecimal("percent_add", value.decimalValue, other.decimalValue)
+	return Percent{result}, err
+}
+
+// Subtract returns an exact non-negative percentage difference.
+func (value Percent) Subtract(other Percent) (Percent, error) {
+	result, err := subtractDecimal("percent_subtract", value.decimalValue, other.decimalValue, false)
+	return Percent{result}, err
+}
 
 // Add returns an exact quantity sum.
 func (value Quantity) Add(other Quantity) (Quantity, error) {
@@ -152,6 +176,9 @@ func (value PnL) Add(other PnL) (PnL, error) {
 	result, err := addDecimal("pnl_add", value.decimalValue, other.decimalValue)
 	return PnL{result}, err
 }
+
+// Compare orders signed profit-and-loss values.
+func (value PnL) Compare(other PnL) int { return value.compare(other.decimalValue) }
 
 // Subtract returns an exact signed PnL difference.
 func (value PnL) Subtract(other PnL) (PnL, error) {

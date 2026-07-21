@@ -43,6 +43,8 @@ readonly -a EXCLUDES=(
   --glob '!secrets/**'
   --glob '!.local/**'
   --glob '!node_modules/**'
+  --glob '!web/dist/**'
+  --glob '!internal/api/static/dist/**'
   --glob '!vendor/**'
   --glob '!docs/**'
   --glob '!**/*.md'

@@ -44,6 +44,24 @@ func RoundLimitPrice(side Side, requested, tick Price) (Price, error) {
 	return Price{ceiling}, err
 }
 
+// RoundMarketableLimitPrice rounds a buy upward and a sell downward so the
+// requested marketable protection remains executable without crossing beyond
+// the configured pre-rounding slippage boundary.
+func RoundMarketableLimitPrice(side Side, requested, tick Price) (Price, error) {
+	floor, err := floorMultiple("marketable_limit_price_round", requested.decimalValue, tick.decimalValue)
+	if err != nil || side == SideSell {
+		return Price{floor}, err
+	}
+	if side != SideBuy {
+		return Price{}, domainError(CodeInvalidInstrument, "side")
+	}
+	if floor.compare(requested.decimalValue) == 0 {
+		return Price{floor}, nil
+	}
+	ceiling, err := addDecimal("marketable_limit_price_round", floor, tick.decimalValue)
+	return Price{ceiling}, err
+}
+
 // CalculateNotional multiplies price and quantity and rounds half-even to scale.
 func CalculateNotional(price Price, quantity Quantity, scale uint8) (Notional, error) {
 	product, err := multiplyDecimal("notional_multiply", price.decimalValue, quantity.decimalValue)
@@ -90,6 +108,22 @@ func CalculateAveragePrice(cost Money, quantity Balance, scale uint8) (Price, er
 	return Price{result}, err
 }
 
+// CalculatePercent divides exact money values and rounds half-even at scale.
+func CalculatePercent(numerator, denominator Money, scale uint8) (Percent, error) {
+	if denominator.decimal.Sign() <= 0 {
+		return Percent{}, domainError(CodeArithmetic, "percent_zero_denominator")
+	}
+	context := exactContext
+	context.Traps = apd.DefaultTraps
+	context.Rounding = apd.RoundHalfEven
+	var quotient apd.Decimal
+	if _, err := context.Quo(&quotient, &numerator.decimal, &denominator.decimal); err != nil {
+		return Percent{}, domainError(CodeArithmetic, "percent_divide")
+	}
+	result, err := quantizeDecimal("percent_quantize", reducedValue(&quotient), scale, apd.RoundHalfEven)
+	return Percent{result}, err
+}
+
 // CalculateVWAP divides exact total notional by filled base quantity and
 // rounds half-even at the explicitly selected output scale.
 func CalculateVWAP(notional Notional, quantity Quantity, scale uint8) (Price, error) {
@@ -133,6 +167,21 @@ func PriceAtSlippage(reference Price, slippage Percent, side Side, scale uint8) 
 	}
 	result, err := quantizeDecimal("slippage_price", adjusted, scale, apd.RoundHalfEven)
 	return Price{result}, err
+}
+
+// ScaleQuantity multiplies quantity by a decimal fraction and rounds down so a
+// modeled partial fill can never exceed the requested amount.
+func ScaleQuantity(quantity Quantity, fraction Percent, scale uint8) (Quantity, error) {
+	one, _ := parseDecimal("1", "quantity_fraction_one", false)
+	if fraction.decimal.Sign() < 0 || fraction.decimalValue.compare(one) > 0 {
+		return Quantity{}, domainError(CodeArithmetic, "quantity_fraction_range")
+	}
+	product, err := multiplyDecimal("quantity_fraction", quantity.decimalValue, fraction.decimalValue)
+	if err != nil {
+		return Quantity{}, err
+	}
+	result, err := quantizeDecimal("quantity_fraction", product, scale, apd.RoundFloor)
+	return Quantity{result}, err
 }
 
 func floorMultiple(operation string, value, increment decimalValue) (decimalValue, error) {

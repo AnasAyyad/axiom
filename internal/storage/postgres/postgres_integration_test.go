@@ -378,10 +378,10 @@ func assertOrderGuards(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	if _, err = pool.Exec(ctx, "UPDATE orders SET quantity=2 WHERE id='order-a'"); err == nil {
 		t.Fatal("order identity mutated")
 	}
-	if _, err = pool.Exec(ctx, "UPDATE orders SET state='scheduled',revision=2,updated_at=$1 WHERE id='order-a'", now.Add(time.Second)); err != nil {
+	if _, err = pool.Exec(ctx, "UPDATE orders SET state='validating',revision=2,last_event_ordinal=1,updated_at=$1 WHERE id='order-a'", now.Add(time.Second)); err != nil {
 		t.Fatalf("legal order transition rejected: %v", err)
 	}
-	if _, err = pool.Exec(ctx, "UPDATE orders SET state='open',revision=4,updated_at=$1 WHERE id='order-a'", now.Add(2*time.Second)); err == nil {
+	if _, err = pool.Exec(ctx, "UPDATE orders SET state='reserved',revision=4,last_event_ordinal=2,updated_at=$1 WHERE id='order-a'", now.Add(2*time.Second)); err == nil {
 		t.Fatal("order revision skipped")
 	}
 }

@@ -1,5 +1,5 @@
 {
-  "schema_version": "axiom.config.v1a.1",
+  "schema_version": "axiom.config.v1a.2",
   "revision": 1,
   "environment": "shadow",
   "mode": "shadow",
@@ -71,6 +71,140 @@
   "models": {
     "fee": "fixed-bps-v1",
     "latency": "fixed-zero-v1"
+  },
+  "trend": {
+    "strategy_version": "trend.v1a.1",
+    "timeframe": "4h",
+    "parameters": [
+      {
+        "id": "trend.ema_confirmation_period",
+        "description": "Completed-candle EMA used for trend confirmation and the secondary exit.",
+        "value": "50", "unit": "completed_candles", "minimum": "1", "maximum": "10000",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "half_even",
+        "cadence": "completed_4h_candle", "warm_up": "50_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"]
+      },
+      {
+        "id": "trend.ema_regime_period",
+        "description": "Completed-candle EMA used for the long-term regime.",
+        "value": "200", "unit": "completed_candles", "minimum": "2", "maximum": "10000",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "half_even",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"]
+      },
+      {
+        "id": "trend.breakout_lookback",
+        "description": "Prior completed candles used by the strict breakout test.",
+        "value": "20", "unit": "completed_candles", "minimum": "1", "maximum": "1000",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "half_even",
+        "cadence": "completed_4h_candle", "warm_up": "20_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"]
+      },
+      {
+        "id": "trend.atr_period",
+        "description": "Wilder ATR period used by stops and stressed sizing.",
+        "value": "14", "unit": "completed_candles", "minimum": "1", "maximum": "1000",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "half_even",
+        "cadence": "completed_4h_candle", "warm_up": "15_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"]
+      },
+      {
+        "id": "trend.initial_stop_atr_multiplier",
+        "description": "ATR multiple below actual simulated entry for the initial protective stop.",
+        "value": "2.5", "unit": "decimal_multiplier", "minimum": "0", "maximum": "100",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 18, "rounding": "half_even",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model", "fill_model"]
+      },
+      {
+        "id": "trend.trailing_stop_atr_multiplier",
+        "description": "ATR multiple below the highest favorable completed close for the trailing stop.",
+        "value": "3", "unit": "decimal_multiplier", "minimum": "0", "maximum": "100",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 18, "rounding": "half_even",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model", "fill_model"]
+      },
+      {
+        "id": "trend.protective_loss_cooldown",
+        "description": "Completed candles blocked after a protective loss.",
+        "value": "3", "unit": "completed_candles", "minimum": "0", "maximum": "1000",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "half_even",
+        "cadence": "completed_4h_candle", "warm_up": "0_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["position_model"]
+      },
+      {
+        "id": "trend.trade_risk_budget",
+        "description": "Maximum stressed loss as a fraction of current Trend virtual equity.",
+        "value": "0.005", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.01",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 18, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["fee_model", "latency_model", "gap_model"]
+      },
+      {
+        "id": "trend.maximum_notional",
+        "description": "Maximum Trend notional for one simulated order.",
+        "value": "150", "unit": "USDT", "minimum": "0", "maximum": "150",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 18, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["instrument_metadata", "portfolio_policy"]
+      },
+      {
+        "id": "trend.maximum_simulated_slippage",
+        "description": "Inclusive marketable-limit protection around the arrival reference.",
+        "value": "0.005", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.005",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 18, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["slippage_model"]
+      },
+      {
+        "id": "trend.candidate_lifetime",
+        "description": "Maximum age of a Trend candidate before allocation.",
+        "value": "5", "unit": "seconds", "minimum": "0", "maximum": "5",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 0, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["latency_model"]
+      },
+      {
+        "id": "trend.marketable_limit_validity",
+        "description": "Maximum lifetime of the simulated marketable-limit order.",
+        "value": "5", "unit": "seconds", "minimum": "0", "maximum": "5",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 0, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["fill_model", "latency_model"]
+      },
+      {
+        "id": "trend.arrival_book_max_age",
+        "description": "Arrival book age must be strictly below this value.",
+        "value": "250", "unit": "milliseconds", "minimum": "0", "maximum": "250",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 0, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["market_view_model"]
+      },
+      {
+        "id": "trend.signal_evaluation_window",
+        "description": "Decision evaluation must finish strictly before this duration after final publication.",
+        "value": "5", "unit": "seconds", "minimum": "0", "maximum": "5",
+        "minimum_inclusive": false, "maximum_inclusive": true, "scale": 0, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"]
+      },
+      {
+        "id": "trend.candle_finalization_delay",
+        "description": "Delay after close publication before a candle becomes decision eligible.",
+        "value": "2", "unit": "seconds", "minimum": "0", "maximum": "60",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"]
+      },
+      {
+        "id": "trend.maximum_positions",
+        "description": "Maximum open Trend positions per instrument and portfolio.",
+        "value": "1", "unit": "count", "minimum": "1", "maximum": "1",
+        "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "down",
+        "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["position_model"]
+      }
+    ]
   },
   "capabilities": [
     "external_orders_unsupported",
