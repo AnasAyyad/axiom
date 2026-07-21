@@ -3,14 +3,21 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"axiom/internal/config"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type a11ReferenceExecutor interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
 
 // EnsureV1AReferenceData idempotently installs the immutable credential-free
 // product graph needed by recorder, offline workers, and the A11 console.
@@ -91,11 +98,7 @@ func bootstrapA11MarketReferences(ctx context.Context, tx pgx.Tx, configuration 
 		if _, err := tx.Exec(ctx, `INSERT INTO assets(symbol) VALUES($1) ON CONFLICT DO NOTHING`, asset.Symbol); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO asset_screening_versions(id,asset_symbol,version,prior_status,status,
-        actor,reason,causation_id,configuration_id,effective_at,recorded_at)
-        VALUES($1,$2,1,NULL,$3,'admin_migrate','V1A locked registry','reference-bootstrap',$4,$5,$5)
-        ON CONFLICT(asset_symbol,version) DO NOTHING`, "asset-screening-"+string(asset.Symbol)+"-1",
-			asset.Symbol, string(asset.Status), configurationID, now); err != nil {
+		if err := ensureA11AssetScreening(ctx, tx, string(asset.Symbol), string(asset.Status), configurationID, now); err != nil {
 			return err
 		}
 	}
@@ -119,6 +122,31 @@ func bootstrapA11MarketReferences(ctx context.Context, tx pgx.Tx, configuration 
 		}
 	}
 	return nil
+}
+
+func ensureA11AssetScreening(ctx context.Context, executor a11ReferenceExecutor, symbol, status,
+	configurationID string, now time.Time) error {
+	id := "asset-screening-" + symbol + "-1"
+	var exact bool
+	err := executor.QueryRow(ctx, `SELECT id=$2 AND prior_status IS NULL AND status=$3
+      AND actor='admin_migrate' AND reason='V1A locked registry'
+      AND causation_id='reference-bootstrap' AND configuration_id=$4
+      FROM asset_screening_versions WHERE asset_symbol=$1 AND version=1`,
+		symbol, id, status, configurationID).Scan(&exact)
+	if err == nil {
+		if !exact {
+			return fmt.Errorf("a11_reference_bootstrap_conflict")
+		}
+		return nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	_, err = executor.Exec(ctx, `INSERT INTO asset_screening_versions(id,asset_symbol,version,prior_status,status,
+      actor,reason,causation_id,configuration_id,effective_at,recorded_at)
+      VALUES($1,$2,1,NULL,$3,'admin_migrate','V1A locked registry','reference-bootstrap',$4,$5,$5)`,
+		id, symbol, status, configurationID, now)
+	return err
 }
 
 func bootstrapA11Models(ctx context.Context, tx pgx.Tx, now time.Time) error {
