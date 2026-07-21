@@ -137,10 +137,9 @@ func runA7Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time
 		t.Fatal(err)
 	}
 	started := time.Now().UTC()
-	evidence := newSoakEvidence(started, flushEvery, formal, sourceCommit)
+	evidence := newSoakEvidence(started, flushEvery, formal, sourceCommit, root)
 	journal, err := newQualificationJournal(root, sourceCommit, started)
 	if err != nil {
-		evidence.root = root
 		writeEmergencyQualificationEvent(qualificationEvent{RecordedAt: started, Phase: "preflight",
 			Outcome: "failed", Code: "event_journal_create_failed"}, "event_journal_create_failed")
 		t.Fatal("A7 qualification event journal could not be created")
@@ -292,14 +291,14 @@ func startSoakCollectors(
 	return collectorErrors, group
 }
 
-func newSoakEvidence(started time.Time, flushEvery time.Duration, formal bool, sourceCommit string) soakEvidence {
+func newSoakEvidence(started time.Time, flushEvery time.Duration, formal bool, sourceCommit, root string) soakEvidence {
 	return soakEvidence{SchemaVersion: "axiom.a7-soak.v3", SourceCommit: sourceCommit,
 		Formal: formal, StartedAt: started, RequiredDuration: formalSoakDuration,
 		EndpointSet: "market-data-only-v1", Instruments: []string{"BTCUSDT", "ETHUSDT"},
 		Streams: []string{"depth@100ms", "trade", "kline_4h"}, SnapshotDepth: 5000,
 		QueueCapacity: 8192, FlushEvery: flushEvery, HeapLimitBytes: declaredHeapLimit,
 		Collectors: make(map[string]binance.CollectorStatsSnapshot), FinalBooks: make(map[string]bookSample),
-		EventJournal: qualificationJournalEvidence{Path: "a7-soak-events.jsonl"}}
+		EventJournal: qualificationJournalEvidence{Path: "a7-soak-events.jsonl"}, root: root}
 }
 
 func collectSoakErrors(collectorErrors chan collectorResult, evidence *soakEvidence) {

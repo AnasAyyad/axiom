@@ -31,7 +31,7 @@ func (fake *fakeSoakRecorder) PendingCounts() (uint64, uint64) {
 
 func testSoakEvidence() soakEvidence {
 	return newSoakEvidence(time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC),
-		5*time.Minute, true, testSourceCommit)
+		5*time.Minute, true, testSourceCommit, os.TempDir())
 }
 
 func testQualificationJournal(t *testing.T, root string, evidence soakEvidence) *qualificationJournal {
@@ -205,6 +205,20 @@ func TestMonitorSoakFailsClosedWhenStatusWriterIsMissing(t *testing.T) {
 	if result != statusWriteFailure || len(evidence.FailureDetails) != 1 ||
 		evidence.FailureDetails[0].Cause != "writer_missing" {
 		t.Fatalf("result=%q details=%#v", result, evidence.FailureDetails)
+	}
+}
+
+func TestNewSoakEvidenceWiresStorageRoot(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	evidence := newSoakEvidence(time.Now().UTC(), 5*time.Minute, true, testSourceCommit, root)
+	if evidence.root != root {
+		t.Fatalf("storage root=%q want=%q", evidence.root, root)
+	}
+	storage := readStorage(time.Now().UTC(), evidence.root)
+	if !storage.StatfsAvailable || storage.AvailableBytes == 0 || storage.TotalBytes == 0 ||
+		storage.AvailableInodes == 0 {
+		t.Fatalf("storage sample=%#v", storage)
 	}
 }
 
