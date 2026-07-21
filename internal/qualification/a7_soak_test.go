@@ -335,9 +335,7 @@ func completeSoakEvidence(
 	for symbol, collector := range collectors {
 		stats := collector.Stats()
 		evidence.Collectors[symbol] = stats
-		if stats.HotPathP99 > 10*time.Millisecond || stats.ResyncP95 > 15*time.Second || stats.Rebuilds == 0 {
-			evidence.Failures = append(evidence.Failures, symbol+"_slo_failed")
-		}
+		sloPassed := stats.HotPathP99 <= 10*time.Millisecond && stats.ResyncP95 <= 15*time.Second && stats.Rebuilds != 0
 		base, _ := domain.ParseAssetSymbol(symbol[:3])
 		quote, _ := domain.ParseAssetSymbol(symbol[3:])
 		instrument, _ := domain.NewSpotInstrument(base, quote)
@@ -349,9 +347,7 @@ func completeSoakEvidence(
 		eligible := view.Eligible(client.MonotonicOffset(), 5*time.Second)
 		evidence.FinalBooks[symbol] = bookSample{Health: string(view.Health()), Generation: view.Generation(),
 			Sequence: view.Sequence(), Version: view.Version(), Eligible: eligible}
-		if !eligible {
-			evidence.Failures = append(evidence.Failures, symbol+"_ineligible")
-		}
+		appendFormalCollectorFailures(evidence, symbol, sloPassed, eligible)
 	}
 	evidence.ManifestRevision, evidence.ManifestHash = manifest.Revision, manifest.Hash
 	evidence.ManifestGapCount = len(manifest.Gaps)
@@ -362,6 +358,18 @@ func completeSoakEvidence(
 		evidence.DatasetVerification = verification
 	}
 	sort.Strings(evidence.Failures)
+}
+
+func appendFormalCollectorFailures(evidence *soakEvidence, symbol string, sloPassed, eligible bool) {
+	if !evidence.Formal {
+		return
+	}
+	if !sloPassed {
+		evidence.Failures = append(evidence.Failures, symbol+"_slo_failed")
+	}
+	if !eligible {
+		evidence.Failures = append(evidence.Failures, symbol+"_ineligible")
+	}
 }
 
 func finalFlush(

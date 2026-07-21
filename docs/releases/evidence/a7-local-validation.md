@@ -73,8 +73,11 @@ attribution separately; attribution never converts a failed run into a pass.
 - The opt-in production-public probe passed metadata, time, snapshot, recent
   trade, 4-hour candle, depth, trade-stream, and candle-stream checks on both
   approved instruments without credentials.
-- The 20-second two-instrument qualification smoke passed segment flush and
-  bounded replay verification.
+- The 20-second two-instrument harness smoke passed public ingestion, segment
+  flush, bounded replay verification, atomic status/evidence writes, and journal
+  integrity. It records live book readiness and collector metrics but does not
+  apply the 72-hour eligibility or SLO gates; short public endpoint timing is not
+  a deterministic qualification window.
 - The operational recorder-role integration passed against ephemeral
   PostgreSQL 18.4 and the compiled Binance public hosts, reached truthful book
   readiness, finalized segments, and registered both wire and canonical segment
@@ -110,6 +113,8 @@ emergency fallback records. A7 advances only if the terminal artifact says
 ## Limitations
 
 - The short smoke and public probe do not substitute for 72 continuous hours.
+  Only the formal run applies book eligibility, rebuild, hot-path, and 15-second
+  resynchronization gates.
 - Public-data correctness and availability are not profitability evidence.
 - A7 adds no account, signing, order, transfer, withdrawal, margin, leverage,
   derivative, staking, lending, borrowing, or short-selling capability.
