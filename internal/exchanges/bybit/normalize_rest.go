@@ -205,5 +205,5 @@ func NormalizeTicker(
 		result.List[0].Symbol != instrument.Symbol() {
 		return exchangecontracts.Ticker{}, validationError(exchangecontracts.OperationTicker)
 	}
-	return normalizeTicker(result.List[0], instrument, time.UnixMilli(exchangeMillis).UTC(), receivedAt, payloadHash(payload))
+	return normalizeTicker(result.List[0], instrument, time.UnixMilli(exchangeMillis).UTC(), receivedAt, payloadHash(payload), true)
 }

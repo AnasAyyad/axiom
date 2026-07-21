@@ -32,16 +32,21 @@ func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	latest := migrations[len(migrations)-1]
-	lower := strings.ToLower(latest.SQL)
+	if len(migrations) < 2 {
+		t.Fatal("B1 migrations are missing")
+	}
+	b1 := migrations[len(migrations)-2:]
+	lower := strings.ToLower(b1[0].SQL + "\n" + b1[1].SQL)
 	for _, required := range []string{"'bybit'", "public_clock_samples", "public_connection_events",
-		"public_clock_samples_immutable", "public_connection_events_immutable"} {
+		"public_clock_samples_immutable", "public_connection_events_immutable",
+		"enforce_portfolio_ownership_strategy_reference", "shadow_sessions_public_exchange_alias",
+		"exchange_id text references exchanges(id)"} {
 		if !strings.Contains(lower, required) {
 			t.Fatalf("B1 migration missing %q", required)
 		}
 	}
-	if latest.Version != "000012" {
-		t.Fatalf("latest migration = %s", latest.Version)
+	if b1[0].Version != "000012" || b1[1].Version != "000013" {
+		t.Fatalf("B1 migration versions = %s/%s", b1[0].Version, b1[1].Version)
 	}
 }
 

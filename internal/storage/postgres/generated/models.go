@@ -660,6 +660,33 @@ type ProjectionRevision struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type PublicClockSample struct {
+	ID                     string             `db:"id" json:"id"`
+	ExchangeID             string             `db:"exchange_id" json:"exchange_id"`
+	InstrumentID           string             `db:"instrument_id" json:"instrument_id"`
+	RecorderSession        string             `db:"recorder_session" json:"recorder_session"`
+	ConnectionID           string             `db:"connection_id" json:"connection_id"`
+	ConnectionGeneration   int64              `db:"connection_generation" json:"connection_generation"`
+	ObservedAt             pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+	OffsetNanoseconds      int64              `db:"offset_nanoseconds" json:"offset_nanoseconds"`
+	UncertaintyNanoseconds int64              `db:"uncertainty_nanoseconds" json:"uncertainty_nanoseconds"`
+	Eligible               bool               `db:"eligible" json:"eligible"`
+	RawPayloadHash         interface{}        `db:"raw_payload_hash" json:"raw_payload_hash"`
+}
+
+type PublicConnectionEvent struct {
+	ID                   string             `db:"id" json:"id"`
+	ExchangeID           string             `db:"exchange_id" json:"exchange_id"`
+	InstrumentID         string             `db:"instrument_id" json:"instrument_id"`
+	RecorderSession      string             `db:"recorder_session" json:"recorder_session"`
+	ConnectionID         string             `db:"connection_id" json:"connection_id"`
+	ConnectionGeneration int64              `db:"connection_generation" json:"connection_generation"`
+	State                string             `db:"state" json:"state"`
+	Reason               string             `db:"reason" json:"reason"`
+	ObservedAt           pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+	IngestOrdinal        int64              `db:"ingest_ordinal" json:"ingest_ordinal"`
+}
+
 type QuarantinedScope struct {
 	Scope         string             `db:"scope" json:"scope"`
 	ReasonCode    string             `db:"reason_code" json:"reason_code"`
@@ -935,6 +962,7 @@ type ShadowSession struct {
 	ModelNamespaceID  *string            `db:"model_namespace_id" json:"model_namespace_id"`
 	SlippageModelID   *string            `db:"slippage_model_id" json:"slippage_model_id"`
 	GapModelID        *string            `db:"gap_model_id" json:"gap_model_id"`
+	ExchangeID        string             `db:"exchange_id" json:"exchange_id"`
 }
 
 type StartupRecoveryAttempt struct {

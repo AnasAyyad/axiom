@@ -154,8 +154,8 @@ WHERE candidate.created_at >= sqlc.arg(retained_after) OR candidate.revision >
 -- name: InsertShadowSession :one
 INSERT INTO shadow_sessions (
   id,command_id,state,revision,public_exchange,simulation_only,entries_enabled,
-  configuration_id,strategy_version_id,created_at
-) VALUES ($1,$2,'QUEUED',1,'binance-production-public',true,false,$3,$4,$5)
+  configuration_id,strategy_version_id,created_at,exchange_id
+) VALUES ($1,$2,'QUEUED',1,'binance-production-public',true,false,$3,$4,$5,'binance')
 RETURNING *;
 
 -- name: GetShadowSession :one

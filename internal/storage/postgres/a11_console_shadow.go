@@ -52,7 +52,7 @@ func (store *A11ConsoleStore) CreateShadow(ctx context.Context, principal authen
 	if err = insertA11Command(ctx, tx, commandID, principal, key, hash, "create_shadow", "shadow_session", sessionID, "start production-public simulation", now, auditID, commandID); err != nil {
 		return generated.ShadowSessionResource{}, err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO shadow_sessions(id,command_id,state,revision,public_exchange,simulation_only,entries_enabled,portfolio_id,configuration_id,strategy_version_id,created_at) VALUES($1,$2,'QUEUED',1,'binance-production-public',true,false,$3,$4,$5,$6)`, sessionID, commandID, body.PortfolioId, body.ConfigurationId, strategyVersionID, now); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO shadow_sessions(id,command_id,state,revision,public_exchange,simulation_only,entries_enabled,portfolio_id,configuration_id,strategy_version_id,created_at,exchange_id) VALUES($1,$2,'QUEUED',1,'binance-production-public',true,false,$3,$4,$5,$6,'binance')`, sessionID, commandID, body.PortfolioId, body.ConfigurationId, strategyVersionID, now); err != nil {
 		return generated.ShadowSessionResource{}, a11ConstraintError(err)
 	}
 	if _, err = completeA11Command(ctx, tx, commandID, auditID, principal, "create_shadow", sessionID, hash, map[string]any{"shadow_session_id": sessionID, "state": "QUEUED", "simulation_only": true, "public_only": true}, now, commandID); err != nil {

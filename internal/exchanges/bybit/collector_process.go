@@ -25,9 +25,7 @@ func (collector *InstrumentCollector) consumeGeneration(ctx context.Context, str
 		case <-ctx.Done():
 			return nil
 		case <-overflow:
-			collector.stats.queueOverflows.Add(1)
-			_ = collector.book.Invalidate("queue_overflow", collector.book.View().Sequence())
-			return streamError()
+			return collector.handleQueueOverflow(ctx, stream)
 		case <-heartbeat.C:
 			if err := stream.Ping(ctx); err != nil {
 				return err
@@ -38,15 +36,48 @@ func (collector *InstrumentCollector) consumeGeneration(ctx context.Context, str
 				return streamError()
 			}
 		case result := <-events:
-			if result.err != nil {
-				collector.stats.decoderErrors.Add(1)
-				return result.err
-			}
-			if err := collector.processObserved(ctx, result.event); err != nil {
+			if err := collector.handleObservedResult(ctx, stream, result); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+func (collector *InstrumentCollector) handleQueueOverflow(ctx context.Context, stream ObservedStream) error {
+	collector.stats.queueOverflows.Add(1)
+	sequence := collector.book.View().Sequence()
+	_ = collector.book.Invalidate("queue_overflow", sequence)
+	if sequence > 0 {
+		if err := collector.recordGap(ctx, stream.ConnectionID(), stream.Generation(),
+			sequence+1, ^uint64(0), "queue_overflow"); err != nil {
+			return err
+		}
+	}
+	return streamError()
+}
+
+func (collector *InstrumentCollector) handleObservedResult(
+	ctx context.Context,
+	stream ObservedStream,
+	result observedResult,
+) error {
+	if result.err == nil {
+		return collector.processObserved(ctx, result.event)
+	}
+	if ctx.Err() != nil {
+		return nil
+	}
+	if exchangecontracts.KindOf(result.err) == exchangecontracts.ErrorValidation {
+		collector.stats.decoderErrors.Add(1)
+	}
+	sequence := collector.book.View().Sequence()
+	if sequence > 0 {
+		if err := collector.recordGap(ctx, stream.ConnectionID(), stream.Generation(),
+			sequence+1, ^uint64(0), "stream_interruption"); err != nil {
+			return err
+		}
+	}
+	return result.err
 }
 
 func (collector *InstrumentCollector) startReceiver(
@@ -91,10 +122,14 @@ func (collector *InstrumentCollector) processObserved(
 	case exchangecontracts.StreamDepth:
 		return collector.processDepth(ctx, observed)
 	case exchangecontracts.StreamTrades:
-		if observed.Event.Trade == nil {
+		count := len(observed.Event.Trades)
+		if observed.Event.Trade != nil {
+			count++
+		}
+		if count == 0 || (observed.Event.Trade != nil && len(observed.Event.Trades) != 0) {
 			return streamError()
 		}
-		collector.stats.trades.Add(1)
+		collector.stats.trades.Add(uint64(count))
 	case exchangecontracts.StreamTicker:
 		if observed.Event.Ticker == nil {
 			return streamError()
@@ -129,13 +164,7 @@ func (collector *InstrumentCollector) processDepth(
 		return streamError()
 	}
 	update := *observed.Event.Depth
-	prior := collector.book.View().Sequence()
-	if prior > 0 && update.FirstSequence > prior+1 {
-		if err := collector.recordGap(ctx, observed, prior+1, update.FirstSequence-1); err != nil {
-			return err
-		}
-	}
-	if err := collector.book.Apply(marketdata.DepthEvent{Update: update,
+	if err := collector.book.ApplyMonotonic(marketdata.DepthEvent{Update: update,
 		Observation: collector.observation(observed, update.ExchangeTime, update.LastSequence)}); err != nil {
 		return err
 	}
@@ -215,20 +244,21 @@ func (collector *InstrumentCollector) recordRebuild(
 
 func (collector *InstrumentCollector) recordGap(
 	ctx context.Context,
-	observed exchangecontracts.ObservedStreamEvent,
+	connectionID string,
+	generation uint64,
 	first uint64,
 	last uint64,
+	reason string,
 ) error {
 	now := collector.clock.Now().UTC
 	gap := exchangecontracts.SourceGap{Instrument: collector.config.Instrument,
-		ConnectionGeneration: observed.ConnectionGeneration, FirstSequence: first,
-		LastSequence: last, StartedAt: now, EndedAt: now, Reason: "sequence_gap"}
+		ConnectionGeneration: generation, FirstSequence: first,
+		LastSequence: last, StartedAt: now, EndedAt: now, Reason: reason}
 	if err := collector.recorder.RecordSourceGap(ctx, gap); err != nil {
 		return recorderFailure{err}
 	}
 	collector.stats.sequenceGaps.Add(1)
-	return collector.recordFact(ctx, exchangecontracts.RecordGap, observed.ConnectionID,
-		observed.ConnectionGeneration, gap)
+	return collector.recordFact(ctx, exchangecontracts.RecordGap, connectionID, generation, gap)
 }
 
 func (collector *InstrumentCollector) recordFact(

@@ -107,27 +107,30 @@ type tickerPayload struct {
 }
 
 type streamEnvelope struct {
-	Topic   string          `json:"topic"`
-	Type    string          `json:"type"`
-	TS      int64           `json:"ts"`
-	Data    json.RawMessage `json:"data"`
-	CTS     int64           `json:"cts"`
-	Success *bool           `json:"success"`
-	RetMsg  string          `json:"ret_msg"`
-	ConnID  string          `json:"conn_id"`
-	Op      string          `json:"op"`
+	Topic         string          `json:"topic"`
+	Type          string          `json:"type"`
+	TS            int64           `json:"ts"`
+	Data          json.RawMessage `json:"data"`
+	CTS           int64           `json:"cts"`
+	CrossSequence uint64          `json:"cs"`
+	Success       *bool           `json:"success"`
+	RetMsg        string          `json:"ret_msg"`
+	ConnID        string          `json:"conn_id"`
+	RequestID     string          `json:"req_id"`
+	Op            string          `json:"op"`
 }
 
 type streamTradePayload struct {
-	Timestamp  int64  `json:"T"`
-	Symbol     string `json:"s"`
-	Side       string `json:"S"`
-	Size       string `json:"v"`
-	Price      string `json:"p"`
-	Direction  string `json:"L"`
-	TradeID    string `json:"i"`
-	BlockTrade bool   `json:"BT"`
-	RPITrade   bool   `json:"RPI"`
+	Timestamp     int64  `json:"T"`
+	Symbol        string `json:"s"`
+	Side          string `json:"S"`
+	Size          string `json:"v"`
+	Price         string `json:"p"`
+	Direction     string `json:"L"`
+	TradeID       string `json:"i"`
+	CrossSequence uint64 `json:"seq"`
+	BlockTrade    bool   `json:"BT"`
+	RPITrade      bool   `json:"RPI"`
 }
 
 type streamCandlePayload struct {

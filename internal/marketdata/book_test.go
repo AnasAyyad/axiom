@@ -115,6 +115,29 @@ func TestBookRejectsConflictingDuplicate(t *testing.T) {
 	}
 }
 
+func TestBookApplyMonotonicAcceptsIdentifierJumpsAndRejectsRegression(t *testing.T) {
+	instrument := testInstrument(t)
+	book, _ := NewBook("binance", instrument, 10, 20, nil)
+	_ = book.BeginGeneration("connection-1", 1)
+	if err := book.ReplaceSnapshot(testSnapshot(t, instrument, 10), testObservation(1, 10, 1, 10)); err != nil {
+		t.Fatal(err)
+	}
+	jump := DepthEvent{Update: testDepth(t, instrument, 15, 15, [][2]string{{"100", "3"}}, nil),
+		Observation: testObservation(1, 15, 2, 20)}
+	if err := book.ApplyMonotonic(jump); err != nil {
+		t.Fatalf("monotonic identifier jump rejected: %v", err)
+	}
+	if view := book.View(); view.Sequence() != 15 || view.Health() != HealthHealthy {
+		t.Fatalf("jump view sequence=%d health=%s", view.Sequence(), view.Health())
+	}
+	regression := DepthEvent{Update: testDepth(t, instrument, 14, 14, nil, nil),
+		Observation: testObservation(1, 14, 3, 30)}
+	if err := book.ApplyMonotonic(regression); errorCode(err) != "sequence_regression" ||
+		book.View().Health() != HealthPaused {
+		t.Fatalf("regression failure=%v health=%s", err, book.View().Health())
+	}
+}
+
 func testSnapshot(t *testing.T, instrument domain.Instrument, sequence uint64) exchangecontracts.BookSnapshot {
 	t.Helper()
 	return exchangecontracts.BookSnapshot{Exchange: "binance", Instrument: instrument, LastSequence: sequence,
