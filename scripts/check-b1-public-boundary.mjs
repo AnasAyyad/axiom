@@ -16,8 +16,29 @@ for (const file of [
   "internal/bootstrap/recorder_role.go",
   "deploy/config/platform-shadow-v1b.json",
   "internal/storage/postgres/migrations/000012_b1_bybit_public.sql",
+  "internal/storage/postgres/migrations/000013_b1_exchange_strategy_generalization.sql",
 ]) {
   if (!fs.existsSync(file)) fail(`missing B1 artifact ${file}`);
+}
+
+const generalization = fs.readFileSync(
+  "internal/storage/postgres/migrations/000013_b1_exchange_strategy_generalization.sql",
+  "utf8",
+);
+for (const required of [
+  "portfolio_ownership_strategy_reference",
+  "shadow_public_exchange_reference",
+  "exchange_id text REFERENCES exchanges(id)",
+]) {
+  if (!generalization.includes(required))
+    fail(`missing relational ownership invariant ${required}`);
+}
+for (const forbidden of [
+  "CHECK (strategy_key = 'trend')",
+  "CHECK (public_exchange = 'binance-production-public')",
+]) {
+  if (generalization.includes(forbidden))
+    fail(`legacy single-strategy/exchange constraint ${forbidden}`);
 }
 
 const production = goFiles("internal/exchanges/bybit")

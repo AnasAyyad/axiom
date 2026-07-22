@@ -91,20 +91,38 @@ func TestB1BybitSnapshotDeltaDeleteAndUpdateIDOneReplacement(t *testing.T) {
 func TestB1BybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
 	state := make(map[string]tickerPayload)
-	_, event, err := normalizeStream([]byte(`{"success":true,"ret_msg":"subscribe","conn_id":"public-1","op":"subscribe"}`), clock.Now(), state)
+	_, event, err := normalizeStream([]byte(`{"success":true,"ret_msg":"subscribe","conn_id":"public-1","req_id":"","op":"subscribe"}`), clock.Now(), state)
 	if err != nil || event.Lifecycle == nil || event.Lifecycle.State != "SUBSCRIBED" {
 		t.Fatalf("lifecycle = %#v, %v", event, err)
 	}
-	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"snapshot","ts":1784592000000,"data":{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}}`), clock.Now(), state)
+	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"snapshot","ts":1784592000000,"cs":1,"data":{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}}`), clock.Now(), state)
 	if err != nil || event.Ticker == nil {
 		t.Fatalf("ticker snapshot = %#v, %v", event, err)
 	}
-	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"delta","ts":1784592000010,"data":{"symbol":"BTCUSDT","lastPrice":"100.75"}}`), clock.Now(), state)
+	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"delta","ts":1784592000010,"cs":2,"data":{"symbol":"BTCUSDT","lastPrice":"100.75"}}`), clock.Now(), state)
 	if err != nil || event.Ticker == nil || event.Ticker.BidPrice.String() != "100" || event.Ticker.LastPrice.String() != "100.75" {
 		t.Fatalf("ticker delta = %#v, %v", event, err)
 	}
-	if _, _, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"delta","ts":1784592000010,"data":{"symbol":"BTCUSDT","lastPrice":"100.75","unexpected":true}}`), clock.Now(), state); err == nil {
+	if _, _, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"delta","ts":1784592000010,"cs":3,"data":{"symbol":"BTCUSDT","lastPrice":"100.75","unexpected":true}}`), clock.Now(), state); err == nil {
 		t.Fatal("unknown field accepted")
+	}
+	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"snapshot","ts":1784592000020,"cs":4,"data":{"symbol":"BTCUSDT","lastPrice":"100.8","highPrice24h":"102","lowPrice24h":"98","prevPrice24h":"99","volume24h":"10","turnover24h":"1000","price24hPcnt":"0.01","usdIndexPrice":"100.7"}}`), clock.Now(), make(map[string]tickerPayload))
+	if err != nil || event.Ticker == nil || event.Ticker.BestQuotePresent || event.Ticker.LastPrice.String() != "100.8" {
+		t.Fatalf("spot market-statistics ticker = %#v, %v", event, err)
+	}
+}
+
+func TestB1BybitTradeBatchPreservesEveryDocumentedTradeAndSequence(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
+	payload := []byte(`{"topic":"publicTrade.BTCUSDT","type":"snapshot","ts":1784592000000,"data":[{"T":1784592000000,"s":"BTCUSDT","S":"Buy","v":"0.1","p":"100","L":"PlusTick","i":"trade-1","BT":false,"RPI":false,"seq":10},{"T":1784592000001,"s":"BTCUSDT","S":"Sell","v":"0.2","p":"101","L":"MinusTick","i":"trade-2","BT":false,"RPI":false,"seq":11}]}`)
+	_, event, err := normalizeStream(payload, clock.Now(), make(map[string]tickerPayload))
+	if err != nil || event.Trade != nil || len(event.Trades) != 2 ||
+		event.Trades[0].SourceSequence != 10 || event.Trades[1].NativeID != "trade-2" ||
+		!event.Trades[1].BuyerIsMaker {
+		t.Fatalf("trade batch=%#v error=%v", event, err)
+	}
+	if sequence, exchangeTime := canonicalStreamEvidence(event); sequence != "10:11" || exchangeTime == nil {
+		t.Fatalf("trade batch evidence=%q/%v", sequence, exchangeTime)
 	}
 }
 

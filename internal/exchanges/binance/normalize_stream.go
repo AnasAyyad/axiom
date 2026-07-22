@@ -69,7 +69,7 @@ func normalizeStreamTicker(payload json.RawMessage, receivedAt domain.EventTime)
 		return exchangecontracts.Ticker{}, streamError()
 	}
 	return exchangecontracts.Ticker{Exchange: "binance", Instrument: instrument, BidPrice: bid,
-		BidQuantity: bidQuantity, AskPrice: ask, AskQuantity: askQuantity, LastPrice: bid,
+		BidQuantity: bidQuantity, AskPrice: ask, AskQuantity: askQuantity, BestQuotePresent: true, LastPrice: bid,
 		ExchangeTime: receivedAt.UTC, ReceivedAt: receivedAt, RawPayloadHash: payloadHash(payload)}, nil
 }
 

@@ -97,7 +97,7 @@ func (book *Book) InstallSnapshot(snapshot exchangecontracts.BookSnapshot, obser
 		if event.Update.LastSequence <= book.sequence {
 			continue
 		}
-		if err = book.applyLocked(event); err != nil {
+		if err = book.applyLocked(event, true); err != nil {
 			return err
 		}
 	}
@@ -136,7 +136,19 @@ func (book *Book) Apply(event DepthEvent) error {
 	if !book.hasSnapshot {
 		return marketError("snapshot_missing")
 	}
-	return book.applyLocked(event)
+	return book.applyLocked(event, true)
+}
+
+// ApplyMonotonic validates and commits a delta for protocols that expose a
+// strictly increasing update identifier without promising consecutive values.
+// Duplicate/conflicting and regressing identifiers still fail closed.
+func (book *Book) ApplyMonotonic(event DepthEvent) error {
+	book.mutex.Lock()
+	defer book.finishMutation()
+	if !book.hasSnapshot {
+		return marketError("snapshot_missing")
+	}
+	return book.applyLocked(event, false)
 }
 
 // VerifyChecksum invalidates the active generation on an exchange checksum mismatch.
@@ -181,9 +193,12 @@ func (book *Book) View() BookView {
 		Observation: book.observation, Bids: cloneDepth(book.bids, book.depth), Asks: cloneDepth(book.asks, book.depth)}}
 }
 
-func (book *Book) applyLocked(event DepthEvent) error {
+func (book *Book) applyLocked(event DepthEvent, requireContiguous bool) error {
 	if err := book.validateEvent(event); err != nil {
 		return book.invalidateAndReturn("delta_invalid", event.Update.LastSequence)
+	}
+	if !requireContiguous && event.Update.LastSequence < book.sequence {
+		return book.invalidateAndReturn("sequence_regression", event.Update.LastSequence)
 	}
 	if event.Update.LastSequence <= book.sequence {
 		if event.Update.LastSequence == book.sequence && event.Update.RawPayloadHash != book.lastHash {
@@ -192,7 +207,7 @@ func (book *Book) applyLocked(event DepthEvent) error {
 		return nil
 	}
 	next := book.sequence + 1
-	if event.Update.FirstSequence > next || event.Update.LastSequence < next {
+	if requireContiguous && (event.Update.FirstSequence > next || event.Update.LastSequence < next) {
 		return book.invalidateAndReturn("sequence_gap", event.Update.LastSequence)
 	}
 	bids, err := applySide(book.bids, event.Update.Bids, true, book.bufferLimit)

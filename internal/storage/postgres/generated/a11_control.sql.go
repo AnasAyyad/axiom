@@ -358,7 +358,7 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash interface
 }
 
 const getShadowSession = `-- name: GetShadowSession :one
-SELECT id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id FROM shadow_sessions WHERE id=$1
+SELECT id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id, exchange_id FROM shadow_sessions WHERE id=$1
 `
 
 func (q *Queries) GetShadowSession(ctx context.Context, id string) (*ShadowSession, error) {
@@ -387,6 +387,7 @@ func (q *Queries) GetShadowSession(ctx context.Context, id string) (*ShadowSessi
 		&i.ModelNamespaceID,
 		&i.SlippageModelID,
 		&i.GapModelID,
+		&i.ExchangeID,
 	)
 	return &i, err
 }
@@ -789,9 +790,9 @@ func (q *Queries) InsertDurableCommand(ctx context.Context, arg InsertDurableCom
 const insertShadowSession = `-- name: InsertShadowSession :one
 INSERT INTO shadow_sessions (
   id,command_id,state,revision,public_exchange,simulation_only,entries_enabled,
-  configuration_id,strategy_version_id,created_at
-) VALUES ($1,$2,'QUEUED',1,'binance-production-public',true,false,$3,$4,$5)
-RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id
+  configuration_id,strategy_version_id,created_at,exchange_id
+) VALUES ($1,$2,'QUEUED',1,'binance-production-public',true,false,$3,$4,$5,'binance')
+RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id, exchange_id
 `
 
 type InsertShadowSessionParams struct {
@@ -834,6 +835,7 @@ func (q *Queries) InsertShadowSession(ctx context.Context, arg InsertShadowSessi
 		&i.ModelNamespaceID,
 		&i.SlippageModelID,
 		&i.GapModelID,
+		&i.ExchangeID,
 	)
 	return &i, err
 }
@@ -1133,7 +1135,7 @@ const transitionShadowSession = `-- name: TransitionShadowSession :one
 UPDATE shadow_sessions SET state=$2,revision=revision+1,entries_enabled=$3,
   started_at=coalesce(started_at,$4),stopped_at=$5,failure_code=$6
 WHERE id=$1 AND revision=$7
-RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id
+RETURNING id, command_id, run_id, portfolio_id, state, revision, public_exchange, simulation_only, entries_enabled, configuration_id, strategy_version_id, decision_dataset_id, created_at, started_at, stopped_at, failure_code, claim_owner, claim_epoch, claim_expires_at, model_namespace_id, slippage_model_id, gap_model_id, exchange_id
 `
 
 type TransitionShadowSessionParams struct {
@@ -1180,6 +1182,7 @@ func (q *Queries) TransitionShadowSession(ctx context.Context, arg TransitionSha
 		&i.ModelNamespaceID,
 		&i.SlippageModelID,
 		&i.GapModelID,
+		&i.ExchangeID,
 	)
 	return &i, err
 }

@@ -20,13 +20,13 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 - [x] Record raw-before-canonical frames, acknowledgements, heartbeat, generations, resets, gaps, decoder failures, and clock samples.
 - [x] Compose Binance and Bybit collectors by exchange/instrument for BTC-USDT, ETH-USDT, and ETH-BTC.
 - [x] Accept 15m, 1h, and 4h intervals in the versioned V1B configuration while retaining V1A compatibility.
-- [ ] Pass B1 model, PostgreSQL, adapter, emulator, security, and cumulative verification gates.
+- [x] Pass B1 model, PostgreSQL 18 clean/upgrade, adapter, emulator, security, image, and cumulative verification gates.
 - [x] Complete short production-public validation.
-- [ ] Complete and retain the isolated continuous 72-hour B1 soak.
+- [ ] Complete and retain the isolated continuous 72-hour B1 soak (explicitly deferred; not run).
 
 ## B2 — coherent views and Tier-A datasets
 
-- [ ] Confirm B1 is verified.
+- [ ] Confirm the locally verified B1 completion branch is merged into `main`; formal soak acceptance remains deferred.
 - [ ] Implement and qualify every `AX-V1B-B02-*` requirement.
 
 ## B3 — mean reversion

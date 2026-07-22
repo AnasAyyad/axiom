@@ -61,6 +61,7 @@ type Trade struct {
 	Exchange       ExchangeID        `json:"exchange"`
 	Instrument     domain.Instrument `json:"instrument"`
 	NativeID       string            `json:"native_id"`
+	SourceSequence uint64            `json:"source_sequence,omitempty"`
 	Price          domain.Price      `json:"price"`
 	Quantity       domain.Quantity   `json:"quantity"`
 	BuyerIsMaker   bool              `json:"buyer_is_maker"`
@@ -69,18 +70,20 @@ type Trade struct {
 	RawPayloadHash string            `json:"raw_payload_hash"`
 }
 
-// Ticker is one canonical public best-price and rolling-market observation.
+// Ticker is one canonical rolling-market observation with an explicitly
+// optional best quote for venue channels that do not publish one.
 type Ticker struct {
-	Exchange       ExchangeID        `json:"exchange"`
-	Instrument     domain.Instrument `json:"instrument"`
-	BidPrice       domain.Price      `json:"bid_price"`
-	BidQuantity    domain.Quantity   `json:"bid_quantity"`
-	AskPrice       domain.Price      `json:"ask_price"`
-	AskQuantity    domain.Quantity   `json:"ask_quantity"`
-	LastPrice      domain.Price      `json:"last_price"`
-	ExchangeTime   time.Time         `json:"exchange_time"`
-	ReceivedAt     domain.EventTime  `json:"received_at"`
-	RawPayloadHash string            `json:"raw_payload_hash"`
+	Exchange         ExchangeID        `json:"exchange"`
+	Instrument       domain.Instrument `json:"instrument"`
+	BidPrice         domain.Price      `json:"bid_price"`
+	BidQuantity      domain.Quantity   `json:"bid_quantity"`
+	AskPrice         domain.Price      `json:"ask_price"`
+	AskQuantity      domain.Quantity   `json:"ask_quantity"`
+	BestQuotePresent bool              `json:"best_quote_present"`
+	LastPrice        domain.Price      `json:"last_price"`
+	ExchangeTime     time.Time         `json:"exchange_time"`
+	ReceivedAt       domain.EventTime  `json:"received_at"`
+	RawPayloadHash   string            `json:"raw_payload_hash"`
 }
 
 // LifecycleEvent is one normalized public connection or heartbeat fact.
@@ -165,6 +168,7 @@ type StreamEvent struct {
 	Snapshot  *BookSnapshot   `json:"snapshot,omitempty"`
 	Depth     *DepthUpdate    `json:"depth,omitempty"`
 	Trade     *Trade          `json:"trade,omitempty"`
+	Trades    []Trade         `json:"trades,omitempty"`
 	Ticker    *Ticker         `json:"ticker,omitempty"`
 	Candle    *Candle         `json:"candle,omitempty"`
 	Lifecycle *LifecycleEvent `json:"lifecycle,omitempty"`

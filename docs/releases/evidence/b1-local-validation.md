@@ -2,45 +2,81 @@
 
 ## Status
 
-Implemented, not verified. This file is the evidence index for B1 implementation and local
-qualification. It does not claim formal B1 verification or replace the required
-short production-public validation and continuous 72-hour soak.
+Locally verified for every implemented and non-soak B1 gate on 2026-07-21.
+Formal phase acceptance remains on an explicit owner-authorized hold for the
+open A7 predecessor and the deferred continuous 72-hour B1 soak. No 72-hour
+run is claimed by this evidence.
 
-## Baseline
+## Source and toolchain identity
 
-- Source: `70ba3f74addee3d19ef529434122dfabd357d3c5`
-- Toolchain: Go 1.26.5, Node 24.18.0, pnpm 11.12.0
-- Gate: full pre-change `make verify` passed after ignored local SDK and Vite
-  caches were kept outside the source-scanning tree.
-
-## B1 implementation evidence
-
-Recorded at `2026-07-21T12:48:50Z` from the current uncommitted B1 worktree:
-
+- Merged B1 implementation: `d9bba565b6cab3b3b4a2f4669a8694b919aa8721`.
+- B1 completion source: `24e0a12a802d234fe2a6cc990f653bf3c5bb947b`.
+- Merged-main parent: `da406ea`.
 - Reviewed configuration SHA-256:
   `8a5ada09d2e689d33f92f567d569ddc74cd6aae24bce55e8805958a77cf0685a`.
-- `make b1-model-qualify`: passed outside the filesystem sandbox because the
-  deterministic emulator requires a loopback listener.
-- `make b1-adapter-qualify`: passed, including a three-second fuzz run with
-  86,592 executions in the retained terminal result.
-- `make b1-security-qualify`: passed the B1 boundary, secret, prohibited
-  capability, scanner self-tests, and A6/A7 binary dependency gates.
-- `AXIOM_B1_LIVE_PUBLIC=1 make b1-live-qualify`: passed against Bybit public
-  server time, metadata, depth 1,000, ticker, and one-hour candles.
-- `make verify`: passed cumulatively with Go 1.26.5, Node 24.18.0, and pnpm
-  11.12.0, including formatting, documentation, generated contracts, lint,
-  Go/frontend tests, race tests, fuzz smoke, builds, Compose rendering,
-  security scans, binary boundaries, and `govulncheck`.
-- `git diff --check`: passed.
+- Toolchain: Go 1.26.5, Node 24.18.0, pnpm 11.12.0, sqlc 1.31.1,
+  PostgreSQL 18.4, Docker Engine 29.6.1.
 
-The PostgreSQL migration catalog and static B1 migration assertions passed as
-part of `make verify`. The dedicated `b1-postgres-qualify` integration target
-was not run because no isolated `*_b1_test` DSN was available.
+## B1 qualification results
 
-## Formal evidence still required
+The following commands passed against the completion source:
 
-- Acceptance and retention of the short production-public Bybit validation.
-- Isolated PostgreSQL 18 clean install and V1A-to-B1 upgrade proof.
-- Continuous 72-hour declared-load Binance/Bybit recording soak.
-- Exact source/configuration/image/dataset identities and retained artifacts.
-- Product, Security, QA, and SRE acceptance after V1A closes.
+- `make b1-model-qualify GO=.local/toolchains/go/bin/go`: common contracts,
+  Binance, Bybit, deterministic emulator, market-data book, and recorder.
+- `make b1-adapter-qualify GO=.local/toolchains/go/bin/go`: transport,
+  endpoint denial, snapshot/reset/delete semantics, non-consecutive Bybit
+  update IDs, batched trades, Spot ticker semantics, lifecycle, bounded queue,
+  reconnect/gap behavior, raw-before-canonical ordering, and fuzzing. The final
+  three-second fuzz run completed 46,682 executions.
+- `make b1-postgres-qualify ...`: passed a concurrent clean install and exact
+  migrations 000001-000011 to B1 upgrade against isolated PostgreSQL 18.4
+  databases `axiom_clean_b1_test` and `axiom_upgrade_b1_test`. It also proved
+  migration idempotency, relational exchange/strategy ownership, append-only
+  public clock/connection evidence, and the closed role matrix.
+- `make b1-security-qualify GO=.local/toolchains/go/bin/go`: passed endpoint,
+  credential, secret, prohibited-capability, scanner self-test, and A6/A7
+  binary boundary gates.
+- `AXIOM_B1_LIVE_PUBLIC=1 make b1-live-qualify ...`: passed credential-free
+  Bybit production-public REST, public WebSocket, subscription, heartbeat,
+  order-book, public-trade, Spot ticker, 15m/1h/4h candle, and recorder-manifest
+  qualification.
+- `make verify GO=.local/toolchains/go/bin/go`: passed formatting, generated
+  contracts, documentation, lint, Go/frontend tests, race tests, fuzz smoke,
+  builds, all 128 Compose profile combinations, security scans, binary
+  boundaries, and `govulncheck` with no called vulnerabilities.
+- `scripts/inspect-image.sh axiom:b1-complete`: passed the minimal non-root,
+  read-only image inspection.
+- `make image-reproducibility ... DIRTY=false`: passed with runtime fingerprint
+  `sha256:57a1a0d9ed7970a07512f0aaa5ff4a474d67221a6b374e3f1fce49aba3b0856a`.
+- `make compose-smoke IMAGE=axiom:b1-complete`: passed PostgreSQL migration,
+  API, shadow, recorder, worker, Prometheus, Grafana, health, and runtime
+  confinement checks.
+- `docker scout cves --only-severity critical,high --exit-code
+  local://axiom:b1-complete`: passed with 0 critical and 0 high findings across
+  45 indexed packages.
+- `git diff --check`: passed before the completion-source commit.
+
+## Retained local evidence
+
+Public market recordings and generated supply-chain artifacts remain ignored
+and local because repository policy treats recordings as sensitive.
+
+- Short Bybit dataset root:
+  `.local/b1-short-public-20260721/b1-live-1784645182185058811`.
+- Canonical dataset-manifest hash:
+  `004ab342a3bc2e51661a1aaeba2a8401616fd6aa953aee3494a68d842d18c5e1`.
+- Manifest-file SHA-256:
+  `b2c4b97eddbe2e8eccad64ab80a9c038f45f0e1e03547792c3e2d53fcbe1b3b7`.
+- Raw/canonical linkage: 3 raw records and 3 canonical records; validated by
+  the production-public recorder integration test.
+- Exact image digest:
+  `sha256:246dc0cf2e7773ef19e801dca546dbcefa8f3b9d66ed4589814278d8468d24e5`.
+- SPDX SBOM: `.local/b1-image-evidence/axiom-b1.spdx.json`, 45 packages,
+  SHA-256 `028e502ad8e2c8afbf94f2c00349ec6786a71fef7255859b4a1a41a66fd172a3`.
+
+## Explicitly deferred formal gates
+
+- A7 formal qualification and dependent V1A acceptance.
+- Continuous isolated 72-hour declared-load Binance/Bybit recording soak and
+  its combined retained manifest bundle.
+- Product, Security, QA, and SRE formal acceptance after those gates close.

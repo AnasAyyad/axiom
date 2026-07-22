@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,9 +11,60 @@ import (
 	"time"
 
 	"axiom/internal/domain"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	runtimecore "axiom/internal/runtime"
 	"axiom/internal/storage/segments"
 )
+
+func TestB1PublicStreamSinkPersistsBybitRawCanonicalAndManifestIdentity(t *testing.T) {
+	root := t.TempDir()
+	committed := make([]segments.Manifest, 0, 2)
+	recorder, err := New(root, "bybit-public-b1", "session-b1-bybit", "bybit",
+		&runtimecore.IngestOrdinals{}, func(manifest segments.Manifest) error {
+			committed = append(committed, manifest)
+			return nil
+		}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sink, err := NewPublicStreamSink(recorder, "bybit-public-parser.v1", "bybit-public-normalizer.v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument := recorderInstrument(t)
+	now := time.Unix(1_700_000_000, 0).UTC()
+	token, err := sink.RecordPublicRaw(context.Background(), exchangecontracts.PublicRawRecord{
+		Kind: exchangecontracts.RecordStreamFrame, Raw: []byte(`{"wire":"bybit"}`), Instrument: instrument,
+		ReceivedAt: domain.EventTime{UTC: now, Sequence: 1}, ConnectionID: "bybit-public-1",
+		ConnectionGeneration: 1, MonotonicOffsetNanos: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = sink.RecordPublicCanonical(context.Background(), exchangecontracts.PublicCanonicalRecord{
+		Kind: exchangecontracts.RecordStreamFrame, Token: token,
+		Canonical: []byte(`{"exchange":"bybit","sequence":42}`), SourceSequence: "42",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := recorder.Flush()
+	if err != nil || manifest.RawRecordCount != 1 || manifest.CanonicalCount != 1 || len(committed) != 2 {
+		t.Fatalf("Bybit manifest=%#v committed=%d error=%v", manifest, len(committed), err)
+	}
+	records, err := ValidateDataset(root, manifest)
+	parserFound := false
+	for _, reference := range manifest.Segments {
+		parserFound = parserFound || (reference.Kind == "canonical" &&
+			reference.Manifest.Spec.ParserVersion == "bybit-public-parser.v1")
+	}
+	if err != nil || len(records) != 1 || manifest.Exchange != "bybit" || !parserFound ||
+		string(records[0].Canonical) != `{"exchange":"bybit","sequence":42}` {
+		t.Fatalf("Bybit dataset=%#v error=%v", records, err)
+	}
+	if recovered, recoverErr := recorder.Recover(); recoverErr != nil || len(recovered) != 0 {
+		t.Fatalf("clean Bybit recovery=%#v error=%v", recovered, recoverErr)
+	}
+}
 
 func TestRecorderLinksWireCanonicalAndValidatesManifestChain(t *testing.T) {
 	root := t.TempDir()

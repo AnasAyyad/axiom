@@ -42,12 +42,14 @@ func normalizeLifecycle(
 	state, reason := "", ""
 	switch envelope.Op {
 	case "subscribe":
-		if envelope.Success == nil || !*envelope.Success || envelope.RetMsg != "subscribe" || envelope.ConnID == "" {
+		if envelope.Success == nil || !*envelope.Success || envelope.RetMsg != "subscribe" ||
+			envelope.ConnID == "" || envelope.RequestID != "" {
 			return "", exchangecontracts.StreamEvent{}, streamError()
 		}
 		state, reason = "SUBSCRIBED", "subscription_acknowledged"
 	case "pong":
-		if envelope.Success == nil || !*envelope.Success || envelope.RetMsg != "pong" || envelope.ConnID == "" {
+		if envelope.Success == nil || !*envelope.Success || envelope.RetMsg != "pong" ||
+			envelope.ConnID == "" || envelope.RequestID != "" {
 			return "", exchangecontracts.StreamEvent{}, streamError()
 		}
 		state, reason = "HEALTHY", "heartbeat_pong"
@@ -115,24 +117,36 @@ func normalizeStreamTrade(
 	symbol, ok := topicParts(envelope.Topic, "publicTrade.")
 	var native []streamTradePayload
 	if !ok || envelope.Type != "snapshot" || envelope.TS <= 0 || strictDecode(envelope.Data, &native) != nil ||
-		len(native) != 1 || native[0].Symbol != symbol || native[0].TradeID == "" || native[0].BlockTrade ||
-		native[0].RPITrade || (native[0].Side != "Buy" && native[0].Side != "Sell") {
+		len(native) == 0 || len(native) > 1024 {
 		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
 	}
 	instrument, err := instrumentForSymbol(symbol)
 	if err != nil {
 		return envelope.Topic, exchangecontracts.StreamEvent{}, err
 	}
-	price, priceErr := domain.ParsePrice(native[0].Price)
-	quantity, quantityErr := domain.ParseQuantity(native[0].Size)
-	if priceErr != nil || quantityErr != nil || native[0].Timestamp <= 0 {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+	trades := make([]exchangecontracts.Trade, 0, len(native))
+	for _, item := range native {
+		if item.Symbol != symbol || item.TradeID == "" || item.CrossSequence == 0 || item.BlockTrade ||
+			item.RPITrade || (item.Side != "Buy" && item.Side != "Sell") {
+			return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		}
+		price, priceErr := domain.ParsePrice(item.Price)
+		quantity, quantityErr := domain.ParseQuantity(item.Size)
+		if priceErr != nil || quantityErr != nil || item.Timestamp <= 0 {
+			return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		}
+		trades = append(trades, exchangecontracts.Trade{Exchange: "bybit", Instrument: instrument,
+			NativeID: item.TradeID, SourceSequence: item.CrossSequence, Price: price, Quantity: quantity,
+			BuyerIsMaker: item.Side == "Sell", ExchangeTime: time.UnixMilli(item.Timestamp).UTC(),
+			ReceivedAt: receivedAt, RawPayloadHash: payloadHash(payload)})
 	}
-	trade := exchangecontracts.Trade{Exchange: "bybit", Instrument: instrument,
-		NativeID: native[0].TradeID, Price: price, Quantity: quantity,
-		BuyerIsMaker: native[0].Side == "Sell", ExchangeTime: time.UnixMilli(native[0].Timestamp).UTC(),
-		ReceivedAt: receivedAt, RawPayloadHash: payloadHash(payload)}
-	return envelope.Topic, exchangecontracts.StreamEvent{Kind: exchangecontracts.StreamTrades, Trade: &trade}, nil
+	event := exchangecontracts.StreamEvent{Kind: exchangecontracts.StreamTrades}
+	if len(trades) == 1 {
+		event.Trade = &trades[0]
+	} else {
+		event.Trades = trades
+	}
+	return envelope.Topic, event, nil
 }
 
 func normalizeStreamTicker(
@@ -143,7 +157,8 @@ func normalizeStreamTicker(
 ) (string, exchangecontracts.StreamEvent, error) {
 	symbol, ok := topicParts(envelope.Topic, "tickers.")
 	var native tickerPayload
-	if !ok || envelope.TS <= 0 || (envelope.Type != "snapshot" && envelope.Type != "delta") ||
+	if !ok || envelope.TS <= 0 || envelope.CrossSequence == 0 ||
+		(envelope.Type != "snapshot" && envelope.Type != "delta") ||
 		strictDecode(envelope.Data, &native) != nil || native.Symbol != symbol {
 		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
 	}
@@ -159,7 +174,7 @@ func normalizeStreamTicker(
 	if err != nil {
 		return envelope.Topic, exchangecontracts.StreamEvent{}, err
 	}
-	ticker, err := normalizeTicker(native, instrument, time.UnixMilli(envelope.TS).UTC(), receivedAt, payloadHash(payload))
+	ticker, err := normalizeTicker(native, instrument, time.UnixMilli(envelope.TS).UTC(), receivedAt, payloadHash(payload), false)
 	if err != nil {
 		return envelope.Topic, exchangecontracts.StreamEvent{}, err
 	}
@@ -191,20 +206,36 @@ func normalizeTicker(
 	exchangeTime time.Time,
 	receivedAt domain.EventTime,
 	rawHash string,
+	requireBestQuote bool,
 ) (exchangecontracts.Ticker, error) {
+	last, lastErr := domain.ParsePrice(native.LastPrice)
+	quoteFields := []string{native.BidPrice, native.BidSize, native.AskPrice, native.AskSize}
+	quoteCount := 0
+	for _, value := range quoteFields {
+		if value != "" {
+			quoteCount++
+		}
+	}
+	if lastErr != nil || exchangeTime.IsZero() || exchangeTime.Location() != time.UTC ||
+		receivedAt.Validate() != nil || (quoteCount != 0 && quoteCount != len(quoteFields)) ||
+		(requireBestQuote && quoteCount != len(quoteFields)) {
+		return exchangecontracts.Ticker{}, validationError(exchangecontracts.OperationTicker)
+	}
+	ticker := exchangecontracts.Ticker{Exchange: "bybit", Instrument: instrument, LastPrice: last,
+		ExchangeTime: exchangeTime, ReceivedAt: receivedAt, RawPayloadHash: rawHash}
+	if quoteCount == 0 {
+		return ticker, nil
+	}
 	bid, bidErr := domain.ParsePrice(native.BidPrice)
 	bidQuantity, bidQuantityErr := domain.ParseQuantity(native.BidSize)
 	ask, askErr := domain.ParsePrice(native.AskPrice)
 	askQuantity, askQuantityErr := domain.ParseQuantity(native.AskSize)
-	last, lastErr := domain.ParsePrice(native.LastPrice)
-	if bidErr != nil || bidQuantityErr != nil || askErr != nil || askQuantityErr != nil || lastErr != nil ||
-		exchangeTime.IsZero() || exchangeTime.Location() != time.UTC || receivedAt.Validate() != nil ||
-		bid.Compare(ask) >= 0 {
+	if bidErr != nil || bidQuantityErr != nil || askErr != nil || askQuantityErr != nil || bid.Compare(ask) >= 0 {
 		return exchangecontracts.Ticker{}, validationError(exchangecontracts.OperationTicker)
 	}
-	return exchangecontracts.Ticker{Exchange: "bybit", Instrument: instrument, BidPrice: bid,
-		BidQuantity: bidQuantity, AskPrice: ask, AskQuantity: askQuantity, LastPrice: last,
-		ExchangeTime: exchangeTime, ReceivedAt: receivedAt, RawPayloadHash: rawHash}, nil
+	ticker.BidPrice, ticker.BidQuantity = bid, bidQuantity
+	ticker.AskPrice, ticker.AskQuantity, ticker.BestQuotePresent = ask, askQuantity, true
+	return ticker, nil
 }
 
 func normalizeStreamCandle(
@@ -251,7 +282,12 @@ func canonicalStreamEvidence(event exchangecontracts.StreamEvent) (string, *time
 	case exchangecontracts.StreamTrades:
 		if event.Trade != nil {
 			value := event.Trade.ExchangeTime
-			return event.Trade.NativeID, &value
+			return formatUint(event.Trade.SourceSequence), &value
+		}
+		if len(event.Trades) != 0 {
+			value := event.Trades[len(event.Trades)-1].ExchangeTime
+			return formatUint(event.Trades[0].SourceSequence) + ":" +
+				formatUint(event.Trades[len(event.Trades)-1].SourceSequence), &value
 		}
 	case exchangecontracts.StreamTicker:
 		if event.Ticker != nil {
