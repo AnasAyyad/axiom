@@ -1,5 +1,5 @@
 {
-  "schema_version": "axiom.config.v1b.1",
+  "schema_version": "axiom.config.v1b.2",
   "revision": 1,
   "environment": "shadow",
   "mode": "shadow",
@@ -229,6 +229,229 @@
         "minimum_inclusive": true, "maximum_inclusive": true, "scale": 0, "rounding": "down",
         "cadence": "completed_4h_candle", "warm_up": "200_candles", "mutability": "immutable_per_run",
         "model_dependencies": ["position_model"]
+      }
+    ]
+  },
+  "mean_reversion": {
+    "strategy_version": "mean-reversion.v1b.1",
+    "primary_timeframe": "1h",
+    "higher_timeframe": "4h",
+    "parameters": [
+      {
+        "id": "mean_reversion.primary_timeframe_hours", "description": "UTC-aligned completed primary candle duration.",
+        "value": "1", "unit": "hours", "minimum": "1", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "28_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "utc-candle-hours.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.higher_timeframe_hours", "description": "UTC-aligned completed higher-timeframe candle duration.",
+        "value": "4", "unit": "hours", "minimum": "4", "maximum": "4", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "utc-candle-hours.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.zscore_period", "description": "Completed primary closes used by the rolling deviation model.",
+        "value": "20", "unit": "completed_candles", "minimum": "2", "maximum": "1000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "20_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "population-zscore.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.adx_period", "description": "Wilder directional-movement period.",
+        "value": "14", "unit": "completed_candles", "minimum": "2", "maximum": "1000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "28_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "wilder-adx.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.adx_threshold", "description": "Entry requires ADX strictly below this value.",
+        "value": "25", "unit": "adx_points", "minimum": "0", "maximum": "100", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "28_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "wilder-adx.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.ema_regime_period", "description": "Higher-timeframe EMA period for dangerous-downtrend rejection.",
+        "value": "200", "unit": "completed_candles", "minimum": "2", "maximum": "10000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "simple-mean-seeded-ema.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.ema_decline_lookback", "description": "Completed higher-timeframe candles across which EMA decline is measured.",
+        "value": "10", "unit": "completed_candles", "minimum": "1", "maximum": "1000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "ema-decline-fraction.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.ema_decline_threshold", "description": "Inclusive EMA decline fraction that is strongly declining.",
+        "value": "0.005", "unit": "decimal_fraction", "minimum": "0", "maximum": "1", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "ema-decline-fraction.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.entry_zscore", "description": "Inclusive downside z-score entry boundary.",
+        "value": "-2", "unit": "standard_deviations", "minimum": "-100", "maximum": "0", "minimum_inclusive": true, "maximum_inclusive": false,
+        "scale": 18, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "20_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "population-zscore.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.normal_exit_zscore", "description": "Inclusive normalized z-score exit boundary.",
+        "value": "-0.25", "unit": "standard_deviations", "minimum": "-100", "maximum": "100", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "20_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "population-zscore.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.protective_exit_zscore", "description": "Inclusive adverse z-score protective exit boundary.",
+        "value": "-3.5", "unit": "standard_deviations", "minimum": "-100", "maximum": "0", "minimum_inclusive": true, "maximum_inclusive": false,
+        "scale": 18, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "20_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model", "gap_model"], "algorithm_version": "population-zscore.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.atr_period", "description": "Wilder ATR period used by the protective stop and stressed sizing.",
+        "value": "14", "unit": "completed_candles", "minimum": "1", "maximum": "1000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "28_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "wilder-atr.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.protective_stop_atr_multiplier", "description": "ATR multiple below entry used by the nominal protective stop.",
+        "value": "2.5", "unit": "decimal_multiplier", "minimum": "0", "maximum": "100", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "28_primary_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model", "gap_model"], "algorithm_version": "mean-reversion-stressed-stop.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.maximum_holding_period", "description": "Maximum completed primary candles held before a required exit.",
+        "value": "12", "unit": "completed_candles", "minimum": "1", "maximum": "1000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "0_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["position_model"], "algorithm_version": "bounded-holding.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.protective_loss_cooldown", "description": "Completed primary candles blocked after a protective loss.",
+        "value": "3", "unit": "completed_candles", "minimum": "0", "maximum": "1000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "half_even", "cadence": "completed_1h_candle", "warm_up": "0_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["position_model"], "algorithm_version": "protective-cooldown.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.trade_risk_budget", "description": "Maximum stressed loss as a fraction of mean-reversion equity.",
+        "value": "0.0025", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.0025", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["fee_model", "slippage_model", "gap_model"], "algorithm_version": "mean-reversion-stressed-sizing.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.maximum_positions", "description": "Maximum open mean-reversion positions per asset and portfolio.",
+        "value": "1", "unit": "count", "minimum": "1", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "0_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["position_model", "portfolio_policy"], "algorithm_version": "single-position.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.candidate_lifetime", "description": "Maximum age of a candidate before allocation.",
+        "value": "5", "unit": "seconds", "minimum": "0", "maximum": "5", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["latency_model"], "algorithm_version": "post-signal-timing.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.marketable_limit_validity", "description": "Maximum lifetime of the simulated marketable-limit order.",
+        "value": "5", "unit": "seconds", "minimum": "0", "maximum": "5", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["fill_model", "latency_model"], "algorithm_version": "post-signal-timing.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.candle_finalization_delay", "description": "Delay after final publication before evaluation.",
+        "value": "2", "unit": "seconds", "minimum": "0", "maximum": "60", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "completed-candle-finality.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.signal_evaluation_window", "description": "Evaluation must finish strictly before this post-finalization duration.",
+        "value": "5", "unit": "seconds", "minimum": "0", "maximum": "5", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["candle_model"], "algorithm_version": "completed-candle-finality.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.arrival_book_max_age", "description": "Arrival market view age must be strictly below this value.",
+        "value": "250", "unit": "milliseconds", "minimum": "0", "maximum": "250", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["market_view_model"], "algorithm_version": "arrival-view-age.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.maximum_spread", "description": "Inclusive spread limit for entry eligibility.",
+        "value": "0.001", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.001", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["spread_model", "risk_policy"], "algorithm_version": "spread-limit.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.maximum_simulated_slippage", "description": "Inclusive arrival-price slippage and marketable-limit cap.",
+        "value": "0.005", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.005", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["slippage_model"], "algorithm_version": "slippage-limit.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.maximum_gap_allowance", "description": "Inclusive stressed gap allowance below the nominal stop.",
+        "value": "0.01", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.01", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["gap_model"], "algorithm_version": "gap-stress-limit.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.maximum_notional", "description": "Maximum notional for one mean-reversion simulated order.",
+        "value": "75", "unit": "USDT", "minimum": "0", "maximum": "75", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["instrument_metadata", "portfolio_policy"], "algorithm_version": "mean-reversion-allocation-cap.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      },
+      {
+        "id": "mean_reversion.maximum_allocation", "description": "Maximum fraction of mean-reversion equity allocated to one position.",
+        "value": "0.10", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.10", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "completed_1h_candle", "warm_up": "210_higher_timeframe_candles", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy", "risk_policy"], "algorithm_version": "mean-reversion-allocation-cap.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
       }
     ]
   },

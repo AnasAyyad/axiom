@@ -249,28 +249,35 @@ const insertA10StrategyParameter = `-- name: InsertA10StrategyParameter :one
 INSERT INTO strategy_parameters (
   strategy_version_id, parameter_name, decimal_value, unit, description, algorithm_version,
   minimum_value, maximum_value, minimum_inclusive, maximum_inclusive, decimal_scale,
-  rounding, cadence, warm_up, mutability, model_dependencies
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-RETURNING strategy_version_id, parameter_name, decimal_value, unit, description, algorithm_version, minimum_value, maximum_value, minimum_inclusive, maximum_inclusive, decimal_scale, rounding, cadence, warm_up, mutability, model_dependencies
+  rounding, cadence, warm_up, mutability, model_dependencies, evaluation_timezone,
+  change_behavior, approval_actor, approval_reference, approved_at, change_reason
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+RETURNING strategy_version_id, parameter_name, decimal_value, unit, description, algorithm_version, minimum_value, maximum_value, minimum_inclusive, maximum_inclusive, decimal_scale, rounding, cadence, warm_up, mutability, model_dependencies, evaluation_timezone, change_behavior, approval_actor, approval_reference, approved_at, change_reason
 `
 
 type InsertA10StrategyParameterParams struct {
-	StrategyVersionID string  `db:"strategy_version_id" json:"strategy_version_id"`
-	ParameterName     string  `db:"parameter_name" json:"parameter_name"`
-	DecimalValue      string  `db:"decimal_value" json:"decimal_value"`
-	Unit              string  `db:"unit" json:"unit"`
-	Description       *string `db:"description" json:"description"`
-	AlgorithmVersion  *string `db:"algorithm_version" json:"algorithm_version"`
-	MinimumValue      *string `db:"minimum_value" json:"minimum_value"`
-	MaximumValue      *string `db:"maximum_value" json:"maximum_value"`
-	MinimumInclusive  *bool   `db:"minimum_inclusive" json:"minimum_inclusive"`
-	MaximumInclusive  *bool   `db:"maximum_inclusive" json:"maximum_inclusive"`
-	DecimalScale      *int32  `db:"decimal_scale" json:"decimal_scale"`
-	Rounding          *string `db:"rounding" json:"rounding"`
-	Cadence           *string `db:"cadence" json:"cadence"`
-	WarmUp            *string `db:"warm_up" json:"warm_up"`
-	Mutability        *string `db:"mutability" json:"mutability"`
-	ModelDependencies []byte  `db:"model_dependencies" json:"model_dependencies"`
+	StrategyVersionID  string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ParameterName      string             `db:"parameter_name" json:"parameter_name"`
+	DecimalValue       string             `db:"decimal_value" json:"decimal_value"`
+	Unit               string             `db:"unit" json:"unit"`
+	Description        *string            `db:"description" json:"description"`
+	AlgorithmVersion   *string            `db:"algorithm_version" json:"algorithm_version"`
+	MinimumValue       *string            `db:"minimum_value" json:"minimum_value"`
+	MaximumValue       *string            `db:"maximum_value" json:"maximum_value"`
+	MinimumInclusive   *bool              `db:"minimum_inclusive" json:"minimum_inclusive"`
+	MaximumInclusive   *bool              `db:"maximum_inclusive" json:"maximum_inclusive"`
+	DecimalScale       *int32             `db:"decimal_scale" json:"decimal_scale"`
+	Rounding           *string            `db:"rounding" json:"rounding"`
+	Cadence            *string            `db:"cadence" json:"cadence"`
+	WarmUp             *string            `db:"warm_up" json:"warm_up"`
+	Mutability         *string            `db:"mutability" json:"mutability"`
+	ModelDependencies  []byte             `db:"model_dependencies" json:"model_dependencies"`
+	EvaluationTimezone *string            `db:"evaluation_timezone" json:"evaluation_timezone"`
+	ChangeBehavior     *string            `db:"change_behavior" json:"change_behavior"`
+	ApprovalActor      *string            `db:"approval_actor" json:"approval_actor"`
+	ApprovalReference  *string            `db:"approval_reference" json:"approval_reference"`
+	ApprovedAt         pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
+	ChangeReason       *string            `db:"change_reason" json:"change_reason"`
 }
 
 func (q *Queries) InsertA10StrategyParameter(ctx context.Context, arg InsertA10StrategyParameterParams) (*StrategyParameter, error) {
@@ -291,6 +298,12 @@ func (q *Queries) InsertA10StrategyParameter(ctx context.Context, arg InsertA10S
 		arg.WarmUp,
 		arg.Mutability,
 		arg.ModelDependencies,
+		arg.EvaluationTimezone,
+		arg.ChangeBehavior,
+		arg.ApprovalActor,
+		arg.ApprovalReference,
+		arg.ApprovedAt,
+		arg.ChangeReason,
 	)
 	var i StrategyParameter
 	err := row.Scan(
@@ -310,6 +323,12 @@ func (q *Queries) InsertA10StrategyParameter(ctx context.Context, arg InsertA10S
 		&i.WarmUp,
 		&i.Mutability,
 		&i.ModelDependencies,
+		&i.EvaluationTimezone,
+		&i.ChangeBehavior,
+		&i.ApprovalActor,
+		&i.ApprovalReference,
+		&i.ApprovedAt,
+		&i.ChangeReason,
 	)
 	return &i, err
 }

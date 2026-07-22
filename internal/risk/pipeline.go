@@ -52,8 +52,12 @@ func (adapter *PipelineEngine) Approve(
 	if err != nil {
 		return execution.ApprovedIntent{}, riskError("risk_inputs_unavailable")
 	}
-	decision, err := adapter.engine.Evaluate(Request{Intent: IntentEntry, Policies: policies,
-		Observations: observations, EvaluatedAt: evaluatedAt})
+	intent, riskReducing := IntentEntry, false
+	if allocation.Candidate.Side == domain.SideSell {
+		intent, riskReducing = IntentExit, true
+	}
+	decision, err := adapter.engine.Evaluate(Request{Intent: intent, RiskReducing: riskReducing,
+		Policies: policies, Observations: observations, EvaluatedAt: evaluatedAt})
 	if err != nil {
 		return execution.ApprovedIntent{}, riskError("risk_evaluation_failed")
 	}

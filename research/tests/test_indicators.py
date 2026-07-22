@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from axiom_research import atr, ema
+from axiom_research import adx, atr, ema, population_zscore
 
 
 class IndicatorGoldenTest(unittest.TestCase):
@@ -22,6 +22,19 @@ class IndicatorGoldenTest(unittest.TestCase):
         self.assertEqual(ema(ema_fixture["values"], ema_fixture["period"]), ema_fixture["expected"])
         candles = [(item["high"], item["low"], item["close"]) for item in atr_fixture["candles"]]
         self.assertEqual(atr(candles, atr_fixture["period"]), atr_fixture["expected"])
+
+    def test_mean_reversion_go_golden_was_independently_reproduced(self) -> None:
+        repository = Path(__file__).resolve().parents[2]
+        fixture_path = repository / "internal" / "strategies" / "meanreversion" / "testdata" / "indicators_decimal_golden.json"
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        zscore = fixture["zscore"]
+        self.assertEqual(
+            population_zscore(zscore["values"], zscore["period"]),
+            (zscore["mean"], zscore["population_stddev"], zscore["zscore"]),
+        )
+        adx_fixture = fixture["adx"]
+        candles = [(item["high"], item["low"], item["close"]) for item in adx_fixture["candles"]]
+        self.assertEqual(adx(candles, adx_fixture["period"]), adx_fixture["expected"])
 
 
 if __name__ == "__main__":

@@ -4,8 +4,9 @@ import "axiom/internal/domain"
 
 // Configuration schema identifiers remain immutable and explicitly accepted.
 const (
-	SchemaVersion    = "axiom.config.v1a.2"
-	SchemaVersionV1B = "axiom.config.v1b.1"
+	SchemaVersion      = "axiom.config.v1a.2"
+	SchemaVersionV1B   = "axiom.config.v1b.1"
+	SchemaVersionV1BB3 = "axiom.config.v1b.2"
 )
 
 // Environment identifies an allowed V1A deployment class.
@@ -20,22 +21,23 @@ const (
 
 // Configuration is the complete versioned V1A product configuration graph.
 type Configuration struct {
-	SchemaVersion string                  `json:"schema_version"`
-	Revision      uint64                  `json:"revision"`
-	Environment   Environment             `json:"environment"`
-	Mode          ExecutionMode           `json:"mode"`
-	Product       domain.ProductKind      `json:"product"`
-	Safety        SafetyConfiguration     `json:"safety"`
-	Endpoint      EndpointConfiguration   `json:"endpoint"`
-	Exchanges     []ExchangeConfiguration `json:"exchanges,omitempty"`
-	Assets        []domain.Asset          `json:"assets"`
-	Instruments   []Instrument            `json:"instruments"`
-	Risk          RiskConfiguration       `json:"risk"`
-	Portfolio     PortfolioConfiguration  `json:"portfolio"`
-	Models        ModelConfiguration      `json:"models"`
-	Trend         TrendConfiguration      `json:"trend"`
-	Capabilities  []CapabilityDisposition `json:"capabilities"`
-	Secrets       []SecretReference       `json:"secrets"`
+	SchemaVersion string                     `json:"schema_version"`
+	Revision      uint64                     `json:"revision"`
+	Environment   Environment                `json:"environment"`
+	Mode          ExecutionMode              `json:"mode"`
+	Product       domain.ProductKind         `json:"product"`
+	Safety        SafetyConfiguration        `json:"safety"`
+	Endpoint      EndpointConfiguration      `json:"endpoint"`
+	Exchanges     []ExchangeConfiguration    `json:"exchanges,omitempty"`
+	Assets        []domain.Asset             `json:"assets"`
+	Instruments   []Instrument               `json:"instruments"`
+	Risk          RiskConfiguration          `json:"risk"`
+	Portfolio     PortfolioConfiguration     `json:"portfolio"`
+	Models        ModelConfiguration         `json:"models"`
+	Trend         TrendConfiguration         `json:"trend"`
+	MeanReversion MeanReversionConfiguration `json:"mean_reversion,omitempty"`
+	Capabilities  []CapabilityDisposition    `json:"capabilities"`
+	Secrets       []SecretReference          `json:"secrets"`
 }
 
 // ExchangeConfiguration selects one code-owned public venue and recording universe.
@@ -107,22 +109,39 @@ type TrendConfiguration struct {
 	Parameters      []StrategyParameter `json:"parameters"`
 }
 
+// MeanReversionConfiguration identifies the immutable B3 baseline graph.
+// It is absent from the original V1A and V1B.1 schemas so their hashes and
+// interpretation remain unchanged.
+type MeanReversionConfiguration struct {
+	StrategyVersion  string              `json:"strategy_version"`
+	PrimaryTimeframe string              `json:"primary_timeframe"`
+	HigherTimeframe  string              `json:"higher_timeframe"`
+	Parameters       []StrategyParameter `json:"parameters"`
+}
+
 // StrategyParameter is the complete auditable contract for one numeric rule.
 type StrategyParameter struct {
-	ID                string   `json:"id"`
-	Description       string   `json:"description"`
-	Value             string   `json:"value"`
-	Unit              string   `json:"unit"`
-	Minimum           string   `json:"minimum"`
-	Maximum           string   `json:"maximum"`
-	MinimumInclusive  bool     `json:"minimum_inclusive"`
-	MaximumInclusive  bool     `json:"maximum_inclusive"`
-	Scale             uint8    `json:"scale"`
-	Rounding          string   `json:"rounding"`
-	Cadence           string   `json:"cadence"`
-	WarmUp            string   `json:"warm_up"`
-	Mutability        string   `json:"mutability"`
-	ModelDependencies []string `json:"model_dependencies"`
+	ID                 string   `json:"id"`
+	Description        string   `json:"description"`
+	Value              string   `json:"value"`
+	Unit               string   `json:"unit"`
+	Minimum            string   `json:"minimum"`
+	Maximum            string   `json:"maximum"`
+	MinimumInclusive   bool     `json:"minimum_inclusive"`
+	MaximumInclusive   bool     `json:"maximum_inclusive"`
+	Scale              uint8    `json:"scale"`
+	Rounding           string   `json:"rounding"`
+	Cadence            string   `json:"cadence"`
+	WarmUp             string   `json:"warm_up"`
+	Mutability         string   `json:"mutability"`
+	ModelDependencies  []string `json:"model_dependencies"`
+	AlgorithmVersion   string   `json:"algorithm_version,omitempty"`
+	EvaluationTimezone string   `json:"evaluation_timezone,omitempty"`
+	ChangeBehavior     string   `json:"change_behavior,omitempty"`
+	ApprovalActor      string   `json:"approval_actor,omitempty"`
+	ApprovalReference  string   `json:"approval_reference,omitempty"`
+	ApprovedAt         string   `json:"approved_at,omitempty"`
+	ChangeReason       string   `json:"change_reason,omitempty"`
 }
 
 // SecretReference names a required file without storing secret material.

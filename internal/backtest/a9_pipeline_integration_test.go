@@ -116,8 +116,9 @@ func pipelineCandidate(t *testing.T) backtest.Candidate {
 	score, _ := domain.ParsePnL("1")
 	funds, _ := domain.NewReservationID("pipeline-funds")
 	liquidity, _ := domain.NewReservationID("pipeline-liquidity")
-	payload, err := json.Marshal(portfolio.Candidate{ID: "pipeline-decision", Instrument: instrument,
-		Side: domain.SideBuy, Quantity: quantity, Notional: notional, Score: score,
+	payload, err := json.Marshal(portfolio.Candidate{ID: "pipeline-decision", Strategy: portfolio.V1AStrategy,
+		Instrument: instrument,
+		Side:       domain.SideBuy, Quantity: quantity, Notional: notional, Score: score,
 		ScoreComponents: []portfolio.ScoreComponent{{Name: "worst_case", Value: score}}, BaseEligibility: 1,
 		QuoteEligibility: 1, LiquidityDomain: "combined-book", LiquidityReservation: liquidity,
 		FundsReservation: funds, Fence: 1})

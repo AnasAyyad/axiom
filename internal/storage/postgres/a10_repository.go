@@ -34,34 +34,39 @@ func NewA10Repository(pool *pgxpool.Pool) (*A10Repository, error) {
 
 // Register atomically persists one strategy version, complete parameters, experiment, and generation.
 func (repository *A10Repository) Register(ctx context.Context, write A10RegistrationWrite) error {
-	if !validA10Registration(write) {
-		return fmt.Errorf("a10_registration_invalid")
+	return registerResearch(ctx, repository.pool, write, 16, "a10")
+}
+
+func registerResearch(ctx context.Context, pool *pgxpool.Pool, write A10RegistrationWrite,
+	expectedParameters int, prefix string) error {
+	if !validResearchRegistration(write, expectedParameters) {
+		return fmt.Errorf("%s_registration_invalid", prefix)
 	}
-	tx, err := repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return fmt.Errorf("a10_registration_begin_failed")
+		return fmt.Errorf("%s_registration_begin_failed", prefix)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	queries := generated.New(tx)
 	if _, err = queries.InsertA10StrategyDefinition(ctx, write.Definition); err != nil {
-		return fmt.Errorf("a10_strategy_definition_failed")
+		return fmt.Errorf("%s_strategy_definition_failed", prefix)
 	}
 	if _, err = queries.InsertA10StrategyVersion(ctx, write.Version); err != nil {
-		return fmt.Errorf("a10_strategy_version_failed")
+		return fmt.Errorf("%s_strategy_version_failed", prefix)
 	}
 	for _, parameter := range write.Parameters {
 		if _, err = queries.InsertA10StrategyParameter(ctx, parameter); err != nil {
-			return fmt.Errorf("a10_strategy_parameter_failed")
+			return fmt.Errorf("%s_strategy_parameter_failed", prefix)
 		}
 	}
 	if _, err = queries.InsertA10ExperimentRegistration(ctx, write.Experiment); err != nil {
-		return fmt.Errorf("a10_experiment_registration_failed")
+		return fmt.Errorf("%s_experiment_registration_failed", prefix)
 	}
 	if _, err = queries.InsertResearchGeneration(ctx, write.Generation); err != nil {
-		return fmt.Errorf("a10_research_generation_failed")
+		return fmt.Errorf("%s_research_generation_failed", prefix)
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("a10_registration_commit_failed")
+		return fmt.Errorf("%s_registration_commit_failed", prefix)
 	}
 	return nil
 }
@@ -104,9 +109,9 @@ func (repository *A10Repository) RecordReport(ctx context.Context, write generat
 	return nil
 }
 
-func validA10Registration(write A10RegistrationWrite) bool {
+func validResearchRegistration(write A10RegistrationWrite, expectedParameters int) bool {
 	if write.Definition.ID == "" || write.Version.ID == "" || write.Version.StrategyID != write.Definition.ID ||
-		write.Version.ManifestHash == nil || len(write.Version.CanonicalManifest) == 0 || len(write.Parameters) != 16 ||
+		write.Version.ManifestHash == nil || len(write.Version.CanonicalManifest) == 0 || len(write.Parameters) != expectedParameters ||
 		!matchesA10Hash(write.Version.ManifestHash, write.Version.CanonicalManifest) ||
 		write.Experiment.ID == "" || write.Experiment.StrategyVersionID != write.Version.ID ||
 		write.Generation.ID == "" || write.Generation.ExperimentID != write.Experiment.ID ||

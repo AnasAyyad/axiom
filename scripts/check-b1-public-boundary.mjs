@@ -105,7 +105,9 @@ const configuration = JSON.parse(
   fs.readFileSync("deploy/config/platform-shadow-v1b.json", "utf8"),
 );
 if (
-  configuration.schema_version !== "axiom.config.v1b.1" ||
+  !["axiom.config.v1b.1", "axiom.config.v1b.2"].includes(
+    configuration.schema_version,
+  ) ||
   configuration.exchanges?.length !== 2 ||
   configuration.exchanges[1]?.id !== "bybit" ||
   configuration.secrets?.length !== 0
