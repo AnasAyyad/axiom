@@ -34,8 +34,8 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 ## B3 — mean reversion
 
-- [ ] Confirm B2 is verified.
-- [ ] Implement and qualify every `AX-V1B-B03-*` requirement.
+- [x] Confirm locally verified B2 completion is merged into `main` at `0c2fce26cae9e171d4e622c080aaf9af5cab018f`; formal predecessor, deferred B2-soak, and approver holds remain.
+- [x] Implement and locally qualify every `AX-V1B-B03-*` requirement, including exact indicators, no-look-ahead execution, shared allocation/risk/accounting, PostgreSQL 18 clean/upgrade, deterministic research reports, and the clean image-backed Compose smoke.
 
 ## B4 — triangular arbitrage
 

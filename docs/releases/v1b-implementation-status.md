@@ -8,10 +8,10 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 
 | Field | Value |
 |---|---|
-| Program baseline | merged B1 `main` at `91d8bab54216210f2ef54dc20fed716ccf22c831` |
-| Baseline gate | Post-merge `main` CI run `29893542073` passed before B2 source changes |
-| Active implementation phase | B2 locally verified for every implemented non-soak gate; formal predecessor, soak, and approver holds remain |
-| Later implementation phases | B3-B8 planned; no implementation claimed |
+| Program baseline | merged B2 `main` at `0c2fce26cae9e171d4e622c080aaf9af5cab018f` |
+| Baseline gate | B2 merge PR #13 completed before B3 source changes; the B3 branch was created from the exact merged SHA |
+| Active implementation phase | B3 locally verified for every specified non-soak gate; formal predecessor and approver holds remain |
+| Later implementation phases | B4-B8 planned; no implementation claimed |
 | External side effects | Impossible: public data and simulation only |
 
 ## Phase progress
@@ -20,7 +20,7 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 |---|---|---:|---|---|---|
 | B1 | Bybit Adapter / Exchange Platform | 000012-000013 forward fix | Locally verified; formal soak hold | Credential-free Bybit public adapter, common ticker/lifecycle contracts, three-instrument multi-exchange recording, PostgreSQL clean/upgrade, exact image, and short live qualification | [B1 local validation](evidence/b1-local-validation.md) |
 | B2 | Market Data / Storage | 000014 | Locally verified; formal soak hold | Coherent cross-market views, clock uncertainty, Tier-A manifests, and deterministic as-of joins | [B2 local validation](evidence/b2-local-validation.md); short live coherent view passed at 59.569181 ms / 40.927081 ms |
-| B3 | Strategy / Research | 000015 | Planned | Mean-reversion production evaluator and shared registry integration | Pending |
+| B3 | Strategy / Research | 000015 | Locally verified; formal predecessor/approver hold | Exact completed-candle mean reversion, shared allocator/risk/execution/accounting, immutable decision/research evidence, and clean image qualification | [B3 local validation](evidence/b3-local-validation.md) |
 | B4 | Strategy / Execution | 000016 | Planned | Exact triangular arbitrage, atomic claims, sequential simulation, and recovery | Pending |
 | B5 | Strategy / Portfolio | 000017 | Planned | Coherent cross-exchange arbitrage and inventory economics | Pending |
 | B6 | Portfolio / Research | 000018 | Planned | Advisory-only rebalancing graph and immutable transfer facts | Pending |
@@ -30,10 +30,11 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 ## Locked sequencing
 
 Each phase is implemented on a sequential branch from the latest merged
-predecessor. B2 started from merged B1 `main` and is locally verified; B3 source
-must start only from the B2 completion merged into `main`. A phase may be
-`Locally verified` after every non-soak gate passes; accepted predecessor, soak,
-and approver evidence changes it to formally accepted.
+predecessor. B3 started from merged B2 `main` at
+`0c2fce26cae9e171d4e622c080aaf9af5cab018f` and is locally verified. B4 source
+must start only from the B3 completion merged into `main`. A phase may be
+`Locally verified` after every non-soak gate passes; accepted predecessor, soak
+where specified, and approver evidence changes it to formally accepted.
 
 ## Program references
 

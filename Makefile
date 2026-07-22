@@ -304,7 +304,9 @@ b3-research-qualify: ## Verify separate deterministic B3 research contracts and 
 	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
 	@$(GO) test ./internal/research -count=1 -v
 
-b3-local-qualify: b3-model-qualify b3-postgres-qualify b3-research-qualify verify ## Pass every non-soak B3 phase gate cumulatively.
+b3-local-qualify: b3-model-qualify b3-postgres-qualify b3-research-qualify ## Pass every non-soak B3 phase gate cumulatively.
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify \
 b6-model-qualify b6-postgres-qualify b6-security-qualify \
