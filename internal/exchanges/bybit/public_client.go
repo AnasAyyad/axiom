@@ -18,13 +18,8 @@ const (
 	maximumTimeUncertainty = 500 * time.Millisecond
 )
 
-// ClockHealth is one immutable Bybit server-time estimate.
-type ClockHealth struct {
-	ObservedAt  time.Time     `json:"observed_at"`
-	Offset      time.Duration `json:"offset"`
-	Uncertainty time.Duration `json:"uncertainty"`
-	Eligible    bool          `json:"eligible"`
-}
+// ClockHealth is the shared immutable server-clock estimate.
+type ClockHealth = exchangecontracts.ClockHealth
 
 // RateBudgetTelemetry is bounded public request-budget evidence.
 type RateBudgetTelemetry struct {
@@ -47,8 +42,8 @@ type PublicClient struct {
 	wsOrigin         *url.URL
 	validateWS       func(*url.URL) (publicRoute, error)
 	connector        websocketConnector
-	healthMutex      sync.RWMutex
-	clockHealth      ClockHealth
+	telemetryMutex   sync.RWMutex
+	clockEstimator   *exchangecontracts.ClockEstimator
 	budgetTelemetry  RateBudgetTelemetry
 }
 
@@ -61,7 +56,16 @@ var (
 
 // NewPublicClient accepts only the compiled Bybit public endpoint-set identifier.
 func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, error) {
-	if endpointSet != publicEndpointSet || clock == nil {
+	return NewPublicClientWithMonotonic(endpointSet, clock, exchangecontracts.NewProcessMonotonicSource())
+}
+
+// NewPublicClientWithMonotonic binds Bybit to a caller-owned cross-exchange ordering epoch.
+func NewPublicClientWithMonotonic(
+	endpointSet string,
+	clock domain.Clock,
+	monotonic exchangecontracts.MonotonicSource,
+) (*PublicClient, error) {
+	if endpointSet != publicEndpointSet || clock == nil || monotonic == nil {
 		return nil, policyError(exchangecontracts.OperationCapability)
 	}
 	origin, err := url.Parse(publicRESTOrigin)
@@ -72,10 +76,13 @@ func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, err
 	if err != nil {
 		return nil, policyError(exchangecontracts.OperationStream)
 	}
-	start := time.Now()
 	budget, err := exchangecontracts.NewRateBudget(exchangecontracts.BudgetConfig{
 		Capacity: 600, RecoveryReserve: 50, RefillAmount: 600, RefillInterval: 5 * time.Second,
 	}, 0)
+	if err != nil {
+		return nil, err
+	}
+	estimator, err := exchangecontracts.NewClockEstimator(maximumTimeUncertainty)
 	if err != nil {
 		return nil, err
 	}
@@ -84,8 +91,8 @@ func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, err
 		return nil, err
 	}
 	return &PublicClient{clock: clock, httpClient: newPublicHTTPClient(), restOrigin: origin,
-		validateREST: validateRESTTarget, monotonic: func() time.Duration { return time.Since(start) },
-		budget: budget, descriptor: descriptor, wsOrigin: websocketOrigin,
+		validateREST: validateRESTTarget, monotonic: monotonic,
+		budget: budget, descriptor: descriptor, clockEstimator: estimator, wsOrigin: websocketOrigin,
 		validateWS: validateWebSocketTarget, connector: newSecureWebsocketConnector()}, nil
 }
 
@@ -106,15 +113,13 @@ func (client *PublicClient) Capabilities() exchangecontracts.Descriptor {
 
 // Health returns the latest fail-closed server-time estimate.
 func (client *PublicClient) Health() ClockHealth {
-	client.healthMutex.RLock()
-	defer client.healthMutex.RUnlock()
-	return client.clockHealth
+	return client.clockEstimator.Health()
 }
 
 // RateBudget returns the latest bounded admission result.
 func (client *PublicClient) RateBudget() RateBudgetTelemetry {
-	client.healthMutex.RLock()
-	defer client.healthMutex.RUnlock()
+	client.telemetryMutex.RLock()
+	defer client.telemetryMutex.RUnlock()
 	return client.budgetTelemetry
 }
 
@@ -166,10 +171,11 @@ func (client *PublicClient) sampleServerTime(
 	if err != nil {
 		return ClockHealth{}, token, client.recordDecodeFailure(ctx, recorder, token, err)
 	}
-	health := clockEstimate(sent.UTC, received.UTC, server, sentMonotonic, receivedMonotonic)
-	client.healthMutex.Lock()
-	client.clockHealth = health
-	client.healthMutex.Unlock()
+	health, estimateErr := client.clockEstimator.Observe(sent.UTC, received.UTC, server,
+		sentMonotonic, receivedMonotonic)
+	if estimateErr != nil {
+		return ClockHealth{}, token, estimateErr
+	}
 	if recorder != nil {
 		canonical, _ := json.Marshal(health)
 		if err = recorder.RecordPublicCanonical(ctx, exchangecontracts.PublicCanonicalRecord{
@@ -179,24 +185,6 @@ func (client *PublicClient) sampleServerTime(
 		}
 	}
 	return health, token, nil
-}
-
-func clockEstimate(
-	sentUTC, receivedUTC, serverUTC time.Time,
-	sentMonotonic, receivedMonotonic time.Duration,
-) ClockHealth {
-	roundTrip := max(receivedMonotonic-sentMonotonic, 0)
-	wallCorrection := receivedUTC.Sub(sentUTC) - roundTrip
-	if wallCorrection < 0 {
-		wallCorrection = -wallCorrection
-	}
-	uncertainty := roundTrip/2 + wallCorrection
-	health := ClockHealth{ObservedAt: receivedUTC, Offset: serverUTC.Sub(sentUTC.Add(roundTrip / 2)),
-		Uncertainty: uncertainty, Eligible: uncertainty <= maximumTimeUncertainty}
-	if sentUTC.IsZero() || receivedUTC.IsZero() || serverUTC.IsZero() || receivedMonotonic < sentMonotonic {
-		return ClockHealth{}
-	}
-	return health
 }
 
 func (client *PublicClient) recordRaw(

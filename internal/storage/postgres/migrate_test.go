@@ -35,7 +35,15 @@ func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
 	if len(migrations) < 2 {
 		t.Fatal("B1 migrations are missing")
 	}
-	b1 := migrations[len(migrations)-2:]
+	var b1 []Migration
+	for _, migration := range migrations {
+		if migration.Version == "000012" || migration.Version == "000013" {
+			b1 = append(b1, migration)
+		}
+	}
+	if len(b1) != 2 {
+		t.Fatalf("B1 migration count = %d", len(b1))
+	}
 	lower := strings.ToLower(b1[0].SQL + "\n" + b1[1].SQL)
 	for _, required := range []string{"'bybit'", "public_clock_samples", "public_connection_events",
 		"public_clock_samples_immutable", "public_connection_events_immutable",
@@ -47,6 +55,29 @@ func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
 	}
 	if b1[0].Version != "000012" || b1[1].Version != "000013" {
 		t.Fatalf("B1 migration versions = %s/%s", b1[0].Version, b1[1].Version)
+	}
+}
+
+func TestB2MigrationDefinesCoherentViewsAndTierACompleteness(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b2 := migrations[len(migrations)-1]
+	lower := strings.ToLower(b2.SQL)
+	for _, required := range []string{
+		"create table cross_market_view_headers", "create table cross_market_view_members",
+		"enforce_cross_market_view_complete", "cross_market_view_headers_immutable",
+		"decision_market_scope", "cross_market_view_id", "create table dataset_exchange_coverage",
+		"create table dataset_tier_a_members", "enforce_tier_a_dataset_manifest",
+		"raw_canonical_linkage_complete", "hidden_gap_count",
+	} {
+		if !strings.Contains(lower, required) {
+			t.Fatalf("B2 migration missing %q", required)
+		}
+	}
+	if b2.Version != "000014" {
+		t.Fatalf("B2 migration version = %s", b2.Version)
 	}
 }
 

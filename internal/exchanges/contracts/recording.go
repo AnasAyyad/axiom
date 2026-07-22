@@ -9,8 +9,11 @@ import (
 
 // StreamRecordToken is the opaque link from one wire fact to its canonical outcome.
 type StreamRecordToken struct {
-	IngestOrdinal uint64
-	PayloadHash   [32]byte
+	IngestOrdinal        uint64
+	PayloadHash          [32]byte
+	ReceivedAt           domain.EventTime
+	MonotonicOffsetNanos uint64
+	ConnectionGeneration uint64
 }
 
 // PublicRecordKind classifies public wire and lifecycle evidence.

@@ -10,8 +10,9 @@ run is claimed by this evidence.
 ## Source and toolchain identity
 
 - Merged B1 implementation: `d9bba565b6cab3b3b4a2f4669a8694b919aa8721`.
-- B1 completion source: `24e0a12a802d234fe2a6cc990f653bf3c5bb947b`.
-- Merged-main parent: `da406ea`.
+- B1 final source after the CI test-size repair: `f4675667b939a346af3319c622ce2b31b6d495c1`.
+- Merged B1 `main`: `91d8bab54216210f2ef54dc20fed716ccf22c831`.
+- Post-merge `main` CI run `29893542073`: succeeded on 2026-07-22.
 - Reviewed configuration SHA-256:
   `8a5ada09d2e689d33f92f567d569ddc74cd6aae24bce55e8805958a77cf0685a`.
 - Toolchain: Go 1.26.5, Node 24.18.0, pnpm 11.12.0, sqlc 1.31.1,

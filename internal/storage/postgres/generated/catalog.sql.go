@@ -204,7 +204,7 @@ const insertDatasetManifest = `-- name: InsertDatasetManifest :one
 INSERT INTO dataset_manifests (
   id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at, recorder_dataset_id, manifest_revision, manifest_path, source_commit, dataset_kind
+RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at, recorder_dataset_id, manifest_revision, manifest_path, source_commit, dataset_kind, manifest_schema_version, quality_tier
 `
 
 type InsertDatasetManifestParams struct {
@@ -241,6 +241,8 @@ func (q *Queries) InsertDatasetManifest(ctx context.Context, arg InsertDatasetMa
 		&i.ManifestPath,
 		&i.SourceCommit,
 		&i.DatasetKind,
+		&i.ManifestSchemaVersion,
+		&i.QualityTier,
 	)
 	return &i, err
 }
@@ -595,7 +597,7 @@ const transitionDatasetManifest = `-- name: TransitionDatasetManifest :one
 UPDATE dataset_manifests
 SET state = $3
 WHERE id = $1 AND state = $2
-RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at, recorder_dataset_id, manifest_revision, manifest_path, source_commit, dataset_kind
+RETURNING id, dataset_hash, schema_compatibility, coverage_start, coverage_end, state, created_at, recorder_dataset_id, manifest_revision, manifest_path, source_commit, dataset_kind, manifest_schema_version, quality_tier
 `
 
 type TransitionDatasetManifestParams struct {
@@ -620,6 +622,8 @@ func (q *Queries) TransitionDatasetManifest(ctx context.Context, arg TransitionD
 		&i.ManifestPath,
 		&i.SourceCommit,
 		&i.DatasetKind,
+		&i.ManifestSchemaVersion,
+		&i.QualityTier,
 	)
 	return &i, err
 }

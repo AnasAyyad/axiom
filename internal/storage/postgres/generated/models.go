@@ -202,6 +202,41 @@ type ConsumerCursor struct {
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type CrossMarketViewHeader struct {
+	ID                           interface{}        `db:"id" json:"id"`
+	VersionVectorHash            interface{}        `db:"version_vector_hash" json:"version_vector_hash"`
+	PolicyVersion                string             `db:"policy_version" json:"policy_version"`
+	MaximumBookAgeNanos          int64              `db:"maximum_book_age_nanos" json:"maximum_book_age_nanos"`
+	MaximumInterBookSkewNanos    int64              `db:"maximum_inter_book_skew_nanos" json:"maximum_inter_book_skew_nanos"`
+	MaximumClockUncertaintyNanos int64              `db:"maximum_clock_uncertainty_nanos" json:"maximum_clock_uncertainty_nanos"`
+	TriggerMonotonicNanos        int64              `db:"trigger_monotonic_nanos" json:"trigger_monotonic_nanos"`
+	TriggerIngestOrdinal         int64              `db:"trigger_ingest_ordinal" json:"trigger_ingest_ordinal"`
+	TriggerUtc                   pgtype.Timestamptz `db:"trigger_utc" json:"trigger_utc"`
+	TriggerUtcUnixNanos          int64              `db:"trigger_utc_unix_nanos" json:"trigger_utc_unix_nanos"`
+	MemberCount                  int32              `db:"member_count" json:"member_count"`
+	CreatedAt                    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type CrossMarketViewMember struct {
+	CrossMarketViewID     interface{}        `db:"cross_market_view_id" json:"cross_market_view_id"`
+	MemberOrdinal         int32              `db:"member_ordinal" json:"member_ordinal"`
+	ExchangeID            string             `db:"exchange_id" json:"exchange_id"`
+	InstrumentID          string             `db:"instrument_id" json:"instrument_id"`
+	BookVersion           int64              `db:"book_version" json:"book_version"`
+	ConnectionGeneration  int64              `db:"connection_generation" json:"connection_generation"`
+	ReceiveMonotonicNanos int64              `db:"receive_monotonic_nanos" json:"receive_monotonic_nanos"`
+	ReceiveUtc            pgtype.Timestamptz `db:"receive_utc" json:"receive_utc"`
+	ReceiveUtcUnixNanos   int64              `db:"receive_utc_unix_nanos" json:"receive_utc_unix_nanos"`
+	IngestOrdinal         int64              `db:"ingest_ordinal" json:"ingest_ordinal"`
+	ClockOffsetNanos      int64              `db:"clock_offset_nanos" json:"clock_offset_nanos"`
+	ClockUncertaintyNanos int64              `db:"clock_uncertainty_nanos" json:"clock_uncertainty_nanos"`
+	ClockIntervalStart    pgtype.Timestamptz `db:"clock_interval_start" json:"clock_interval_start"`
+	ClockIntervalEnd      pgtype.Timestamptz `db:"clock_interval_end" json:"clock_interval_end"`
+	StateHash             interface{}        `db:"state_hash" json:"state_hash"`
+	CollectorInstance     string             `db:"collector_instance" json:"collector_instance"`
+	CollectorRegion       string             `db:"collector_region" json:"collector_region"`
+}
+
 type DataQualityEvent struct {
 	ID           string             `db:"id" json:"id"`
 	DatasetID    *string            `db:"dataset_id" json:"dataset_id"`
@@ -212,6 +247,27 @@ type DataQualityEvent struct {
 	FirstOrdinal *int64             `db:"first_ordinal" json:"first_ordinal"`
 	LastOrdinal  *int64             `db:"last_ordinal" json:"last_ordinal"`
 	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type DatasetExchangeCoverage struct {
+	DatasetID                   string             `db:"dataset_id" json:"dataset_id"`
+	ExchangeID                  string             `db:"exchange_id" json:"exchange_id"`
+	CollectorInstance           string             `db:"collector_instance" json:"collector_instance"`
+	CollectorRegion             string             `db:"collector_region" json:"collector_region"`
+	CoverageStart               pgtype.Timestamptz `db:"coverage_start" json:"coverage_start"`
+	CoverageEnd                 pgtype.Timestamptz `db:"coverage_end" json:"coverage_end"`
+	FirstOrdinal                int64              `db:"first_ordinal" json:"first_ordinal"`
+	LastOrdinal                 int64              `db:"last_ordinal" json:"last_ordinal"`
+	GenerationHistory           []byte             `db:"generation_history" json:"generation_history"`
+	SchemaVersions              []string           `db:"schema_versions" json:"schema_versions"`
+	ParserVersions              []string           `db:"parser_versions" json:"parser_versions"`
+	NormalizationVersions       []string           `db:"normalization_versions" json:"normalization_versions"`
+	CompatibilityRequirements   []byte             `db:"compatibility_requirements" json:"compatibility_requirements"`
+	RawRecordCount              int64              `db:"raw_record_count" json:"raw_record_count"`
+	CanonicalRecordCount        int64              `db:"canonical_record_count" json:"canonical_record_count"`
+	RawCanonicalLinkageComplete bool               `db:"raw_canonical_linkage_complete" json:"raw_canonical_linkage_complete"`
+	HiddenGapCount              int64              `db:"hidden_gap_count" json:"hidden_gap_count"`
+	Complete                    bool               `db:"complete" json:"complete"`
 }
 
 type DatasetGap struct {
@@ -226,18 +282,20 @@ type DatasetGap struct {
 }
 
 type DatasetManifest struct {
-	ID                  string             `db:"id" json:"id"`
-	DatasetHash         interface{}        `db:"dataset_hash" json:"dataset_hash"`
-	SchemaCompatibility string             `db:"schema_compatibility" json:"schema_compatibility"`
-	CoverageStart       pgtype.Timestamptz `db:"coverage_start" json:"coverage_start"`
-	CoverageEnd         pgtype.Timestamptz `db:"coverage_end" json:"coverage_end"`
-	State               string             `db:"state" json:"state"`
-	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	RecorderDatasetID   *string            `db:"recorder_dataset_id" json:"recorder_dataset_id"`
-	ManifestRevision    *int64             `db:"manifest_revision" json:"manifest_revision"`
-	ManifestPath        *string            `db:"manifest_path" json:"manifest_path"`
-	SourceCommit        *string            `db:"source_commit" json:"source_commit"`
-	DatasetKind         string             `db:"dataset_kind" json:"dataset_kind"`
+	ID                    string             `db:"id" json:"id"`
+	DatasetHash           interface{}        `db:"dataset_hash" json:"dataset_hash"`
+	SchemaCompatibility   string             `db:"schema_compatibility" json:"schema_compatibility"`
+	CoverageStart         pgtype.Timestamptz `db:"coverage_start" json:"coverage_start"`
+	CoverageEnd           pgtype.Timestamptz `db:"coverage_end" json:"coverage_end"`
+	State                 string             `db:"state" json:"state"`
+	CreatedAt             pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RecorderDatasetID     *string            `db:"recorder_dataset_id" json:"recorder_dataset_id"`
+	ManifestRevision      *int64             `db:"manifest_revision" json:"manifest_revision"`
+	ManifestPath          *string            `db:"manifest_path" json:"manifest_path"`
+	SourceCommit          *string            `db:"source_commit" json:"source_commit"`
+	DatasetKind           string             `db:"dataset_kind" json:"dataset_kind"`
+	ManifestSchemaVersion *string            `db:"manifest_schema_version" json:"manifest_schema_version"`
+	QualityTier           *string            `db:"quality_tier" json:"quality_tier"`
 }
 
 type DatasetSegment struct {
@@ -246,17 +304,30 @@ type DatasetSegment struct {
 	Ordinal   int32  `db:"ordinal" json:"ordinal"`
 }
 
+type DatasetTierAMember struct {
+	DatasetID          string      `db:"dataset_id" json:"dataset_id"`
+	MemberOrdinal      int32       `db:"member_ordinal" json:"member_ordinal"`
+	ExchangeID         string      `db:"exchange_id" json:"exchange_id"`
+	MemberDatasetID    string      `db:"member_dataset_id" json:"member_dataset_id"`
+	MemberManifestHash interface{} `db:"member_manifest_hash" json:"member_manifest_hash"`
+	MemberRevision     int64       `db:"member_revision" json:"member_revision"`
+	ReplayHash         interface{} `db:"replay_hash" json:"replay_hash"`
+	RecordCount        int64       `db:"record_count" json:"record_count"`
+}
+
 type Decision struct {
-	ID                string             `db:"id" json:"id"`
-	OpportunityID     *string            `db:"opportunity_id" json:"opportunity_id"`
-	RunID             string             `db:"run_id" json:"run_id"`
-	ConfigurationID   string             `db:"configuration_id" json:"configuration_id"`
-	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
-	Outcome           string             `db:"outcome" json:"outcome"`
-	ReasonCode        string             `db:"reason_code" json:"reason_code"`
-	CausationID       string             `db:"causation_id" json:"causation_id"`
-	DecidedAt         pgtype.Timestamptz `db:"decided_at" json:"decided_at"`
-	IngestOrdinal     int64              `db:"ingest_ordinal" json:"ingest_ordinal"`
+	ID                  string             `db:"id" json:"id"`
+	OpportunityID       *string            `db:"opportunity_id" json:"opportunity_id"`
+	RunID               string             `db:"run_id" json:"run_id"`
+	ConfigurationID     string             `db:"configuration_id" json:"configuration_id"`
+	StrategyVersionID   string             `db:"strategy_version_id" json:"strategy_version_id"`
+	Outcome             string             `db:"outcome" json:"outcome"`
+	ReasonCode          string             `db:"reason_code" json:"reason_code"`
+	CausationID         string             `db:"causation_id" json:"causation_id"`
+	DecidedAt           pgtype.Timestamptz `db:"decided_at" json:"decided_at"`
+	IngestOrdinal       int64              `db:"ingest_ordinal" json:"ingest_ordinal"`
+	DecisionMarketScope string             `db:"decision_market_scope" json:"decision_market_scope"`
+	CrossMarketViewID   interface{}        `db:"cross_market_view_id" json:"cross_market_view_id"`
 }
 
 type DecisionInput struct {

@@ -20,28 +20,30 @@ type rawRecord struct {
 
 // Recorder appends raw rows before their linked canonical representations.
 type Recorder struct {
-	mutex          sync.Mutex
-	root           string
-	datasetID      string
-	sessionID      string
-	exchange       string
-	ordinals       *runtimecore.IngestOrdinals
-	finalizer      *segments.Finalizer
-	commit         segments.Committer
-	now            func() time.Time
-	revision       uint64
-	previous       string
-	latest         DatasetManifest
-	raw            []segments.WireRow
-	canonical      []segments.CanonicalRow
-	links          map[uint64]*rawRecord
-	segments       []SegmentReference
-	gaps           []Gap
-	rawCount       uint64
-	canonicalCount uint64
-	pendingBytes   uint64
-	reservedBytes  uint64
-	pendingLimit   uint64
+	mutex              sync.Mutex
+	root               string
+	datasetID          string
+	sessionID          string
+	exchange           string
+	ordinals           *runtimecore.IngestOrdinals
+	finalizer          *segments.Finalizer
+	commit             segments.Committer
+	now                func() time.Time
+	revision           uint64
+	previous           string
+	latest             DatasetManifest
+	raw                []segments.WireRow
+	canonical          []segments.CanonicalRow
+	links              map[uint64]*rawRecord
+	segments           []SegmentReference
+	gaps               []Gap
+	rawCount           uint64
+	canonicalCount     uint64
+	pendingBytes       uint64
+	reservedBytes      uint64
+	pendingLimit       uint64
+	profile            *CollectorProfile
+	generationCoverage map[uint64]GenerationCoverage
 }
 
 // PendingCounts reports bounded in-memory wire/canonical rows for operations.
@@ -63,6 +65,31 @@ func New(
 	commit segments.Committer,
 	kill segments.KillPoint,
 ) (*Recorder, error) {
+	return newRecorder(root, datasetID, sessionID, exchange, ordinals, commit, kill, nil)
+}
+
+// NewB2 constructs a recorder that emits V2 per-exchange qualification manifests.
+func NewB2(
+	root, datasetID, sessionID, exchange string,
+	ordinals *runtimecore.IngestOrdinals,
+	commit segments.Committer,
+	kill segments.KillPoint,
+	profile CollectorProfile,
+) (*Recorder, error) {
+	if !identifierPattern.MatchString(profile.Instance) || !identifierPattern.MatchString(profile.Region) ||
+		!identifierPattern.MatchString(profile.MinimumReaderVersion) {
+		return nil, recorderError("collector_profile_invalid")
+	}
+	return newRecorder(root, datasetID, sessionID, exchange, ordinals, commit, kill, &profile)
+}
+
+func newRecorder(
+	root, datasetID, sessionID, exchange string,
+	ordinals *runtimecore.IngestOrdinals,
+	commit segments.Committer,
+	kill segments.KillPoint,
+	profile *CollectorProfile,
+) (*Recorder, error) {
 	if !identifierPattern.MatchString(datasetID) || !identifierPattern.MatchString(sessionID) ||
 		!identifierPattern.MatchString(exchange) || ordinals == nil || commit == nil {
 		return nil, recorderError("configuration_invalid")
@@ -73,7 +100,8 @@ func New(
 	}
 	return &Recorder{root: root, datasetID: datasetID, sessionID: sessionID, exchange: exchange,
 		ordinals: ordinals, finalizer: finalizer, commit: commit, now: func() time.Time { return time.Now().UTC() },
-		links: make(map[uint64]*rawRecord), pendingLimit: maximumPendingBytes}, nil
+		links: make(map[uint64]*rawRecord), pendingLimit: maximumPendingBytes, profile: profile,
+		generationCoverage: make(map[uint64]GenerationCoverage)}, nil
 }
 
 // RecordRaw assigns the authoritative ingest ordinal and snapshots wire bytes.

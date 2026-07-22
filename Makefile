@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b3-model-qualify b3-postgres-qualify b3-research-qualify b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-model-qualify b3-postgres-qualify b3-research-qualify b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -260,14 +260,33 @@ b1-live-qualify: ## Run explicitly enabled short Bybit production-public qualifi
 	@AXIOM_B1_LIVE_PUBLIC=1 $(GO) test ./internal/exchanges/bybit \
 		-run '^TestProductionPublicBybit(Surface|WebSocketRecording|RecorderManifest)$$' -count=1 -v
 
-b2-model-qualify b2-postgres-qualify b2-live-qualify \
+b2-model-qualify: ## Exercise B2 clocks, book evidence, deterministic joins, recovery, and Tier-A manifests.
+	@$(GO) test ./internal/exchanges/contracts ./internal/exchanges/binance ./internal/exchanges/bybit \
+		./internal/marketdata ./internal/runtime ./internal/recorder ./internal/qualification -count=1
+
+b2-postgres-qualify: ## Run clean-install and B1-upgrade B2 gates on PostgreSQL 18 *_b2_test databases.
+	@test -n "$(AXIOM_B2_TEST_DSN)" || { echo "AXIOM_B2_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_UPGRADE_TEST_DSN)" || { echo "AXIOM_B2_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_B2_TEST_DSN="$(AXIOM_B2_TEST_DSN)" \
+		AXIOM_B2_UPGRADE_TEST_DSN="$(AXIOM_B2_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres -run '^TestB2Postgres(CleanInstall|B1ToB2Upgrade)Qualification$$' -count=1 -v
+
+b2-live-qualify: ## Run the explicitly enabled short public-only Binance/Bybit coherent-view qualification; no soak.
+	@test "$(AXIOM_B2_LIVE_PUBLIC)" = "1" || { echo "AXIOM_B2_LIVE_PUBLIC=1 is required" >&2; exit 1; }
+	@AXIOM_B2_LIVE_PUBLIC=1 \
+		AXIOM_B2_LIVE_EVIDENCE_ROOT="$(AXIOM_B2_LIVE_EVIDENCE_ROOT)" \
+		AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" \
+		$(GO) test ./internal/qualification -run '^TestB2ProductionPublicRecordOnlyAndCoherentQualification$$' -count=1 -v
+
+b2-local-qualify: b2-model-qualify b2-postgres-qualify verify ## Pass every non-soak B2 gate cumulatively.
+
 b3-model-qualify b3-postgres-qualify b3-research-qualify \
 b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify \
 b6-model-qualify b6-postgres-qualify b6-security-qualify \
 b7-model-qualify b7-postgres-qualify b7-research-qualify \
 b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify \
 b8-security-qualify b8-live-qualify:
-	@echo "$@ is reserved for its sequential V1B phase and is not implemented by B1" >&2
+	@echo "$@ is reserved for its sequential V1B phase and is not implemented by B2" >&2
 	@exit 2
 
 image: ## Build the pinned minimal Axiom image.

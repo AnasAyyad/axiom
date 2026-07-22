@@ -53,15 +53,15 @@ func newRecorderRoleWork(
 		return nil, fmt.Errorf("recorder_root_unavailable")
 	}
 	exchanges := product.PublicExchanges()
-	client, err := binance.NewPublicClient(exchanges[0].EndpointSet, clock)
+	monotonic := exchangecontracts.NewProcessMonotonicSource()
+	client, err := binance.NewPublicClientWithMonotonic(exchanges[0].EndpointSet, clock, monotonic)
 	if err != nil {
 		return nil, err
 	}
 	session := recorderSession(runtimeConfig.InstanceID, time.Now().UTC())
 	ordinals := &runtimecore.IngestOrdinals{}
 	root := recorderExchangeRoot(runtimeConfig.Recorder.Root, "binance", len(exchanges))
-	streamRecorder, err := marketrecorder.New(root, recorderDatasetID(session), session,
-		"binance", ordinals, segmentCommitter(pool, session, "binance"), nil)
+	streamRecorder, err := newBinanceStreamRecorder(root, session, runtimeConfig, len(exchanges), ordinals, pool)
 	if err != nil {
 		return nil, err
 	}
@@ -81,18 +81,12 @@ func newRecorderRoleWork(
 		catalog: catalog, metadata: metadataStore, commit: buildinfo.Current().Commit,
 		flush: runtimeConfig.Recorder.FlushInterval}
 	if len(exchanges) == 2 {
-		if err = work.addBybit(runtimeConfig.Recorder, exchanges[1], session, ordinals, pool, clock); err != nil {
+		if err = work.addBybit(runtimeConfig.InstanceID, runtimeConfig.Recorder, exchanges[1], session, ordinals,
+			pool, clock, monotonic); err != nil {
 			return nil, err
 		}
 	}
 	return work, nil
-}
-
-func recorderExchangeRoot(root, exchange string, exchangeCount int) string {
-	if exchangeCount > 1 {
-		return filepath.Join(root, exchange)
-	}
-	return root
 }
 
 func newRecorderStores(pool *pgxpool.Pool, instance string,
@@ -112,20 +106,24 @@ func newRecorderStores(pool *pgxpool.Pool, instance string,
 }
 
 func (work *recorderRoleWork) addBybit(
+	instance string,
 	runtimeConfig config.RecorderRuntime,
 	exchange config.ExchangeConfiguration,
 	session string,
 	ordinals *runtimecore.IngestOrdinals,
 	pool *pgxpool.Pool,
 	clock domain.Clock,
+	monotonic exchangecontracts.MonotonicSource,
 ) error {
-	client, err := bybit.NewPublicClient(exchange.EndpointSet, clock)
+	client, err := bybit.NewPublicClientWithMonotonic(exchange.EndpointSet, clock, monotonic)
 	if err != nil {
 		return err
 	}
-	recorder, err := marketrecorder.New(filepath.Join(runtimeConfig.Root, "bybit"),
+	recorder, err := marketrecorder.NewB2(filepath.Join(runtimeConfig.Root, "bybit"),
 		bybitRecorderDatasetID(session), session+"-bybit", "bybit", ordinals,
-		segmentCommitter(pool, session+"-bybit", "bybit"), nil)
+		segmentCommitter(pool, session+"-bybit", "bybit"), nil,
+		marketrecorder.CollectorProfile{Instance: instance,
+			Region: runtimeConfig.CollectorRegion, MinimumReaderVersion: "dataset-reader.v2"})
 	if err != nil {
 		return err
 	}

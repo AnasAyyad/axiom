@@ -53,5 +53,11 @@ func validSuccessor(previous, current DatasetManifest) bool {
 			return false
 		}
 	}
+	if previous.SchemaVersion == datasetSchemaVersionV2 &&
+		(previous.ExchangeCoverage[0].CollectorInstance != current.ExchangeCoverage[0].CollectorInstance ||
+			previous.ExchangeCoverage[0].CollectorRegion != current.ExchangeCoverage[0].CollectorRegion ||
+			previous.Compatibility.MinimumReaderVersion != current.Compatibility.MinimumReaderVersion) {
+		return false
+	}
 	return true
 }
