@@ -105,19 +105,35 @@ func TestProductionPublicBybitRecorderManifest(t *testing.T) {
 	if os.Getenv("AXIOM_B1_LIVE_PUBLIC") != "1" {
 		t.Skip("AXIOM_B1_LIVE_PUBLIC=1 is required")
 	}
+	harness := newBybitLiveRecorderHarness(t)
+	manifest := recordBybitDepthManifest(t, harness)
+	assertBybitRecorderManifest(t, harness, manifest)
+	t.Logf("B1_MANIFEST root=%s hash=%s raw=%d canonical=%d", harness.root, manifest.Hash,
+		manifest.RawRecordCount, manifest.CanonicalCount)
+}
+
+type bybitLiveRecorderHarness struct {
+	root      string
+	recorder  *marketrecorder.Recorder
+	sink      *marketrecorder.PublicStreamSink
+	committed []segments.Manifest
+}
+
+func newBybitLiveRecorderHarness(t *testing.T) *bybitLiveRecorderHarness {
+	t.Helper()
 	evidenceRoot := os.Getenv("AXIOM_B1_LIVE_EVIDENCE_ROOT")
 	if evidenceRoot == "" {
 		evidenceRoot = t.TempDir()
 	}
 	session := fmt.Sprintf("b1-live-%d", time.Now().UTC().UnixNano())
-	root := filepath.Join(evidenceRoot, session)
-	if err := os.MkdirAll(root, 0o700); err != nil {
+	harness := &bybitLiveRecorderHarness{root: filepath.Join(evidenceRoot, session),
+		committed: make([]segments.Manifest, 0, 2)}
+	if err := os.MkdirAll(harness.root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	committed := make([]segments.Manifest, 0, 2)
-	recorder, err := marketrecorder.New(root, "bybit-short-public", session, "bybit",
+	recorder, err := marketrecorder.New(harness.root, "bybit-short-public", session, "bybit",
 		&runtimecore.IngestOrdinals{}, func(manifest segments.Manifest) error {
-			committed = append(committed, manifest)
+			harness.committed = append(harness.committed, manifest)
 			return nil
 		}, nil)
 	if err != nil {
@@ -128,6 +144,13 @@ func TestProductionPublicBybitRecorderManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	harness.recorder = recorder
+	harness.sink = sink
+	return harness
+}
+
+func recordBybitDepthManifest(t *testing.T, harness *bybitLiveRecorderHarness) marketrecorder.DatasetManifest {
+	t.Helper()
 	client, err := NewPublicClient(publicEndpointSet, &domain.SystemClock{})
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +160,7 @@ func TestProductionPublicBybitRecorderManifest(t *testing.T) {
 	stream, err := client.SubscribeRecorded(ctx, exchangecontracts.StreamRequest{
 		Instrument: approvedInstruments()[0],
 		Kinds:      []exchangecontracts.StreamKind{exchangecontracts.StreamDepth},
-	}, sink)
+	}, harness.sink)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,17 +176,27 @@ func TestProductionPublicBybitRecorderManifest(t *testing.T) {
 	if err = stream.Close(); err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := recorder.Flush()
-	if err != nil || manifest.RawRecordCount == 0 || manifest.RawRecordCount != manifest.CanonicalCount ||
-		len(committed) != 2 {
-		t.Fatalf("live recorder manifest=%#v committed=%d error=%v", manifest, len(committed), err)
+	manifest, err := harness.recorder.Flush()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if records, validateErr := marketrecorder.ValidateDataset(root, manifest); validateErr != nil ||
-		uint64(len(records)) != manifest.CanonicalCount {
-		t.Fatalf("live recorder validation records=%d error=%v", len(records), validateErr)
+	return manifest
+}
+
+func assertBybitRecorderManifest(
+	t *testing.T,
+	harness *bybitLiveRecorderHarness,
+	manifest marketrecorder.DatasetManifest,
+) {
+	t.Helper()
+	if manifest.RawRecordCount == 0 || manifest.RawRecordCount != manifest.CanonicalCount ||
+		len(harness.committed) != 2 {
+		t.Fatalf("live recorder manifest=%#v committed=%d", manifest, len(harness.committed))
 	}
-	t.Logf("B1_MANIFEST root=%s hash=%s raw=%d canonical=%d", root, manifest.Hash,
-		manifest.RawRecordCount, manifest.CanonicalCount)
+	records, err := marketrecorder.ValidateDataset(harness.root, manifest)
+	if err != nil || uint64(len(records)) != manifest.CanonicalCount {
+		t.Fatalf("live recorder validation records=%d error=%v", len(records), err)
+	}
 }
 
 func allLiveKindsSeen(seen map[exchangecontracts.StreamKind]bool) bool {
