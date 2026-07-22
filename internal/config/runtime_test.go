@@ -19,7 +19,7 @@ func TestLoadRuntimeUsesSafeDefaults(t *testing.T) {
 		t.Fatalf("unexpected database defaults: %#v", configuration.Database)
 	}
 	if configuration.Recorder.FlushInterval != 5*time.Minute || configuration.Recorder.QueueCapacity != 16384 ||
-		configuration.Recorder.BookDepth != 1000 {
+		configuration.Recorder.BookDepth != 1000 || configuration.Recorder.CollectorRegion != "local" {
 		t.Fatalf("unexpected recorder defaults: %#v", configuration.Recorder)
 	}
 	if configuration.Authentication.SecureCookies || len(configuration.Authentication.AllowedOrigins) != 2 {
@@ -78,6 +78,7 @@ func TestLoadRuntimeValidatesRecorderBounds(t *testing.T) {
 	clearRuntimeEnvironment(t)
 	for key, value := range map[string]string{
 		"RECORDER_ROOT":               "relative",
+		"COLLECTOR_REGION":            "unsafe region",
 		"RECORDER_FLUSH_INTERVAL":     "500ms",
 		"MARKET_EVENT_QUEUE_CAPACITY": "999",
 		"ORDER_BOOK_RETAINED_DEPTH":   "5001",
@@ -148,7 +149,7 @@ func clearRuntimeEnvironment(t *testing.T) {
 		"DB_CONNECTION_TIMEOUT", "DB_STATEMENT_TIMEOUT",
 		"ALERT_WEBHOOK_ENABLED", "ALERT_WEBHOOK_URL", "ALERT_WEBHOOK_ALLOWED_HOST", "ALERT_WEBHOOK_TOKEN_FILE",
 		"OTEL_TRACING_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT",
-		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH",
+		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH", "COLLECTOR_REGION",
 		"AUTH_BOOTSTRAP_OWNER_EMAIL_FILE", "AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE", "AUTH_CSRF_KEY_FILE", "AUTH_SESSION_SIGNING_KEY_FILE", "WEB_ALLOWED_ORIGINS",
 		"DEPLOYMENT_ENV",
 	} {
@@ -162,7 +163,7 @@ func clearRuntimeEnvironment(t *testing.T) {
 		"DB_CONNECTION_TIMEOUT", "DB_STATEMENT_TIMEOUT",
 		"ALERT_WEBHOOK_ENABLED", "ALERT_WEBHOOK_URL", "ALERT_WEBHOOK_ALLOWED_HOST", "ALERT_WEBHOOK_TOKEN_FILE",
 		"OTEL_TRACING_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT",
-		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH",
+		"RECORDER_ROOT", "RECORDER_FLUSH_INTERVAL", "MARKET_EVENT_QUEUE_CAPACITY", "ORDER_BOOK_RETAINED_DEPTH", "COLLECTOR_REGION",
 		"AUTH_BOOTSTRAP_OWNER_EMAIL_FILE", "AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE", "AUTH_CSRF_KEY_FILE", "AUTH_SESSION_SIGNING_KEY_FILE", "WEB_ALLOWED_ORIGINS",
 		"DEPLOYMENT_ENV",
 	} {
@@ -183,6 +184,7 @@ func defaultForUnset(key string) string {
 		"OTEL_TRACING_ENABLED": "false", "OTEL_EXPORTER_OTLP_ENDPOINT": "",
 		"RECORDER_ROOT": "/var/lib/axiom/market-data", "RECORDER_FLUSH_INTERVAL": "5m",
 		"MARKET_EVENT_QUEUE_CAPACITY": "16384", "ORDER_BOOK_RETAINED_DEPTH": "1000",
+		"COLLECTOR_REGION":                        "local",
 		"AUTH_BOOTSTRAP_OWNER_EMAIL_FILE":         "/run/secrets/bootstrap_owner_email",
 		"AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE": "/run/secrets/bootstrap_owner_password_hash",
 		"AUTH_CSRF_KEY_FILE":                      "/run/secrets/csrf_key",

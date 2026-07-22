@@ -60,10 +60,10 @@ func (client *PublicClient) get(
 
 func (client *PublicClient) acquire(operation exchangecontracts.Operation, weight uint64) error {
 	decision, err := client.budget.TryAcquire(client.monotonic(), exchangecontracts.BudgetPublic, weight)
-	client.healthMutex.Lock()
+	client.telemetryMutex.Lock()
 	client.budgetTelemetry = RateBudgetTelemetry{Remaining: decision.Remaining,
 		RetryAfter: decision.RetryAfter, Granted: decision.Granted}
-	client.healthMutex.Unlock()
+	client.telemetryMutex.Unlock()
 	if err != nil {
 		return err
 	}

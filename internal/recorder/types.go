@@ -10,10 +10,11 @@ import (
 )
 
 const (
-	datasetSchemaVersion = "axiom.dataset.v1"
-	maximumEventBytes    = 2 * 1024 * 1024
-	maximumPendingBytes  = 512 * 1024 * 1024
-	recordMemoryOverhead = 1024
+	datasetSchemaVersion   = "axiom.dataset.v1"
+	datasetSchemaVersionV2 = "axiom.dataset.v2"
+	maximumEventBytes      = 2 * 1024 * 1024
+	maximumPendingBytes    = 512 * 1024 * 1024
+	recordMemoryOverhead   = 1024
 )
 
 // EventType identifies one recorded public market or lifecycle fact.
@@ -100,21 +101,69 @@ type SegmentReference struct {
 	Manifest segments.Manifest `json:"manifest"`
 }
 
+// CollectorProfile declares immutable B2 collector provenance.
+type CollectorProfile struct {
+	Instance             string `json:"instance"`
+	Region               string `json:"region"`
+	MinimumReaderVersion string `json:"minimum_reader_version"`
+}
+
+// GenerationCoverage records the exact flushed extent of one connection generation.
+type GenerationCoverage struct {
+	ConnectionGeneration uint64    `json:"connection_generation"`
+	FirstOrdinal         uint64    `json:"first_ordinal"`
+	LastOrdinal          uint64    `json:"last_ordinal"`
+	CoverageStart        time.Time `json:"coverage_start"`
+	CoverageEnd          time.Time `json:"coverage_end"`
+	RecordCount          uint64    `json:"record_count"`
+}
+
+// ExchangeCoverage is complete per-exchange manifest provenance and compatibility evidence.
+type ExchangeCoverage struct {
+	Exchange                    string               `json:"exchange"`
+	CollectorInstance           string               `json:"collector_instance"`
+	CollectorRegion             string               `json:"collector_region"`
+	CoverageStart               time.Time            `json:"coverage_start"`
+	CoverageEnd                 time.Time            `json:"coverage_end"`
+	FirstOrdinal                uint64               `json:"first_ordinal"`
+	LastOrdinal                 uint64               `json:"last_ordinal"`
+	GenerationHistory           []GenerationCoverage `json:"generation_history"`
+	SchemaVersions              []string             `json:"schema_versions"`
+	ParserVersions              []string             `json:"parser_versions"`
+	NormalizationVersions       []string             `json:"normalization_versions"`
+	RawRecordCount              uint64               `json:"raw_record_count"`
+	CanonicalRecordCount        uint64               `json:"canonical_record_count"`
+	RawCanonicalLinkageComplete bool                 `json:"raw_canonical_linkage_complete"`
+	HiddenGapCount              uint64               `json:"hidden_gap_count"`
+	Complete                    bool                 `json:"complete"`
+}
+
+// CompatibilityRequirements states the exact reader/parser contract needed by a dataset.
+type CompatibilityRequirements struct {
+	MinimumReaderVersion  string   `json:"minimum_reader_version"`
+	SchemaVersions        []string `json:"schema_versions"`
+	ParserVersions        []string `json:"parser_versions"`
+	NormalizationVersions []string `json:"normalization_versions"`
+}
+
 // DatasetManifest is one immutable cumulative dataset revision.
 type DatasetManifest struct {
-	SchemaVersion  string             `json:"schema_version"`
-	DatasetID      string             `json:"dataset_id"`
-	SessionID      string             `json:"session_id"`
-	Exchange       string             `json:"exchange"`
-	Revision       uint64             `json:"revision"`
-	PreviousHash   string             `json:"previous_hash,omitempty"`
-	CreatedAt      time.Time          `json:"created_at"`
-	Segments       []SegmentReference `json:"segments"`
-	Gaps           []Gap              `json:"gaps"`
-	RawRecordCount uint64             `json:"raw_record_count"`
-	CanonicalCount uint64             `json:"canonical_record_count"`
-	Complete       bool               `json:"complete"`
-	Hash           string             `json:"hash"`
+	SchemaVersion    string                     `json:"schema_version"`
+	DatasetID        string                     `json:"dataset_id"`
+	SessionID        string                     `json:"session_id"`
+	Exchange         string                     `json:"exchange"`
+	Revision         uint64                     `json:"revision"`
+	PreviousHash     string                     `json:"previous_hash,omitempty"`
+	CreatedAt        time.Time                  `json:"created_at"`
+	Segments         []SegmentReference         `json:"segments"`
+	Gaps             []Gap                      `json:"gaps"`
+	RawRecordCount   uint64                     `json:"raw_record_count"`
+	CanonicalCount   uint64                     `json:"canonical_record_count"`
+	Complete         bool                       `json:"complete"`
+	Hash             string                     `json:"hash"`
+	QualityTier      string                     `json:"quality_tier,omitempty"`
+	ExchangeCoverage []ExchangeCoverage         `json:"exchange_coverage,omitempty"`
+	Compatibility    *CompatibilityRequirements `json:"compatibility_requirements,omitempty"`
 }
 
 // Error is a bounded recorder failure without paths, payloads, or arbitrary

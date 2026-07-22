@@ -58,7 +58,9 @@ func (sink *PublicStreamSink) RecordPublicRaw(
 	if err != nil {
 		return exchangecontracts.StreamRecordToken{}, err
 	}
-	return exchangecontracts.StreamRecordToken{IngestOrdinal: link.IngestOrdinal, PayloadHash: link.PayloadHash}, nil
+	return exchangecontracts.StreamRecordToken{IngestOrdinal: link.IngestOrdinal, PayloadHash: link.PayloadHash,
+		ReceivedAt: record.ReceivedAt, MonotonicOffsetNanos: record.MonotonicOffsetNanos,
+		ConnectionGeneration: record.ConnectionGeneration}, nil
 }
 
 // RecordPublicCanonical links normalized bytes to their exact wire record.
@@ -68,7 +70,8 @@ func (sink *PublicStreamSink) RecordPublicCanonical(
 ) error {
 	// Once raw append succeeds, its bounded local outcome must be completed even
 	// if the source context is canceled between decode and canonical append.
-	return sink.recorder.RecordCanonical(CanonicalInput{Link: RawLink(record.Token),
+	return sink.recorder.RecordCanonical(CanonicalInput{Link: RawLink{IngestOrdinal: record.Token.IngestOrdinal,
+		PayloadHash: record.Token.PayloadHash},
 		EventID:       sink.recorder.sessionID + ":" + strconv.FormatUint(record.Token.IngestOrdinal, 10),
 		ParserVersion: sink.parserVersion, NormalizationVersion: sink.normalizerVersion,
 		Canonical: append([]byte(nil), record.Canonical...), SourceSequence: record.SourceSequence,

@@ -26,8 +26,11 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 ## B2 — coherent views and Tier-A datasets
 
-- [ ] Confirm the locally verified B1 completion branch is merged into `main`; formal soak acceptance remains deferred.
-- [ ] Implement and qualify every `AX-V1B-B02-*` requirement.
+- [x] Confirm the locally verified B1 completion branch is merged into `main` at `91d8bab54216210f2ef54dc20fed716ccf22c831`; formal A7/B1-soak acceptance remains deferred.
+- [x] Implement every `AX-V1B-B02-*` requirement and pass model, deterministic replay, Tier A, and PostgreSQL 18 clean/upgrade gates.
+- [x] Retain a short real Binance/Bybit Tier A dataset with exact child/replay identities and zero hidden gaps.
+- [ ] Close the short public coherent-view gate at or below 100 ms clock uncertainty (current runner rejected 126.825012 ms / 176.871953 ms fail-closed).
+- [ ] Complete the continuous B2 72-hour qualification (explicitly deferred; not run).
 
 ## B3 — mean reversion
 

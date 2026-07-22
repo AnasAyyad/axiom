@@ -44,10 +44,11 @@ type Tracing struct {
 
 // RecorderRuntime is the bounded production-public recorder process contract.
 type RecorderRuntime struct {
-	Root          string
-	FlushInterval time.Duration
-	QueueCapacity int
-	BookDepth     int
+	Root            string
+	CollectorRegion string
+	FlushInterval   time.Duration
+	QueueCapacity   int
+	BookDepth       int
 }
 
 // AuthenticationRuntime contains only file references and exact browser origins.
@@ -188,7 +189,11 @@ func loadRecorderRuntime() (RecorderRuntime, error) {
 	if !filepath.IsAbs(root) || filepath.Clean(root) == string(filepath.Separator) {
 		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:RECORDER_ROOT")
 	}
-	return RecorderRuntime{Root: filepath.Clean(root), FlushInterval: flush,
+	region := value("COLLECTOR_REGION", "local")
+	if !validRuntimeLabel(region) {
+		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:COLLECTOR_REGION")
+	}
+	return RecorderRuntime{Root: filepath.Clean(root), CollectorRegion: region, FlushInterval: flush,
 		QueueCapacity: queue, BookDepth: depth}, nil
 }
 
@@ -258,7 +263,7 @@ func databaseValues(port uint16, maxOpen int32) (Database, error) {
 }
 
 func validateRuntime(runtimeConfig Runtime) error {
-	if runtimeConfig.InstanceID == "" || strings.ContainsAny(runtimeConfig.InstanceID, "\r\n") {
+	if !validRuntimeLabel(runtimeConfig.InstanceID) {
 		return fmt.Errorf("invalid_configuration:APP_INSTANCE_ID")
 	}
 	addresses := []struct{ key, value string }{
@@ -298,6 +303,20 @@ func validateRuntime(runtimeConfig Runtime) error {
 	default:
 		return fmt.Errorf("invalid_configuration:DB_SSL_MODE")
 	}
+}
+
+func validRuntimeLabel(value string) bool {
+	if len(value) == 0 || len(value) > 128 {
+		return false
+	}
+	for _, character := range value {
+		if (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') &&
+			(character < '0' || character > '9') && character != '-' && character != '_' &&
+			character != '.' && character != ':' {
+			return false
+		}
+	}
+	return true
 }
 
 func validateSafetyFlags() error {

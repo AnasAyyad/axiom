@@ -45,7 +45,16 @@ var (
 // NewPublicClient accepts only the compiled endpoint-set identifier and has no
 // credential, signer, header, route, or arbitrary-origin input.
 func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, error) {
-	if endpointSet != publicEndpointSet || clock == nil {
+	return NewPublicClientWithMonotonic(endpointSet, clock, exchangecontracts.NewProcessMonotonicSource())
+}
+
+// NewPublicClientWithMonotonic binds Binance to a caller-owned cross-exchange ordering epoch.
+func NewPublicClientWithMonotonic(
+	endpointSet string,
+	clock domain.Clock,
+	monotonic exchangecontracts.MonotonicSource,
+) (*PublicClient, error) {
+	if endpointSet != publicEndpointSet || clock == nil || monotonic == nil {
 		return nil, policyError(exchangecontracts.OperationCapability)
 	}
 	origin, err := url.Parse(publicRESTOrigin)
@@ -56,7 +65,6 @@ func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, err
 	if err != nil {
 		return nil, policyError(exchangecontracts.OperationStream)
 	}
-	start := time.Now()
 	budget, err := exchangecontracts.NewRateBudget(exchangecontracts.BudgetConfig{
 		Capacity: 1200, RecoveryReserve: 100, RefillAmount: 1200, RefillInterval: time.Minute,
 	}, 0)
@@ -73,7 +81,7 @@ func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, err
 		return nil, err
 	}
 	return &PublicClient{clock: clock, httpClient: newPublicHTTPClient(), restOrigin: origin, wsOrigin: websocketOrigin,
-		validateREST: validateRESTTarget, monotonic: func() time.Duration { return time.Since(start) },
+		validateREST: validateRESTTarget, monotonic: monotonic,
 		validateWS: validateWebSocketTarget, connector: newSecureWebsocketConnector(),
 		budget: budget, timeSync: synchronizer, descriptor: descriptor}, nil
 }

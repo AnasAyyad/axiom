@@ -35,7 +35,7 @@ func TestB1RecorderRoleComposesBothPublicExchangesAndNativeTriangle(t *testing.T
 	started := time.Unix(1_700_000_000, 0).UTC()
 	clock, _ := domain.NewReplayClock(started)
 	runtimeConfig := config.Runtime{InstanceID: "instance-b1", Recorder: config.RecorderRuntime{
-		Root: t.TempDir(), FlushInterval: 5 * time.Minute, QueueCapacity: 8192, BookDepth: 1000}}
+		Root: t.TempDir(), CollectorRegion: "test-region", FlushInterval: 5 * time.Minute, QueueCapacity: 8192, BookDepth: 1000}}
 	product := config.DefaultV1BConfiguration()
 	work, err := newRecorderRoleWork(context.Background(), nil, runtimeConfig, product, clock)
 	if err != nil {

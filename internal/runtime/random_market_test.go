@@ -59,11 +59,10 @@ func TestMarketViewVectorIsCompleteImmutableAndCanonical(t *testing.T) {
 	btc := marketKey(t, "BTC", "USDT")
 	eth := marketKey(t, "ETH", "USDT")
 	for _, key := range []MarketKey{eth, btc} {
-		if _, err := views.Publish(MarketViewInput{
-			Key: key, Version: 1, AsOf: domain.EventTime{
-				UTC: time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC), Sequence: 1,
-			}, StateHash: PayloadDigest([]byte(key.Instrument.Symbol())),
-		}); err != nil {
+		if err := views.ActivateGeneration(key, 1); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := views.Publish(testMarketViewInput(key, 1, 1, 1)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -75,14 +74,15 @@ func TestMarketViewVectorIsCompleteImmutableAndCanonical(t *testing.T) {
 	if len(references) != 2 || references[0].Key.Instrument.Symbol() != "BTCUSDT" || vector.Hash() == "" {
 		t.Fatalf("vector = %#v", references)
 	}
-	references[0].Version = 99
-	if vector.References()[0].Version != 1 {
+	references[0].BookVersion = 99
+	if vector.References()[0].BookVersion != 1 {
 		t.Fatal("vector mutated through returned slice")
 	}
 	if _, err := views.Capture([]MarketKey{btc, marketKey(t, "BTC", "ETH")}); err == nil {
 		t.Fatal("incomplete vector accepted")
 	}
-	if _, err := views.Publish(MarketViewInput{Key: btc, Version: 3}); err == nil {
+	invalid := testMarketViewInput(btc, 3, 3, 3)
+	if _, err := views.Publish(invalid); err == nil {
 		t.Fatal("non-monotonic view version accepted")
 	}
 }
@@ -95,11 +95,10 @@ func TestMarketViewIdentityCannotCollideOnConcatenatedSymbols(t *testing.T) {
 		t.Fatal("adversarial fixture does not share a display symbol")
 	}
 	for index, key := range []MarketKey{left, right} {
-		if _, err := views.Publish(MarketViewInput{
-			Key: key, Version: 1,
-			AsOf:      domain.EventTime{UTC: time.Date(2026, 7, 14, 8, 0, index, 0, time.UTC), Sequence: uint64(index + 1)},
-			StateHash: PayloadDigest([]byte{byte(index)}),
-		}); err != nil {
+		if err := views.ActivateGeneration(key, 1); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := views.Publish(testMarketViewInput(key, 1, uint64(index+1), uint64(index+1))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -107,6 +106,14 @@ func TestMarketViewIdentityCannotCollideOnConcatenatedSymbols(t *testing.T) {
 	if err != nil || len(vector.References()) != 2 {
 		t.Fatalf("distinct instrument identities collapsed: %#v, %v", vector.References(), err)
 	}
+}
+
+func testMarketViewInput(key MarketKey, version, monotonic, ordinal uint64) MarketViewInput {
+	return MarketViewInput{Key: key, BookVersion: version, ConnectionGeneration: 1,
+		ReceiveMonotonicNanos: monotonic, ReceiveUTC: time.Date(2026, 7, 14, 8, 0, 0, int(monotonic), time.UTC),
+		IngestOrdinal: ordinal, ClockOffset: 0, ClockUncertainty: time.Nanosecond,
+		StateHash:         PayloadDigest([]byte(key.Exchange + key.Instrument.Symbol())),
+		CollectorInstance: "collector-1", CollectorRegion: "test-region"}
 }
 
 func marketKey(t *testing.T, base, quote domain.AssetSymbol) MarketKey {

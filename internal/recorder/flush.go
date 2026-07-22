@@ -60,12 +60,14 @@ func (recorder *Recorder) flushCompletedLocked(raw []segments.WireRow,
 	segmentReferences := append(cloneReferences(recorder.segments), references...)
 	rawCount := recorder.rawCount + uint64(len(raw))
 	canonicalCount := recorder.canonicalCount + uint64(len(canonical))
-	manifest := recorder.newManifest(revision, segmentReferences, rawCount, canonicalCount)
+	generationCoverage := recorder.nextGenerationCoverage(raw)
+	manifest := recorder.newManifest(revision, segmentReferences, rawCount, canonicalCount, generationCoverage)
 	if err = writeManifest(recorder.root, manifest); err != nil {
 		return DatasetManifest{}, err
 	}
 	recorder.segments, recorder.rawCount, recorder.canonicalCount = segmentReferences, rawCount, canonicalCount
 	recorder.revision, recorder.previous, recorder.latest = revision, manifest.Hash, cloneManifest(manifest)
+	recorder.generationCoverage = generationCoverage
 	recorder.discardFlushed(len(raw))
 	return cloneManifest(manifest), nil
 }
@@ -209,12 +211,23 @@ func (recorder *Recorder) newManifest(
 	revision uint64,
 	references []SegmentReference,
 	rawCount, canonicalCount uint64,
+	generationCoverage map[uint64]GenerationCoverage,
 ) DatasetManifest {
 	manifest := DatasetManifest{SchemaVersion: datasetSchemaVersion, DatasetID: recorder.datasetID,
 		SessionID: recorder.sessionID, Exchange: recorder.exchange, Revision: revision,
 		PreviousHash: recorder.previous, CreatedAt: recorder.now(), Segments: cloneReferences(references),
 		Gaps: append([]Gap(nil), recorder.gaps...), RawRecordCount: rawCount,
 		CanonicalCount: canonicalCount, Complete: len(recorder.gaps) == 0}
+	if recorder.profile != nil {
+		manifest.SchemaVersion = datasetSchemaVersionV2
+		manifest.QualityTier = "candidate"
+		coverage := recorder.exchangeCoverage(references, rawCount, canonicalCount, generationCoverage)
+		manifest.ExchangeCoverage = []ExchangeCoverage{coverage}
+		manifest.Compatibility = &CompatibilityRequirements{MinimumReaderVersion: recorder.profile.MinimumReaderVersion,
+			SchemaVersions:        append([]string(nil), coverage.SchemaVersions...),
+			ParserVersions:        append([]string(nil), coverage.ParserVersions...),
+			NormalizationVersions: append([]string(nil), coverage.NormalizationVersions...)}
+	}
 	manifest.Hash = manifestHash(manifest)
 	return manifest
 }
@@ -227,6 +240,9 @@ func manifestHash(manifest DatasetManifest) string {
 }
 
 func writeManifest(root string, manifest DatasetManifest) error {
+	if err := validateManifest(manifest); err != nil {
+		return err
+	}
 	encoded, err := json.Marshal(manifest)
 	if err != nil {
 		return recorderError("manifest_encode_failed")
@@ -268,6 +284,11 @@ func writeManifest(root string, manifest DatasetManifest) error {
 func cloneManifest(manifest DatasetManifest) DatasetManifest {
 	manifest.Segments = cloneReferences(manifest.Segments)
 	manifest.Gaps = append([]Gap(nil), manifest.Gaps...)
+	manifest.ExchangeCoverage = cloneExchangeCoverage(manifest.ExchangeCoverage)
+	if manifest.Compatibility != nil {
+		copy := cloneCompatibility(*manifest.Compatibility)
+		manifest.Compatibility = &copy
+	}
 	return manifest
 }
 
