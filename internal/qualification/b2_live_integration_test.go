@@ -30,18 +30,18 @@ func TestB2ProductionPublicRecordOnlyAndCoherentQualification(t *testing.T) {
 	binanceResult, bybitResult := sampleLivePair(t, ctx, qualification.instrument,
 		qualification.binanceClient, qualification.bybitClient, qualification.binanceSink, qualification.bybitSink)
 	views := publishLiveViews(t, qualification, binanceResult, bybitResult)
-	path, tierA, records := persistLiveTierA(t, qualification)
-	t.Logf("B2_LIVE_DATASET_EVIDENCE root=%s manifest=%s tier_a_hash=%s records=%d",
-		qualification.root, filepath.Base(path), tierA.Hash, records)
 	triggerOffset := uint64(qualification.monotonic())
 	triggerOrdinal := max(binanceResult.token.IngestOrdinal, bybitResult.token.IngestOrdinal) + 1
-	joined, err := views.CoherentAsOf([]runtimecore.MarketKey{
+	joined, joinErr := views.CoherentAsOf([]runtimecore.MarketKey{
 		{Exchange: "bybit", Instrument: qualification.instrument},
 		{Exchange: "binance", Instrument: qualification.instrument},
 	}, runtimecore.AsOfTrigger{MonotonicNanos: triggerOffset, IngestOrdinal: triggerOrdinal,
 		UTC: time.Now().UTC()}, runtimecore.InitialB2CoherentPolicy())
-	if err != nil {
-		t.Fatalf("live coherent view rejected: %v", err)
+	path, tierA, records := persistLiveTierA(t, qualification)
+	t.Logf("B2_LIVE_DATASET_EVIDENCE root=%s manifest=%s tier_a_hash=%s records=%d",
+		qualification.root, filepath.Base(path), tierA.Hash, records)
+	if joinErr != nil {
+		t.Fatalf("live coherent view rejected: %v", joinErr)
 	}
 	t.Logf("B2_LIVE_QUALIFICATION root=%s manifest=%s coherent_view=%s records=%d",
 		qualification.root, filepath.Base(path), joined.Identity(), records)
