@@ -44,8 +44,8 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 ## B5 — cross-exchange arbitrage
 
-- [ ] Confirm B4 is verified.
-- [ ] Implement and qualify every `AX-V1B-B05-*` requirement.
+- [x] Confirm B4 is locally verified; formal predecessor and approver holds remain.
+- [x] Implement and locally qualify every `AX-V1B-B05-*` requirement, including coherent two-exchange evaluation, owned inventory, atomic claims, concurrent simulation, recovery/quarantine, PostgreSQL 18 clean/upgrade, cumulative B4+B5 verification, and the clean image-backed Compose smoke.
 
 ## B6 — advisory inventory and rebalancing
 
