@@ -39,8 +39,8 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 ## B4 — triangular arbitrage
 
-- [ ] Confirm B3 is verified.
-- [ ] Implement and qualify every `AX-V1B-B04-*` requirement.
+- [x] Confirm B3 is locally verified and merged into `main` at `5d7cb43a90473909bf2091f5af268d5a000633cd`; formal predecessor and approver holds remain.
+- [x] Implement and locally qualify every `AX-V1B-B04-*` requirement, including exact cycles, atomic claims, PostgreSQL 18 clean/upgrade, cumulative verification, and the clean image-backed Compose smoke.
 
 ## B5 — cross-exchange arbitrage
 
