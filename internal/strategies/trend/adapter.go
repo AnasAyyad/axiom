@@ -100,7 +100,8 @@ func (adapter *Adapter) portfolioCandidateValue(input Input, decision Decision) 
 			return portfolio.Candidate{}, trendError(ReasonInvalidSizing)
 		}
 	}
-	payload := portfolio.Candidate{ID: decision.ID.Value(), Instrument: candidate.Instrument, Side: candidate.Side,
+	payload := portfolio.Candidate{ID: decision.ID.Value(), Strategy: portfolio.V1AStrategy,
+		Instrument: candidate.Instrument, Side: candidate.Side,
 		Quantity: candidate.Quantity, Notional: reserved, Score: score,
 		ScoreComponents: []portfolio.ScoreComponent{{Name: "trend_stressed_edge", Value: score}},
 		BaseEligibility: input.Evidence.AssetEligibilityVersion, QuoteEligibility: input.Evidence.AssetEligibilityVersion,

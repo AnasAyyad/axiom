@@ -6,6 +6,14 @@ import (
 	"axiom/internal/execution"
 )
 
+func (portfolio *Portfolio) hasOwnedPosition(instrument domain.Instrument) bool {
+	portfolio.mutex.Lock()
+	defer portfolio.mutex.Unlock()
+	position, exists := portfolio.positions[instrument]
+	zero, _ := domain.ParseBalance("0")
+	return exists && position.Quantity.Compare(zero) > 0
+}
+
 // ApplyFill settles one fill and updates exact spot position cost/PnL.
 func (portfolio *Portfolio) ApplyFill(
 	allocation Allocation,

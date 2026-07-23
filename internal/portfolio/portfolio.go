@@ -17,6 +17,9 @@ const V1AExchange = "binance"
 // V1AStrategy is the isolated initial research strategy owner.
 const V1AStrategy = "trend"
 
+// V1BMeanReversionStrategy is the isolated B3 research strategy owner.
+const V1BMeanReversionStrategy = "mean_reversion"
+
 // V1ANumeraire is the only functional reporting asset in V1A.
 const V1ANumeraire = "USDT"
 
@@ -83,24 +86,54 @@ func InitializeTrend(
 	journal accounting.Journal,
 	recordedAt domain.EventTime,
 ) (*Portfolio, error) {
+	return initializeStrategy(runID, portfolioID, accountID, configurationHash, startingCapital,
+		V1AStrategy, journal, recordedAt)
+}
+
+// InitializeMeanReversion creates an isolated B3 portfolio whose inventory,
+// reservations, journal lines, and fills cannot be attributed to Trend.
+func InitializeMeanReversion(
+	runID domain.RunID,
+	portfolioID domain.PortfolioID,
+	accountID domain.VirtualAccountID,
+	configurationHash string,
+	startingCapital domain.Balance,
+	journal accounting.Journal,
+	recordedAt domain.EventTime,
+) (*Portfolio, error) {
+	return initializeStrategy(runID, portfolioID, accountID, configurationHash, startingCapital,
+		V1BMeanReversionStrategy, journal, recordedAt)
+}
+
+func initializeStrategy(
+	runID domain.RunID,
+	portfolioID domain.PortfolioID,
+	accountID domain.VirtualAccountID,
+	configurationHash string,
+	startingCapital domain.Balance,
+	strategy string,
+	journal accounting.Journal,
+	recordedAt domain.EventTime,
+) (*Portfolio, error) {
 	zero, _ := domain.ParseBalance("0")
 	if runID.Value() == "" || portfolioID.Value() == "" || accountID.Value() == "" ||
-		configurationHash == "" || startingCapital.Compare(zero) <= 0 || journal == nil || recordedAt.Validate() != nil {
+		configurationHash == "" || startingCapital.Compare(zero) <= 0 || !supportedStrategy(strategy) ||
+		journal == nil || recordedAt.Validate() != nil {
 		return nil, portfolioError("initialization_invalid")
 	}
-	portfolio := newV1APortfolio(portfolioID, accountID)
+	portfolio := newPortfolio(portfolioID, accountID, strategy)
 	if err := portfolio.openInitialBalances(startingCapital); err != nil {
 		return nil, err
 	}
-	if err := journal.Append(initializationTransaction(runID, portfolioID, configurationHash, startingCapital, recordedAt)); err != nil {
+	if err := journal.Append(initializationTransaction(runID, portfolioID, configurationHash, startingCapital, strategy, recordedAt)); err != nil {
 		return nil, portfolioError("initialization_journal_failed")
 	}
 	return portfolio, nil
 }
 
-func newV1APortfolio(portfolioID domain.PortfolioID, accountID domain.VirtualAccountID) *Portfolio {
+func newPortfolio(portfolioID domain.PortfolioID, accountID domain.VirtualAccountID, strategy string) *Portfolio {
 	return &Portfolio{ownership: Ownership{PortfolioID: portfolioID, AccountID: accountID,
-		Strategy: V1AStrategy, Exchange: V1AExchange}, numeraire: V1ANumeraire,
+		Strategy: strategy, Exchange: V1AExchange}, numeraire: V1ANumeraire,
 		ledger: accounting.NewReservationLedger(), balances: make(map[domain.AssetSymbol]accounting.BalanceKey),
 		positions: make(map[domain.Instrument]Position), revision: 1}
 }
@@ -123,17 +156,26 @@ func initializationTransaction(
 	portfolioID domain.PortfolioID,
 	configurationHash string,
 	startingCapital domain.Balance,
+	strategy string,
 	recordedAt domain.EventTime,
 ) accounting.Transaction {
-	id, _ := domain.NewJournalTransactionID("v1a-trend-initialization")
-	cause, _ := domain.NewEventID("v1a-trend-initialization")
+	prefix := "v1a-trend"
+	if strategy == V1BMeanReversionStrategy {
+		prefix = "v1b-mean-reversion"
+	}
+	id, _ := domain.NewJournalTransactionID(prefix + "-initialization")
+	cause, _ := domain.NewEventID(prefix + "-initialization")
 	asset, _ := domain.ParseAssetSymbol(V1ANumeraire)
 	return accounting.Transaction{ID: id, Type: "portfolio_initialization", RunID: runID,
 		PortfolioID: portfolioID, ConfigurationHash: configurationHash, CausationID: cause,
 		RecordedAt: recordedAt, IngestOrdinal: recordedAt.Sequence, Lines: []accounting.Line{
-			{Account: accounting.AccountKey{Class: accounting.AvailableAsset, Asset: asset, Owner: V1AStrategy}, Direction: accounting.Debit, Quantity: startingCapital},
-			{Account: accounting.AccountKey{Class: accounting.ExternalEquity, Asset: asset, Owner: V1AStrategy}, Direction: accounting.Credit, Quantity: startingCapital},
+			{Account: accounting.AccountKey{Class: accounting.AvailableAsset, Asset: asset, Owner: strategy}, Direction: accounting.Debit, Quantity: startingCapital},
+			{Account: accounting.AccountKey{Class: accounting.ExternalEquity, Asset: asset, Owner: strategy}, Direction: accounting.Credit, Quantity: startingCapital},
 		}}
+}
+
+func supportedStrategy(strategy string) bool {
+	return strategy == V1AStrategy || strategy == V1BMeanReversionStrategy
 }
 
 // Snapshot returns exact ownership, balances, and sorted positions.

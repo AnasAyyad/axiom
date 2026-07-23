@@ -582,6 +582,39 @@ type MarketDataSegment struct {
 	FinalizedAt          pgtype.Timestamptz `db:"finalized_at" json:"finalized_at"`
 }
 
+type MeanReversionDecision struct {
+	DecisionID                  string             `db:"decision_id" json:"decision_id"`
+	StrategyVersionID           string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ConfigurationID             string             `db:"configuration_id" json:"configuration_id"`
+	ExplanationHash             interface{}        `db:"explanation_hash" json:"explanation_hash"`
+	CanonicalExplanation        []byte             `db:"canonical_explanation" json:"canonical_explanation"`
+	PrimaryCandleViewID         string             `db:"primary_candle_view_id" json:"primary_candle_view_id"`
+	PrimaryCandleViewRevision   int64              `db:"primary_candle_view_revision" json:"primary_candle_view_revision"`
+	HigherCandleViewID          string             `db:"higher_candle_view_id" json:"higher_candle_view_id"`
+	HigherCandleViewRevision    int64              `db:"higher_candle_view_revision" json:"higher_candle_view_revision"`
+	MarketViewID                string             `db:"market_view_id" json:"market_view_id"`
+	MarketViewRevision          int64              `db:"market_view_revision" json:"market_view_revision"`
+	CoherentViewID              interface{}        `db:"coherent_view_id" json:"coherent_view_id"`
+	CoherentVersionVectorHash   interface{}        `db:"coherent_version_vector_hash" json:"coherent_version_vector_hash"`
+	PortfolioOwnershipAccountID string             `db:"portfolio_ownership_account_id" json:"portfolio_ownership_account_id"`
+	InstrumentMetadataID        string             `db:"instrument_metadata_id" json:"instrument_metadata_id"`
+	AssetEligibilityVersion     int64              `db:"asset_eligibility_version" json:"asset_eligibility_version"`
+	PortfolioRevision           int64              `db:"portfolio_revision" json:"portfolio_revision"`
+	PositionRevision            int64              `db:"position_revision" json:"position_revision"`
+	RiskPolicyID                string             `db:"risk_policy_id" json:"risk_policy_id"`
+	RiskPolicyVersion           int64              `db:"risk_policy_version" json:"risk_policy_version"`
+	RiskPolicyHash              interface{}        `db:"risk_policy_hash" json:"risk_policy_hash"`
+	FeeModelID                  string             `db:"fee_model_id" json:"fee_model_id"`
+	LatencyModelID              string             `db:"latency_model_id" json:"latency_model_id"`
+	FillModelID                 string             `db:"fill_model_id" json:"fill_model_id"`
+	SlippageModelID             string             `db:"slippage_model_id" json:"slippage_model_id"`
+	GapModelID                  string             `db:"gap_model_id" json:"gap_model_id"`
+	CorrelationModelID          string             `db:"correlation_model_id" json:"correlation_model_id"`
+	CorrelationID               string             `db:"correlation_id" json:"correlation_id"`
+	CausationID                 string             `db:"causation_id" json:"causation_id"`
+	RecordedAt                  pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
 type ModelNamespace struct {
 	ID               string             `db:"id" json:"id"`
 	NamespaceHash    interface{}        `db:"namespace_hash" json:"namespace_hash"`
@@ -1061,22 +1094,28 @@ type StrategyDefinition struct {
 }
 
 type StrategyParameter struct {
-	StrategyVersionID string  `db:"strategy_version_id" json:"strategy_version_id"`
-	ParameterName     string  `db:"parameter_name" json:"parameter_name"`
-	DecimalValue      string  `db:"decimal_value" json:"decimal_value"`
-	Unit              string  `db:"unit" json:"unit"`
-	Description       *string `db:"description" json:"description"`
-	AlgorithmVersion  *string `db:"algorithm_version" json:"algorithm_version"`
-	MinimumValue      *string `db:"minimum_value" json:"minimum_value"`
-	MaximumValue      *string `db:"maximum_value" json:"maximum_value"`
-	MinimumInclusive  *bool   `db:"minimum_inclusive" json:"minimum_inclusive"`
-	MaximumInclusive  *bool   `db:"maximum_inclusive" json:"maximum_inclusive"`
-	DecimalScale      *int32  `db:"decimal_scale" json:"decimal_scale"`
-	Rounding          *string `db:"rounding" json:"rounding"`
-	Cadence           *string `db:"cadence" json:"cadence"`
-	WarmUp            *string `db:"warm_up" json:"warm_up"`
-	Mutability        *string `db:"mutability" json:"mutability"`
-	ModelDependencies []byte  `db:"model_dependencies" json:"model_dependencies"`
+	StrategyVersionID  string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ParameterName      string             `db:"parameter_name" json:"parameter_name"`
+	DecimalValue       string             `db:"decimal_value" json:"decimal_value"`
+	Unit               string             `db:"unit" json:"unit"`
+	Description        *string            `db:"description" json:"description"`
+	AlgorithmVersion   *string            `db:"algorithm_version" json:"algorithm_version"`
+	MinimumValue       *string            `db:"minimum_value" json:"minimum_value"`
+	MaximumValue       *string            `db:"maximum_value" json:"maximum_value"`
+	MinimumInclusive   *bool              `db:"minimum_inclusive" json:"minimum_inclusive"`
+	MaximumInclusive   *bool              `db:"maximum_inclusive" json:"maximum_inclusive"`
+	DecimalScale       *int32             `db:"decimal_scale" json:"decimal_scale"`
+	Rounding           *string            `db:"rounding" json:"rounding"`
+	Cadence            *string            `db:"cadence" json:"cadence"`
+	WarmUp             *string            `db:"warm_up" json:"warm_up"`
+	Mutability         *string            `db:"mutability" json:"mutability"`
+	ModelDependencies  []byte             `db:"model_dependencies" json:"model_dependencies"`
+	EvaluationTimezone *string            `db:"evaluation_timezone" json:"evaluation_timezone"`
+	ChangeBehavior     *string            `db:"change_behavior" json:"change_behavior"`
+	ApprovalActor      *string            `db:"approval_actor" json:"approval_actor"`
+	ApprovalReference  *string            `db:"approval_reference" json:"approval_reference"`
+	ApprovedAt         pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
+	ChangeReason       *string            `db:"change_reason" json:"change_reason"`
 }
 
 type StrategyPortfolio struct {

@@ -2,13 +2,13 @@
 
 ## Current decision
 
-**V1B is not ready for release.** B1 is locally verified for every non-soak
-gate and is merged into `main`. Formal B1 acceptance is held only for A7/V1A
-closure, the explicitly deferred B1 72-hour soak, and approver acceptance. B2
-is locally verified for every implemented non-soak gate, including a passing
-short live coherent view and retained Tier A evidence. Formal B2 acceptance is
-held by predecessor acceptance, its explicitly deferred 72-hour qualification,
-and approvers. B3-B8 are not implemented.
+**V1B is not ready for release.** B1 and B2 are locally verified and merged into
+`main`; their formal predecessor, deferred 72-hour, and approver holds remain.
+B3 is implemented and locally verified for every specified non-soak gate from
+the merged B2 baseline, including PostgreSQL 18 clean/upgrade qualification,
+deterministic strategy/research evidence, cumulative verification, an exact
+clean image, and an isolated image-backed Compose smoke. Formal B3 acceptance
+is held by predecessor acceptance and approvers. B4-B8 are not implemented.
 
 ## Release identity
 
@@ -25,6 +25,11 @@ and approvers. B3-B8 are not implemented.
 | Short public validation | REST, WebSocket, and recorder manifest passed locally on 2026-07-21 |
 | B2 short public dataset | Passing Tier A identity `379202ad9d16491ee60e252ae7aa47f09e9977dcf67bae60be0a1a290ce97e11`; 30 linked public records; archive SHA-256 `cca98c02255c2da4b0f1d16be101ffa337f8df85a219212472f4911ca104f445` |
 | B2 short coherent view | Passed in Southeast Asia: Binance 59.569181 ms and Bybit 40.927081 ms; identity `4c80fb5ddd1eb210c01d295001ecf643bc0649784446568dcd447ab07e8ec825` |
+| Merged B2 main / B3 baseline | `0c2fce26cae9e171d4e622c080aaf9af5cab018f` |
+| B3 implementation source | `8457d8cf75206a7565fe868933c6ea2e20090990` |
+| B3 reviewed configuration | `axiom.config.v1b.2`; 27 immutable parameters; file SHA-256 `e95d950c393e1270243381481800e976477a2aca2b4791823da48c527cb22e67` |
+| B3 PostgreSQL qualification | Migration 000015 passed clean install and exact B2-to-B3 upgrade in `axiom_clean_b3_test` and `axiom_upgrade_b3_test` |
+| B3 clean image | `axiom@sha256:ed106246ef8f191136edb0f51d90eb1ceb7061fdc9dfff47f26529f76cfb38e7`; image-backed Compose smoke passed |
 | B1 72-hour soak | Deferred by owner; not run and not claimed |
 | B2 72-hour qualification | Deferred by owner; not run and not claimed |
 | Product / Security / QA / SRE approvers | Pending |
@@ -35,7 +40,7 @@ and approvers. B3-B8 are not implemented.
 |---|---|---|---|---|
 | B1 | A6 verified; owner-authorized overlap with open A7 | Complete | Locally verified; formal hold: A7, 72-hour soak, approvers | [B1 local validation](evidence/b1-local-validation.md) |
 | B2 | B1 completion merged and local verification retained | Complete | Locally verified; formal hold: predecessor, 72-hour qualification, approvers | [B2 local validation](evidence/b2-local-validation.md) |
-| B3 | B2 verified | Planned | Not started | Pending |
+| B3 | Locally verified B2 completion merged; formal B2 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B3 local validation](evidence/b3-local-validation.md) |
 | B4 | B3 verified | Planned | Not started | Pending |
 | B5 | B4 verified | Planned | Not started | Pending |
 | B6 | B5 verified | Planned | Not started | Pending |
@@ -61,6 +66,9 @@ and approvers. B3-B8 are not implemented.
 - B2 began from merged B1 `main` at `91d8bab54216210f2ef54dc20fed716ccf22c831`;
   every implemented non-soak gate is locally verified, but the deferred
   72-hour qualification and formal acceptance remain open.
-- B3-B8 remain unimplemented.
+- B3 began from merged B2 `main` at `0c2fce26cae9e171d4e622c080aaf9af5cab018f`;
+  every specified non-soak gate is locally verified. Strategy viability remains
+  `undetermined`; local platform correctness is not profitability evidence.
+- B4-B8 remain unimplemented.
 - V1B has no authenticated exchange transport, private endpoint, external
   order, withdrawal, transfer, testnet, demo, or live execution capability.

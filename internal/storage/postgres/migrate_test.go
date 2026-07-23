@@ -63,7 +63,13 @@ func TestB2MigrationDefinesCoherentViewsAndTierACompleteness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b2 := migrations[len(migrations)-1]
+	var b2 Migration
+	for _, migration := range migrations {
+		if migration.Version == "000014" {
+			b2 = migration
+			break
+		}
+	}
 	lower := strings.ToLower(b2.SQL)
 	for _, required := range []string{
 		"create table cross_market_view_headers", "create table cross_market_view_members",
@@ -78,6 +84,35 @@ func TestB2MigrationDefinesCoherentViewsAndTierACompleteness(t *testing.T) {
 	}
 	if b2.Version != "000014" {
 		t.Fatalf("B2 migration version = %s", b2.Version)
+	}
+}
+
+func TestB3MigrationDefinesImmutableMeanReversionEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b3 Migration
+	for _, migration := range migrations {
+		if migration.Version == "000015" {
+			b3 = migration
+			break
+		}
+	}
+	lower := strings.ToLower(b3.SQL)
+	for _, required := range []string{
+		"create table mean_reversion_decisions", "primary_candle_view_id", "higher_candle_view_id",
+		"coherent_version_vector_hash", "portfolio_ownership_account_id", "risk_policy_id",
+		"mean_reversion_risk_policy_mismatch", "mean_reversion_model_type_mismatch",
+		"mean_reversion_ownership_strategy_mismatch", "mean_reversion_decisions_immutable",
+		"security definer set search_path = pg_catalog, public",
+	} {
+		if !strings.Contains(lower, required) {
+			t.Fatalf("B3 migration missing %q", required)
+		}
+	}
+	if b3.Version != "000015" {
+		t.Fatalf("B3 migration version = %s", b3.Version)
 	}
 }
 

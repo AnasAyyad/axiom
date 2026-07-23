@@ -41,7 +41,7 @@ func (state ProtectedState) CanonicalHash() string {
 // Restore validates one checkpoint without activating strategy execution.
 func Restore(state ProtectedState) (*Portfolio, error) {
 	if state.Ownership.PortfolioID.Value() == "" || state.Ownership.AccountID.Value() == "" ||
-		state.Ownership.Strategy != V1AStrategy || state.Ownership.Exchange != V1AExchange ||
+		!supportedStrategy(state.Ownership.Strategy) || state.Ownership.Exchange != V1AExchange ||
 		state.Numeraire != V1ANumeraire || state.Revision == 0 {
 		return nil, portfolioError("portfolio_restore_invalid")
 	}

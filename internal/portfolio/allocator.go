@@ -84,6 +84,7 @@ func (allocator *Allocator) active(allocation Allocation) bool {
 // Candidate is one spot-only allocation request with current eligibility evidence.
 type Candidate struct {
 	ID                   string
+	Strategy             string
 	Instrument           domain.Instrument
 	Side                 domain.Side
 	Quantity             domain.Quantity
@@ -181,7 +182,8 @@ func (allocator *Allocator) reserveLocked(candidate Candidate) (Allocation, erro
 }
 
 func (allocator *Allocator) validate(candidate Candidate) error {
-	if candidate.ID == "" || candidate.Fence == 0 || candidate.LiquidityDomain == "" ||
+	if candidate.ID == "" || candidate.Strategy == "" || candidate.Strategy != allocator.portfolio.ownership.Strategy ||
+		candidate.Fence == 0 || candidate.LiquidityDomain == "" ||
 		candidate.FundsReservation.Value() == "" || candidate.LiquidityReservation.Value() == "" ||
 		candidate.FundsReservation == candidate.LiquidityReservation || candidate.Quantity.String() == "0" ||
 		candidate.Notional.String() == "0" || len(candidate.ScoreComponents) == 0 ||
@@ -195,7 +197,13 @@ func (allocator *Allocator) validate(candidate Candidate) error {
 	if err = requireApproved(allocator.registry, candidate.Instrument.Base, candidate.BaseEligibility); err != nil {
 		return err
 	}
-	return requireApproved(allocator.registry, candidate.Instrument.Quote, candidate.QuoteEligibility)
+	if err = requireApproved(allocator.registry, candidate.Instrument.Quote, candidate.QuoteEligibility); err != nil {
+		return err
+	}
+	if candidate.Side == domain.SideBuy && allocator.portfolio.hasOwnedPosition(candidate.Instrument) {
+		return portfolioError("position_increase_rejected")
+	}
+	return nil
 }
 
 func (allocator *Allocator) fundsRequirement(candidate Candidate) (domain.AssetSymbol, domain.Balance, error) {

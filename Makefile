@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-model-qualify b3-postgres-qualify b3-research-qualify b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -50,6 +50,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a6-exchange-boundary.mjs
 	@$(NODE) scripts/check-a7-public-boundary.mjs
 	@$(NODE) scripts/check-b1-public-boundary.mjs
+	@$(NODE) scripts/check-b3-strategy-boundary.mjs
 	@$(NODE) scripts/check-a10-strategy-boundary.mjs
 	@$(NODE) scripts/check-a11-console-boundary.mjs
 
@@ -106,7 +107,7 @@ compose-validate: ## Render every active Compose profile combination safely.
 	@tests/integration/check-unavailable-profiles.sh
 
 compose-smoke: ## Start the image-backed A1 app, recorder, and worker profiles.
-	@tests/integration/smoke-compose-app.sh "$(IMAGE)"
+	@GO="$(GO)" tests/integration/smoke-compose-app.sh "$(IMAGE)"
 
 security-static: ## Run secret and prohibited-capability scans with negative tests.
 	@scripts/check-secret-patterns.sh
@@ -280,13 +281,39 @@ b2-live-qualify: ## Run the explicitly enabled short public-only Binance/Bybit c
 
 b2-local-qualify: b2-model-qualify b2-postgres-qualify verify ## Pass every non-soak B2 gate cumulatively.
 
-b3-model-qualify b3-postgres-qualify b3-research-qualify \
+b3-sqlc: ## Generate and compile the reviewed B3 mean-reversion and research queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+
+b3-model-qualify: ## Exercise exact B3 decisions through shared allocation, risk, execution, simulation, and accounting.
+	@$(GO) test ./internal/strategies/meanreversion ./internal/portfolio ./internal/risk ./internal/backtest -count=1 -v
+	@$(GO) test -race ./internal/strategies/meanreversion ./internal/portfolio ./internal/risk -count=1
+	@$(NODE) scripts/check-b3-strategy-boundary.mjs
+
+b3-postgres-qualify: ## Run clean-install and B2-upgrade B3 gates on PostgreSQL 18 *_b3_test databases.
+	@test -n "$(AXIOM_B3_TEST_DSN)" || { echo "AXIOM_B3_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B3_UPGRADE_TEST_DSN)" || { echo "AXIOM_B3_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) b3-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_B3_TEST_DSN="$(AXIOM_B3_TEST_DSN)" \
+		AXIOM_B3_UPGRADE_TEST_DSN="$(AXIOM_B3_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres -run '^TestB3Postgres(CleanInstall|B2ToB3Upgrade)Qualification$$' -count=1 -v
+
+b3-research-qualify: ## Verify separate deterministic B3 research contracts and the independent Python checker.
+	@python3 -c 'import sys; assert sys.version_info[:3] == (3, 12, 3), sys.version'
+	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
+	@$(GO) test ./internal/research -count=1 -v
+
+b3-local-qualify: b3-model-qualify b3-postgres-qualify b3-research-qualify ## Pass every non-soak B3 phase gate cumulatively.
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
 b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify \
 b6-model-qualify b6-postgres-qualify b6-security-qualify \
 b7-model-qualify b7-postgres-qualify b7-research-qualify \
 b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify \
 b8-security-qualify b8-live-qualify:
-	@echo "$@ is reserved for its sequential V1B phase and is not implemented by B2" >&2
+	@echo "$@ is reserved for its sequential V1B phase and is not implemented by B3" >&2
 	@exit 2
 
 image: ## Build the pinned minimal Axiom image.

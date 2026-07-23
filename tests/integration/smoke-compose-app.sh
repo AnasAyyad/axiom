@@ -3,6 +3,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 image="${1:-axiom:local}"
+GO="${GO:-go}"
 project="axiom-a5-smoke-${$}"
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/axiom-compose-smoke.XXXXXX")"
 secret_dir="${temp_dir}/secrets"
@@ -57,7 +58,7 @@ for name in "${secret_names[@]}"; do
 done
 printf '%s\n' 'owner@example.invalid' >"${secret_dir}/bootstrap_owner_email"
 printf '%s\n' 'compose-smoke-password-only' | \
-  go run ./scripts/generate_bootstrap_hash.go >"${secret_dir}/bootstrap_owner_password_hash"
+  "${GO}" run ./scripts/generate_bootstrap_hash.go >"${secret_dir}/bootstrap_owner_password_hash"
 chmod 0640 "${secret_dir}/bootstrap_owner_email" "${secret_dir}/bootstrap_owner_password_hash"
 
 docker run --rm --user 0:0 --entrypoint /bin/chgrp \

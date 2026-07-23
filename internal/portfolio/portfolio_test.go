@@ -29,6 +29,46 @@ func TestV1ATrendInitializationIsExactOwnedAndBalanced(t *testing.T) {
 	}
 }
 
+func TestB3MeanReversionOwnershipRejectsCrossStrategyAndAveragingDownAcrossRestart(t *testing.T) {
+	runID, _ := domain.NewRunID("run-b3")
+	portfolioID, _ := domain.NewPortfolioID("mean-reversion-one")
+	accountID, _ := domain.NewVirtualAccountID("mean-reversion-binance")
+	journal := accounting.NewMemoryJournal()
+	capital, _ := domain.ParseBalance("500")
+	owned, err := InitializeMeanReversion(runID, portfolioID, accountID, strings.Repeat("b", 64), capital,
+		journal, domain.EventTime{UTC: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC), Sequence: 1})
+	if err != nil || owned.Snapshot().Ownership.Strategy != V1BMeanReversionStrategy {
+		t.Fatalf("mean-reversion ownership = %#v, %v", owned.Snapshot().Ownership, err)
+	}
+	pool := NewLiquidityPool()
+	quantity, _ := domain.ParseQuantity("3")
+	if err = pool.Open("combined-book", quantity); err != nil {
+		t.Fatal(err)
+	}
+	allocator, _ := NewAllocator(owned, NewAssetRegistry(), pool)
+	wrongOwner := buyCandidate(t, 70)
+	if _, err = allocator.Allocate([]Candidate{wrongOwner}); err == nil {
+		t.Fatal("Trend candidate entered mean-reversion portfolio")
+	}
+	entry := buyCandidate(t, 71)
+	entry.Strategy = V1BMeanReversionStrategy
+	allocation := mustAllocate(t, allocator, entry)
+	if err = allocator.Settle(allocation, fillFact(t, "b3-entry", "1", "100", "0.1")); err != nil {
+		t.Fatal(err)
+	}
+	second := buyCandidate(t, 72)
+	second.Strategy = V1BMeanReversionStrategy
+	if _, err = allocator.Allocate([]Candidate{second}); err == nil {
+		t.Fatal("averaging down allocated despite owned position")
+	}
+	protected := owned.ProtectedState()
+	restored, err := Restore(protected)
+	if err != nil || restored.ProtectedState().CanonicalHash() != protected.CanonicalHash() ||
+		restored.Snapshot().Ownership.Strategy != V1BMeanReversionStrategy {
+		t.Fatalf("B3 restart state mismatch: %v", err)
+	}
+}
+
 func TestAllocatorPreventsConcurrentCashInventoryAndLiquidityOwnership(t *testing.T) {
 	portfolio, _ := initializedPortfolio(t)
 	registry := NewAssetRegistry()
@@ -343,7 +383,8 @@ func buyCandidate(t *testing.T, index int) Candidate {
 	score, _ := domain.ParsePnL("1")
 	funds, _ := domain.NewReservationID("funds-" + decimal(index))
 	liquidity, _ := domain.NewReservationID("liquidity-" + decimal(index))
-	return Candidate{ID: "candidate-" + decimal(index), Instrument: instrument, Side: domain.SideBuy,
+	return Candidate{ID: "candidate-" + decimal(index), Strategy: V1AStrategy,
+		Instrument: instrument, Side: domain.SideBuy,
 		Quantity: quantity, Notional: notional, Score: score, ScoreComponents: []ScoreComponent{{Name: "worst_case", Value: score}},
 		BaseEligibility: 1, QuoteEligibility: 1, LiquidityDomain: "combined-book",
 		LiquidityReservation: liquidity, FundsReservation: funds, Fence: 1}

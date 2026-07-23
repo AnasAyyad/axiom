@@ -1,10 +1,10 @@
 package config
 
-// DefaultV1BConfiguration returns the B1 public multi-exchange graph while
-// preserving the V1A compatibility projection used by later runtime roles.
+// DefaultV1BConfiguration returns the current credential-free public exchange
+// and B3 strategy graph while preserving the V1A compatibility projection.
 func DefaultV1BConfiguration() Configuration {
 	configuration := DefaultConfiguration()
-	configuration.SchemaVersion = SchemaVersionV1B
+	configuration.SchemaVersion = SchemaVersionV1BB3
 	configuration.Revision = 1
 	instruments := []Instrument{
 		{Base: "BTC", Quote: "USDT", Product: "spot"},
@@ -20,6 +20,7 @@ func DefaultV1BConfiguration() Configuration {
 			REST: "https://api.bybit.com", WebSocket: "wss://stream.bybit.com/v5/public/spot",
 			Instruments: append([]Instrument(nil), instruments...), CandleIntervals: append([]string(nil), intervals...)},
 	}
+	configuration.MeanReversion = defaultMeanReversionConfiguration()
 	return configuration
 }
 

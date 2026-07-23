@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import axe from "axe-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -43,11 +43,9 @@ describe("HealthPage", () => {
     const view = render(<HealthPage />);
     expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
     await screen.findByText("READY_PAUSED");
-    await waitFor(async () => {
-      const result = await axe.run(view.container);
-      expect(result.violations).toHaveLength(0);
-    });
-  });
+    const result = await axe.run(view.container);
+    expect(result.violations).toHaveLength(0);
+  }, 10_000);
 
   it("fails closed when the status claims real trading", async () => {
     vi.stubGlobal(

@@ -14,8 +14,9 @@ RETURNING *;
 INSERT INTO strategy_parameters (
   strategy_version_id, parameter_name, decimal_value, unit, description, algorithm_version,
   minimum_value, maximum_value, minimum_inclusive, maximum_inclusive, decimal_scale,
-  rounding, cadence, warm_up, mutability, model_dependencies
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+  rounding, cadence, warm_up, mutability, model_dependencies, evaluation_timezone,
+  change_behavior, approval_actor, approval_reference, approved_at, change_reason
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
 RETURNING *;
 
 -- name: InsertA10ExperimentRegistration :one
