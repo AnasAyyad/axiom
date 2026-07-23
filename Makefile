@@ -11,6 +11,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .DEFAULT_GOAL := help
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
+.PHONY: a7-soak-smoke b1-soak-smoke
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -142,6 +143,11 @@ a4-postgres-qualify: ## Run the destructive A4 gate against a dedicated *_a4_tes
 	@AXIOM_A4_TEST_DSN="$(AXIOM_A4_TEST_DSN)" $(GO) test ./internal/storage/postgres \
 		-run '^TestA4PostgresMigrationJournalAndReservationIntegration$$' -count=1 -v
 
+a7-soak-smoke: ## Run the 20-second two-instrument Binance forensic soak harness.
+	@test -n "$(AXIOM_A7_SOURCE_COMMIT)" || { echo "AXIOM_A7_SOURCE_COMMIT is required" >&2; exit 1; }
+	@AXIOM_A7_SOAK_SMOKE=1 AXIOM_A7_SOURCE_COMMIT="$(AXIOM_A7_SOURCE_COMMIT)" \
+		$(GO) test ./internal/qualification -run '^TestA7PublicSoakHarnessSmoke$$' -count=1 -timeout=2m -v
+
 a8-sqlc: ## Generate and compile the reviewed A8 PostgreSQL queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
@@ -260,6 +266,11 @@ b1-live-qualify: ## Run explicitly enabled short Bybit production-public qualifi
 	@test "$(AXIOM_B1_LIVE_PUBLIC)" = "1" || { echo "AXIOM_B1_LIVE_PUBLIC=1 is required" >&2; exit 1; }
 	@AXIOM_B1_LIVE_PUBLIC=1 $(GO) test ./internal/exchanges/bybit \
 		-run '^TestProductionPublicBybit(Surface|WebSocketRecording|RecorderManifest)$$' -count=1 -v
+
+b1-soak-smoke: ## Run the 20-second two-instrument Bybit forensic soak harness.
+	@test -n "$(AXIOM_B1_SOURCE_COMMIT)" || { echo "AXIOM_B1_SOURCE_COMMIT is required" >&2; exit 1; }
+	@AXIOM_B1_SOAK_SMOKE=1 AXIOM_B1_SOURCE_COMMIT="$(AXIOM_B1_SOURCE_COMMIT)" \
+		$(GO) test ./internal/qualification -run '^TestB1PublicSoakHarnessSmoke$$' -count=1 -timeout=2m -v
 
 b2-model-qualify: ## Exercise B2 clocks, book evidence, deterministic joins, recovery, and Tier-A manifests.
 	@$(GO) test ./internal/exchanges/contracts ./internal/exchanges/binance ./internal/exchanges/bybit \

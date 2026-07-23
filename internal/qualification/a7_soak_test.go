@@ -395,7 +395,7 @@ func prepareEmptyRoot(root string) error {
 		return err
 	}
 	if len(entries) != 0 {
-		return errors.New("A7 soak output directory must be empty")
+		return errors.New("qualification soak output directory must be empty")
 	}
 	return nil
 }

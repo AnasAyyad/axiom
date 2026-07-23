@@ -145,6 +145,7 @@ type CollectorStats struct {
 	diagnosticMutex  sync.Mutex
 	diagnostics      []ReconnectDiagnostic
 	diagnosticsLost  uint64
+	failureCauses    map[string]uint64
 }
 
 // ReconnectReasonCounts is a fixed bounded set of lifecycle causes.
@@ -181,10 +182,12 @@ type CollectorStatsSnapshot struct {
 	ResyncMax            time.Duration         `json:"resync_max"`
 	ReconnectDiagnostics []ReconnectDiagnostic `json:"reconnect_diagnostics,omitempty"`
 	DiagnosticsDropped   uint64                `json:"diagnostics_dropped"`
+	FailureCauses        map[string]uint64     `json:"failure_causes"`
 }
 
 func newCollectorStats() *CollectorStats {
-	return &CollectorStats{hotPath: newDurationHistogram(latencyBounds), resync: newDurationHistogram(resyncBounds)}
+	return &CollectorStats{hotPath: newDurationHistogram(latencyBounds), resync: newDurationHistogram(resyncBounds),
+		failureCauses: make(map[string]uint64)}
 }
 
 // Snapshot returns qualification counters without identifiers or raw errors.
@@ -193,6 +196,10 @@ func (stats *CollectorStats) Snapshot() CollectorStatsSnapshot {
 	stats.diagnosticMutex.Lock()
 	diagnostics := append([]ReconnectDiagnostic(nil), stats.diagnostics...)
 	diagnosticsLost := stats.diagnosticsLost
+	failureCauses := make(map[string]uint64, len(stats.failureCauses))
+	for cause, count := range stats.failureCauses {
+		failureCauses[cause] = count
+	}
 	stats.diagnosticMutex.Unlock()
 	return CollectorStatsSnapshot{Messages: stats.messages.Load(), DepthUpdates: stats.depthUpdates.Load(),
 		Trades: stats.trades.Load(), Candles: stats.candles.Load(), Reconnects: stats.reconnects.Load(),
@@ -212,7 +219,8 @@ func (stats *CollectorStats) Snapshot() CollectorStatsSnapshot {
 			ScheduledRenewal: stats.reconnectReasons[reconnectScheduledRenewal].Load(),
 		}, ResyncSamples: resyncSamples, ResyncOver15Seconds: resyncOver,
 		ResyncP95: resyncP95, ResyncMax: resyncMax,
-		ReconnectDiagnostics: diagnostics, DiagnosticsDropped: diagnosticsLost}
+		ReconnectDiagnostics: diagnostics, DiagnosticsDropped: diagnosticsLost,
+		FailureCauses: failureCauses}
 }
 
 func (stats *CollectorStats) recordDiagnostic(diagnostic ReconnectDiagnostic) {
@@ -224,6 +232,30 @@ func (stats *CollectorStats) recordDiagnostic(diagnostic ReconnectDiagnostic) {
 		stats.diagnosticsLost++
 	}
 	stats.diagnostics = append(stats.diagnostics, diagnostic)
+	if diagnostic.Cause != "" && diagnostic.Cause != "success" && diagnostic.Cause != "healthy" &&
+		diagnostic.Phase != "operation_succeeded" && diagnostic.Phase != "health_restored" {
+		cause := diagnostic.Cause
+		if !validBoundedCause(cause) {
+			cause = "unclassified"
+		}
+		if _, exists := stats.failureCauses[cause]; exists || len(stats.failureCauses) < 64 {
+			stats.failureCauses[cause]++
+		} else {
+			stats.failureCauses["unclassified"]++
+		}
+	}
+}
+
+func validBoundedCause(cause string) bool {
+	if len(cause) == 0 || len(cause) > 64 {
+		return false
+	}
+	for _, value := range cause {
+		if (value < 'a' || value > 'z') && value != '_' && (value < '0' || value > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func (stats *CollectorStats) recordReconnectReason(reason reconnectReason) {

@@ -22,6 +22,7 @@ type CollectorConfig struct {
 	StaleCheckEvery time.Duration
 	MinimumBackoff  time.Duration
 	MaximumBackoff  time.Duration
+	Renewal         time.Duration
 }
 
 // DefaultCollectorConfig returns conservative B1 public recording defaults.
@@ -29,7 +30,8 @@ func DefaultCollectorConfig(instrument domain.Instrument) CollectorConfig {
 	return CollectorConfig{Instrument: instrument, BookDepth: 1000, QueueCapacity: 8192,
 		CandleCapacity: 512, CandleIntervals: []string{"15m", "1h", "4h"},
 		MaximumBookAge: 5 * time.Second, HeartbeatEvery: 20 * time.Second,
-		StaleCheckEvery: time.Second, MinimumBackoff: time.Second, MaximumBackoff: time.Minute}
+		StaleCheckEvery: time.Second, MinimumBackoff: time.Second, MaximumBackoff: time.Minute,
+		Renewal: 23 * time.Hour}
 }
 
 func (config CollectorConfig) validate() error {
@@ -38,7 +40,8 @@ func (config CollectorConfig) validate() error {
 		config.CandleCapacity <= 0 || config.CandleCapacity > 100_000 ||
 		config.MaximumBookAge <= 0 || config.HeartbeatEvery <= 0 || config.StaleCheckEvery <= 0 ||
 		config.MinimumBackoff <= 0 || config.MaximumBackoff < config.MinimumBackoff ||
-		config.MaximumBackoff > 5*time.Minute || !validCollectorIntervals(config.CandleIntervals) {
+		config.MaximumBackoff > 5*time.Minute || config.Renewal <= 0 || config.Renewal > 24*time.Hour ||
+		!validCollectorIntervals(config.CandleIntervals) {
 		return validationError(exchangecontracts.OperationStream)
 	}
 	return nil
