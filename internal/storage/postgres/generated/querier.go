@@ -16,9 +16,11 @@ type Querier interface {
 	AdvanceConsumerCursor(ctx context.Context, arg AdvanceConsumerCursorParams) (*ConsumerCursor, error)
 	BootstrapOwnerUser(ctx context.Context, arg BootstrapOwnerUserParams) (*User, error)
 	ClaimB4Resources(ctx context.Context, arg ClaimB4ResourcesParams) error
+	ClaimB5Resources(ctx context.Context, arg ClaimB5ResourcesParams) error
 	ClaimNextJob(ctx context.Context, arg ClaimNextJobParams) (*Job, error)
 	CloseAllocationCandidate(ctx context.Context, arg CloseAllocationCandidateParams) (*AllocationCandidate, error)
 	CloseB4ClaimGroup(ctx context.Context, arg CloseB4ClaimGroupParams) error
+	CloseB5ClaimGroup(ctx context.Context, arg CloseB5ClaimGroupParams) error
 	CloseLiquidityReservation(ctx context.Context, arg CloseLiquidityReservationParams) (*LiquidityReservation, error)
 	CloseReservation(ctx context.Context, arg CloseReservationParams) (*Reservation, error)
 	CloseStreamConnection(ctx context.Context, arg CloseStreamConnectionParams) (*StreamConnection, error)
@@ -38,7 +40,10 @@ type Querier interface {
 	GetA11JobByIdempotency(ctx context.Context, idempotencyKey string) (*Job, error)
 	GetAlert(ctx context.Context, id string) (*Alert, error)
 	GetB4ClaimGroup(ctx context.Context, id string) (*B4ClaimGroup, error)
+	GetB5ClaimGroup(ctx context.Context, id string) (*B5ClaimGroup, error)
 	GetBootstrapAuthorizationRole(ctx context.Context, arg GetBootstrapAuthorizationRoleParams) (*AuthorizationRole, error)
+	GetCrossExchangeCandidate(ctx context.Context, decisionID string) (*CrossExchangeCandidate, error)
+	GetCrossExchangeSimulationOutcome(ctx context.Context, decisionID string) (*CrossExchangeSimulationOutcome, error)
 	GetDurableCommandByDedupe(ctx context.Context, deduplicationKey string) (*CommandRequest, error)
 	GetFinalTestConsumption(ctx context.Context, researchGenerationID string) (*ExperimentFinalTestConsumption, error)
 	GetMeanReversionDecision(ctx context.Context, decisionID string) (*MeanReversionDecision, error)
@@ -79,6 +84,14 @@ type Querier interface {
 	InsertCircuitBreakerEvent(ctx context.Context, arg InsertCircuitBreakerEventParams) (*CircuitBreakerEvent, error)
 	InsertCommand(ctx context.Context, arg InsertCommandParams) (*CommandRequest, error)
 	InsertConfigurationVersion(ctx context.Context, arg InsertConfigurationVersionParams) (*ConfigurationVersion, error)
+	InsertCrossExchangeCandidate(ctx context.Context, arg InsertCrossExchangeCandidateParams) (*CrossExchangeCandidate, error)
+	InsertCrossExchangeCandidateLeg(ctx context.Context, arg InsertCrossExchangeCandidateLegParams) (*CrossExchangeCandidateLeg, error)
+	InsertCrossExchangeCandidateMember(ctx context.Context, arg InsertCrossExchangeCandidateMemberParams) (*CrossExchangeCandidateMember, error)
+	InsertCrossExchangeInventorySnapshot(ctx context.Context, arg InsertCrossExchangeInventorySnapshotParams) (*CrossExchangeInventorySnapshot, error)
+	InsertCrossExchangeJournalLink(ctx context.Context, arg InsertCrossExchangeJournalLinkParams) (*CrossExchangeJournalLink, error)
+	InsertCrossExchangeRebalancingNeed(ctx context.Context, arg InsertCrossExchangeRebalancingNeedParams) (*CrossExchangeRebalancingNeed, error)
+	InsertCrossExchangeSimulationLeg(ctx context.Context, arg InsertCrossExchangeSimulationLegParams) (*CrossExchangeSimulationLeg, error)
+	InsertCrossExchangeSimulationOutcome(ctx context.Context, arg InsertCrossExchangeSimulationOutcomeParams) (*CrossExchangeSimulationOutcome, error)
 	InsertDataQualityEvent(ctx context.Context, arg InsertDataQualityEventParams) (*DataQualityEvent, error)
 	InsertDatasetGap(ctx context.Context, arg InsertDatasetGapParams) (*DatasetGap, error)
 	InsertDatasetManifest(ctx context.Context, arg InsertDatasetManifestParams) (*DatasetManifest, error)
@@ -121,7 +134,12 @@ type Querier interface {
 	LinkAllocationReservations(ctx context.Context, arg LinkAllocationReservationsParams) (*AllocationReservation, error)
 	ListA11OutboxAfter(ctx context.Context, arg ListA11OutboxAfterParams) ([]*OutboxEvent, error)
 	ListB4ClaimItems(ctx context.Context, groupID string) ([]*B4ClaimItem, error)
+	ListB5ClaimItems(ctx context.Context, groupID string) ([]*B5ClaimItem, error)
 	ListCanonicalOutputs(ctx context.Context, runID string) ([]*RunCanonicalOutput, error)
+	ListCrossExchangeCandidateLegs(ctx context.Context, decisionID string) ([]*CrossExchangeCandidateLeg, error)
+	ListCrossExchangeCandidateMembers(ctx context.Context, decisionID string) ([]*CrossExchangeCandidateMember, error)
+	ListCrossExchangeInventorySnapshots(ctx context.Context, decisionID string) ([]*CrossExchangeInventorySnapshot, error)
+	ListCrossExchangeSimulationLegs(ctx context.Context, decisionID string) ([]*CrossExchangeSimulationLeg, error)
 	ListDatasetGaps(ctx context.Context, datasetID string) ([]*DatasetGap, error)
 	ListDatasetSegments(ctx context.Context, datasetID string) ([]*MarketDataSegment, error)
 	ListDueAlertDeliveries(ctx context.Context, arg ListDueAlertDeliveriesParams) ([]*ListDueAlertDeliveriesRow, error)
@@ -143,6 +161,7 @@ type Querier interface {
 	RecordAuthenticationFailure(ctx context.Context, arg RecordAuthenticationFailureParams) (*AuthenticationFailure, error)
 	ReduceCanonicalOrder(ctx context.Context, arg ReduceCanonicalOrderParams) (*Order, error)
 	RegisterB4ClaimResource(ctx context.Context, arg RegisterB4ClaimResourceParams) error
+	RegisterB5ClaimResource(ctx context.Context, arg RegisterB5ClaimResourceParams) error
 	ReleaseLease(ctx context.Context, arg ReleaseLeaseParams) (int64, error)
 	ReleaseLiquidityDomain(ctx context.Context, arg ReleaseLiquidityDomainParams) (*LiquidityDomain, error)
 	ReleaseVirtualBalance(ctx context.Context, arg ReleaseVirtualBalanceParams) (*VirtualBalance, error)
@@ -155,6 +174,7 @@ type Querier interface {
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) (*Session, error)
 	SettleAllocationCandidateFill(ctx context.Context, arg SettleAllocationCandidateFillParams) (*AllocationCandidate, error)
 	SettleB4ClaimGroup(ctx context.Context, arg SettleB4ClaimGroupParams) error
+	SettleB5ClaimGroup(ctx context.Context, arg SettleB5ClaimGroupParams) error
 	SettleLiquidityReservationFill(ctx context.Context, arg SettleLiquidityReservationFillParams) (*LiquidityReservation, error)
 	SettleReservationFill(ctx context.Context, arg SettleReservationFillParams) (*Reservation, error)
 	SettleReservedVirtualBalance(ctx context.Context, arg SettleReservedVirtualBalanceParams) (*VirtualBalance, error)

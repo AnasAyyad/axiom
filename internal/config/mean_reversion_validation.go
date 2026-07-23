@@ -7,7 +7,7 @@ import (
 )
 
 func validateMeanReversion(schema string, strategy MeanReversionConfiguration) error {
-	if schema != SchemaVersionV1BB3 && schema != SchemaVersionV1BB4 {
+	if schema != SchemaVersionV1BB3 && schema != SchemaVersionV1BB4 && schema != SchemaVersionV1BB5 {
 		if strategy.StrategyVersion != "" || strategy.PrimaryTimeframe != "" ||
 			strategy.HigherTimeframe != "" || len(strategy.Parameters) != 0 {
 			return configError("invalid_configuration", "mean_reversion")

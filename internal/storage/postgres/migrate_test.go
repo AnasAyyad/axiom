@@ -149,6 +149,47 @@ func TestB4MigrationDefinesAtomicClaimsSequentialEvidenceAndBalancedLinks(t *tes
 	}
 }
 
+func TestB5MigrationDefinesCoherentConcurrentClosedCycleEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b5 Migration
+	for _, migration := range migrations {
+		if migration.Version == "000017" {
+			b5 = migration
+			break
+		}
+	}
+	lower := strings.ToLower(b5.SQL)
+	for _, required := range []string{
+		"create table cross_exchange_candidates",
+		"create table cross_exchange_candidate_members",
+		"cross_exchange_candidate_member_evidence_mismatch",
+		"create table cross_exchange_candidate_legs",
+		"create table cross_exchange_inventory_snapshots",
+		"marginal_inventory_replacement",
+		"usdt_venue_concentration_penalty",
+		"expected_closed_cycle_profit",
+		"create table b5_claim_resources",
+		"claim_b5_resources", "settle_b5_claim_group", "close_b5_claim_group",
+		"create table cross_exchange_simulation_outcomes",
+		"create table cross_exchange_simulation_legs",
+		"delayed_unknown", "create table cross_exchange_rebalancing_needs",
+		"advisory_only boolean not null check (advisory_only)",
+		"create table cross_exchange_journal_links",
+		"security definer set search_path = pg_catalog, public",
+		"cross_exchange_candidates_immutable",
+	} {
+		if !strings.Contains(lower, required) {
+			t.Fatalf("B5 migration missing %q", required)
+		}
+	}
+	if b5.Version != "000017" {
+		t.Fatalf("B5 migration version = %s", b5.Version)
+	}
+}
+
 func TestMigrationVersionRejectsNonCanonicalNames(t *testing.T) {
 	for _, name := range []string{"1_bad.sql", "000001.sql", "00000x_bad.sql", "000001_.sql"} {
 		if _, ok := migrationVersion(name); ok {

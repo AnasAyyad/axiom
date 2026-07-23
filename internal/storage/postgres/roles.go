@@ -21,6 +21,10 @@ var runtimeReadInsertTables = []string{
 	"cross_market_view_headers", "cross_market_view_members", "dataset_exchange_coverage", "dataset_tier_a_members", "mean_reversion_decisions",
 	"triangular_candidates", "triangular_candidate_legs", "triangular_simulation_outcomes",
 	"triangular_opportunity_lifetimes", "triangular_journal_links",
+	"cross_exchange_candidates", "cross_exchange_candidate_members",
+	"cross_exchange_candidate_legs", "cross_exchange_inventory_snapshots",
+	"cross_exchange_simulation_outcomes", "cross_exchange_simulation_legs",
+	"cross_exchange_rebalancing_needs", "cross_exchange_journal_links",
 	"exchange_capabilities", "exchanges", "execution_lease_epochs", "execution_leases", "execution_plan_legs",
 	"execution_plans", "experiment_registrations", "fills", "inbox_events", "incidents", "instrument_metadata_versions",
 	"instruments", "jobs", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
@@ -42,6 +46,7 @@ var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
 
 var runtimeReadTables = []string{
 	"schema_migrations", "b4_claim_resources", "b4_claim_groups", "b4_claim_items",
+	"b5_claim_resources", "b5_claim_groups", "b5_claim_items",
 }
 
 var recorderReadTables = []string{
@@ -62,6 +67,11 @@ var readOnlyTables = []string{
 	"triangular_candidates", "triangular_candidate_legs", "triangular_simulation_outcomes",
 	"triangular_opportunity_lifetimes", "triangular_journal_links",
 	"b4_claim_resources", "b4_claim_groups", "b4_claim_items",
+	"cross_exchange_candidates", "cross_exchange_candidate_members",
+	"cross_exchange_candidate_legs", "cross_exchange_inventory_snapshots",
+	"cross_exchange_simulation_outcomes", "cross_exchange_simulation_legs",
+	"cross_exchange_rebalancing_needs", "cross_exchange_journal_links",
+	"b5_claim_resources", "b5_claim_groups", "b5_claim_items",
 	"circuit_breaker_events", "exchanges", "execution_plan_legs", "execution_plans", "fill_journal_postings", "fills", "incidents", "instrument_metadata_versions",
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
 	"public_clock_samples", "public_connection_events",
@@ -82,7 +92,28 @@ func ApplyRoleGrants(ctx context.Context, pool *pgxpool.Pool, runtimeRole, recor
 		return fmt.Errorf("role_grant_transaction_unavailable")
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	grants := map[string][]tableGrant{
+	availableTables, err := existingPublicTables(ctx, tx)
+	if err != nil {
+		return err
+	}
+	grants := roleTableGrants(runtimeRole, recorderRole, readOnlyRole)
+	for _, role := range roles {
+		filtered := filterTableGrants(grants[role], availableTables)
+		if err = applyTableGrants(ctx, tx, role, filtered); err != nil {
+			return err
+		}
+	}
+	if err = applyStrategyFunctionGrants(ctx, tx, runtimeRole); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("role_grant_commit_failed")
+	}
+	return nil
+}
+
+func roleTableGrants(runtimeRole, recorderRole, readOnlyRole string) map[string][]tableGrant {
+	return map[string][]tableGrant{
 		runtimeRole: {
 			{privileges: "SELECT", tables: runtimeReadTables},
 			{privileges: "SELECT, INSERT", tables: runtimeReadInsertTables},
@@ -96,29 +127,30 @@ func ApplyRoleGrants(ctx context.Context, pool *pgxpool.Pool, runtimeRole, recor
 		},
 		readOnlyRole: {{privileges: "SELECT", tables: readOnlyTables}},
 	}
-	for _, role := range roles {
-		if err = applyTableGrants(ctx, tx, role, grants[role]); err != nil {
-			return err
-		}
-	}
-	if err = applyB4FunctionGrants(ctx, tx, runtimeRole); err != nil {
-		return err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("role_grant_commit_failed")
-	}
-	return nil
 }
 
-func applyB4FunctionGrants(ctx context.Context, tx pgx.Tx, runtimeRole string) error {
+func applyStrategyFunctionGrants(ctx context.Context, tx pgx.Tx, runtimeRole string) error {
 	role := pgx.Identifier{runtimeRole}.Sanitize()
 	functions := []string{
 		"public.register_b4_claim_resource(text,text,text,text,text,financial_amount,timestamptz)",
 		"public.claim_b4_resources(text,text,text,bigint,text,text,text[],numeric[],timestamptz)",
 		"public.settle_b4_claim_group(text,bigint,bigint,text[],numeric[],boolean,timestamptz)",
 		"public.close_b4_claim_group(text,bigint,bigint,text,timestamptz)",
+		"public.register_b5_claim_resource(text,text,text,text,text,financial_amount,timestamptz)",
+		"public.claim_b5_resources(text,text,bigint,text,text,text[],numeric[],timestamptz)",
+		"public.settle_b5_claim_group(text,bigint,bigint,text[],numeric[],boolean,timestamptz)",
+		"public.close_b5_claim_group(text,bigint,bigint,text,timestamptz)",
 	}
 	for _, function := range functions {
+		var exists bool
+		if err := tx.QueryRow(ctx,
+			"SELECT pg_catalog.to_regprocedure($1) IS NOT NULL", function,
+		).Scan(&exists); err != nil {
+			return fmt.Errorf("role_function_lookup_failed")
+		}
+		if !exists {
+			continue
+		}
 		if _, err := tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+function+" TO "+role); err != nil {
 			return fmt.Errorf("role_function_grant_failed")
 		}
@@ -129,6 +161,45 @@ func applyB4FunctionGrants(ctx context.Context, tx pgx.Tx, runtimeRole string) e
 type tableGrant struct {
 	privileges string
 	tables     []string
+}
+
+func existingPublicTables(ctx context.Context, tx pgx.Tx) (map[string]struct{}, error) {
+	rows, err := tx.Query(ctx, `SELECT relation.relname
+FROM pg_catalog.pg_class relation
+JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+WHERE namespace.nspname = 'public' AND relation.relkind IN ('r','p','v','m','f')`)
+	if err != nil {
+		return nil, fmt.Errorf("role_table_lookup_failed")
+	}
+	defer rows.Close()
+	result := make(map[string]struct{})
+	for rows.Next() {
+		var table string
+		if err = rows.Scan(&table); err != nil {
+			return nil, fmt.Errorf("role_table_lookup_failed")
+		}
+		result[table] = struct{}{}
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("role_table_lookup_failed")
+	}
+	return result, nil
+}
+
+func filterTableGrants(grants []tableGrant, available map[string]struct{}) []tableGrant {
+	result := make([]tableGrant, 0, len(grants))
+	for _, grant := range grants {
+		tables := make([]string, 0, len(grant.tables))
+		for _, table := range grant.tables {
+			if _, exists := available[table]; exists {
+				tables = append(tables, table)
+			}
+		}
+		if len(tables) > 0 {
+			result = append(result, tableGrant{privileges: grant.privileges, tables: tables})
+		}
+	}
+	return result
 }
 
 func validDistinctRoles(roles []string) bool {

@@ -80,7 +80,9 @@ const configuration = JSON.parse(
 const triangular = configuration.triangular ?? {};
 const parameters = triangular.parameters ?? [];
 if (
-  configuration.schema_version !== "axiom.config.v1b.3" ||
+  !["axiom.config.v1b.3", "axiom.config.v1b.4"].includes(
+    configuration.schema_version,
+  ) ||
   configuration.product !== "spot" ||
   configuration.safety?.fail_closed !== true ||
   configuration.safety?.risk_initial_state !== "PAUSED" ||
@@ -91,7 +93,7 @@ if (
   JSON.stringify(triangular.cycles) !==
     JSON.stringify(["USDT-BTC-ETH-USDT", "USDT-ETH-BTC-USDT"]) ||
   parameters.length !== 18 ||
-  configuration.secrets?.length !== 0
+  (configuration.secrets != null && configuration.secrets.length !== 0)
 ) {
   fail("reviewed B4 configuration is incomplete or unsafe");
 }

@@ -55,6 +55,23 @@ func TestRuntimeMigrationLedgerGrantIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestRoleGrantFilteringPreservesAppliedMigrationPrefix(t *testing.T) {
+	available := map[string]struct{}{
+		"schema_migrations":     {},
+		"triangular_candidates": {},
+	}
+	filtered := filterTableGrants([]tableGrant{
+		{privileges: "SELECT", tables: []string{
+			"schema_migrations", "triangular_candidates", "cross_exchange_candidates",
+		}},
+		{privileges: "UPDATE", tables: []string{"cross_exchange_candidates"}},
+	}, available)
+	if len(filtered) != 1 ||
+		strings.Join(filtered[0].tables, ",") != "schema_migrations,triangular_candidates" {
+		t.Fatalf("migration-prefix grant filter = %#v", filtered)
+	}
+}
+
 func TestReadOnlyReportingExcludesCredentialTables(t *testing.T) {
 	statement := grantSQL("SELECT", readOnlyTables, `"axiom_readonly"`)
 	for _, forbidden := range []string{"users", "sessions", "authorization_roles", "user_roles"} {

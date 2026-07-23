@@ -53,7 +53,7 @@ const configuration = JSON.parse(
 );
 const parameters = configuration.mean_reversion?.parameters ?? [];
 if (
-  !["axiom.config.v1b.2", "axiom.config.v1b.3"].includes(
+  !["axiom.config.v1b.2", "axiom.config.v1b.3", "axiom.config.v1b.4"].includes(
     configuration.schema_version,
   ) ||
   configuration.product !== "spot" ||
@@ -63,7 +63,7 @@ if (
   configuration.mean_reversion?.primary_timeframe !== "1h" ||
   configuration.mean_reversion?.higher_timeframe !== "4h" ||
   parameters.length !== 27 ||
-  configuration.secrets?.length !== 0
+  (configuration.secrets != null && configuration.secrets.length !== 0)
 ) {
   fail("reviewed B3 configuration is incomplete or unsafe");
 }

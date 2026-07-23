@@ -7,7 +7,7 @@ import (
 )
 
 func validateTriangular(schema string, strategy TriangularConfiguration) error {
-	if schema != SchemaVersionV1BB4 {
+	if schema != SchemaVersionV1BB4 && schema != SchemaVersionV1BB5 {
 		if strategy.StrategyVersion != "" || strategy.SettlementAsset != "" ||
 			len(strategy.Cycles) != 0 || strategy.DispatchMode != "" ||
 			strategy.PricingModel != "" || strategy.ClaimModel != "" ||

@@ -1,10 +1,10 @@
 package config
 
 // DefaultV1BConfiguration returns the current credential-free public exchange,
-// B3, and B4 strategy graphs while preserving earlier compatibility projections.
+// B3, B4, and B5 strategy graphs while preserving earlier compatibility projections.
 func DefaultV1BConfiguration() Configuration {
 	configuration := DefaultConfiguration()
-	configuration.SchemaVersion = SchemaVersionV1BB4
+	configuration.SchemaVersion = SchemaVersionV1BB5
 	configuration.Revision = 1
 	instruments := []Instrument{
 		{Base: "BTC", Quote: "USDT", Product: "spot"},
@@ -22,6 +22,7 @@ func DefaultV1BConfiguration() Configuration {
 	}
 	configuration.MeanReversion = defaultMeanReversionConfiguration()
 	configuration.Triangular = defaultTriangularConfiguration()
+	configuration.CrossExchange = defaultCrossExchangeConfiguration()
 	return configuration
 }
 

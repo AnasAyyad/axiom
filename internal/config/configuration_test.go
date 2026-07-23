@@ -156,7 +156,7 @@ func TestV1BConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T)
 
 func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingOlderSchemas(t *testing.T) {
 	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB4 ||
+	if configuration.SchemaVersion != SchemaVersionV1BB5 ||
 		configuration.MeanReversion.StrategyVersion != "mean-reversion.v1b.1" ||
 		configuration.MeanReversion.PrimaryTimeframe != "1h" || configuration.MeanReversion.HigherTimeframe != "4h" ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount {
@@ -174,6 +174,7 @@ func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingO
 	legacyV1B.SchemaVersion = SchemaVersionV1B
 	legacyV1B.MeanReversion = MeanReversionConfiguration{}
 	legacyV1B.Triangular = TriangularConfiguration{}
+	legacyV1B.CrossExchange = CrossExchangeConfiguration{}
 	if err := Validate(legacyV1B); err != nil {
 		t.Fatalf("original V1B.1 graph reinterpreted: %v", err)
 	}
@@ -189,7 +190,7 @@ func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingO
 
 func TestB4ConfigurationRequiresCompleteTriangularGraphAndPreservesB3Schema(t *testing.T) {
 	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB4 ||
+	if configuration.SchemaVersion != SchemaVersionV1BB5 ||
 		configuration.Triangular.StrategyVersion != "triangular.v1b.1" ||
 		configuration.Triangular.SettlementAsset != "USDT" ||
 		configuration.Triangular.DispatchMode != "sequential" ||
@@ -208,6 +209,7 @@ func TestB4ConfigurationRequiresCompleteTriangularGraphAndPreservesB3Schema(t *t
 	legacyB3 := configuration
 	legacyB3.SchemaVersion = SchemaVersionV1BB3
 	legacyB3.Triangular = TriangularConfiguration{}
+	legacyB3.CrossExchange = CrossExchangeConfiguration{}
 	if err := Validate(legacyB3); err != nil {
 		t.Fatalf("B3 schema reinterpreted: %v", err)
 	}
@@ -238,6 +240,70 @@ func TestB4ConfigurationRejectsMetadataRangeCycleAndMissingGraph(t *testing.T) {
 		{name: "duplicate", alter: func(c *Configuration) {
 			c.Triangular.Parameters[1].ID = c.Triangular.Parameters[0].ID
 		}, code: "invalid_triangular_parameter"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			configuration := DefaultV1BConfiguration()
+			test.alter(&configuration)
+			if code := configurationErrorCode(Validate(configuration)); code != test.code {
+				t.Fatalf("error code = %q, want %q", code, test.code)
+			}
+		})
+	}
+}
+
+func TestB5ConfigurationRequiresCompleteCrossExchangeGraphAndPreservesB4Schema(t *testing.T) {
+	configuration := DefaultV1BConfiguration()
+	if configuration.SchemaVersion != SchemaVersionV1BB5 ||
+		configuration.CrossExchange.StrategyVersion != "cross-exchange.v1b.1" ||
+		configuration.CrossExchange.DispatchMode != "concurrent" ||
+		configuration.CrossExchange.RebalancingMode != "advisory_only" ||
+		len(configuration.CrossExchange.Instruments) != 2 ||
+		len(configuration.CrossExchange.Directions) != 2 ||
+		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount {
+		t.Fatalf("B5 graph = %#v", configuration.CrossExchange)
+	}
+	for _, parameter := range configuration.CrossExchange.Parameters {
+		if parameter.ID == "" || parameter.Description == "" || parameter.AlgorithmVersion == "" ||
+			parameter.EvaluationTimezone != "UTC" || parameter.ChangeBehavior == "" ||
+			parameter.ApprovalActor == "" || parameter.ApprovalReference == "" ||
+			parameter.ApprovedAt == "" || parameter.ChangeReason == "" {
+			t.Fatalf("incomplete B5 parameter = %#v", parameter)
+		}
+	}
+	legacyB4 := configuration
+	legacyB4.SchemaVersion = SchemaVersionV1BB4
+	legacyB4.CrossExchange = CrossExchangeConfiguration{}
+	if err := Validate(legacyB4); err != nil {
+		t.Fatalf("B4 schema reinterpreted: %v", err)
+	}
+	legacyB4.CrossExchange = configuration.CrossExchange
+	if code := configurationErrorCode(Validate(legacyB4)); code != "invalid_configuration" {
+		t.Fatalf("B5 graph accepted under B4 schema: %q", code)
+	}
+}
+
+func TestB5ConfigurationRejectsMissingMetadataRangeDirectionAndDuplicate(t *testing.T) {
+	tests := []struct {
+		name  string
+		alter func(*Configuration)
+		code  string
+	}{
+		{name: "missing", alter: func(c *Configuration) {
+			c.CrossExchange = CrossExchangeConfiguration{}
+		}, code: "invalid_cross_exchange_configuration"},
+		{name: "metadata", alter: func(c *Configuration) {
+			c.CrossExchange.Parameters[0].AlgorithmVersion = "other"
+		}, code: "invalid_cross_exchange_parameter"},
+		{name: "range", alter: func(c *Configuration) {
+			c.CrossExchange.Parameters[9].Value = "0.29"
+		}, code: "cross_exchange_parameter_out_of_range"},
+		{name: "direction", alter: func(c *Configuration) {
+			c.CrossExchange.Directions[0] = "buy_only"
+		}, code: "invalid_cross_exchange_configuration"},
+		{name: "duplicate", alter: func(c *Configuration) {
+			c.CrossExchange.Parameters[1].ID = c.CrossExchange.Parameters[0].ID
+		}, code: "invalid_cross_exchange_parameter"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -291,9 +357,10 @@ func TestReviewedV1BRecorderConfigurationDecodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	configuration, err := DecodeJSON(payload)
-	if err != nil || configuration.SchemaVersion != SchemaVersionV1BB4 || len(configuration.Exchanges) != 2 ||
+	if err != nil || configuration.SchemaVersion != SchemaVersionV1BB5 || len(configuration.Exchanges) != 2 ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount ||
-		len(configuration.Triangular.Parameters) != TriangularParameterCount {
+		len(configuration.Triangular.Parameters) != TriangularParameterCount ||
+		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount {
 		t.Fatalf("reviewed V1B configuration = %#v, %v", configuration.Exchanges, err)
 	}
 }
