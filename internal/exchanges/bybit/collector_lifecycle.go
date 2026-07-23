@@ -129,11 +129,11 @@ func (collector *InstrumentCollector) advanceLifecycle(
 }
 
 func (collector *InstrumentCollector) recordResynchronization(started time.Time, generation uint64) {
-	if started.IsZero() {
-		return
+	duration := time.Duration(0)
+	if !started.IsZero() {
+		duration = maxDuration(collector.lifecycle.Now().Sub(started), 0)
+		collector.stats.resync.record(duration)
 	}
-	duration := maxDuration(collector.lifecycle.Now().Sub(started), 0)
-	collector.stats.resync.record(duration)
 	collector.recordDiagnostic(collector.outcomeDiagnostic(generationOutcome{reachedHealthy: true,
 		generation: generation, stage: "healthy", cause: "healthy"}, "health_restored", duration, 0, duration))
 }

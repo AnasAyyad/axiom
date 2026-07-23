@@ -218,3 +218,18 @@ func TestBybitResynchronizationThresholdIsStrictlyAbove15Seconds(t *testing.T) {
 		t.Fatalf("stats=%#v", stats)
 	}
 }
+
+func TestBybitInitialHealthIsDiagnosedWithoutCreatingResyncSample(t *testing.T) {
+	collector, _ := newLifecycleTestCollector(t)
+	collector.recordResynchronization(time.Time{}, 7)
+	stats := collector.Stats()
+	if stats.ResyncSamples != 0 || len(stats.ReconnectDiagnostics) != 1 {
+		t.Fatalf("stats=%#v", stats)
+	}
+	diagnostic := stats.ReconnectDiagnostics[0]
+	if diagnostic.Phase != "health_restored" || diagnostic.Stage != "healthy" ||
+		diagnostic.Generation != 7 || !diagnostic.ReachedHealthy ||
+		diagnostic.Attribution != "recovered" || diagnostic.ResyncElapsed != 0 {
+		t.Fatalf("diagnostic=%#v", diagnostic)
+	}
+}
