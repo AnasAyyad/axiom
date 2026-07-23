@@ -16,7 +16,10 @@ import (
 	"axiom/internal/recorder"
 )
 
-const qualificationJournalSchema = "axiom.a7-soak-events.v2"
+const (
+	qualificationJournalSchema   = "axiom.a7-soak-events.v2"
+	b1QualificationJournalSchema = "axiom.b1-soak-events.v1"
+)
 
 type qualificationFailure struct {
 	ObservedAt time.Time       `json:"observed_at"`
@@ -54,17 +57,31 @@ type qualificationJournal struct {
 	path         string
 	sourceCommit string
 	started      time.Time
+	schema       string
+	logPrefix    string
 	sequence     uint64
 	hash         string
 }
 
 func newQualificationJournal(root, sourceCommit string, started time.Time) (*qualificationJournal, error) {
-	path := filepath.Join(root, "a7-soak-events.jsonl")
+	return newNamedQualificationJournal(root, "a7-soak-events.jsonl", qualificationJournalSchema,
+		"A7_EVENT", sourceCommit, started)
+}
+
+func newNamedQualificationJournal(
+	root, filename, schema, logPrefix, sourceCommit string,
+	started time.Time,
+) (*qualificationJournal, error) {
+	if filename == "" || schema == "" || logPrefix == "" {
+		return nil, errors.New("qualification journal identity is required")
+	}
+	path := filepath.Join(root, filename)
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|os.O_APPEND, 0o640)
 	if err != nil {
 		return nil, err
 	}
-	return &qualificationJournal{file: file, path: path, sourceCommit: sourceCommit, started: started}, nil
+	return &qualificationJournal{file: file, path: path, sourceCommit: sourceCommit, started: started,
+		schema: schema, logPrefix: logPrefix}, nil
 }
 
 func (journal *qualificationJournal) Append(event qualificationEvent) error {
@@ -73,7 +90,7 @@ func (journal *qualificationJournal) Append(event qualificationEvent) error {
 	}
 	journal.mutex.Lock()
 	defer journal.mutex.Unlock()
-	event.SchemaVersion = qualificationJournalSchema
+	event.SchemaVersion = journal.schema
 	event.Sequence = journal.sequence + 1
 	event.SourceCommit = journal.sourceCommit
 	if !event.RecordedAt.IsZero() && event.ObservedAt.IsZero() {
@@ -106,7 +123,7 @@ func (journal *qualificationJournal) Append(event qualificationEvent) error {
 		return err
 	}
 	journal.sequence, journal.hash = event.Sequence, event.Hash
-	_, _ = fmt.Fprintf(os.Stderr, "A7_EVENT %s", payload)
+	_, _ = fmt.Fprintf(os.Stderr, "%s %s", journal.logPrefix, payload)
 	return nil
 }
 
@@ -146,6 +163,11 @@ func writeEmergencyQualificationEvent(event qualificationEvent, code string) {
 }
 
 func verifyQualificationJournal(path, sourceCommit string, expectedSequence uint64, expectedHash string) error {
+	return verifyNamedQualificationJournal(path, qualificationJournalSchema, sourceCommit,
+		expectedSequence, expectedHash)
+}
+
+func verifyNamedQualificationJournal(path, schema, sourceCommit string, expectedSequence uint64, expectedHash string) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -160,7 +182,7 @@ func verifyQualificationJournal(path, sourceCommit string, expectedSequence uint
 			return err
 		}
 		sequence++
-		if event.SchemaVersion != qualificationJournalSchema || event.SourceCommit != sourceCommit ||
+		if event.SchemaVersion != schema || event.SourceCommit != sourceCommit ||
 			event.Sequence != sequence || event.PreviousHash != priorHash ||
 			event.RecordedAt.Before(previousRecordedAt) {
 			return errors.New("qualification journal metadata or chain mismatch")

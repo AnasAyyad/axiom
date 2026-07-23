@@ -88,12 +88,20 @@ attribution separately; attribution never converts a failed run into a pass.
   exclude the emulator, and reject broader Binance origins and callable private
   or order surfaces.
 
+The current dual-soak forensic candidate also records bounded REST response-body
+timing and size metadata, distinguishing header timeout, body timeout,
+interrupted body, close failure, empty success body, and oversized body. It
+retains no response payload, URL, address, credential, or arbitrary error text.
+The same taxonomy is used by the isolated Bybit runner.
+
 ## Formal soak gate
 
 The formal command requires an empty dedicated output directory and cannot be
 shortened:
 
 ```text
+make a7-soak-smoke AXIOM_A7_SOURCE_COMMIT=<full-40-character-commit>
+
 AXIOM_A7_SOAK=1 \
 AXIOM_A7_SOAK_OUTPUT=<absolute-empty-artifact-directory> \
 AXIOM_A7_SOURCE_COMMIT=<full-40-character-commit> \

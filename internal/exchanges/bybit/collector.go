@@ -11,15 +11,18 @@ import (
 
 // InstrumentCollector owns one Bybit instrument's ordered public lifecycle.
 type InstrumentCollector struct {
-	config   CollectorConfig
-	source   collectorSource
-	recorder exchangecontracts.PublicRecorder
-	clock    domain.Clock
-	book     *marketdata.Book
-	candles  map[string]*marketdata.CandleStore
-	provider *marketdata.Provider
-	stats    collectorCounters
-	running  atomic.Bool
+	config           CollectorConfig
+	source           collectorSource
+	recorder         exchangecontracts.PublicRecorder
+	clock            domain.Clock
+	book             *marketdata.Book
+	candles          map[string]*marketdata.CandleStore
+	provider         *marketdata.Provider
+	stats            *collectorCounters
+	lifecycle        collectorLifecycle
+	running          atomic.Bool
+	lifecycleCycle   atomic.Uint64
+	lifecycleAttempt atomic.Uint64
 }
 
 // NewInstrumentCollector constructs a bounded raw-before-canonical collector.
@@ -46,7 +49,8 @@ func NewInstrumentCollector(
 		return nil, err
 	}
 	return &InstrumentCollector{config: config, source: source, recorder: recorder,
-		clock: clock, book: book, candles: stores, provider: provider}, nil
+		clock: clock, book: book, candles: stores, provider: provider,
+		stats: newCollectorCounters(), lifecycle: systemCollectorLifecycle{}}, nil
 }
 
 func newCandleStores(
@@ -82,5 +86,5 @@ func (collector *InstrumentCollector) Run(ctx context.Context) error {
 		return streamError()
 	}
 	defer collector.running.Store(false)
-	return collector.runLifecycle(ctx)
+	return collector.runLifecycle(ctx, collector.runGeneration)
 }

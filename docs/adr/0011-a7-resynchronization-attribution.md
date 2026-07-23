@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-21
-- **Scope:** V1A Phase A7 public collector and qualification evidence
+- **Scope:** V1A A7 and V1B B1 production-public collectors and qualification evidence
 
 ## Context
 
@@ -40,6 +40,14 @@ HTTP status, bounded retry-after, clock offset and uncertainty, operation and
 resynchronization durations, snapshot sequence, buffered depth, and whether
 health was reached. Attribution is derived only from those facts:
 
+Both Binance and Bybit retain request, response-header, and response-body
+durations plus bounded byte counts and declared content length. They distinguish
+a timeout while waiting for headers from a timeout while consuming the body,
+an interrupted body, a close failure, an empty success body, and an oversized
+body. These facts distinguish an exchange response, network interruption,
+contract mismatch, and local collector failure without retaining the body, URL,
+remote address, or arbitrary error text.
+
 - explicit HTTP 429/418 or 5xx is `upstream`;
 - DNS, timeout, TCP-connect, and network-I/O causes are `network`;
 - queue, buffer, sequence, validation, recorder, and local rate-budget causes
@@ -55,7 +63,8 @@ with an explicit dropped count. Immediate structured lifecycle records go to
 the service log. Qualification phase events also go to an append-only,
 synchronously written SHA-256 hash-chained journal. Rolling status is replaced
 atomically, terminal evidence verifies the journal chain, and recorder flush or
-status/journal write failure fails the run closed.
+status/journal write failure fails the run closed. A7 and B1 use separate output
+roots, status files, journals, terminal reports, and service logs.
 
 ## Consequences
 
@@ -85,11 +94,13 @@ status/journal write failure fails the run closed.
 Deterministic lifecycle tests cover attempt reset and escalation, complete
 loss-to-health timing, independent cycles, every reconnect reason, the exact
 15-second boundary, bounded diagnostics, cancellation, recorder failure,
-scheduled renewal, and high-cycle stress. Recorder tests cover in-flight
-raw/canonical flush interleaving and bounded filesystem causes. Qualification
-tests cover atomic status replacement, hash-chain tampering, and fail-closed
-flush, status, and journal failures. Targeted race tests and the A7 public smoke
-must pass before every formal run.
+scheduled renewal, and high-cycle stress on each exchange. Transport tests
+independently force response-body timeout, interruption, empty-body, and
+oversize cases and assert bounded timing and byte metadata. Recorder tests cover
+in-flight raw/canonical flush interleaving and bounded filesystem causes.
+Qualification tests cover atomic status replacement, hash-chain tampering, and
+fail-closed flush, status, and journal failures. Targeted race tests and both
+public harness smokes must pass before formal runs.
 
 ## Revisit when
 

@@ -14,33 +14,111 @@ type observedResult struct {
 	err   error
 }
 
-func (collector *InstrumentCollector) consumeGeneration(ctx context.Context, stream ObservedStream) error {
+func (collector *InstrumentCollector) consumeGeneration(
+	ctx context.Context,
+	stream ObservedStream,
+	resyncStarted time.Time,
+) generationOutcome {
 	events, overflow := collector.startReceiver(ctx, stream)
 	heartbeat := time.NewTicker(collector.config.HeartbeatEvery)
 	stale := time.NewTicker(collector.config.StaleCheckEvery)
+	renewal := time.NewTimer(collector.config.Renewal)
 	defer heartbeat.Stop()
 	defer stale.Stop()
+	defer renewal.Stop()
+	reachedHealthy := false
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return generationOutcome{reachedHealthy: reachedHealthy, generation: stream.Generation()}
 		case <-overflow:
-			return collector.handleQueueOverflow(ctx, stream)
+			err := collector.handleQueueOverflow(ctx, stream)
+			return collector.failedGeneration(ctx, stream, reachedHealthy,
+				reconnectQueue, "receiver_queue", "queue_overflow", err)
 		case <-heartbeat.C:
 			if err := stream.Ping(ctx); err != nil {
-				return err
+				return collector.failedGeneration(ctx, stream, reachedHealthy,
+					reconnectHeartbeat, "heartbeat", "heartbeat_failed", err)
 			}
 		case <-stale.C:
 			if collector.book.View().Version() > 0 && collector.book.MarkStale(collector.source.MonotonicOffset(),
 				uint64(collector.config.MaximumBookAge.Nanoseconds())) != nil {
-				return streamError()
+				return collector.failedGeneration(ctx, stream, reachedHealthy,
+					reconnectStaleBook, "stale_book", "book_stale", nil)
 			}
+		case <-renewal.C:
+			return collector.failedGeneration(ctx, stream, reachedHealthy,
+				reconnectScheduledRenewal, "scheduled_renewal", "scheduled_renewal", nil)
 		case result := <-events:
-			if err := collector.handleObservedResult(ctx, stream, result); err != nil {
-				return err
+			healthy, outcome := collector.consumeObserved(ctx, stream, result, reachedHealthy, resyncStarted, len(events))
+			reachedHealthy = healthy
+			if outcome.reason.valid() || outcome.fatal != nil {
+				return outcome
 			}
 		}
 	}
+}
+
+func (collector *InstrumentCollector) consumeObserved(
+	ctx context.Context,
+	stream ObservedStream,
+	result observedResult,
+	reachedHealthy bool,
+	resyncStarted time.Time,
+	queueDepth int,
+) (bool, generationOutcome) {
+	collector.stats.observeQueue(queueDepth)
+	started := collector.lifecycle.Now()
+	err := collector.handleObservedResult(ctx, stream, result)
+	duration := maxDuration(collector.lifecycle.Now().Sub(started), 0) +
+		time.Duration(result.event.DecodeNanos)
+	collector.stats.hotPath.record(duration)
+	if err != nil {
+		reason, stage, cause := reconnectInvalidEvent, "event", "invalid_event"
+		if result.err != nil {
+			reason, stage, cause = reconnectStream, "stream", "stream_receive_failed"
+		} else if result.event.Event.Kind == exchangecontracts.StreamDepth && result.event.Event.Depth != nil {
+			reason, stage, cause = reconnectSequenceGap, "sequence", "sequence_gap"
+		}
+		return reachedHealthy, collector.failedGeneration(ctx, stream, reachedHealthy, reason, stage, cause, err)
+	}
+	if reachedHealthy || result.event.Event.Kind != exchangecontracts.StreamDepth ||
+		result.event.Event.Snapshot == nil {
+		return reachedHealthy, generationOutcome{}
+	}
+	if err = collector.recordLifecycle(ctx, stream, "HEALTHY", "snapshot_applied"); err != nil {
+		return true, collector.failedGeneration(ctx, stream, true,
+			reconnectSnapshot, "recorder", "recorder", err)
+	}
+	collector.recordOperationDiagnostic("snapshot", stream.Generation(), duration, 0)
+	collector.recordResynchronization(resyncStarted, stream.Generation())
+	return true, generationOutcome{}
+}
+
+func (collector *InstrumentCollector) failedGeneration(
+	ctx context.Context,
+	stream ObservedStream,
+	reachedHealthy bool,
+	reason reconnectReason,
+	stage string,
+	cause string,
+	err error,
+) generationOutcome {
+	lostAt := collector.lifecycle.Now()
+	sequence := collector.book.View().Sequence()
+	_ = collector.book.Invalidate(reason.String(), sequence)
+	outcome := generationFailure(generationOutcome{reachedHealthy: reachedHealthy, reason: reason,
+		lostHealthAt: lostAt, generation: stream.Generation()}, stage, cause, err)
+	if isRecorderFailure(err) {
+		outcome.fatal = err
+		return outcome
+	}
+	if lifecycleErr := collector.recordLifecycle(ctx, stream, "PAUSED", reason.String()); lifecycleErr != nil && ctx.Err() == nil {
+		return generationFailure(generationOutcome{fatal: lifecycleErr, reachedHealthy: reachedHealthy,
+			reason: reason, lostHealthAt: lostAt, generation: stream.Generation()},
+			"recorder", "recorder", lifecycleErr)
+	}
+	return outcome
 }
 
 func (collector *InstrumentCollector) handleQueueOverflow(ctx context.Context, stream ObservedStream) error {

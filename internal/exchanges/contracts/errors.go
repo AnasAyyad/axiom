@@ -23,6 +23,19 @@ const (
 	ErrorCanceled          ErrorKind = "operation_canceled"
 )
 
+// FailureMetadata is bounded transport evidence safe for logs and
+// qualification artifacts. It intentionally excludes URLs, addresses,
+// headers, response bodies, and arbitrary exchange text.
+type FailureMetadata struct {
+	RequestDuration        time.Duration `json:"request_duration_nanos,omitempty"`
+	ResponseHeaderDuration time.Duration `json:"response_header_duration_nanos,omitempty"`
+	ResponseBodyDuration   time.Duration `json:"response_body_duration_nanos,omitempty"`
+	ResponseBytes          uint64        `json:"response_bytes,omitempty"`
+	ContentLengthBytes     uint64        `json:"content_length_bytes,omitempty"`
+	ContentLengthKnown     bool          `json:"content_length_known,omitempty"`
+	BodyLimitBytes         uint64        `json:"body_limit_bytes,omitempty"`
+}
+
 // Error is a sanitized typed exchange failure.
 type Error struct {
 	Kind       ErrorKind
@@ -30,6 +43,7 @@ type Error struct {
 	RetryAfter time.Duration
 	HTTPStatus int
 	Cause      string
+	Metadata   FailureMetadata
 }
 
 // Error returns a stable string without payloads, URLs, or exchange responses.
@@ -69,13 +83,19 @@ func NewDetailedError(
 	retryAfter time.Duration,
 	httpStatus int,
 	cause string,
+	metadata ...FailureMetadata,
 ) error {
 	err := NewError(kind, operation, retryAfter)
 	failure, ok := err.(*Error)
-	if !ok || (httpStatus != 0 && (httpStatus < 100 || httpStatus > 599)) || !validDiagnosticCause(cause) {
+	if !ok || (httpStatus != 0 && (httpStatus < 100 || httpStatus > 599)) ||
+		!validDiagnosticCause(cause) || len(metadata) > 1 ||
+		(len(metadata) == 1 && !validFailureMetadata(metadata[0])) {
 		return &Error{Kind: ErrorValidation, Operation: operation}
 	}
 	failure.HTTPStatus, failure.Cause = httpStatus, cause
+	if len(metadata) == 1 {
+		failure.Metadata = metadata[0]
+	}
 	return failure
 }
 
@@ -91,6 +111,18 @@ func validDiagnosticCause(cause string) bool {
 	return true
 }
 
+func validFailureMetadata(metadata FailureMetadata) bool {
+	const maximumDiagnosticDuration = 10 * time.Minute
+	if metadata.RequestDuration < 0 || metadata.ResponseHeaderDuration < 0 ||
+		metadata.ResponseBodyDuration < 0 || metadata.RequestDuration > maximumDiagnosticDuration ||
+		metadata.ResponseHeaderDuration > maximumDiagnosticDuration ||
+		metadata.ResponseBodyDuration > maximumDiagnosticDuration ||
+		metadata.BodyLimitBytes > 64*1024*1024 {
+		return false
+	}
+	return metadata.BodyLimitBytes == 0 || metadata.ResponseBytes <= metadata.BodyLimitBytes+1
+}
+
 // KindOf returns a stable kind without exposing wrapped details.
 func KindOf(err error) ErrorKind {
 	var failure *Error
@@ -98,6 +130,15 @@ func KindOf(err error) ErrorKind {
 		return failure.Kind
 	}
 	return ErrorValidation
+}
+
+// DiagnosticOf returns only bounded metadata from a typed exchange failure.
+func DiagnosticOf(err error) (string, int, time.Duration, FailureMetadata) {
+	var failure *Error
+	if !errors.As(err, &failure) || failure == nil {
+		return "", 0, 0, FailureMetadata{}
+	}
+	return failure.Cause, failure.HTTPStatus, failure.RetryAfter, failure.Metadata
 }
 
 func validErrorKind(kind ErrorKind) bool {

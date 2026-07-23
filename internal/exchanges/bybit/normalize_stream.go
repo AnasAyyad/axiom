@@ -16,7 +16,7 @@ func normalizeStream(
 ) (string, exchangecontracts.StreamEvent, error) {
 	var envelope streamEnvelope
 	if err := strictDecode(payload, &envelope); err != nil || receivedAt.Validate() != nil {
-		return "", exchangecontracts.StreamEvent{}, streamError()
+		return "", exchangecontracts.StreamEvent{}, streamValidation("decoder_schema_rejected")
 	}
 	if envelope.Op != "" {
 		return normalizeLifecycle(envelope, receivedAt)
@@ -42,24 +42,36 @@ func normalizeLifecycle(
 	state, reason := "", ""
 	switch envelope.Op {
 	case "subscribe":
-		if envelope.Success == nil || !*envelope.Success || envelope.RetMsg != "subscribe" ||
+		if envelope.Success == nil || !*envelope.Success ||
+			(envelope.RetMsg != "" && envelope.RetMsg != "subscribe") ||
 			envelope.ConnID == "" || envelope.RequestID != "" {
-			return "", exchangecontracts.StreamEvent{}, streamError()
+			return "", exchangecontracts.StreamEvent{},
+				streamValidation("subscription_ack_invalid")
 		}
 		state, reason = "SUBSCRIBED", "subscription_acknowledged"
+	case "ping":
+		if !validSpotHeartbeat(envelope) {
+			return "", exchangecontracts.StreamEvent{}, streamValidation("heartbeat_response_invalid")
+		}
+		state, reason = "HEALTHY", "heartbeat_pong"
 	case "pong":
 		if envelope.Success == nil || !*envelope.Success || envelope.RetMsg != "pong" ||
 			envelope.ConnID == "" || envelope.RequestID != "" {
-			return "", exchangecontracts.StreamEvent{}, streamError()
+			return "", exchangecontracts.StreamEvent{}, streamValidation("heartbeat_response_invalid")
 		}
 		state, reason = "HEALTHY", "heartbeat_pong"
 	default:
-		return "", exchangecontracts.StreamEvent{}, streamError()
+		return "", exchangecontracts.StreamEvent{}, streamValidation("lifecycle_operation_unsupported")
 	}
 	lifecycle := exchangecontracts.LifecycleEvent{Exchange: "bybit", State: state, Reason: reason,
 		ConnectionID: envelope.ConnID, ObservedAt: receivedAt}
 	return envelope.Op, exchangecontracts.StreamEvent{Kind: exchangecontracts.StreamLifecycle,
 		Lifecycle: &lifecycle}, nil
+}
+
+func validSpotHeartbeat(envelope streamEnvelope) bool {
+	return envelope.Success != nil && *envelope.Success && envelope.RetMsg == "pong" &&
+		envelope.ConnID != "" && envelope.RequestID == ""
 }
 
 func normalizeStreamBook(

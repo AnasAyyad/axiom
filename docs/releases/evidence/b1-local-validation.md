@@ -81,3 +81,49 @@ and local because repository policy treats recordings as sensitive.
 - Continuous isolated 72-hour declared-load Binance/Bybit recording soak and
   its combined retained manifest bundle.
 - Product, Security, QA, and SRE formal acceptance after those gates close.
+
+## New isolated B1 formal runner
+
+The current candidate adds a dedicated Bybit formal runner rather than sharing
+process state or artifacts with A7. This implementation is not a claim that the
+72-hour B1 gate has passed. Before a formal run, the 20-second smoke is:
+
+```text
+make b1-soak-smoke AXIOM_B1_SOURCE_COMMIT=<full-40-character-commit>
+```
+
+The formal command requires a new empty absolute output directory:
+
+```text
+AXIOM_B1_SOAK=1 \
+AXIOM_B1_SOAK_OUTPUT=<absolute-empty-artifact-directory> \
+AXIOM_B1_SOURCE_COMMIT=<full-40-character-commit> \
+go test ./internal/qualification \
+  -run '^TestB1Continuous72HourPublicSoak$' -count=1 -timeout=73h -v
+```
+
+The directory contains Bybit raw/canonical segments, cumulative manifests,
+atomically replaced `b1-soak-status.json`, synchronized hash-chained
+`b1-soak-events.jsonl`, and terminal `b1-soak-evidence.json`. Rolling and
+terminal collector evidence contains reconnect reason and cause counts,
+attribution, attempts, generations, exact request/header/body timing, bounded
+response size facts, resynchronization sample count, over-15-second count, p95,
+and exact maximum, book health, memory, filesystem capacity, and the exact
+source commit. Immediate `bybit_collector_lifecycle` and `B1_EVENT` records are
+written to the dedicated service log.
+
+The first instrumented formal-start attempt was stopped and preserved before
+its first periodic flush after both instruments reconnected at the 20-second
+heartbeat boundary. The new lifecycle evidence isolated the trigger: Bybit Spot
+acknowledges a client `{"op":"ping"}` with a successful message whose `op`
+remains `ping` and whose `ret_msg` is `pong`; the decoder had accepted only
+`op=pong`. The repair accepts both documented public forms, retains a fixed
+`heartbeat_response_invalid` cause for malformed responses, records heartbeat
+frames with their dedicated kind, and makes the production-public test wait for
+and verify an actual pong rather than merely sending a ping.
+
+Binance and Bybit formal runs must use distinct output directories and service
+units. One run cannot qualify the other. The unchanged 15-second all-sample
+resynchronization objective remains fail-closed even when facts attribute a
+sample to the network or upstream exchange; attribution explains the failure
+and supports a clean rerun but never rewrites a failed artifact into a pass.

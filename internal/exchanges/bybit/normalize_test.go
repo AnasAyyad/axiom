@@ -1,6 +1,7 @@
 package bybit
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -94,6 +95,20 @@ func TestB1BybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
 	_, event, err := normalizeStream([]byte(`{"success":true,"ret_msg":"subscribe","conn_id":"public-1","req_id":"","op":"subscribe"}`), clock.Now(), state)
 	if err != nil || event.Lifecycle == nil || event.Lifecycle.State != "SUBSCRIBED" {
 		t.Fatalf("lifecycle = %#v, %v", event, err)
+	}
+	_, event, err = normalizeStream([]byte(`{"success":true,"ret_msg":"pong","conn_id":"public-1","op":"ping"}`), clock.Now(), state)
+	if err != nil || event.Lifecycle == nil || event.Lifecycle.State != "HEALTHY" ||
+		event.Lifecycle.Reason != "heartbeat_pong" {
+		t.Fatalf("Spot heartbeat = %#v, %v", event, err)
+	}
+	_, event, err = normalizeStream([]byte(`{"success":true,"ret_msg":"","conn_id":"public-1","op":"subscribe"}`), clock.Now(), state)
+	if err != nil || event.Lifecycle == nil || event.Lifecycle.State != "SUBSCRIBED" {
+		t.Fatalf("Spot subscription = %#v, %v", event, err)
+	}
+	_, _, err = normalizeStream([]byte(`{"success":true,"ret_msg":"unexpected","conn_id":"public-1","op":"ping"}`), clock.Now(), state)
+	var failure *exchangecontracts.Error
+	if !errors.As(err, &failure) || failure.Cause != "heartbeat_response_invalid" {
+		t.Fatalf("heartbeat failure = %#v, %v", failure, err)
 	}
 	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"snapshot","ts":1784592000000,"cs":1,"data":{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}}`), clock.Now(), state)
 	if err != nil || event.Ticker == nil {

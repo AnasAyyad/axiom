@@ -91,6 +91,7 @@ type generationOutcome struct {
 	operation        exchangecontracts.Operation
 	retryAfter       time.Duration
 	httpStatus       int
+	failureMetadata  exchangecontracts.FailureMetadata
 	clockOffset      time.Duration
 	clockUncertainty time.Duration
 }
