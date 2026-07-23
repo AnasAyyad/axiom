@@ -122,6 +122,30 @@ remains `ping` and whose `ret_msg` is `pong`; the decoder had accepted only
 frames with their dedicated kind, and makes the production-public test wait for
 and verify an actual pong rather than merely sending a ping.
 
+The preserved `b1-5d34bcc-r1` run used source commit
+`5d34bcc447955d09bbfbc256d23474e4ccb83207`. Before the owner stopped the
+candidate, BTCUSDT recorded 19 decoder-triggered reconnects and ETHUSDT
+recorded 31. All 50 recoveries returned to healthy in about 2.1 seconds or less,
+but the old fixed cause was only `stream_receive_failed`.
+
+Raw/canonical linkage analysis of manifest revision 36 identified every decoder
+error as a valid `publicTrade` batch containing the documented Bybit `BT` and
+`RPI` classification fields and at least one RPI-classified trade. The DTO
+already represented both fields, but normalization incorrectly rejected a trade
+whenever either flag was true. This was a local adapter policy defect, not
+evidence that two concurrent soak services interfered or that Bybit was
+malformed.
+
+The repair accepts `BT` and `RPI` public Spot executions in both stream and
+recent-trade normalization without changing their shared canonical price,
+quantity, side, time, or sequence semantics. Strict unknown-field rejection and
+all identity, enum, sequence, numeric, envelope, and batch limits remain. A
+decoder-error canonical record now stores bounded failure kind, operation, and
+fixed cause and remains linked to the exact retained raw frame, so a future
+protocol mismatch is diagnosable without logging payloads. B1 also receives the
+same proactive recorder pressure flush, exact collector-terminal handling, and
+rolling running-state evidence as A7.
+
 Binance and Bybit formal runs must use distinct output directories and service
 units. One run cannot qualify the other. The unchanged 15-second all-sample
 resynchronization objective remains fail-closed even when facts attribute a

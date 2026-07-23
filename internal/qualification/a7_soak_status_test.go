@@ -16,15 +16,19 @@ import (
 
 const (
 	periodicFlushFailure = "periodic_flush_failed"
+	capacityFlushFailure = "capacity_flush_failed"
 	statusWriteFailure   = "status_write_failed"
 )
 
 type soakFlusher interface {
-	Flush() (recorder.DatasetManifest, error)
+	FlushReady() (recorder.DatasetManifest, bool, error)
+	PendingUsage() recorder.PendingUsage
+	FlushRequired() <-chan struct{}
 }
 
 type pendingSoakFlusher interface {
 	soakFlusher
+	Flush() (recorder.DatasetManifest, error)
 	PendingCounts() (uint64, uint64)
 }
 
@@ -46,6 +50,8 @@ type soakStatus struct {
 	Storage              storageSample                             `json:"storage"`
 	Books                map[string]bookSample                     `json:"books"`
 	ManifestRevision     uint64                                    `json:"manifest_revision"`
+	Recorder             recorder.PendingUsage                     `json:"recorder"`
+	CollectorRunning     map[string]bool                           `json:"collector_running"`
 	FailureDetails       []qualificationFailure                    `json:"failure_details,omitempty"`
 	EventJournalSequence uint64                                    `json:"event_journal_sequence"`
 	EventJournalHash     string                                    `json:"event_journal_hash,omitempty"`
@@ -87,26 +93,16 @@ func monitorSoakFailClosed(
 	client *binance.PublicClient,
 	streamRecorder soakFlusher,
 	collectors map[string]*binance.InstrumentCollector,
+	collectorResults <-chan collectorResult,
 	flushEvery, sampleEvery time.Duration,
 	latestManifest *recorder.DatasetManifest,
 	evidence *soakEvidence,
 	writer soakStatusWriter,
 	journal *qualificationJournal,
 ) string {
-	if writer == nil {
-		evidence.FailureDetails = append(evidence.FailureDetails,
-			boundedQualificationFailure(statusWriteFailure, "initial_status", "writer_missing", nil))
-		return statusWriteFailure
-	}
-	initial := captureSoakStatus(time.Now().UTC(), client, collectors, *latestManifest, evidence, journal)
-	if err := writer(root, initial); err != nil {
-		evidence.FailureDetails = append(evidence.FailureDetails,
-			boundedQualificationFailure(statusWriteFailure, "initial_status", "atomic_status_write", err))
-		return statusWriteFailure
-	}
-	if !appendQualificationEvent(journal, evidence, qualificationEvent{RecordedAt: initial.ObservedAt,
-		Phase: "initial_status", Outcome: "passed"}) {
-		return "event_journal_failed"
+	if failure := initializeSoakMonitor(root, client, streamRecorder, collectors,
+		latestManifest, evidence, writer, journal); failure != "" {
+		return failure
 	}
 	flushTicker, sampleTicker := time.NewTicker(flushEvery), time.NewTicker(sampleEvery)
 	defer flushTicker.Stop()
@@ -116,19 +112,83 @@ func monitorSoakFailClosed(
 		select {
 		case <-ctx.Done():
 			return ""
+		case result := <-collectorResults:
+			return handleSoakCollectorTerminal(ctx, result, root, client, streamRecorder,
+				collectors, latestManifest, evidence, writer, journal)
+		case <-streamRecorder.FlushRequired():
+			if failure := flushSoakStep("capacity", root, client, streamRecorder, collectors,
+				latestManifest, evidence, writer, journal); failure != "" {
+				return failure
+			}
 		case <-flushTicker.C:
-			if failure := flushSoakStep(root, client, streamRecorder, collectors, latestManifest, evidence, writer, journal); failure != "" {
+			if failure := flushSoakStep("scheduled", root, client, streamRecorder, collectors,
+				latestManifest, evidence, writer, journal); failure != "" {
 				return failure
 			}
 		case observed := <-sampleTicker.C:
-			if failure := sampleSoakStep(observed.UTC(), root, client, collectors, previous, latestManifest, evidence, writer, journal); failure != "" {
+			if failure := sampleSoakStep(observed.UTC(), root, client, streamRecorder, collectors,
+				previous, latestManifest, evidence, writer, journal); failure != "" {
 				return failure
 			}
 		}
 	}
 }
 
+func initializeSoakMonitor(root string, client *binance.PublicClient, streamRecorder soakFlusher,
+	collectors map[string]*binance.InstrumentCollector, latestManifest *recorder.DatasetManifest,
+	evidence *soakEvidence, writer soakStatusWriter, journal *qualificationJournal) string {
+	if writer == nil {
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "initial_status", "writer_missing", nil))
+		return statusWriteFailure
+	}
+	initial := captureSoakStatus(time.Now().UTC(), client, streamRecorder, collectors,
+		*latestManifest, evidence, journal)
+	if err := writer(root, initial); err != nil {
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "initial_status", "atomic_status_write", err))
+		return statusWriteFailure
+	}
+	if !appendQualificationEvent(journal, evidence, qualificationEvent{RecordedAt: initial.ObservedAt,
+		Phase: "initial_status", Outcome: "passed"}) {
+		return "event_journal_failed"
+	}
+	return ""
+}
+
+func handleSoakCollectorTerminal(ctx context.Context, result collectorResult, root string,
+	client *binance.PublicClient, streamRecorder soakFlusher,
+	collectors map[string]*binance.InstrumentCollector, latestManifest *recorder.DatasetManifest,
+	evidence *soakEvidence, writer soakStatusWriter, journal *qualificationJournal) string {
+	if ctx.Err() != nil && (result.err == nil || errors.Is(result.err, context.Canceled) ||
+		errors.Is(result.err, context.DeadlineExceeded)) {
+		evidence.CollectorRunning[result.instrument] = false
+		return ""
+	}
+	recordSoakCollectorFailure(result, evidence, journal)
+	status := captureSoakStatus(time.Now().UTC(), client, streamRecorder,
+		collectors, *latestManifest, evidence, journal)
+	if err := writer(root, status); err != nil {
+		detail := boundedQualificationFailure(statusWriteFailure,
+			"collector_terminal_status", "atomic_status_write", err)
+		evidence.Failures = append(evidence.Failures, statusWriteFailure)
+		evidence.FailureDetails = append(evidence.FailureDetails, detail)
+		appendQualificationEvent(journal, evidence, qualificationEvent{Phase: "collector_terminal_status",
+			Instrument: result.instrument, Outcome: "failed", Code: statusWriteFailure})
+		return statusWriteFailure
+	}
+	return "collector_failed"
+}
+
+func soakFlushLabels(trigger string) (string, string) {
+	if trigger == "capacity" {
+		return "recorder_capacity_flush", capacityFlushFailure
+	}
+	return "recorder_flush", periodicFlushFailure
+}
+
 func flushSoakStep(
+	trigger string,
 	root string,
 	client *binance.PublicClient,
 	streamRecorder soakFlusher,
@@ -138,28 +198,31 @@ func flushSoakStep(
 	writer soakStatusWriter,
 	journal *qualificationJournal,
 ) string {
-	var pendingRaw, pendingCanonical uint64
-	if pending, ok := streamRecorder.(interface{ PendingCounts() (uint64, uint64) }); ok {
-		pendingRaw, pendingCanonical = pending.PendingCounts()
-	}
+	usage := streamRecorder.PendingUsage()
+	phase, failureCode := soakFlushLabels(trigger)
 	started := time.Now()
-	manifest, err := streamRecorder.Flush()
+	manifest, flushed, err := streamRecorder.FlushReady()
 	duration := time.Since(started)
 	if err != nil {
-		detail := boundedQualificationFailure(periodicFlushFailure, "recorder_flush", "flush", err)
+		detail := boundedQualificationFailure(failureCode, phase, "flush_ready", err)
 		evidence.FailureDetails = append(evidence.FailureDetails, detail)
-		appendQualificationEvent(journal, evidence, qualificationEvent{Phase: "recorder_flush", Outcome: "failed",
-			Code: periodicFlushFailure, PendingRaw: pendingRaw, PendingCanonical: pendingCanonical,
-			Duration: duration, Recorder: detail.Recorder})
-		return periodicFlushFailure
+		appendQualificationEvent(journal, evidence, qualificationEvent{Phase: phase, Trigger: trigger,
+			Outcome: "failed", Code: failureCode, PendingRaw: usage.RawRecords,
+			PendingCanonical: usage.CanonicalRecords, Duration: duration,
+			Recorder: detail.Recorder, RecorderUsage: &usage})
+		return failureCode
 	}
-	*latestManifest = manifest
-	if !appendQualificationEvent(journal, evidence, qualificationEvent{Phase: "recorder_flush", Outcome: "passed",
-		ManifestRevision: manifest.Revision, PendingRaw: pendingRaw, PendingCanonical: pendingCanonical,
-		Duration: duration}) {
+	if flushed {
+		*latestManifest = manifest
+	} else {
+		manifest = *latestManifest
+	}
+	if !appendQualificationEvent(journal, evidence, qualificationEvent{Phase: phase, Trigger: trigger,
+		Outcome: "passed", ManifestRevision: manifest.Revision, PendingRaw: usage.RawRecords,
+		PendingCanonical: usage.CanonicalRecords, Duration: duration, RecorderUsage: &usage}) {
 		return "event_journal_failed"
 	}
-	status := captureSoakStatus(time.Now().UTC(), client, collectors, manifest, evidence, journal)
+	status := captureSoakStatus(time.Now().UTC(), client, streamRecorder, collectors, manifest, evidence, journal)
 	if err = writer(root, status); err != nil {
 		evidence.FailureDetails = append(evidence.FailureDetails,
 			boundedQualificationFailure(statusWriteFailure, "periodic_status", "atomic_status_write", err))
@@ -178,6 +241,7 @@ func sampleSoakStep(
 	observed time.Time,
 	root string,
 	client *binance.PublicClient,
+	streamRecorder soakFlusher,
 	collectors map[string]*binance.InstrumentCollector,
 	previous map[string]binance.CollectorStatsSnapshot,
 	latestManifest *recorder.DatasetManifest,
@@ -195,7 +259,8 @@ func sampleSoakStep(
 		}
 		previous[symbol] = current
 	}
-	status := captureSoakStatus(observed, client, collectors, *latestManifest, evidence, journal)
+	status := captureSoakStatus(observed, client, streamRecorder, collectors,
+		*latestManifest, evidence, journal)
 	if err := writer(root, status); err != nil {
 		evidence.FailureDetails = append(evidence.FailureDetails,
 			boundedQualificationFailure(statusWriteFailure, "sample_status", "atomic_status_write", err))
@@ -214,6 +279,7 @@ func sampleSoakStep(
 func captureSoakStatus(
 	observed time.Time,
 	client *binance.PublicClient,
+	streamRecorder soakFlusher,
 	collectors map[string]*binance.InstrumentCollector,
 	manifest recorder.DatasetManifest,
 	evidence *soakEvidence,
@@ -234,13 +300,22 @@ func captureSoakStatus(
 		elapsed = 0
 	}
 	journalSequence, journalHash := journal.Snapshot()
-	return soakStatus{SchemaVersion: "axiom.a7-soak-status.v2", SourceCommit: evidence.SourceCommit,
+	return soakStatus{SchemaVersion: "axiom.a7-soak-status.v3", SourceCommit: evidence.SourceCommit,
 		Formal: evidence.Formal, StartedAt: evidence.StartedAt, ObservedAt: observed, Elapsed: elapsed,
 		RequiredDuration: evidence.RequiredDuration, ProvisionalQualified: len(failures) == 0,
 		ProvisionalFailures: failures, ProvisionalSLOs: slos, Collectors: statsBySymbol,
-		Memory: memory, Storage: storage, Books: books, ManifestRevision: manifest.Revision,
+		Memory: memory, Storage: storage, Books: books, Recorder: streamRecorder.PendingUsage(),
+		CollectorRunning: cloneCollectorRunning(evidence.CollectorRunning), ManifestRevision: manifest.Revision,
 		FailureDetails:       append([]qualificationFailure(nil), evidence.FailureDetails...),
 		EventJournalSequence: journalSequence, EventJournalHash: journalHash}
+}
+
+func cloneCollectorRunning(source map[string]bool) map[string]bool {
+	clone := make(map[string]bool, len(source))
+	for instrument, running := range source {
+		clone[instrument] = running
+	}
+	return clone
 }
 
 func provisionalCollectorSnapshots(
@@ -309,12 +384,14 @@ func writeSoakStatus(root string, status soakStatus) error {
 func writeFinalSoakStatus(
 	root string,
 	client *binance.PublicClient,
+	streamRecorder soakFlusher,
 	collectors map[string]*binance.InstrumentCollector,
 	manifest recorder.DatasetManifest,
 	evidence *soakEvidence,
 	journal *qualificationJournal,
 ) error {
-	status := captureSoakStatus(time.Now().UTC(), client, collectors, manifest, evidence, journal)
+	status := captureSoakStatus(time.Now().UTC(), client, streamRecorder, collectors,
+		manifest, evidence, journal)
 	status.ProvisionalFailures = append([]string(nil), evidence.Failures...)
 	sort.Strings(status.ProvisionalFailures)
 	status.ProvisionalQualified = len(status.ProvisionalFailures) == 0

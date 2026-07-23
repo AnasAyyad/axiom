@@ -107,7 +107,7 @@ func (stream *publicStream) recordDecoderFailure(
 	}
 	if err := stream.recorder.RecordPublicCanonical(ctx, exchangecontracts.PublicCanonicalRecord{
 		Kind: exchangecontracts.RecordDecoderError, Token: token,
-		Canonical: []byte(`{"kind":"decoder_error"}`)}); err != nil {
+		Canonical: boundedDecoderFailureEvidence(cause)}); err != nil {
 		return recorderFailure{err}
 	}
 	return cause

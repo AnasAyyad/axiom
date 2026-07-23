@@ -18,16 +18,36 @@ type fakeSoakRecorder struct {
 	manifest  recorder.DatasetManifest
 	flushErr  error
 	raw       uint64
+	usage     recorder.PendingUsage
+	flushes   int
+	signal    chan struct{}
+	onFlush   func()
 	canonical uint64
 }
 
 func (fake *fakeSoakRecorder) Flush() (recorder.DatasetManifest, error) {
 	return fake.manifest, fake.flushErr
+
+}
+func (fake *fakeSoakRecorder) FlushReady() (recorder.DatasetManifest, bool, error) {
+	fake.flushes++
+	if fake.onFlush != nil {
+		fake.onFlush()
+	}
+	return fake.manifest, true, fake.flushErr
 }
 
 func (fake *fakeSoakRecorder) PendingCounts() (uint64, uint64) {
 	return fake.raw, fake.canonical
 }
+
+func (fake *fakeSoakRecorder) PendingUsage() recorder.PendingUsage {
+	usage := fake.usage
+	usage.RawRecords, usage.CanonicalRecords = fake.raw, fake.canonical
+	return usage
+}
+
+func (fake *fakeSoakRecorder) FlushRequired() <-chan struct{} { return fake.signal }
 
 func testSoakEvidence() soakEvidence {
 	return newSoakEvidence(time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC),
@@ -58,7 +78,7 @@ func TestQualificationSourceCommitIsExactAndSanitized(t *testing.T) {
 
 func TestWriteSoakStatusAtomicallyReplacesOneFile(t *testing.T) {
 	root := t.TempDir()
-	status := soakStatus{SchemaVersion: "axiom.a7-soak-status.v2", SourceCommit: testSourceCommit,
+	status := soakStatus{SchemaVersion: "axiom.a7-soak-status.v3", SourceCommit: testSourceCommit,
 		ManifestRevision: 1}
 	if err := writeSoakStatus(root, status); err != nil {
 		t.Fatal(err)
@@ -93,7 +113,7 @@ func TestMonitorSoakFailsClosedOnPeriodicFlushFailure(t *testing.T) {
 	var latest recorder.DatasetManifest
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	result := monitorSoakFailClosed(ctx, root, nil, streamRecorder, nil,
+	result := monitorSoakFailClosed(ctx, root, nil, streamRecorder, nil, nil,
 		time.Millisecond, time.Hour, &latest, &evidence,
 		func(string, soakStatus) error { return nil }, journal)
 	if result != periodicFlushFailure {
@@ -110,7 +130,7 @@ func TestMonitorSoakFailsClosedOnPeriodicStatusWriteFailure(t *testing.T) {
 	writes := 0
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	result := monitorSoakFailClosed(ctx, root, nil, streamRecorder, nil,
+	result := monitorSoakFailClosed(ctx, root, nil, streamRecorder, nil, nil,
 		time.Millisecond, time.Hour, &latest, &evidence,
 		func(string, soakStatus) error {
 			writes++
@@ -131,7 +151,7 @@ func TestMonitorSoakCancellationIsClean(t *testing.T) {
 	root := t.TempDir()
 	journal := testQualificationJournal(t, root, evidence)
 	var latest recorder.DatasetManifest
-	result := monitorSoakFailClosed(ctx, root, nil, &fakeSoakRecorder{}, nil,
+	result := monitorSoakFailClosed(ctx, root, nil, &fakeSoakRecorder{}, nil, nil,
 		time.Hour, time.Hour, &latest, &evidence,
 		func(string, soakStatus) error { return nil }, journal)
 	if result != "" {
@@ -173,7 +193,7 @@ func TestWriteSoakEvidenceUsesAtomicTerminalReport(t *testing.T) {
 	if decoded.SchemaVersion != evidence.SchemaVersion || decoded.SourceCommit != testSourceCommit {
 		t.Fatalf("decoded evidence=%#v", decoded)
 	}
-	if decoded.SchemaVersion != "axiom.a7-soak.v3" {
+	if decoded.SchemaVersion != "axiom.a7-soak.v4" {
 		t.Fatalf("schema=%q", decoded.SchemaVersion)
 	}
 }
@@ -186,7 +206,7 @@ func TestMonitorSoakFailsClosedWhenEventJournalAppendFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	var latest recorder.DatasetManifest
-	result := monitorSoakFailClosed(context.Background(), root, nil, &fakeSoakRecorder{}, nil,
+	result := monitorSoakFailClosed(context.Background(), root, nil, &fakeSoakRecorder{}, nil, nil,
 		time.Hour, time.Hour, &latest, &evidence,
 		func(string, soakStatus) error { return nil }, journal)
 	if result != "event_journal_failed" || !containsFailure(evidence.Failures, result) ||
@@ -200,7 +220,7 @@ func TestMonitorSoakFailsClosedWhenStatusWriterIsMissing(t *testing.T) {
 	root := t.TempDir()
 	journal := testQualificationJournal(t, root, evidence)
 	var latest recorder.DatasetManifest
-	result := monitorSoakFailClosed(context.Background(), root, nil, &fakeSoakRecorder{}, nil,
+	result := monitorSoakFailClosed(context.Background(), root, nil, &fakeSoakRecorder{}, nil, nil,
 		time.Hour, time.Hour, &latest, &evidence, nil, journal)
 	if result != statusWriteFailure || len(evidence.FailureDetails) != 1 ||
 		evidence.FailureDetails[0].Cause != "writer_missing" {
@@ -248,11 +268,13 @@ func TestFailureCodesAreUniqueAndSorted(t *testing.T) {
 
 func TestCollectSoakErrorsRetainsInstrumentAndBoundedRecorderCause(t *testing.T) {
 	evidence := testSoakEvidence()
+	root := t.TempDir()
+	journal := testQualificationJournal(t, root, evidence)
 	results := make(chan collectorResult, 2)
 	results <- collectorResult{instrument: "BTCUSDT", err: &recorder.Error{Code: "wire_finalize_failed",
 		Stage: "wire_finalize", Cause: "disk_full", Class: "filesystem", Errno: 28}}
 	results <- collectorResult{instrument: "ETHUSDT"}
-	collectSoakErrors(results, &evidence)
+	collectSoakErrors(results, &evidence, journal)
 	if len(evidence.Failures) != 1 || evidence.Failures[0] != "collector_failed" ||
 		len(evidence.FailureDetails) != 1 {
 		t.Fatalf("failures=%v details=%#v", evidence.Failures, evidence.FailureDetails)
@@ -261,5 +283,61 @@ func TestCollectSoakErrorsRetainsInstrumentAndBoundedRecorderCause(t *testing.T)
 	if detail.Instrument != "BTCUSDT" || detail.Recorder == nil ||
 		detail.Recorder.Code != "wire_finalize_failed" || detail.Cause != "wire_finalize_failed" {
 		t.Fatalf("detail=%#v", detail)
+	}
+}
+
+func TestMonitorSoakCapacitySignalFlushesBeforeScheduledInterval(t *testing.T) {
+	signal := make(chan struct{}, 1)
+	signal <- struct{}{}
+	streamRecorder := &fakeSoakRecorder{manifest: recorder.DatasetManifest{Revision: 9}, signal: signal,
+		usage: recorder.PendingUsage{UsedBytes: 128, LimitBytes: 512, FlushThresholdBytes: 128,
+			HighWaterBytes: 128}}
+	evidence := testSoakEvidence()
+	root := t.TempDir()
+	journal := testQualificationJournal(t, root, evidence)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	writes := 0
+	var latest recorder.DatasetManifest
+	result := monitorSoakFailClosed(ctx, root, nil, streamRecorder, nil, nil,
+		time.Hour, time.Hour, &latest, &evidence, func(_ string, status soakStatus) error {
+			writes++
+			if writes == 2 {
+				if status.Recorder.FlushThresholdBytes != 128 || status.ManifestRevision != 9 {
+					t.Fatalf("capacity status=%#v", status)
+				}
+				cancel()
+			}
+			return nil
+		}, journal)
+	if result != "" || streamRecorder.flushes != 1 || writes != 2 || latest.Revision != 9 {
+		t.Fatalf("result=%q flushes=%d writes=%d latest=%#v", result, streamRecorder.flushes, writes, latest)
+	}
+}
+
+func TestMonitorSoakFailsImmediatelyWithExactCollectorRecorderCause(t *testing.T) {
+	streamRecorder := &fakeSoakRecorder{}
+	evidence := testSoakEvidence()
+	root := t.TempDir()
+	journal := testQualificationJournal(t, root, evidence)
+	results := make(chan collectorResult, 1)
+	results <- collectorResult{instrument: "BTCUSDT", err: &recorder.Error{
+		Code: "recorder_capacity_exceeded"}}
+	var latest recorder.DatasetManifest
+	var terminal soakStatus
+	result := monitorSoakFailClosed(context.Background(), root, nil, streamRecorder, nil, results,
+		time.Hour, time.Hour, &latest, &evidence, func(_ string, status soakStatus) error {
+			terminal = status
+			return nil
+		}, journal)
+	if result != "collector_failed" || evidence.CollectorRunning["BTCUSDT"] ||
+		len(evidence.FailureDetails) != 1 || evidence.FailureDetails[0].Recorder == nil ||
+		evidence.FailureDetails[0].Recorder.Code != "recorder_capacity_exceeded" {
+		t.Fatalf("result=%q running=%v details=%#v", result, evidence.CollectorRunning,
+			evidence.FailureDetails)
+	}
+	if terminal.ProvisionalQualified || terminal.CollectorRunning["BTCUSDT"] ||
+		len(terminal.ProvisionalFailures) == 0 {
+		t.Fatalf("terminal status=%#v", terminal)
 	}
 }
