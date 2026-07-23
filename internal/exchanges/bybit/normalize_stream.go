@@ -31,7 +31,7 @@ func normalizeStream(
 	case strings.HasPrefix(envelope.Topic, "kline."):
 		return normalizeStreamCandle(envelope, payload, receivedAt)
 	default:
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("stream_topic_unsupported")
 	}
 }
 
@@ -82,15 +82,15 @@ func normalizeStreamBook(
 	parts := strings.Split(envelope.Topic, ".")
 	if len(parts) != 3 || parts[0] != "orderbook" || parts[1] != "1000" || envelope.TS <= 0 ||
 		(envelope.Type != "snapshot" && envelope.Type != "delta") {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("orderbook_envelope_invalid")
 	}
 	var native orderBookResult
 	if err := strictDecode(envelope.Data, &native); err != nil || native.Symbol != parts[2] || native.UpdateID == 0 {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("orderbook_schema_rejected")
 	}
 	instrument, err := instrumentForSymbol(native.Symbol)
 	if err != nil {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, err
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("orderbook_symbol_invalid")
 	}
 	bids, err := normalizeLevels(native.Bids, envelope.Type == "delta" && native.UpdateID != 1)
 	if err != nil {
@@ -102,7 +102,8 @@ func normalizeStreamBook(
 	}
 	if envelope.Type == "snapshot" || native.UpdateID == 1 {
 		if len(bids) == 0 || len(asks) == 0 {
-			return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+			return envelope.Topic, exchangecontracts.StreamEvent{},
+				streamValidation("orderbook_snapshot_empty")
 		}
 		snapshot := exchangecontracts.BookSnapshot{Exchange: "bybit", Instrument: instrument,
 			LastSequence: native.UpdateID, ReceivedAt: receivedAt, Bids: bids, Asks: asks,
@@ -127,26 +128,34 @@ func normalizeStreamTrade(
 	receivedAt domain.EventTime,
 ) (string, exchangecontracts.StreamEvent, error) {
 	symbol, ok := topicParts(envelope.Topic, "publicTrade.")
+	if !ok || envelope.Type != "snapshot" || envelope.TS <= 0 {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("public_trade_envelope_invalid")
+	}
 	var native []streamTradePayload
-	if !ok || envelope.Type != "snapshot" || envelope.TS <= 0 || strictDecode(envelope.Data, &native) != nil ||
-		len(native) == 0 || len(native) > 1024 {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+	if strictDecode(envelope.Data, &native) != nil {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("public_trade_schema_rejected")
+	}
+	if len(native) == 0 || len(native) > 1024 {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("public_trade_batch_invalid")
 	}
 	instrument, err := instrumentForSymbol(symbol)
 	if err != nil {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, err
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("public_trade_symbol_invalid")
 	}
 	trades := make([]exchangecontracts.Trade, 0, len(native))
 	for _, item := range native {
-		if item.Symbol != symbol || item.TradeID == "" || item.CrossSequence == 0 || item.BlockTrade ||
-			item.RPITrade || (item.Side != "Buy" && item.Side != "Sell") {
-			return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		if item.Symbol != symbol || item.TradeID == "" || item.CrossSequence == 0 ||
+			(item.Side != "Buy" && item.Side != "Sell") {
+			return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("public_trade_identity_invalid")
 		}
 		price, priceErr := domain.ParsePrice(item.Price)
 		quantity, quantityErr := domain.ParseQuantity(item.Size)
 		if priceErr != nil || quantityErr != nil || item.Timestamp <= 0 {
-			return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+			return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("public_trade_numeric_invalid")
 		}
+		// BT and RPI are classification flags on legitimate Bybit public Spot
+		// executions. They do not change the shared canonical trade economics,
+		// so retain the trade instead of treating either flag as malformed.
 		trades = append(trades, exchangecontracts.Trade{Exchange: "bybit", Instrument: instrument,
 			NativeID: item.TradeID, SourceSequence: item.CrossSequence, Price: price, Quantity: quantity,
 			BuyerIsMaker: item.Side == "Sell", ExchangeTime: time.UnixMilli(item.Timestamp).UTC(),
@@ -168,27 +177,32 @@ func normalizeStreamTicker(
 	state map[string]tickerPayload,
 ) (string, exchangecontracts.StreamEvent, error) {
 	symbol, ok := topicParts(envelope.Topic, "tickers.")
-	var native tickerPayload
 	if !ok || envelope.TS <= 0 || envelope.CrossSequence == 0 ||
-		(envelope.Type != "snapshot" && envelope.Type != "delta") ||
-		strictDecode(envelope.Data, &native) != nil || native.Symbol != symbol {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		(envelope.Type != "snapshot" && envelope.Type != "delta") {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("ticker_envelope_invalid")
+	}
+	var native tickerPayload
+	if strictDecode(envelope.Data, &native) != nil {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("ticker_schema_rejected")
+	}
+	if native.Symbol != symbol {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("ticker_symbol_invalid")
 	}
 	if envelope.Type == "delta" {
 		prior, exists := state[symbol]
 		if !exists {
-			return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+			return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("ticker_delta_without_snapshot")
 		}
 		native = mergeTicker(prior, native)
 	}
 	state[symbol] = native
 	instrument, err := instrumentForSymbol(symbol)
 	if err != nil {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, err
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("ticker_symbol_invalid")
 	}
 	ticker, err := normalizeTicker(native, instrument, time.UnixMilli(envelope.TS).UTC(), receivedAt, payloadHash(payload), false)
 	if err != nil {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, err
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("ticker_values_invalid")
 	}
 	return envelope.Topic, exchangecontracts.StreamEvent{Kind: exchangecontracts.StreamTicker, Ticker: &ticker}, nil
 }
@@ -256,15 +270,20 @@ func normalizeStreamCandle(
 	receivedAt domain.EventTime,
 ) (string, exchangecontracts.StreamEvent, error) {
 	parts := strings.Split(envelope.Topic, ".")
+	if len(parts) != 3 || parts[0] != "kline" || envelope.Type != "snapshot" || envelope.TS <= 0 {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("candle_envelope_invalid")
+	}
 	var native []streamCandlePayload
-	if len(parts) != 3 || parts[0] != "kline" || envelope.Type != "snapshot" || envelope.TS <= 0 ||
-		strictDecode(envelope.Data, &native) != nil || len(native) != 1 || native[0].Interval != parts[1] {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+	if strictDecode(envelope.Data, &native) != nil {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("candle_schema_rejected")
+	}
+	if len(native) != 1 || native[0].Interval != parts[1] {
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("candle_batch_invalid")
 	}
 	interval, ok := intervalCanonical(parts[1])
 	instrument, err := instrumentForSymbol(parts[2])
 	if !ok || err != nil || native[0].Start <= 0 || native[0].End <= native[0].Start {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("candle_identity_invalid")
 	}
 	open, openErr := domain.ParsePrice(native[0].Open)
 	high, highErr := domain.ParsePrice(native[0].High)
@@ -272,7 +291,7 @@ func normalizeStreamCandle(
 	closePrice, closeErr := domain.ParsePrice(native[0].Close)
 	volume, volumeErr := domain.ParseQuantity(native[0].Volume)
 	if openErr != nil || highErr != nil || lowErr != nil || closeErr != nil || volumeErr != nil {
-		return envelope.Topic, exchangecontracts.StreamEvent{}, streamError()
+		return envelope.Topic, exchangecontracts.StreamEvent{}, streamValidation("candle_values_invalid")
 	}
 	candle := exchangecontracts.Candle{Exchange: "bybit", Instrument: instrument, Interval: interval,
 		OpenTime: time.UnixMilli(native[0].Start).UTC(), CloseTime: time.UnixMilli(native[0].End).UTC(),

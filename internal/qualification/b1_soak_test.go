@@ -68,6 +68,8 @@ type b1SoakEvidence struct {
 	ManifestGapCount    int                             `json:"manifest_gap_count"`
 	DatasetVerification recorder.DatasetVerification    `json:"dataset_verification"`
 	Failures            []string                        `json:"failures"`
+	Recorder            recorder.PendingUsage           `json:"recorder"`
+	CollectorRunning    map[string]bool                 `json:"collector_running"`
 	FailureDetails      []qualificationFailure          `json:"failure_details,omitempty"`
 	EventJournal        qualificationJournalEvidence    `json:"event_journal"`
 	root                string                          `json:"-"`
@@ -107,6 +109,8 @@ type b1SoakStatus struct {
 	Storage              storageSample                   `json:"storage"`
 	Books                map[string]bookSample           `json:"books"`
 	ManifestRevision     uint64                          `json:"manifest_revision"`
+	Recorder             recorder.PendingUsage           `json:"recorder"`
+	CollectorRunning     map[string]bool                 `json:"collector_running"`
 	FailureDetails       []qualificationFailure          `json:"failure_details,omitempty"`
 	EventJournalSequence uint64                          `json:"event_journal_sequence"`
 	EventJournalHash     string                          `json:"event_journal_hash,omitempty"`
@@ -114,7 +118,7 @@ type b1SoakStatus struct {
 
 type b1SoakComponents struct {
 	client     *bybit.PublicClient
-	recorder   *recorder.Recorder
+	recorder   pendingSoakFlusher
 	collectors map[string]*bybit.InstrumentCollector
 }
 
@@ -154,13 +158,15 @@ func runB1Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time
 	defer cancel()
 	results, group := startB1Collectors(ctx, components.collectors)
 	var latest recorder.DatasetManifest
-	if failure := monitorB1Soak(ctx, root, components, flushEvery, sampleEvery,
-		&latest, &evidence, journal); failure != "" {
-		evidence.Failures = append(evidence.Failures, failure)
+	if failure := monitorB1Soak(ctx, root, components, results, flushEvery,
+		sampleEvery, &latest, &evidence, journal); failure != "" {
+		if !containsFailure(evidence.Failures, failure) {
+			evidence.Failures = append(evidence.Failures, failure)
+		}
 		cancel()
 	}
 	group.Wait()
-	collectB1Errors(results, &evidence)
+	collectB1Errors(results, &evidence, journal)
 	manifest := finishB1Recorder(components.recorder, latest, &evidence, journal)
 	finishB1Soak(t, root, sourceCommit, started, formal, components, manifest, &evidence, journal)
 }
@@ -194,14 +200,15 @@ func b1QualificationSourceCommit() (string, error) {
 }
 
 func newB1SoakEvidence(started time.Time, flushEvery time.Duration, formal bool, sourceCommit, root string) b1SoakEvidence {
-	return b1SoakEvidence{SchemaVersion: "axiom.b1-soak.v1", SourceCommit: sourceCommit,
+	return b1SoakEvidence{SchemaVersion: "axiom.b1-soak.v2", SourceCommit: sourceCommit,
 		Formal: formal, StartedAt: started, RequiredDuration: b1FormalSoakDuration,
 		EndpointSet: "bybit-public-v1", Instruments: []string{"BTCUSDT", "ETHUSDT"},
 		Streams:       []string{"orderbook.1000", "publicTrade", "tickers", "kline.15", "kline.60", "kline.240"},
 		SnapshotDepth: 1000, QueueCapacity: 8192, FlushEvery: flushEvery,
 		HeapLimitBytes: declaredHeapLimit, Collectors: make(map[string]bybit.CollectorStats),
-		FinalBooks:   make(map[string]bookSample),
-		EventJournal: qualificationJournalEvidence{Path: "b1-soak-events.jsonl"}, root: root}
+		FinalBooks:       make(map[string]bookSample),
+		CollectorRunning: map[string]bool{"BTCUSDT": true, "ETHUSDT": true},
+		EventJournal:     qualificationJournalEvidence{Path: "b1-soak-events.jsonl"}, root: root}
 }
 
 func newB1SoakComponents(t *testing.T, root string) b1SoakComponents {
@@ -250,36 +257,47 @@ func startB1Collectors(
 	return results, group
 }
 
-func collectB1Errors(results chan b1CollectorResult, evidence *b1SoakEvidence) {
+func collectB1Errors(results chan b1CollectorResult, evidence *b1SoakEvidence,
+	journal *qualificationJournal) {
 	close(results)
 	for result := range results {
+		evidence.CollectorRunning[result.instrument] = false
 		if result.err == nil || errors.Is(result.err, context.Canceled) || errors.Is(result.err, context.DeadlineExceeded) {
 			continue
 		}
-		detail := boundedQualificationFailure("collector_failed", "collector_terminal",
-			"collector_terminal_error", result.err)
-		detail.Instrument = result.instrument
-		evidence.Failures = append(evidence.Failures, detail.Code)
-		evidence.FailureDetails = append(evidence.FailureDetails, detail)
+		recordB1CollectorFailure(result, evidence, journal)
 	}
+}
+
+func recordB1CollectorFailure(result b1CollectorResult, evidence *b1SoakEvidence,
+	journal *qualificationJournal) {
+	evidence.CollectorRunning[result.instrument] = false
+	cause := "unexpected_clean_exit"
+	if result.err != nil {
+		cause = "collector_terminal_error"
+	}
+	detail := boundedQualificationFailure("collector_failed", "collector_terminal", cause, result.err)
+	detail.Instrument = result.instrument
+	if !containsFailure(evidence.Failures, detail.Code) {
+		evidence.Failures = append(evidence.Failures, detail.Code)
+	}
+	evidence.FailureDetails = append(evidence.FailureDetails, detail)
+	appendB1QualificationEvent(journal, evidence, qualificationEvent{Phase: "collector_terminal",
+		Instrument: result.instrument, Outcome: "failed", Code: detail.Code, Recorder: detail.Recorder})
 }
 
 func monitorB1Soak(
 	ctx context.Context,
 	root string,
 	components b1SoakComponents,
+	collectorResults <-chan b1CollectorResult,
 	flushEvery, sampleEvery time.Duration,
 	latest *recorder.DatasetManifest,
 	evidence *b1SoakEvidence,
 	journal *qualificationJournal,
 ) string {
-	if err := writeB1SoakStatus(root, captureB1SoakStatus(time.Now().UTC(), components, *latest, evidence, journal)); err != nil {
-		evidence.FailureDetails = append(evidence.FailureDetails,
-			boundedQualificationFailure(statusWriteFailure, "initial_status", "atomic_status_write", err))
-		return statusWriteFailure
-	}
-	if !appendB1QualificationEvent(journal, evidence, qualificationEvent{Phase: "initial_status", Outcome: "passed"}) {
-		return "event_journal_failed"
+	if failure := initializeB1SoakMonitor(root, components, latest, evidence, journal); failure != "" {
+		return failure
 	}
 	flushTicker, sampleTicker := time.NewTicker(flushEvery), time.NewTicker(sampleEvery)
 	defer flushTicker.Stop()
@@ -289,8 +307,14 @@ func monitorB1Soak(
 		select {
 		case <-ctx.Done():
 			return ""
+		case result := <-collectorResults:
+			return handleB1CollectorTerminal(ctx, result, root, components, latest, evidence, journal)
+		case <-components.recorder.FlushRequired():
+			if failure := flushB1SoakStep("capacity", root, components, latest, evidence, journal); failure != "" {
+				return failure
+			}
 		case <-flushTicker.C:
-			if failure := flushB1SoakStep(root, components, latest, evidence, journal); failure != "" {
+			if failure := flushB1SoakStep("scheduled", root, components, latest, evidence, journal); failure != "" {
 				return failure
 			}
 		case observed := <-sampleTicker.C:
@@ -302,29 +326,74 @@ func monitorB1Soak(
 	}
 }
 
+func initializeB1SoakMonitor(root string, components b1SoakComponents,
+	latest *recorder.DatasetManifest, evidence *b1SoakEvidence,
+	journal *qualificationJournal) string {
+	status := captureB1SoakStatus(time.Now().UTC(), components, *latest, evidence, journal)
+	if err := writeB1SoakStatus(root, status); err != nil {
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "initial_status", "atomic_status_write", err))
+		return statusWriteFailure
+	}
+	if !appendB1QualificationEvent(journal, evidence, qualificationEvent{
+		Phase: "initial_status", Outcome: "passed"}) {
+		return "event_journal_failed"
+	}
+	return ""
+}
+
+func handleB1CollectorTerminal(ctx context.Context, result b1CollectorResult, root string,
+	components b1SoakComponents, latest *recorder.DatasetManifest, evidence *b1SoakEvidence,
+	journal *qualificationJournal) string {
+	if ctx.Err() != nil && (result.err == nil || errors.Is(result.err, context.Canceled) ||
+		errors.Is(result.err, context.DeadlineExceeded)) {
+		evidence.CollectorRunning[result.instrument] = false
+		return ""
+	}
+	recordB1CollectorFailure(result, evidence, journal)
+	status := captureB1SoakStatus(time.Now().UTC(), components, *latest, evidence, journal)
+	if err := writeB1SoakStatus(root, status); err != nil {
+		detail := boundedQualificationFailure(statusWriteFailure,
+			"collector_terminal_status", "atomic_status_write", err)
+		evidence.Failures = append(evidence.Failures, statusWriteFailure)
+		evidence.FailureDetails = append(evidence.FailureDetails, detail)
+		appendB1QualificationEvent(journal, evidence, qualificationEvent{Phase: "collector_terminal_status",
+			Instrument: result.instrument, Outcome: "failed", Code: statusWriteFailure})
+		return statusWriteFailure
+	}
+	return "collector_failed"
+}
+
 func flushB1SoakStep(
+	trigger string,
 	root string,
 	components b1SoakComponents,
 	latest *recorder.DatasetManifest,
 	evidence *b1SoakEvidence,
 	journal *qualificationJournal,
 ) string {
-	raw, canonical := components.recorder.PendingCounts()
+	usage := components.recorder.PendingUsage()
+	phase, failureCode := soakFlushLabels(trigger)
 	started := time.Now()
-	manifest, err := components.recorder.Flush()
+	manifest, flushed, err := components.recorder.FlushReady()
 	elapsed := time.Since(started)
 	if err != nil {
-		detail := boundedQualificationFailure(periodicFlushFailure, "recorder_flush", "flush", err)
+		detail := boundedQualificationFailure(failureCode, phase, "flush_ready", err)
 		evidence.FailureDetails = append(evidence.FailureDetails, detail)
-		appendB1QualificationEvent(journal, evidence, qualificationEvent{Phase: "recorder_flush",
-			Outcome: "failed", Code: periodicFlushFailure, PendingRaw: raw,
-			PendingCanonical: canonical, Duration: elapsed, Recorder: detail.Recorder})
-		return periodicFlushFailure
+		appendB1QualificationEvent(journal, evidence, qualificationEvent{Phase: phase, Trigger: trigger,
+			Outcome: "failed", Code: failureCode, PendingRaw: usage.RawRecords,
+			PendingCanonical: usage.CanonicalRecords, Duration: elapsed,
+			Recorder: detail.Recorder, RecorderUsage: &usage})
+		return failureCode
 	}
-	*latest = manifest
-	if !appendB1QualificationEvent(journal, evidence, qualificationEvent{Phase: "recorder_flush",
-		Outcome: "passed", ManifestRevision: manifest.Revision, PendingRaw: raw,
-		PendingCanonical: canonical, Duration: elapsed}) {
+	if flushed {
+		*latest = manifest
+	} else {
+		manifest = *latest
+	}
+	if !appendB1QualificationEvent(journal, evidence, qualificationEvent{Phase: phase, Trigger: trigger,
+		Outcome: "passed", ManifestRevision: manifest.Revision, PendingRaw: usage.RawRecords,
+		PendingCanonical: usage.CanonicalRecords, Duration: elapsed, RecorderUsage: &usage}) {
 		return "event_journal_failed"
 	}
 	status := captureB1SoakStatus(time.Now().UTC(), components, manifest, evidence, journal)
@@ -401,11 +470,12 @@ func captureB1SoakStatus(
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	return b1SoakStatus{SchemaVersion: "axiom.b1-soak-status.v1", SourceCommit: evidence.SourceCommit,
+	return b1SoakStatus{SchemaVersion: "axiom.b1-soak-status.v2", SourceCommit: evidence.SourceCommit,
 		Formal: evidence.Formal, StartedAt: evidence.StartedAt, ObservedAt: observed, Elapsed: elapsed,
 		RequiredDuration: evidence.RequiredDuration, ProvisionalQualified: len(failures) == 0,
 		ProvisionalFailures: failures, ProvisionalSLOs: slos, Collectors: collectors,
-		Memory: memory, Storage: storage, Books: books, ManifestRevision: manifest.Revision,
+		Memory: memory, Storage: storage, Books: books, Recorder: components.recorder.PendingUsage(),
+		CollectorRunning: cloneCollectorRunning(evidence.CollectorRunning), ManifestRevision: manifest.Revision,
 		FailureDetails:       append([]qualificationFailure(nil), evidence.FailureDetails...),
 		EventJournalSequence: sequence, EventJournalHash: hash}
 }
@@ -469,6 +539,7 @@ func finishB1Soak(
 	t.Helper()
 	evidence.EndedAt, evidence.ActualDuration = time.Now().UTC(), time.Since(started)
 	completeB1Evidence(root, components, manifest, evidence)
+	evidence.Recorder = components.recorder.PendingUsage()
 	outcome := "passed"
 	if len(evidence.Failures) != 0 || (formal && evidence.ActualDuration < b1FormalSoakDuration) {
 		outcome = "failed"

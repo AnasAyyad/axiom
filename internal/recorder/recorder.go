@@ -42,6 +42,8 @@ type Recorder struct {
 	pendingBytes       uint64
 	reservedBytes      uint64
 	pendingLimit       uint64
+	pendingHighWater   uint64
+	flushRequired      chan struct{}
 	profile            *CollectorProfile
 	generationCoverage map[uint64]GenerationCoverage
 }
@@ -52,6 +54,18 @@ func (recorder *Recorder) PendingCounts() (uint64, uint64) {
 	defer recorder.mutex.Unlock()
 	return uint64(len(recorder.raw)), uint64(len(recorder.canonical))
 }
+
+// PendingUsage reports current, bounded recorder capacity and its session high-water mark.
+func (recorder *Recorder) PendingUsage() PendingUsage {
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	return recorder.pendingUsageLocked()
+}
+
+// FlushRequired is edge-coalesced notification that the recorder crossed its
+// proactive capacity threshold. Callers must use FlushReady so an in-flight
+// raw/canonical pair remains safe.
+func (recorder *Recorder) FlushRequired() <-chan struct{} { return recorder.flushRequired }
 
 // Recover finalizes or re-registers crash-safe ready segments before ingest.
 func (recorder *Recorder) Recover() ([]segments.Manifest, error) {
@@ -100,7 +114,8 @@ func newRecorder(
 	}
 	return &Recorder{root: root, datasetID: datasetID, sessionID: sessionID, exchange: exchange,
 		ordinals: ordinals, finalizer: finalizer, commit: commit, now: func() time.Time { return time.Now().UTC() },
-		links: make(map[uint64]*rawRecord), pendingLimit: maximumPendingBytes, profile: profile,
+		links: make(map[uint64]*rawRecord), pendingLimit: maximumPendingBytes,
+		flushRequired: make(chan struct{}, 1), profile: profile,
 		generationCoverage: make(map[uint64]GenerationCoverage)}, nil
 }
 
@@ -145,6 +160,7 @@ func (recorder *Recorder) recordRawLocked(input RawInput, ordinal uint64) (RawLi
 	recorder.links[ordinal] = &rawRecord{row: row}
 	recorder.pendingBytes += charge
 	recorder.reservedBytes += reservation
+	recorder.updateCapacitySignalLocked()
 	return RawLink{IngestOrdinal: ordinal, PayloadHash: hash}, nil
 }
 
@@ -195,7 +211,39 @@ func (recorder *Recorder) recordCanonicalLocked(input CanonicalInput) error {
 	recorder.canonical = append(recorder.canonical, row)
 	recorder.reservedBytes -= reservation
 	recorder.pendingBytes += uint64(len(input.Canonical) + recordMemoryOverhead)
+	recorder.updateCapacitySignalLocked()
 	return nil
+}
+
+func (recorder *Recorder) pendingUsageLocked() PendingUsage {
+	used := recorder.pendingBytes + recorder.reservedBytes
+	threshold := recorder.pendingLimit / capacityFlushDivisor
+	if threshold == 0 && recorder.pendingLimit != 0 {
+		threshold = 1
+	}
+	return PendingUsage{RawRecords: uint64(len(recorder.raw)),
+		CanonicalRecords: uint64(len(recorder.canonical)), PendingBytes: recorder.pendingBytes,
+		ReservedBytes: recorder.reservedBytes, UsedBytes: used, LimitBytes: recorder.pendingLimit,
+		FlushThresholdBytes: threshold, HighWaterBytes: recorder.pendingHighWater}
+}
+
+func (recorder *Recorder) updateCapacitySignalLocked() {
+	usage := recorder.pendingUsageLocked()
+	if usage.UsedBytes > recorder.pendingHighWater {
+		recorder.pendingHighWater = usage.UsedBytes
+		usage.HighWaterBytes = usage.UsedBytes
+	}
+	if usage.FlushThresholdBytes == 0 || usage.UsedBytes < usage.FlushThresholdBytes {
+		select {
+		case <-recorder.flushRequired:
+		default:
+		}
+		return
+	}
+	select {
+	case recorder.flushRequired <- struct{}{}:
+	default:
+	}
 }
 
 // RecordDecisionInput appends an exact in-process decision input through the

@@ -129,7 +129,7 @@ func TestB1BybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
 
 func TestB1BybitTradeBatchPreservesEveryDocumentedTradeAndSequence(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
-	payload := []byte(`{"topic":"publicTrade.BTCUSDT","type":"snapshot","ts":1784592000000,"data":[{"T":1784592000000,"s":"BTCUSDT","S":"Buy","v":"0.1","p":"100","L":"PlusTick","i":"trade-1","BT":false,"RPI":false,"seq":10},{"T":1784592000001,"s":"BTCUSDT","S":"Sell","v":"0.2","p":"101","L":"MinusTick","i":"trade-2","BT":false,"RPI":false,"seq":11}]}`)
+	payload := []byte(`{"topic":"publicTrade.BTCUSDT","type":"snapshot","ts":1784592000000,"data":[{"T":1784592000000,"s":"BTCUSDT","S":"Buy","v":"0.1","p":"100","L":"PlusTick","i":"trade-1","BT":false,"RPI":true,"seq":10},{"T":1784592000001,"s":"BTCUSDT","S":"Sell","v":"0.2","p":"101","L":"MinusTick","i":"trade-2","BT":true,"RPI":false,"seq":11}]}`)
 	_, event, err := normalizeStream(payload, clock.Now(), make(map[string]tickerPayload))
 	if err != nil || event.Trade != nil || len(event.Trades) != 2 ||
 		event.Trades[0].SourceSequence != 10 || event.Trades[1].NativeID != "trade-2" ||
@@ -138,6 +138,36 @@ func TestB1BybitTradeBatchPreservesEveryDocumentedTradeAndSequence(t *testing.T)
 	}
 	if sequence, exchangeTime := canonicalStreamEvidence(event); sequence != "10:11" || exchangeTime == nil {
 		t.Fatalf("trade batch evidence=%q/%v", sequence, exchangeTime)
+	}
+}
+
+func TestB1BybitTradeDecoderRetainsBoundedFailureCause(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
+	for _, test := range []struct {
+		name    string
+		payload string
+		cause   string
+	}{
+		{name: "unknown field", cause: "public_trade_schema_rejected", payload: `{"topic":"publicTrade.BTCUSDT","type":"snapshot","ts":1784592000000,"data":[{"T":1784592000000,"s":"BTCUSDT","S":"Buy","v":"0.1","p":"100","L":"PlusTick","i":"trade-1","BT":false,"RPI":false,"seq":10,"unexpected":true}]}`},
+		{name: "zero sequence", cause: "public_trade_identity_invalid", payload: `{"topic":"publicTrade.BTCUSDT","type":"snapshot","ts":1784592000000,"data":[{"T":1784592000000,"s":"BTCUSDT","S":"Buy","v":"0.1","p":"100","L":"PlusTick","i":"trade-1","BT":false,"RPI":false,"seq":0}]}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, err := normalizeStream([]byte(test.payload), clock.Now(), make(map[string]tickerPayload))
+			cause, _, _, _ := exchangecontracts.DiagnosticOf(err)
+			if cause != test.cause {
+				t.Fatalf("cause=%q want=%q error=%v", cause, test.cause, err)
+			}
+		})
+	}
+}
+
+func TestB1BybitRecentTradesAcceptsDocumentedClassificationFlags(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
+	instrument := approvedInstruments()[0]
+	payload := []byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","list":[{"execId":"trade-1","symbol":"BTCUSDT","price":"100","size":"0.1","side":"Buy","time":"1784592000000","isBlockTrade":true,"isRPITrade":false},{"execId":"trade-2","symbol":"BTCUSDT","price":"101","size":"0.2","side":"Sell","time":"1784592000001","isBlockTrade":false,"isRPITrade":true}]},"retExtInfo":{},"time":1784592000000}`)
+	trades, err := NormalizeTrades(payload, instrument, clock.Now())
+	if err != nil || len(trades) != 2 || trades[0].NativeID != "trade-1" || !trades[1].BuyerIsMaker {
+		t.Fatalf("trades=%#v error=%v", trades, err)
 	}
 }
 

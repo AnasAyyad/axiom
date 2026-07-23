@@ -211,7 +211,7 @@ func (client *PublicClient) recordDecodeFailure(
 	if recorder != nil {
 		if err := recorder.RecordPublicCanonical(ctx, exchangecontracts.PublicCanonicalRecord{
 			Kind: exchangecontracts.RecordDecoderError, Token: token,
-			Canonical: []byte(`{"kind":"decoder_error"}`)}); err != nil {
+			Canonical: boundedDecoderFailureEvidence(cause)}); err != nil {
 			return recorderFailure{err}
 		}
 	}
