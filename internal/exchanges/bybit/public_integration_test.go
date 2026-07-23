@@ -54,24 +54,10 @@ func TestProductionPublicBybitWebSocketRecording(t *testing.T) {
 	if os.Getenv("AXIOM_B1_LIVE_PUBLIC") != "1" {
 		t.Skip("AXIOM_B1_LIVE_PUBLIC=1 is required")
 	}
-	client, err := NewPublicClient(publicEndpointSet, &domain.SystemClock{})
-	if err != nil {
-		t.Fatal(err)
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	sink := &liveBybitSink{raw: make(map[uint64]exchangecontracts.PublicRawRecord)}
-	stream, err := client.SubscribeRecorded(ctx, exchangecontracts.StreamRequest{
-		Instrument: approvedInstruments()[0],
-		Kinds: []exchangecontracts.StreamKind{
-			exchangecontracts.StreamDepth, exchangecontracts.StreamTrades,
-			exchangecontracts.StreamTicker, exchangecontracts.StreamCandle,
-		},
-		CandleIntervals: []string{"15m", "1h", "4h"},
-	}, sink)
-	if err != nil {
-		t.Fatal(err)
-	}
+	stream := newLiveBybitStream(t, ctx, sink)
 	defer stream.Close()
 	wanted := map[exchangecontracts.StreamKind]bool{
 		exchangecontracts.StreamDepth: false, exchangecontracts.StreamTrades: false,
@@ -93,11 +79,56 @@ func TestProductionPublicBybitWebSocketRecording(t *testing.T) {
 			wanted[observed.Event.Kind] = true
 		}
 	}
-	if err = stream.Ping(ctx); err != nil {
+	if err := stream.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
+	awaitLiveHeartbeat(t, ctx, stream, sink)
 	if raw, canonical := sink.counts(); raw == 0 || raw != canonical {
 		t.Fatalf("live raw/canonical linkage=%d/%d", raw, canonical)
+	}
+}
+
+func newLiveBybitStream(
+	t *testing.T,
+	ctx context.Context,
+	sink *liveBybitSink,
+) ObservedStream {
+	t.Helper()
+	client, err := NewPublicClient(publicEndpointSet, &domain.SystemClock{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := client.SubscribeRecorded(ctx, exchangecontracts.StreamRequest{
+		Instrument: approvedInstruments()[0],
+		Kinds: []exchangecontracts.StreamKind{
+			exchangecontracts.StreamDepth, exchangecontracts.StreamTrades,
+			exchangecontracts.StreamTicker, exchangecontracts.StreamCandle,
+		},
+		CandleIntervals: []string{"15m", "1h", "4h"},
+	}, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stream
+}
+
+func awaitLiveHeartbeat(
+	t *testing.T,
+	ctx context.Context,
+	stream ObservedStream,
+	sink *liveBybitSink,
+) {
+	t.Helper()
+	for {
+		observed, err := stream.ReceiveObserved(ctx)
+		if err != nil {
+			t.Fatalf("public heartbeat receive failed after %s: %v", sink.lastSummary(), err)
+		}
+		if observed.Event.Kind == exchangecontracts.StreamLifecycle &&
+			observed.Event.Lifecycle != nil &&
+			observed.Event.Lifecycle.Reason == "heartbeat_pong" {
+			return
+		}
 	}
 }
 
@@ -268,5 +299,35 @@ func (sink *liveBybitSink) lastSummary() string {
 			values = append(values, key+"="+string(value))
 		}
 	}
+	values = append(values, boundedDataSummary(envelope["data"])...)
 	return "keys=" + strings.Join(keys, ",") + " " + strings.Join(values, " ")
+}
+
+func boundedDataSummary(raw json.RawMessage) []string {
+	var rows []map[string]json.RawMessage
+	if len(raw) == 0 || json.Unmarshal(raw, &rows) != nil || len(rows) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(rows[0]))
+	for key := range rows[0] {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	summary := []string{fmt.Sprintf("data_count=%d", len(rows)),
+		"data_keys=" + strings.Join(keys, ",")}
+	flags := make([]string, 0, 2)
+	for _, key := range []string{"BT", "RPI"} {
+		value, exists := rows[0][key]
+		if !exists {
+			continue
+		}
+		var enabled bool
+		if json.Unmarshal(value, &enabled) == nil {
+			flags = append(flags, fmt.Sprintf("%s=%t", key, enabled))
+		}
+	}
+	if len(flags) != 0 {
+		summary = append(summary, "trade_flags="+strings.Join(flags, ","))
+	}
+	return summary
 }

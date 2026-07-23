@@ -112,6 +112,16 @@ and exact maximum, book health, memory, filesystem capacity, and the exact
 source commit. Immediate `bybit_collector_lifecycle` and `B1_EVENT` records are
 written to the dedicated service log.
 
+The first instrumented formal-start attempt was stopped and preserved before
+its first periodic flush after both instruments reconnected at the 20-second
+heartbeat boundary. The new lifecycle evidence isolated the trigger: Bybit Spot
+acknowledges a client `{"op":"ping"}` with a successful message whose `op`
+remains `ping` and whose `ret_msg` is `pong`; the decoder had accepted only
+`op=pong`. The repair accepts both documented public forms, retains a fixed
+`heartbeat_response_invalid` cause for malformed responses, records heartbeat
+frames with their dedicated kind, and makes the production-public test wait for
+and verify an actual pong rather than merely sending a ping.
+
 Binance and Bybit formal runs must use distinct output directories and service
 units. One run cannot qualify the other. The unchanged 15-second all-sample
 resynchronization objective remains fail-closed even when facts attribute a

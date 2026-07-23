@@ -136,3 +136,8 @@ func validationError(operation exchangecontracts.Operation) error {
 }
 
 func streamError() error { return validationError(exchangecontracts.OperationStream) }
+
+func streamValidation(cause string) error {
+	return exchangecontracts.NewDetailedError(exchangecontracts.ErrorValidation,
+		exchangecontracts.OperationStream, 0, 0, cause)
+}

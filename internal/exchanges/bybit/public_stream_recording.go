@@ -90,7 +90,7 @@ func incomingRecordKind(name string) exchangecontracts.PublicRecordKind {
 	switch name {
 	case "subscribe":
 		return exchangecontracts.RecordSubscription
-	case "pong":
+	case "ping", "pong":
 		return exchangecontracts.RecordHeartbeat
 	default:
 		return exchangecontracts.RecordStreamFrame
