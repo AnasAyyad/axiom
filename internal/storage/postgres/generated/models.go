@@ -144,6 +144,69 @@ type AuthorizationRole struct {
 	Name string `db:"name" json:"name"`
 }
 
+type B4ClaimGroup struct {
+	ID            string             `db:"id" json:"id"`
+	DecisionID    string             `db:"decision_id" json:"decision_id"`
+	AccountID     string             `db:"account_id" json:"account_id"`
+	State         string             `db:"state" json:"state"`
+	FencingToken  int64              `db:"fencing_token" json:"fencing_token"`
+	Revision      int64              `db:"revision" json:"revision"`
+	CorrelationID string             `db:"correlation_id" json:"correlation_id"`
+	CausationID   string             `db:"causation_id" json:"causation_id"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type B4ClaimItem struct {
+	GroupID           string      `db:"group_id" json:"group_id"`
+	ResourceID        string      `db:"resource_id" json:"resource_id"`
+	RequestedQuantity interface{} `db:"requested_quantity" json:"requested_quantity"`
+	RemainingQuantity interface{} `db:"remaining_quantity" json:"remaining_quantity"`
+}
+
+type B4ClaimResource struct {
+	ID                string             `db:"id" json:"id"`
+	AccountID         string             `db:"account_id" json:"account_id"`
+	ExchangeID        string             `db:"exchange_id" json:"exchange_id"`
+	ResourceKind      string             `db:"resource_kind" json:"resource_kind"`
+	ResourceKey       string             `db:"resource_key" json:"resource_key"`
+	AvailableQuantity interface{}        `db:"available_quantity" json:"available_quantity"`
+	HeldQuantity      interface{}        `db:"held_quantity" json:"held_quantity"`
+	Revision          int64              `db:"revision" json:"revision"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type B5ClaimGroup struct {
+	ID            string             `db:"id" json:"id"`
+	DecisionID    string             `db:"decision_id" json:"decision_id"`
+	State         string             `db:"state" json:"state"`
+	FencingToken  int64              `db:"fencing_token" json:"fencing_token"`
+	Revision      int64              `db:"revision" json:"revision"`
+	CorrelationID string             `db:"correlation_id" json:"correlation_id"`
+	CausationID   string             `db:"causation_id" json:"causation_id"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type B5ClaimItem struct {
+	GroupID           string      `db:"group_id" json:"group_id"`
+	ResourceID        string      `db:"resource_id" json:"resource_id"`
+	RequestedQuantity interface{} `db:"requested_quantity" json:"requested_quantity"`
+	RemainingQuantity interface{} `db:"remaining_quantity" json:"remaining_quantity"`
+}
+
+type B5ClaimResource struct {
+	ID                string             `db:"id" json:"id"`
+	AccountID         string             `db:"account_id" json:"account_id"`
+	ExchangeID        string             `db:"exchange_id" json:"exchange_id"`
+	ResourceKind      string             `db:"resource_kind" json:"resource_kind"`
+	ResourceKey       string             `db:"resource_key" json:"resource_key"`
+	AvailableQuantity interface{}        `db:"available_quantity" json:"available_quantity"`
+	HeldQuantity      interface{}        `db:"held_quantity" json:"held_quantity"`
+	Revision          int64              `db:"revision" json:"revision"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type CircuitBreakerEvent struct {
 	ID             string             `db:"id" json:"id"`
 	BreakerKind    string             `db:"breaker_kind" json:"breaker_kind"`
@@ -200,6 +263,171 @@ type ConsumerCursor struct {
 	Consumer       string             `db:"consumer" json:"consumer"`
 	OutboxRevision int64              `db:"outbox_revision" json:"outbox_revision"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type CrossExchangeCandidate struct {
+	DecisionID                    string             `db:"decision_id" json:"decision_id"`
+	StrategyVersionID             string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ConfigurationID               string             `db:"configuration_id" json:"configuration_id"`
+	CoherentViewID                interface{}        `db:"coherent_view_id" json:"coherent_view_id"`
+	InstrumentID                  string             `db:"instrument_id" json:"instrument_id"`
+	BuyExchangeID                 string             `db:"buy_exchange_id" json:"buy_exchange_id"`
+	SellExchangeID                string             `db:"sell_exchange_id" json:"sell_exchange_id"`
+	Direction                     string             `db:"direction" json:"direction"`
+	BuyOwnershipAccountID         string             `db:"buy_ownership_account_id" json:"buy_ownership_account_id"`
+	SellOwnershipAccountID        string             `db:"sell_ownership_account_id" json:"sell_ownership_account_id"`
+	QuoteBudget                   interface{}        `db:"quote_budget" json:"quote_budget"`
+	BaseQuantity                  interface{}        `db:"base_quantity" json:"base_quantity"`
+	GrossSpread                   interface{}        `db:"gross_spread" json:"gross_spread"`
+	BuyFee                        interface{}        `db:"buy_fee" json:"buy_fee"`
+	SellFee                       interface{}        `db:"sell_fee" json:"sell_fee"`
+	SpreadDepthCost               interface{}        `db:"spread_depth_cost" json:"spread_depth_cost"`
+	LatencyDeterioration          interface{}        `db:"latency_deterioration" json:"latency_deterioration"`
+	RecoveryAllowance             interface{}        `db:"recovery_allowance" json:"recovery_allowance"`
+	ExpectedExecutionPnl          interface{}        `db:"expected_execution_pnl" json:"expected_execution_pnl"`
+	MaximumOneLegLoss             interface{}        `db:"maximum_one_leg_loss" json:"maximum_one_leg_loss"`
+	MarginalInventoryReplacement  interface{}        `db:"marginal_inventory_replacement" json:"marginal_inventory_replacement"`
+	NaturalReversalCost           interface{}        `db:"natural_reversal_cost" json:"natural_reversal_cost"`
+	AdvisoryRebalancingCost       interface{}        `db:"advisory_rebalancing_cost" json:"advisory_rebalancing_cost"`
+	ExchangeConcentrationPenalty  interface{}        `db:"exchange_concentration_penalty" json:"exchange_concentration_penalty"`
+	UsdtVenueConcentrationPenalty interface{}        `db:"usdt_venue_concentration_penalty" json:"usdt_venue_concentration_penalty"`
+	ExpectedClosedCycleProfit     interface{}        `db:"expected_closed_cycle_profit" json:"expected_closed_cycle_profit"`
+	WorstClosedCycleProfit        interface{}        `db:"worst_closed_cycle_profit" json:"worst_closed_cycle_profit"`
+	RestorationDelayNanos         int64              `db:"restoration_delay_nanos" json:"restoration_delay_nanos"`
+	FirstDetectedOffsetNanos      int64              `db:"first_detected_offset_nanos" json:"first_detected_offset_nanos"`
+	DecisionOffsetNanos           int64              `db:"decision_offset_nanos" json:"decision_offset_nanos"`
+	ExpiresOffsetNanos            int64              `db:"expires_offset_nanos" json:"expires_offset_nanos"`
+	ConfigurationHash             interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	InstrumentMetadataSetHash     interface{}        `db:"instrument_metadata_set_hash" json:"instrument_metadata_set_hash"`
+	RiskEvaluationID              string             `db:"risk_evaluation_id" json:"risk_evaluation_id"`
+	PricingModelVersionID         string             `db:"pricing_model_version_id" json:"pricing_model_version_id"`
+	ClaimModelVersionID           string             `db:"claim_model_version_id" json:"claim_model_version_id"`
+	FeeModelVersionID             string             `db:"fee_model_version_id" json:"fee_model_version_id"`
+	LatencyModelVersionID         string             `db:"latency_model_version_id" json:"latency_model_version_id"`
+	RecoveryModelVersionID        string             `db:"recovery_model_version_id" json:"recovery_model_version_id"`
+	InventoryShadowModelVersionID string             `db:"inventory_shadow_model_version_id" json:"inventory_shadow_model_version_id"`
+	ConcentrationModelVersionID   string             `db:"concentration_model_version_id" json:"concentration_model_version_id"`
+	CorrelationID                 string             `db:"correlation_id" json:"correlation_id"`
+	CausationID                   string             `db:"causation_id" json:"causation_id"`
+	CanonicalHash                 interface{}        `db:"canonical_hash" json:"canonical_hash"`
+	RecordedAt                    pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type CrossExchangeCandidateLeg struct {
+	DecisionID           string      `db:"decision_id" json:"decision_id"`
+	LegIndex             int32       `db:"leg_index" json:"leg_index"`
+	ExchangeID           string      `db:"exchange_id" json:"exchange_id"`
+	OwnershipAccountID   string      `db:"ownership_account_id" json:"ownership_account_id"`
+	InstrumentID         string      `db:"instrument_id" json:"instrument_id"`
+	InstrumentMetadataID string      `db:"instrument_metadata_id" json:"instrument_metadata_id"`
+	Side                 string      `db:"side" json:"side"`
+	InputQuantity        interface{} `db:"input_quantity" json:"input_quantity"`
+	TradeQuantity        interface{} `db:"trade_quantity" json:"trade_quantity"`
+	GrossOutput          interface{} `db:"gross_output" json:"gross_output"`
+	NetOutput            interface{} `db:"net_output" json:"net_output"`
+	SourceDust           interface{} `db:"source_dust" json:"source_dust"`
+	FeeAsset             string      `db:"fee_asset" json:"fee_asset"`
+	FeeQuantity          interface{} `db:"fee_quantity" json:"fee_quantity"`
+	FeeQuoteEquivalent   interface{} `db:"fee_quote_equivalent" json:"fee_quote_equivalent"`
+	Notional             interface{} `db:"notional" json:"notional"`
+	Vwap                 interface{} `db:"vwap" json:"vwap"`
+	SpreadDepthCost      interface{} `db:"spread_depth_cost" json:"spread_depth_cost"`
+	BookVersion          int64       `db:"book_version" json:"book_version"`
+	ConnectionGeneration int64       `db:"connection_generation" json:"connection_generation"`
+}
+
+type CrossExchangeCandidateMember struct {
+	DecisionID            string             `db:"decision_id" json:"decision_id"`
+	CoherentViewID        interface{}        `db:"coherent_view_id" json:"coherent_view_id"`
+	MemberOrdinal         int32              `db:"member_ordinal" json:"member_ordinal"`
+	ExchangeID            string             `db:"exchange_id" json:"exchange_id"`
+	InstrumentID          string             `db:"instrument_id" json:"instrument_id"`
+	BookVersion           int64              `db:"book_version" json:"book_version"`
+	ConnectionGeneration  int64              `db:"connection_generation" json:"connection_generation"`
+	ReceiveMonotonicNanos int64              `db:"receive_monotonic_nanos" json:"receive_monotonic_nanos"`
+	ReceiveUtc            pgtype.Timestamptz `db:"receive_utc" json:"receive_utc"`
+	ReceiveUtcUnixNanos   int64              `db:"receive_utc_unix_nanos" json:"receive_utc_unix_nanos"`
+	IngestOrdinal         int64              `db:"ingest_ordinal" json:"ingest_ordinal"`
+	ClockOffsetNanos      int64              `db:"clock_offset_nanos" json:"clock_offset_nanos"`
+	ClockUncertaintyNanos int64              `db:"clock_uncertainty_nanos" json:"clock_uncertainty_nanos"`
+	ClockIntervalStart    pgtype.Timestamptz `db:"clock_interval_start" json:"clock_interval_start"`
+	ClockIntervalEnd      pgtype.Timestamptz `db:"clock_interval_end" json:"clock_interval_end"`
+	StateHash             interface{}        `db:"state_hash" json:"state_hash"`
+	CollectorInstance     string             `db:"collector_instance" json:"collector_instance"`
+	CollectorRegion       string             `db:"collector_region" json:"collector_region"`
+}
+
+type CrossExchangeInventorySnapshot struct {
+	DecisionID              string      `db:"decision_id" json:"decision_id"`
+	SnapshotRole            string      `db:"snapshot_role" json:"snapshot_role"`
+	OwnershipAccountID      string      `db:"ownership_account_id" json:"ownership_account_id"`
+	ExchangeID              string      `db:"exchange_id" json:"exchange_id"`
+	BaseAsset               string      `db:"base_asset" json:"base_asset"`
+	OwnerLabel              string      `db:"owner_label" json:"owner_label"`
+	OwnershipRevision       int64       `db:"ownership_revision" json:"ownership_revision"`
+	BaseBefore              interface{} `db:"base_before" json:"base_before"`
+	BaseAfter               interface{} `db:"base_after" json:"base_after"`
+	TotalEligibleBase       interface{} `db:"total_eligible_base" json:"total_eligible_base"`
+	BaseShareBefore         interface{} `db:"base_share_before" json:"base_share_before"`
+	UsdtBefore              interface{} `db:"usdt_before" json:"usdt_before"`
+	UsdtAfter               interface{} `db:"usdt_after" json:"usdt_after"`
+	TotalEligibleUsdt       interface{} `db:"total_eligible_usdt" json:"total_eligible_usdt"`
+	UsdtShareBefore         interface{} `db:"usdt_share_before" json:"usdt_share_before"`
+	BandState               string      `db:"band_state" json:"band_state"`
+	NaturalReversePreferred bool        `db:"natural_reverse_preferred" json:"natural_reverse_preferred"`
+}
+
+type CrossExchangeJournalLink struct {
+	DecisionID    string `db:"decision_id" json:"decision_id"`
+	TransactionID string `db:"transaction_id" json:"transaction_id"`
+	Category      string `db:"category" json:"category"`
+}
+
+type CrossExchangeRebalancingNeed struct {
+	DecisionID           string             `db:"decision_id" json:"decision_id"`
+	Required             bool               `db:"required" json:"required"`
+	AssetSymbol          string             `db:"asset_symbol" json:"asset_symbol"`
+	DepletedExchangeID   string             `db:"depleted_exchange_id" json:"depleted_exchange_id"`
+	OverweightExchangeID string             `db:"overweight_exchange_id" json:"overweight_exchange_id"`
+	PreferredAction      string             `db:"preferred_action" json:"preferred_action"`
+	EstimatedCost        interface{}        `db:"estimated_cost" json:"estimated_cost"`
+	EstimatedDelayNanos  int64              `db:"estimated_delay_nanos" json:"estimated_delay_nanos"`
+	AdvisoryOnly         bool               `db:"advisory_only" json:"advisory_only"`
+	RecordedAt           pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type CrossExchangeSimulationLeg struct {
+	DecisionID         string      `db:"decision_id" json:"decision_id"`
+	LegIndex           int32       `db:"leg_index" json:"leg_index"`
+	ExchangeID         string      `db:"exchange_id" json:"exchange_id"`
+	ArrivalOffsetNanos int64       `db:"arrival_offset_nanos" json:"arrival_offset_nanos"`
+	InitialState       string      `db:"initial_state" json:"initial_state"`
+	VerifiedState      string      `db:"verified_state" json:"verified_state"`
+	FinalState         string      `db:"final_state" json:"final_state"`
+	InputQuantity      interface{} `db:"input_quantity" json:"input_quantity"`
+	FilledQuantity     interface{} `db:"filled_quantity" json:"filled_quantity"`
+	VerificationCount  int32       `db:"verification_count" json:"verification_count"`
+	RetryCount         int32       `db:"retry_count" json:"retry_count"`
+}
+
+type CrossExchangeSimulationOutcome struct {
+	DecisionID            string             `db:"decision_id" json:"decision_id"`
+	PlanID                string             `db:"plan_id" json:"plan_id"`
+	Outcome               string             `db:"outcome" json:"outcome"`
+	ActualUsdtNet         interface{}        `db:"actual_usdt_net" json:"actual_usdt_net"`
+	VerificationCompleted bool               `db:"verification_completed" json:"verification_completed"`
+	RetryAttempted        bool               `db:"retry_attempted" json:"retry_attempted"`
+	RetrySucceeded        bool               `db:"retry_succeeded" json:"retry_succeeded"`
+	UnwindAttempted       bool               `db:"unwind_attempted" json:"unwind_attempted"`
+	UnwindSucceeded       bool               `db:"unwind_succeeded" json:"unwind_succeeded"`
+	Quarantined           bool               `db:"quarantined" json:"quarantined"`
+	FinalDisposition      string             `db:"final_disposition" json:"final_disposition"`
+	RecoveryLoss          interface{}        `db:"recovery_loss" json:"recovery_loss"`
+	LatencyModelVersionID string             `db:"latency_model_version_id" json:"latency_model_version_id"`
+	CanonicalHash         interface{}        `db:"canonical_hash" json:"canonical_hash"`
+	CorrelationID         string             `db:"correlation_id" json:"correlation_id"`
+	CausationID           string             `db:"causation_id" json:"causation_id"`
+	RecordedAt            pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
 type CrossMarketViewHeader struct {
@@ -1171,6 +1399,101 @@ type TrendDecision struct {
 	CorrelationID           string             `db:"correlation_id" json:"correlation_id"`
 	CausationID             string             `db:"causation_id" json:"causation_id"`
 	RecordedAt              pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type TriangularCandidate struct {
+	DecisionID                  string             `db:"decision_id" json:"decision_id"`
+	StrategyVersionID           string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ConfigurationID             string             `db:"configuration_id" json:"configuration_id"`
+	PortfolioOwnershipAccountID string             `db:"portfolio_ownership_account_id" json:"portfolio_ownership_account_id"`
+	ExchangeID                  string             `db:"exchange_id" json:"exchange_id"`
+	Cycle                       string             `db:"cycle" json:"cycle"`
+	StartQuantity               interface{}        `db:"start_quantity" json:"start_quantity"`
+	ExpectedFinalQuantity       interface{}        `db:"expected_final_quantity" json:"expected_final_quantity"`
+	WorstFinalQuantity          interface{}        `db:"worst_final_quantity" json:"worst_final_quantity"`
+	ExpectedNet                 interface{}        `db:"expected_net" json:"expected_net"`
+	WorstNet                    interface{}        `db:"worst_net" json:"worst_net"`
+	ExpectedEdge                interface{}        `db:"expected_edge" json:"expected_edge"`
+	WorstEdge                   interface{}        `db:"worst_edge" json:"worst_edge"`
+	AdditionalSafetyMargin      interface{}        `db:"additional_safety_margin" json:"additional_safety_margin"`
+	FirstDetectedOffsetNanos    int64              `db:"first_detected_offset_nanos" json:"first_detected_offset_nanos"`
+	DecisionOffsetNanos         int64              `db:"decision_offset_nanos" json:"decision_offset_nanos"`
+	ExpiresOffsetNanos          int64              `db:"expires_offset_nanos" json:"expires_offset_nanos"`
+	ConfigurationHash           interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	ModelVersionID              string             `db:"model_version_id" json:"model_version_id"`
+	InstrumentMetadataSetHash   interface{}        `db:"instrument_metadata_set_hash" json:"instrument_metadata_set_hash"`
+	RiskEvaluationID            string             `db:"risk_evaluation_id" json:"risk_evaluation_id"`
+	ClaimModelVersionID         string             `db:"claim_model_version_id" json:"claim_model_version_id"`
+	FeeModelVersionID           string             `db:"fee_model_version_id" json:"fee_model_version_id"`
+	LatencyModelVersionID       string             `db:"latency_model_version_id" json:"latency_model_version_id"`
+	RecoveryModelVersionID      string             `db:"recovery_model_version_id" json:"recovery_model_version_id"`
+	CorrelationID               string             `db:"correlation_id" json:"correlation_id"`
+	CausationID                 string             `db:"causation_id" json:"causation_id"`
+	CanonicalHash               interface{}        `db:"canonical_hash" json:"canonical_hash"`
+	RecordedAt                  pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type TriangularCandidateLeg struct {
+	DecisionID           string      `db:"decision_id" json:"decision_id"`
+	LegIndex             int32       `db:"leg_index" json:"leg_index"`
+	InstrumentID         string      `db:"instrument_id" json:"instrument_id"`
+	InstrumentMetadataID string      `db:"instrument_metadata_id" json:"instrument_metadata_id"`
+	SourceAsset          string      `db:"source_asset" json:"source_asset"`
+	TargetAsset          string      `db:"target_asset" json:"target_asset"`
+	Side                 string      `db:"side" json:"side"`
+	InputQuantity        interface{} `db:"input_quantity" json:"input_quantity"`
+	TradeQuantity        interface{} `db:"trade_quantity" json:"trade_quantity"`
+	GrossOutput          interface{} `db:"gross_output" json:"gross_output"`
+	NetOutput            interface{} `db:"net_output" json:"net_output"`
+	SourceDust           interface{} `db:"source_dust" json:"source_dust"`
+	FeeAsset             string      `db:"fee_asset" json:"fee_asset"`
+	FeeQuantity          interface{} `db:"fee_quantity" json:"fee_quantity"`
+	FeeQuoteEquivalent   interface{} `db:"fee_quote_equivalent" json:"fee_quote_equivalent"`
+	Notional             interface{} `db:"notional" json:"notional"`
+	Vwap                 interface{} `db:"vwap" json:"vwap"`
+	SpreadDepthCost      interface{} `db:"spread_depth_cost" json:"spread_depth_cost"`
+	BookVersion          int64       `db:"book_version" json:"book_version"`
+	ConnectionGeneration int64       `db:"connection_generation" json:"connection_generation"`
+}
+
+type TriangularJournalLink struct {
+	DecisionID    string `db:"decision_id" json:"decision_id"`
+	TransactionID string `db:"transaction_id" json:"transaction_id"`
+	Category      string `db:"category" json:"category"`
+}
+
+type TriangularOpportunityLifetime struct {
+	DecisionID          string             `db:"decision_id" json:"decision_id"`
+	FirstDetectionNanos int64              `db:"first_detection_nanos" json:"first_detection_nanos"`
+	LastProfitableNanos int64              `db:"last_profitable_nanos" json:"last_profitable_nanos"`
+	PeakEdge            interface{}        `db:"peak_edge" json:"peak_edge"`
+	EdgeAtArrival       interface{}        `db:"edge_at_arrival" json:"edge_at_arrival"`
+	TotalLifetimeNanos  int64              `db:"total_lifetime_nanos" json:"total_lifetime_nanos"`
+	SurvivedP50         bool               `db:"survived_p50" json:"survived_p50"`
+	SurvivedP95         bool               `db:"survived_p95" json:"survived_p95"`
+	SurvivedP99         bool               `db:"survived_p99" json:"survived_p99"`
+	MetricWindow        int32              `db:"metric_window" json:"metric_window"`
+	CorrelationID       string             `db:"correlation_id" json:"correlation_id"`
+	CausationID         string             `db:"causation_id" json:"causation_id"`
+	RecordedAt          pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type TriangularSimulationOutcome struct {
+	DecisionID            string             `db:"decision_id" json:"decision_id"`
+	PlanID                string             `db:"plan_id" json:"plan_id"`
+	Outcome               string             `db:"outcome" json:"outcome"`
+	ActualFinalUsdt       interface{}        `db:"actual_final_usdt" json:"actual_final_usdt"`
+	LatencyModelVersionID string             `db:"latency_model_version_id" json:"latency_model_version_id"`
+	RecoveryAttempted     bool               `db:"recovery_attempted" json:"recovery_attempted"`
+	RecoverySucceeded     bool               `db:"recovery_succeeded" json:"recovery_succeeded"`
+	Quarantined           bool               `db:"quarantined" json:"quarantined"`
+	StrandedAsset         *string            `db:"stranded_asset" json:"stranded_asset"`
+	StrandedQuantity      interface{}        `db:"stranded_quantity" json:"stranded_quantity"`
+	RecoveryLoss          interface{}        `db:"recovery_loss" json:"recovery_loss"`
+	CanonicalHash         interface{}        `db:"canonical_hash" json:"canonical_hash"`
+	CorrelationID         string             `db:"correlation_id" json:"correlation_id"`
+	CausationID           string             `db:"causation_id" json:"causation_id"`
+	RecordedAt            pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
 type User struct {

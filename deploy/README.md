@@ -31,15 +31,16 @@ before opening the database or a listener. A deployment-specific replacement
 must be mounted explicitly at an absolute path and selected with
 `APP_CONFIG_FILE`; partial environment overlays are rejected.
 
-The V1B recorder and B3 strategy roles may instead select
+The V1B recorder and B3/B4 strategy roles may instead select
 `deploy/config/platform-shadow-v1b.json`. That immutable graph composes the
 compiled Binance and Bybit production-public endpoint sets, three approved
 spot instruments per venue, 15m/1h/4h candles, and the complete immutable
-`mean-reversion.v1b.1` 1h/4h parameter contract. It contains no secret
-references and does not enable authenticated exchange behavior. Older V1A and
-V1B.1 configuration schemas remain loadable without reinterpretation. Later
-V1B strategy roles retain their predecessor behavior until their sequential
-phase is implemented.
+`mean-reversion.v1b.1` 1h/4h and `triangular.v1b.1` exact-depth parameter
+contracts. B4 remains single-exchange, sequential, and simulation-only. The
+graph contains no secret references and does not enable authenticated exchange
+behavior. Older V1A, V1B.1, and V1B.2 configuration schemas remain loadable
+without reinterpretation. Later V1B strategy roles retain their predecessor
+behavior until their sequential phase is implemented.
 
 If you created `.env` or initialized PostgreSQL before the Axiom naming update, leave those existing database and role names alone for now. Branding does not require deleting or recreating a local database. Fresh setups copied from the current `.env.example` use the `axiom` names; an existing database can be renamed later only through a planned migration/backup procedure.
 

@@ -4,11 +4,13 @@
 
 **V1B is not ready for release.** B1 and B2 are locally verified and merged into
 `main`; their formal predecessor, deferred 72-hour, and approver holds remain.
-B3 is implemented and locally verified for every specified non-soak gate from
-the merged B2 baseline, including PostgreSQL 18 clean/upgrade qualification,
-deterministic strategy/research evidence, cumulative verification, an exact
-clean image, and an isolated image-backed Compose smoke. Formal B3 acceptance
-is held by predecessor acceptance and approvers. B4-B8 are not implemented.
+B3, B4, and B5 are implemented and locally verified for every specified
+non-soak gate. B5 passed exact model/race/fuzz/benchmark gates, PostgreSQL 18
+clean and exact B4-upgrade qualification, cumulative B4+B5 verification, a
+committed-source image, image inspection/reproducibility, an isolated
+image-backed Compose smoke, SPDX SBOM generation, and the exact
+HIGH/CRITICAL scan. Formal B3/B4/B5 acceptance remains held by predecessor
+acceptance and approvers. B6-B8 are not implemented.
 
 ## Release identity
 
@@ -30,6 +32,16 @@ is held by predecessor acceptance and approvers. B4-B8 are not implemented.
 | B3 reviewed configuration | `axiom.config.v1b.2`; 27 immutable parameters; file SHA-256 `e95d950c393e1270243381481800e976477a2aca2b4791823da48c527cb22e67` |
 | B3 PostgreSQL qualification | Migration 000015 passed clean install and exact B2-to-B3 upgrade in `axiom_clean_b3_test` and `axiom_upgrade_b3_test` |
 | B3 clean image | `axiom@sha256:ed106246ef8f191136edb0f51d90eb1ceb7061fdc9dfff47f26529f76cfb38e7`; image-backed Compose smoke passed |
+| Merged B3 main / B4 baseline | `5d7cb43a90473909bf2091f5af268d5a000633cd` |
+| B4 implementation source | `ef134bc1fd95771754f95c6c9faf7e9f4522acdc` |
+| B4 reviewed configuration | `axiom.config.v1b.3`; strategy `triangular.v1b.1`; 18 immutable parameters; file SHA-256 `30d13c4d08219e9e6cd19551ef815cdcac0b61aad66edfbadbeee80a0868d9cc` |
+| B4 PostgreSQL qualification | Migration 000016 passed clean install and exact B3-to-B4 upgrade in `axiom_clean_b4_test` and `axiom_upgrade_b4_test` |
+| B4 clean image | `axiom@sha256:22f5d99114964b9dcf50357f0e930c97262b279d875df2f070b29e65051379b0`; inspection, reproducibility, image-backed Compose smoke, and Trivy HIGH/CRITICAL gate passed |
+| B5 implementation source | `5ebd016d90a155670c1c7a188941f3b390650012` |
+| B5 reviewed configuration | `axiom.config.v1b.4`; strategy `cross-exchange.v1b.1`; 20 immutable parameters; file SHA-256 `4cf5a7f7ce4982d94112728ef56ba49a5e614fbcec678a8297184f0f8d2c393a` |
+| B5 PostgreSQL qualification | Migration 000017 passed clean install and exact B4-to-B5 upgrade in `axiom_b5_clean_b5_test` and `axiom_b5_upgrade_b5_test` |
+| B5 clean image | `axiom@sha256:aa325c660d61d0af938dcf6e8ead16bac06e2d8b2f5d628dda7adfcf18712388`; inspection, reproducibility, image-backed Compose smoke, SPDX SBOM, and Trivy HIGH/CRITICAL gate passed |
+| B5 SPDX SBOM | 47 packages; SHA-256 `8ee3cb6ed7e4bf2b3b3de2f8c46677e295de7f2fce389bbc8ef2e273be010a90` |
 | B1 72-hour soak | Deferred by owner; not run and not claimed |
 | B2 72-hour qualification | Deferred by owner; not run and not claimed |
 | Product / Security / QA / SRE approvers | Pending |
@@ -41,8 +53,8 @@ is held by predecessor acceptance and approvers. B4-B8 are not implemented.
 | B1 | A6 verified; owner-authorized overlap with open A7 | Complete | Locally verified; formal hold: A7, 72-hour soak, approvers | [B1 local validation](evidence/b1-local-validation.md) |
 | B2 | B1 completion merged and local verification retained | Complete | Locally verified; formal hold: predecessor, 72-hour qualification, approvers | [B2 local validation](evidence/b2-local-validation.md) |
 | B3 | Locally verified B2 completion merged; formal B2 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B3 local validation](evidence/b3-local-validation.md) |
-| B4 | B3 verified | Planned | Not started | Pending |
-| B5 | B4 verified | Planned | Not started | Pending |
+| B4 | Locally verified B3 completion merged; formal B3 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B4 local validation](evidence/b4-local-validation.md) |
+| B5 | Locally verified B4 checkpoint; formal B4 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B5 local validation](evidence/b5-local-validation.md) |
 | B6 | B5 verified | Planned | Not started | Pending |
 | B7 | B6 verified | Planned | Not started | Pending |
 | B8 | B7 verified | Planned | Not started | Pending |
@@ -69,6 +81,13 @@ is held by predecessor acceptance and approvers. B4-B8 are not implemented.
 - B3 began from merged B2 `main` at `0c2fce26cae9e171d4e622c080aaf9af5cab018f`;
   every specified non-soak gate is locally verified. Strategy viability remains
   `undetermined`; local platform correctness is not profitability evidence.
-- B4-B8 remain unimplemented.
+- B4 began from merged B3 `main` at `5d7cb43a90473909bf2091f5af268d5a000633cd`;
+  every specified non-soak gate is locally verified. Strategy viability remains
+  `undetermined`; local platform correctness is not profitability evidence.
+- B5 continued from the committed and locally verified B4 checkpoint on the
+  owner-authorized combined branch; every specified non-soak gate is locally
+  verified. Strategy viability remains `undetermined`; local platform
+  correctness is not profitability evidence.
+- B6-B8 remain unimplemented.
 - V1B has no authenticated exchange transport, private endpoint, external
   order, withdrawal, transfer, testnet, demo, or live execution capability.

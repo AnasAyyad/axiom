@@ -7,6 +7,8 @@ const (
 	SchemaVersion      = "axiom.config.v1a.2"
 	SchemaVersionV1B   = "axiom.config.v1b.1"
 	SchemaVersionV1BB3 = "axiom.config.v1b.2"
+	SchemaVersionV1BB4 = "axiom.config.v1b.3"
+	SchemaVersionV1BB5 = "axiom.config.v1b.4"
 )
 
 // Environment identifies an allowed V1A deployment class.
@@ -36,6 +38,8 @@ type Configuration struct {
 	Models        ModelConfiguration         `json:"models"`
 	Trend         TrendConfiguration         `json:"trend"`
 	MeanReversion MeanReversionConfiguration `json:"mean_reversion,omitempty"`
+	Triangular    TriangularConfiguration    `json:"triangular,omitempty"`
+	CrossExchange CrossExchangeConfiguration `json:"cross_exchange,omitempty"`
 	Capabilities  []CapabilityDisposition    `json:"capabilities"`
 	Secrets       []SecretReference          `json:"secrets"`
 }
@@ -117,6 +121,34 @@ type MeanReversionConfiguration struct {
 	PrimaryTimeframe string              `json:"primary_timeframe"`
 	HigherTimeframe  string              `json:"higher_timeframe"`
 	Parameters       []StrategyParameter `json:"parameters"`
+}
+
+// TriangularConfiguration identifies the immutable B4 exact-cycle graph. It is
+// absent from earlier schemas so their hashes and interpretation remain stable.
+type TriangularConfiguration struct {
+	StrategyVersion string              `json:"strategy_version"`
+	SettlementAsset string              `json:"settlement_asset"`
+	Cycles          []string            `json:"cycles"`
+	DispatchMode    string              `json:"dispatch_mode"`
+	PricingModel    string              `json:"pricing_model"`
+	ClaimModel      string              `json:"claim_model"`
+	Parameters      []StrategyParameter `json:"parameters"`
+}
+
+// CrossExchangeConfiguration identifies the immutable B5 two-venue,
+// inventory-restored, concurrent simulation graph. Earlier schema meanings
+// remain unchanged because this graph must be absent from them.
+type CrossExchangeConfiguration struct {
+	StrategyVersion string              `json:"strategy_version"`
+	SettlementAsset string              `json:"settlement_asset"`
+	Instruments     []string            `json:"instruments"`
+	Exchanges       []string            `json:"exchanges"`
+	Directions      []string            `json:"directions"`
+	DispatchMode    string              `json:"dispatch_mode"`
+	PricingModel    string              `json:"pricing_model"`
+	ClaimModel      string              `json:"claim_model"`
+	RebalancingMode string              `json:"rebalancing_mode"`
+	Parameters      []StrategyParameter `json:"parameters"`
 }
 
 // StrategyParameter is the complete auditable contract for one numeric rule.

@@ -20,6 +20,7 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0012](0012-trend-version-and-research-generation.md) | Accepted | Trend decisions and final-test use are locked to immutable versions and visible generations. |
 | [0013](0013-a11-authentication-and-session-policy.md) | Accepted | A11 uses file-bootstrapped Argon2id credentials and hashed opaque sessions. |
 | [0014](0014-v1b-public-multi-exchange-recording.md) | Accepted | B1 uses compiled credential-free Bybit routes, common recording facts, and separate immutable per-exchange datasets. |
+| [0015](0015-b4-exact-triangular-claims.md) | Accepted | B4 exhaustively evaluates exact cycles and fences every required resource in one restart-safe atomic claim group. |
 
 ## Naming and lifecycle
 
