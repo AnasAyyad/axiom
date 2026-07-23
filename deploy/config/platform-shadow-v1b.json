@@ -1,5 +1,5 @@
 {
-  "schema_version": "axiom.config.v1b.2",
+  "schema_version": "axiom.config.v1b.3",
   "revision": 1,
   "environment": "shadow",
   "mode": "shadow",
@@ -452,6 +452,160 @@
         "model_dependencies": ["portfolio_policy", "risk_policy"], "algorithm_version": "mean-reversion-allocation-cap.v1", "evaluation_timezone": "UTC",
         "change_behavior": "existing positions retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
         "approval_reference": "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001", "approved_at": "2026-07-22T00:00:00Z", "change_reason": "initial immutable B3 baseline"
+      }
+    ]
+  },
+  "triangular": {
+    "strategy_version": "triangular.v1b.1",
+    "settlement_asset": "USDT",
+    "cycles": ["USDT-BTC-ETH-USDT", "USDT-ETH-BTC-USDT"],
+    "dispatch_mode": "sequential",
+    "pricing_model": "triangular-exact-depth.v1",
+    "claim_model": "atomic-multi-resource.v1",
+    "parameters": [
+      {
+        "id": "triangular.leg_count", "description": "Every approved cycle has exactly three sequential conversions.",
+        "value": "3", "unit": "count", "minimum": "3", "maximum": "3", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["cycle_model"], "algorithm_version": "triangular-cycle-enumeration.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.size_ladder_10", "description": "First reviewed USDT cycle size.",
+        "value": "10", "unit": "USDT", "minimum": "10", "maximum": "10", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy", "instrument_metadata"], "algorithm_version": "triangular-size-ladder.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.size_ladder_25", "description": "Second reviewed USDT cycle size.",
+        "value": "25", "unit": "USDT", "minimum": "25", "maximum": "25", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy", "instrument_metadata"], "algorithm_version": "triangular-size-ladder.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.size_ladder_50", "description": "Third reviewed USDT cycle size.",
+        "value": "50", "unit": "USDT", "minimum": "50", "maximum": "50", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy", "instrument_metadata"], "algorithm_version": "triangular-size-ladder.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.size_ladder_100", "description": "Fourth reviewed USDT cycle size.",
+        "value": "100", "unit": "USDT", "minimum": "100", "maximum": "100", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy", "instrument_metadata"], "algorithm_version": "triangular-size-ladder.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.dynamic_size_enabled", "description": "One dynamically clipped size is evaluated with the reviewed ladder.",
+        "value": "1", "unit": "boolean_integer", "minimum": "1", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy", "depth_model"], "algorithm_version": "triangular-dynamic-clip.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.maximum_cycle_notional", "description": "Maximum settlement amount entering one cycle.",
+        "value": "100", "unit": "USDT", "minimum": "0", "maximum": "100", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy"], "algorithm_version": "triangular-size-cap.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.candidate_lifetime", "description": "Candidate claim and dispatch must occur at or before this lifetime.",
+        "value": "250", "unit": "milliseconds", "minimum": "0", "maximum": "250", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["latency_model"], "algorithm_version": "triangular-opportunity-lifetime.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.arrival_book_max_age", "description": "Every leg book age must remain strictly below this threshold.",
+        "value": "250", "unit": "milliseconds", "minimum": "0", "maximum": "250", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["market_view_model"], "algorithm_version": "triangular-book-freshness.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.minimum_net_edge", "description": "Expected and worst-case cycle economics must be strictly positive.",
+        "value": "0", "unit": "decimal_fraction", "minimum": "0", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["fee_model", "depth_model"], "algorithm_version": "triangular-net-edge.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.additional_safety_margin", "description": "Worst-case net edge must be strictly above fifteen basis points.",
+        "value": "0.0015", "unit": "decimal_fraction", "minimum": "0.0015", "maximum": "0.0015", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "ceiling", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["risk_policy", "latency_model"], "algorithm_version": "triangular-safety-margin.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.latency_deterioration", "description": "Per-leg conservative output haircut used by worst-case qualification.",
+        "value": "0.0005", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.01", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 18, "rounding": "ceiling", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["latency_model"], "algorithm_version": "triangular-latency-haircut.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.maximum_recovery_attempts", "description": "A failed cycle permits one immediate bounded conversion-to-USDT attempt.",
+        "value": "1", "unit": "count", "minimum": "1", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["recovery_model"], "algorithm_version": "triangular-recovery.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.recovery_reserve_fraction", "description": "Minimum separately claimed recovery capacity as a fraction of cycle start.",
+        "value": "0.02", "unit": "decimal_fraction", "minimum": "0", "maximum": "0.10", "minimum_inclusive": false, "maximum_inclusive": true,
+        "scale": 18, "rounding": "ceiling", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["portfolio_policy", "recovery_model"], "algorithm_version": "triangular-recovery-reserve.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.atomic_claim_required", "description": "Funds, fee buffers, recovery capacity, and depth must be one atomic claim group.",
+        "value": "1", "unit": "boolean_integer", "minimum": "1", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["claim_model"], "algorithm_version": "atomic-multi-resource-claim.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.approved_book_required", "description": "Only healthy approved active-generation books are eligible.",
+        "value": "1", "unit": "boolean_integer", "minimum": "1", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["market_view_model"], "algorithm_version": "approved-book-view.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.opportunity_metric_window", "description": "Bounded survivor samples retained for p50, p95, and p99 lifetime evidence.",
+        "value": "1000", "unit": "samples", "minimum": "100", "maximum": "10000", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["observability_model"], "algorithm_version": "opportunity-lifetime-window.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
+      },
+      {
+        "id": "triangular.maximum_concurrent_claims", "description": "One portfolio resource can have only one active or quarantined owner.",
+        "value": "1", "unit": "count", "minimum": "1", "maximum": "1", "minimum_inclusive": true, "maximum_inclusive": true,
+        "scale": 0, "rounding": "down", "cadence": "every_approved_book_view", "warm_up": "three_healthy_approved_books", "mutability": "immutable_per_run",
+        "model_dependencies": ["claim_model"], "algorithm_version": "exclusive-claim-ownership.v1", "evaluation_timezone": "UTC",
+        "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot", "approval_actor": "authoritative_specification",
+        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001", "approved_at": "2026-07-23T00:00:00Z", "change_reason": "initial immutable B4 exact triangular arbitrage baseline"
       }
     ]
   },

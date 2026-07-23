@@ -47,12 +47,15 @@ func Validate(configuration Configuration) error {
 	if err := validateMeanReversion(configuration.SchemaVersion, configuration.MeanReversion); err != nil {
 		return err
 	}
+	if err := validateTriangular(configuration.SchemaVersion, configuration.Triangular); err != nil {
+		return err
+	}
 	return validateSecrets(configuration.Secrets)
 }
 
 func validateIdentity(configuration Configuration) error {
 	if (configuration.SchemaVersion != SchemaVersion && configuration.SchemaVersion != SchemaVersionV1B &&
-		configuration.SchemaVersion != SchemaVersionV1BB3) ||
+		configuration.SchemaVersion != SchemaVersionV1BB3 && configuration.SchemaVersion != SchemaVersionV1BB4) ||
 		configuration.Revision == 0 {
 		return configError("invalid_configuration", "schema")
 	}

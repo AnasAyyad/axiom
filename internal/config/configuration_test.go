@@ -156,7 +156,7 @@ func TestV1BConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T)
 
 func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingOlderSchemas(t *testing.T) {
 	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB3 ||
+	if configuration.SchemaVersion != SchemaVersionV1BB4 ||
 		configuration.MeanReversion.StrategyVersion != "mean-reversion.v1b.1" ||
 		configuration.MeanReversion.PrimaryTimeframe != "1h" || configuration.MeanReversion.HigherTimeframe != "4h" ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount {
@@ -173,6 +173,7 @@ func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingO
 	legacyV1B := configuration
 	legacyV1B.SchemaVersion = SchemaVersionV1B
 	legacyV1B.MeanReversion = MeanReversionConfiguration{}
+	legacyV1B.Triangular = TriangularConfiguration{}
 	if err := Validate(legacyV1B); err != nil {
 		t.Fatalf("original V1B.1 graph reinterpreted: %v", err)
 	}
@@ -183,6 +184,69 @@ func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingO
 	legacyV1B.MeanReversion = configuration.MeanReversion
 	if code := configurationErrorCode(Validate(legacyV1B)); code != "invalid_configuration" {
 		t.Fatalf("B3 graph accepted under old schema: %q", code)
+	}
+}
+
+func TestB4ConfigurationRequiresCompleteTriangularGraphAndPreservesB3Schema(t *testing.T) {
+	configuration := DefaultV1BConfiguration()
+	if configuration.SchemaVersion != SchemaVersionV1BB4 ||
+		configuration.Triangular.StrategyVersion != "triangular.v1b.1" ||
+		configuration.Triangular.SettlementAsset != "USDT" ||
+		configuration.Triangular.DispatchMode != "sequential" ||
+		len(configuration.Triangular.Cycles) != 2 ||
+		len(configuration.Triangular.Parameters) != TriangularParameterCount {
+		t.Fatalf("B4 graph = %#v", configuration.Triangular)
+	}
+	for _, parameter := range configuration.Triangular.Parameters {
+		if parameter.ID == "" || parameter.Description == "" || parameter.AlgorithmVersion == "" ||
+			parameter.EvaluationTimezone != "UTC" || parameter.ChangeBehavior == "" ||
+			parameter.ApprovalActor == "" || parameter.ApprovalReference == "" ||
+			parameter.ApprovedAt == "" || parameter.ChangeReason == "" {
+			t.Fatalf("incomplete B4 parameter = %#v", parameter)
+		}
+	}
+	legacyB3 := configuration
+	legacyB3.SchemaVersion = SchemaVersionV1BB3
+	legacyB3.Triangular = TriangularConfiguration{}
+	if err := Validate(legacyB3); err != nil {
+		t.Fatalf("B3 schema reinterpreted: %v", err)
+	}
+	legacyB3.Triangular = configuration.Triangular
+	if code := configurationErrorCode(Validate(legacyB3)); code != "invalid_configuration" {
+		t.Fatalf("B4 graph accepted under B3 schema: %q", code)
+	}
+}
+
+func TestB4ConfigurationRejectsMetadataRangeCycleAndMissingGraph(t *testing.T) {
+	tests := []struct {
+		name  string
+		alter func(*Configuration)
+		code  string
+	}{
+		{name: "missing", alter: func(c *Configuration) {
+			c.Triangular = TriangularConfiguration{}
+		}, code: "invalid_triangular_configuration"},
+		{name: "metadata", alter: func(c *Configuration) {
+			c.Triangular.Parameters[0].AlgorithmVersion = "other"
+		}, code: "invalid_triangular_parameter"},
+		{name: "range", alter: func(c *Configuration) {
+			c.Triangular.Parameters[10].Value = "0.0014"
+		}, code: "triangular_parameter_out_of_range"},
+		{name: "cycle", alter: func(c *Configuration) {
+			c.Triangular.Cycles[0] = "USDT-BTC-USDT"
+		}, code: "invalid_triangular_configuration"},
+		{name: "duplicate", alter: func(c *Configuration) {
+			c.Triangular.Parameters[1].ID = c.Triangular.Parameters[0].ID
+		}, code: "invalid_triangular_parameter"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			configuration := DefaultV1BConfiguration()
+			test.alter(&configuration)
+			if code := configurationErrorCode(Validate(configuration)); code != test.code {
+				t.Fatalf("error code = %q, want %q", code, test.code)
+			}
+		})
 	}
 }
 
@@ -227,8 +291,9 @@ func TestReviewedV1BRecorderConfigurationDecodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	configuration, err := DecodeJSON(payload)
-	if err != nil || configuration.SchemaVersion != SchemaVersionV1BB3 || len(configuration.Exchanges) != 2 ||
-		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount {
+	if err != nil || configuration.SchemaVersion != SchemaVersionV1BB4 || len(configuration.Exchanges) != 2 ||
+		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount ||
+		len(configuration.Triangular.Parameters) != TriangularParameterCount {
 		t.Fatalf("reviewed V1B configuration = %#v, %v", configuration.Exchanges, err)
 	}
 }

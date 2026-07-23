@@ -141,6 +141,8 @@ func (reducer *SagaReducer) ResolveRecovery(disposition string, quarantined bool
 	reducer.saga.State = PlanRecovered
 	if quarantined {
 		reducer.saga.State = PlanQuarantined
+	} else {
+		reducer.saga.RemainingExposure = nil
 	}
 	reducer.saga.FinalDisposition, reducer.saga.Revision = disposition, reducer.saga.Revision+1
 	return nil

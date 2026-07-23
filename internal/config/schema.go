@@ -7,6 +7,7 @@ const (
 	SchemaVersion      = "axiom.config.v1a.2"
 	SchemaVersionV1B   = "axiom.config.v1b.1"
 	SchemaVersionV1BB3 = "axiom.config.v1b.2"
+	SchemaVersionV1BB4 = "axiom.config.v1b.3"
 )
 
 // Environment identifies an allowed V1A deployment class.
@@ -36,6 +37,7 @@ type Configuration struct {
 	Models        ModelConfiguration         `json:"models"`
 	Trend         TrendConfiguration         `json:"trend"`
 	MeanReversion MeanReversionConfiguration `json:"mean_reversion,omitempty"`
+	Triangular    TriangularConfiguration    `json:"triangular,omitempty"`
 	Capabilities  []CapabilityDisposition    `json:"capabilities"`
 	Secrets       []SecretReference          `json:"secrets"`
 }
@@ -117,6 +119,18 @@ type MeanReversionConfiguration struct {
 	PrimaryTimeframe string              `json:"primary_timeframe"`
 	HigherTimeframe  string              `json:"higher_timeframe"`
 	Parameters       []StrategyParameter `json:"parameters"`
+}
+
+// TriangularConfiguration identifies the immutable B4 exact-cycle graph. It is
+// absent from earlier schemas so their hashes and interpretation remain stable.
+type TriangularConfiguration struct {
+	StrategyVersion string              `json:"strategy_version"`
+	SettlementAsset string              `json:"settlement_asset"`
+	Cycles          []string            `json:"cycles"`
+	DispatchMode    string              `json:"dispatch_mode"`
+	PricingModel    string              `json:"pricing_model"`
+	ClaimModel      string              `json:"claim_model"`
+	Parameters      []StrategyParameter `json:"parameters"`
 }
 
 // StrategyParameter is the complete auditable contract for one numeric rule.

@@ -53,7 +53,9 @@ const configuration = JSON.parse(
 );
 const parameters = configuration.mean_reversion?.parameters ?? [];
 if (
-  configuration.schema_version !== "axiom.config.v1b.2" ||
+  !["axiom.config.v1b.2", "axiom.config.v1b.3"].includes(
+    configuration.schema_version,
+  ) ||
   configuration.product !== "spot" ||
   configuration.safety?.fail_closed !== true ||
   configuration.safety?.risk_initial_state !== "PAUSED" ||

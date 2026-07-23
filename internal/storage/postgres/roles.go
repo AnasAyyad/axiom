@@ -19,6 +19,8 @@ var runtimeReadInsertTables = []string{
 	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
 	"cross_market_view_headers", "cross_market_view_members", "dataset_exchange_coverage", "dataset_tier_a_members", "mean_reversion_decisions",
+	"triangular_candidates", "triangular_candidate_legs", "triangular_simulation_outcomes",
+	"triangular_opportunity_lifetimes", "triangular_journal_links",
 	"exchange_capabilities", "exchanges", "execution_lease_epochs", "execution_leases", "execution_plan_legs",
 	"execution_plans", "experiment_registrations", "fills", "inbox_events", "incidents", "instrument_metadata_versions",
 	"instruments", "jobs", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
@@ -38,7 +40,9 @@ var runtimeUpdateTables = []string{
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
 
-var runtimeReadTables = []string{"schema_migrations"}
+var runtimeReadTables = []string{
+	"schema_migrations", "b4_claim_resources", "b4_claim_groups", "b4_claim_items",
+}
 
 var recorderReadTables = []string{
 	"assets", "configuration_versions", "exchanges", "instruments", "instrument_metadata_versions",
@@ -55,6 +59,9 @@ var readOnlyTables = []string{
 	"configuration_activations", "configuration_versions", "consumer_cursors", "data_quality_events",
 	"dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions", "exchange_capabilities",
 	"cross_market_view_headers", "cross_market_view_members", "dataset_exchange_coverage", "dataset_tier_a_members", "mean_reversion_decisions",
+	"triangular_candidates", "triangular_candidate_legs", "triangular_simulation_outcomes",
+	"triangular_opportunity_lifetimes", "triangular_journal_links",
+	"b4_claim_resources", "b4_claim_groups", "b4_claim_items",
 	"circuit_breaker_events", "exchanges", "execution_plan_legs", "execution_plans", "fill_journal_postings", "fills", "incidents", "instrument_metadata_versions",
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
 	"public_clock_samples", "public_connection_events",
@@ -94,8 +101,27 @@ func ApplyRoleGrants(ctx context.Context, pool *pgxpool.Pool, runtimeRole, recor
 			return err
 		}
 	}
+	if err = applyB4FunctionGrants(ctx, tx, runtimeRole); err != nil {
+		return err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("role_grant_commit_failed")
+	}
+	return nil
+}
+
+func applyB4FunctionGrants(ctx context.Context, tx pgx.Tx, runtimeRole string) error {
+	role := pgx.Identifier{runtimeRole}.Sanitize()
+	functions := []string{
+		"public.register_b4_claim_resource(text,text,text,text,text,financial_amount,timestamptz)",
+		"public.claim_b4_resources(text,text,text,bigint,text,text,text[],numeric[],timestamptz)",
+		"public.settle_b4_claim_group(text,bigint,bigint,text[],numeric[],boolean,timestamptz)",
+		"public.close_b4_claim_group(text,bigint,bigint,text,timestamptz)",
+	}
+	for _, function := range functions {
+		if _, err := tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+function+" TO "+role); err != nil {
+			return fmt.Errorf("role_function_grant_failed")
+		}
 	}
 	return nil
 }
