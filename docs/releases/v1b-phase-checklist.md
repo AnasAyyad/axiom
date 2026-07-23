@@ -49,7 +49,7 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 ## B6 — advisory inventory and rebalancing
 
-- [ ] Confirm B5 is verified.
+- [x] Confirm B5 is locally verified; formal predecessor and approver holds remain.
 - [ ] Implement and qualify every `AX-V1B-B06-*` requirement.
 - [ ] Prove no withdrawal or transfer execution surface exists.
 

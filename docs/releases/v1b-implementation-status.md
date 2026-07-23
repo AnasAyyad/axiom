@@ -10,8 +10,8 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 |---|---|
 | Program baseline | merged B3 `main` at `5d7cb43a90473909bf2091f5af268d5a000633cd` |
 | Baseline gate | B3 merge PR #15 completed before B4 source changes; `b4-b5-end-to-end` was created from the exact merged SHA |
-| Active implementation phase | B5 locally verified for every specified non-soak gate after the committed B4 checkpoint; formal predecessor and approver holds remain |
-| Later implementation phases | B6-B8 planned; no implementation claimed |
+| Active implementation phase | B6 implemented with targeted model and PostgreSQL clean/upgrade gates passing; cumulative qualification remains in progress |
+| Later implementation phases | B7-B8 planned; no implementation claimed |
 | External side effects | Impossible: public data and simulation only |
 
 ## Phase progress
@@ -23,7 +23,7 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 | B3 | Strategy / Research | 000015 | Locally verified; formal predecessor/approver hold | Exact completed-candle mean reversion, shared allocator/risk/execution/accounting, immutable decision/research evidence, and clean image qualification | [B3 local validation](evidence/b3-local-validation.md) |
 | B4 | Strategy / Execution | 000016 | Locally verified; formal predecessor/approver hold | Exact triangular arbitrage, atomic claims, sequential simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B4 local validation](evidence/b4-local-validation.md) |
 | B5 | Strategy / Portfolio | 000017 | Locally verified; formal predecessor/approver hold | Coherent cross-exchange arbitrage, owned inventory, atomic claims, concurrent simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B5 local validation](evidence/b5-local-validation.md) |
-| B6 | Portfolio / Research | 000018 | Planned | Advisory-only rebalancing graph and immutable transfer facts | Pending |
+| B6 | Portfolio / Research | 000018 | Implemented; cumulative qualification pending | Deterministic advisory graph, immutable reviewed facts, exact costs, natural reversal, PostgreSQL clean/upgrade, and no-execution boundary | [B6 local validation](evidence/b6-local-validation.md) |
 | B7 | Research / Data Science | 000019 | Planned | Multi-strategy statistical validation and audited promotion evidence | Pending |
 | B8 | API / Frontend / SRE | 000020 | Planned | Generic multi-exchange API, SSE, console, and operational workflows | Pending |
 

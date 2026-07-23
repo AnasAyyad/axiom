@@ -66,7 +66,9 @@ const configuration = JSON.parse(
 const crossExchange = configuration.cross_exchange ?? {};
 const parameters = crossExchange.parameters ?? [];
 if (
-  configuration.schema_version !== "axiom.config.v1b.4" ||
+  !["axiom.config.v1b.4", "axiom.config.v1b.5"].includes(
+    configuration.schema_version,
+  ) ||
   configuration.product !== "spot" ||
   configuration.safety?.fail_closed !== true ||
   configuration.safety?.risk_initial_state !== "PAUSED" ||

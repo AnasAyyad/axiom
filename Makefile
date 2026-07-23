@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
 .PHONY: a7-soak-smoke b1-soak-smoke
 
 IMAGE ?= axiom:local
@@ -326,6 +326,7 @@ b4-sqlc: ## Generate and compile the reviewed B4 triangular-arbitrage queries.
 	@$(SQLC) generate --file sqlc.yaml
 	@AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
 b4-model-qualify: ## Exercise exact B4 evaluation, atomic claims, central risk, sequential recovery, lifetime, and accounting.
@@ -352,6 +353,7 @@ b4-local-qualify: b4-model-qualify b4-postgres-qualify ## Pass every non-soak B4
 	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
 		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 b5-sqlc: ## Generate and compile the reviewed B5 cross-exchange-arbitrage queries.
@@ -360,6 +362,7 @@ b5-sqlc: ## Generate and compile the reviewed B5 cross-exchange-arbitrage querie
 	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
 		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
 b5-model-qualify: ## Exercise exact B5 coherent evaluation, closed-cycle economics, atomic claims, concurrent recovery, inventory, and accounting.
@@ -386,9 +389,49 @@ b5-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postg
 	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
 		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-b6-model-qualify b6-postgres-qualify b6-security-qualify \
+b6-sqlc: ## Generate and compile the reviewed B6 advisory-rebalancing queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
+		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/storage/postgres/...
+
+b6-model-qualify: ## Exercise reviewed facts, exact route costs, natural reversal, deterministic search, and advisory evidence.
+	@$(GO) test ./internal/config ./internal/rebalancing ./internal/portfolio -count=1 -v
+	@$(GO) test -race ./internal/rebalancing ./internal/portfolio -count=1
+	@$(GO) test ./internal/rebalancing -run '^$$' \
+		-bench '^BenchmarkAdvisoryOptimizer$$' -benchmem -count=1
+	@$(GO) test ./internal/rebalancing -run '^$$' \
+		-fuzz '^FuzzAdvisoryOptimizerPreservesExactNonNegativeCost$$' -fuzztime 3s
+	@$(NODE) scripts/check-b6-rebalancing-boundary.mjs
+
+b6-postgres-qualify: ## Run clean-install and exact B5-upgrade B6 gates on PostgreSQL 18 *_b6_test databases.
+	@test -n "$(AXIOM_B6_TEST_DSN)" || { echo "AXIOM_B6_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B6_UPGRADE_TEST_DSN)" || { echo "AXIOM_B6_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) b6-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_B6_TEST_DSN="$(AXIOM_B6_TEST_DSN)" \
+		AXIOM_B6_UPGRADE_TEST_DSN="$(AXIOM_B6_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestB6Postgres(CleanInstall|B5ToB6Upgrade)Qualification$$' -count=1 -v
+
+b6-security-qualify: ## Prove B6 has no external asset-movement execution surface in source, API, UI, config, or binary.
+	@$(NODE) scripts/check-b6-rebalancing-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)"
+	@$(MAKE) build-backend GO="$(GO)"
+	@bash scripts/check-b6-binary-boundary.sh "$(PLATFORM)"
+
+b6-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify ## Pass every non-soak B4, B5, and B6 phase gate cumulatively.
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
+		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
 b7-model-qualify b7-postgres-qualify b7-research-qualify \
 b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify \
 b8-security-qualify b8-live-qualify:

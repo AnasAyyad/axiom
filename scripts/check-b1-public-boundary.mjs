@@ -110,6 +110,7 @@ if (
     "axiom.config.v1b.2",
     "axiom.config.v1b.3",
     "axiom.config.v1b.4",
+    "axiom.config.v1b.5",
   ].includes(configuration.schema_version) ||
   configuration.exchanges?.length !== 2 ||
   configuration.exchanges[1]?.id !== "bybit" ||

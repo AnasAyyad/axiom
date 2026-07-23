@@ -80,7 +80,7 @@ const configuration = JSON.parse(
 const triangular = configuration.triangular ?? {};
 const parameters = triangular.parameters ?? [];
 if (
-  !["axiom.config.v1b.3", "axiom.config.v1b.4"].includes(
+  !["axiom.config.v1b.3", "axiom.config.v1b.4", "axiom.config.v1b.5"].includes(
     configuration.schema_version,
   ) ||
   configuration.product !== "spot" ||
