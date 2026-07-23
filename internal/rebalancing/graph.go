@@ -66,30 +66,9 @@ func NewGraph(edges []Edge) (*Graph, error) {
 func validateEdgeStructure(edge Edge) error {
 	if !boundedIdentifier.MatchString(edge.ID) || edge.Version == 0 ||
 		!validNode(edge.From) || !validNode(edge.To) || edge.From == edge.To ||
-		!boundedIdentifier.MatchString(edge.Provenance.Source) ||
-		!boundedIdentifier.MatchString(edge.Provenance.Observer) ||
-		edge.Provenance.ObservedAt.IsZero() || edge.Provenance.ExpiresAt.IsZero() ||
-		edge.Provenance.ObservedAt.Location() != time.UTC ||
-		edge.Provenance.ExpiresAt.Location() != time.UTC ||
-		!edge.Provenance.ExpiresAt.After(edge.Provenance.ObservedAt) ||
-		edge.Provenance.Confidence.Compare(mustPercent("1")) > 0 ||
 		edge.MinimumDuration <= 0 || edge.MaximumDuration < edge.MinimumDuration ||
 		edge.RiskScore.Compare(mustPercent("1")) > 0 ||
-		!validHash(edge.Provenance.Hash) || edge.Provenance.Hash != edgeHash(edge) {
-		return routeError("fact_invalid")
-	}
-	if edge.Provenance.Approval.Approved {
-		approval := edge.Provenance.Approval
-		if !boundedIdentifier.MatchString(approval.Actor) ||
-			!boundedIdentifier.MatchString(approval.Reference) ||
-			approval.ApprovedAt.IsZero() || approval.ApprovedAt.Location() != time.UTC ||
-			approval.ApprovedAt.Before(edge.Provenance.ObservedAt) ||
-			approval.ApprovedAt.After(edge.Provenance.ExpiresAt) {
-			return routeError("fact_invalid")
-		}
-	} else if edge.Provenance.Approval.Actor != "" ||
-		edge.Provenance.Approval.Reference != "" ||
-		!edge.Provenance.Approval.ApprovedAt.IsZero() {
+		!validProvenance(edge) {
 		return routeError("fact_invalid")
 	}
 	switch edge.Kind {
@@ -113,6 +92,29 @@ func validateEdgeStructure(edge Edge) error {
 		return err
 	}
 	return nil
+}
+
+func validProvenance(edge Edge) bool {
+	provenance := edge.Provenance
+	if !boundedIdentifier.MatchString(provenance.Source) ||
+		!boundedIdentifier.MatchString(provenance.Observer) ||
+		provenance.ObservedAt.IsZero() || provenance.ExpiresAt.IsZero() ||
+		provenance.ObservedAt.Location() != time.UTC ||
+		provenance.ExpiresAt.Location() != time.UTC ||
+		!provenance.ExpiresAt.After(provenance.ObservedAt) ||
+		provenance.Confidence.Compare(mustPercent("1")) > 0 ||
+		!validHash(provenance.Hash) || provenance.Hash != edgeHash(edge) {
+		return false
+	}
+	approval := provenance.Approval
+	if approval.Approved {
+		return boundedIdentifier.MatchString(approval.Actor) &&
+			boundedIdentifier.MatchString(approval.Reference) &&
+			!approval.ApprovedAt.IsZero() && approval.ApprovedAt.Location() == time.UTC &&
+			!approval.ApprovedAt.Before(provenance.ObservedAt) &&
+			!approval.ApprovedAt.After(provenance.ExpiresAt)
+	}
+	return approval.Actor == "" && approval.Reference == "" && approval.ApprovedAt.IsZero()
 }
 
 func validNode(node Node) bool {

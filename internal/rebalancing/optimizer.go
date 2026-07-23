@@ -91,15 +91,7 @@ func validNaturalPlan(request Request, plan NaturalReversalPlan, sell, buy Edge)
 }
 
 func graphCandidates(request Request, edges []Edge) ([]routeCandidate, error) {
-	adjacency := make(map[string][]Edge)
-	for _, edge := range edges {
-		adjacency[nodeKey(edge.From)] = append(adjacency[nodeKey(edge.From)], edge)
-	}
-	for key := range adjacency {
-		sort.Slice(adjacency[key], func(left, right int) bool {
-			return edgeSortKey(adjacency[key][left]) < edgeSortKey(adjacency[key][right])
-		})
-	}
+	adjacency := routeAdjacency(edges)
 	var result []routeCandidate
 	visited := map[string]bool{nodeKey(request.Source): true}
 	var walk func(Node, []Step) error
@@ -143,6 +135,19 @@ func graphCandidates(request Request, edges []Edge) ([]routeCandidate, error) {
 		return nil, routeError("route_unavailable")
 	}
 	return result, nil
+}
+
+func routeAdjacency(edges []Edge) map[string][]Edge {
+	adjacency := make(map[string][]Edge)
+	for _, edge := range edges {
+		adjacency[nodeKey(edge.From)] = append(adjacency[nodeKey(edge.From)], edge)
+	}
+	for key := range adjacency {
+		sort.Slice(adjacency[key], func(left, right int) bool {
+			return edgeSortKey(adjacency[key][left]) < edgeSortKey(adjacency[key][right])
+		})
+	}
+	return adjacency
 }
 
 func summarizeCandidate(

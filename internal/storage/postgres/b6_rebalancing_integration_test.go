@@ -154,19 +154,7 @@ func b6FactSetWrite(
 	setHash := a10PayloadHash([]byte(id))
 	provenanceHash := a10PayloadHash([]byte(id + "-transfer"))
 	network := "BTC"
-	actor := "risk-reviewer"
-	reference := "AX-V1B-B06-TEST"
-	approvedAt := pgTimestamp(now.Add(-30 * time.Minute))
-	if !approved {
-		actor = ""
-		reference = ""
-		approvedAt = pgtype.Timestamptz{}
-	}
-	var actorPointer, referencePointer *string
-	if approved {
-		actorPointer = &actor
-		referencePointer = &reference
-	}
+	actorPointer, referencePointer, approvedAt := b6ApprovalFields(approved, now)
 	return B6FactSetWrite{
 		FactSet: generated.InsertRebalancingFactSetParams{
 			ID: id, ConfigurationID: "configuration-b6", ConfigurationHash: configurationHash,
@@ -196,6 +184,19 @@ func b6FactSetWrite(
 			ProvenanceHash: provenanceHash,
 		}},
 	}
+}
+
+func b6ApprovalFields(
+	approved bool,
+	now time.Time,
+) (*string, *string, pgtype.Timestamptz) {
+	actor := "risk-reviewer"
+	reference := "AX-V1B-B06-TEST"
+	approvedAt := pgTimestamp(now.Add(-30 * time.Minute))
+	if !approved {
+		return nil, nil, pgtype.Timestamptz{}
+	}
+	return &actor, &reference, approvedAt
 }
 
 func b6RecommendationWrite(
