@@ -73,7 +73,7 @@ func (store *A11ConsoleStore) SystemStatus(ctx context.Context) (generated.Syste
 	} else if binanceState == "stale" || binanceState == "unavailable" {
 		lifecycle = generated.SystemStatusLifecycleState("DEGRADED")
 	}
-	return generated.SystemStatus{Release: generated.SystemStatusRelease("V1A"), Phase: generated.SystemStatusPhase("A11"), Role: "api",
+	return generated.SystemStatus{Release: generated.SystemStatusRelease("V1B"), Phase: generated.SystemStatusPhase("B8"), Role: "api",
 		LifecycleState: lifecycle, StrategyActivation: strategy,
 		RealTradingEnabled: generated.SystemStatusRealTradingEnabled(false), ExecutionMode: &mode, Environment: &environment,
 		RiskState: ptr(generated.SystemStatusRiskState(riskState)), CriticalIncidents: &incidents, ActiveResourceId: activeID,
@@ -99,7 +99,7 @@ func (store *A11ConsoleStore) BinanceHealth(ctx context.Context) (generated.Bina
 		return generated.BinanceHealth{}, err
 	}
 	capabilities := []string{"public_metadata", "public_server_time", "public_trades", "public_candles", "public_order_book"}
-	return generated.BinanceHealth{Environment: generated.ProductionPublic, PublicOnly: generated.BinanceHealthPublicOnlyTrue,
+	return generated.BinanceHealth{Environment: generated.BinanceHealthEnvironment("production_public"), PublicOnly: generated.BinanceHealthPublicOnlyTrue,
 		Capabilities: &capabilities, WebsocketState: websocketState, BookState: bookState, RecorderState: recorderState,
 		ObservedAt: now, Revision: strconv.FormatInt(revision, 10)}, nil
 }

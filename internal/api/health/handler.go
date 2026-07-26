@@ -168,7 +168,7 @@ func status(options Options) http.HandlerFunc {
 			Release: generated.V1A, Phase: generated.SystemStatusPhaseA1,
 			Role: options.Role, LifecycleState: state,
 			StrategyActivation: generated.SystemStatusStrategyActivationUnavailable,
-			RealTradingEnabled: generated.SystemStatusRealTradingEnabledFalse,
+			RealTradingEnabled: generated.SystemStatusRealTradingEnabled(false),
 		})
 	}
 }

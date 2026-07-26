@@ -207,6 +207,93 @@ type B5ClaimResource struct {
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type B7ChampionChallengerReport struct {
+	ID                          string             `db:"id" json:"id"`
+	ChampionStrategyVersionID   string             `db:"champion_strategy_version_id" json:"champion_strategy_version_id"`
+	ChallengerStrategyVersionID string             `db:"challenger_strategy_version_id" json:"challenger_strategy_version_id"`
+	ChampionSuiteID             string             `db:"champion_suite_id" json:"champion_suite_id"`
+	ChallengerSuiteID           string             `db:"challenger_suite_id" json:"challenger_suite_id"`
+	ChampionEvidenceHash        interface{}        `db:"champion_evidence_hash" json:"champion_evidence_hash"`
+	ChallengerEvidenceHash      interface{}        `db:"challenger_evidence_hash" json:"challenger_evidence_hash"`
+	ManifestHash                interface{}        `db:"manifest_hash" json:"manifest_hash"`
+	CanonicalManifest           []byte             `db:"canonical_manifest" json:"canonical_manifest"`
+	Disposition                 string             `db:"disposition" json:"disposition"`
+	DisclaimerPolicy            string             `db:"disclaimer_policy" json:"disclaimer_policy"`
+	CreatedAt                   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type B7ExperimentPreregistration struct {
+	ID                               string             `db:"id" json:"id"`
+	ResearchGenerationID             string             `db:"research_generation_id" json:"research_generation_id"`
+	StrategyVersionID                string             `db:"strategy_version_id" json:"strategy_version_id"`
+	RegistrationHash                 interface{}        `db:"registration_hash" json:"registration_hash"`
+	CanonicalRegistration            []byte             `db:"canonical_registration" json:"canonical_registration"`
+	MinimumSamples                   int64              `db:"minimum_samples" json:"minimum_samples"`
+	MinimumTrades                    int64              `db:"minimum_trades" json:"minimum_trades"`
+	MinimumShadowDurationNanos       int64              `db:"minimum_shadow_duration_nanos" json:"minimum_shadow_duration_nanos"`
+	MinimumDeflatedSharpeProbability pgtype.Numeric     `db:"minimum_deflated_sharpe_probability" json:"minimum_deflated_sharpe_probability"`
+	RegisteredAt                     pgtype.Timestamptz `db:"registered_at" json:"registered_at"`
+	FinalTestStart                   pgtype.Timestamptz `db:"final_test_start" json:"final_test_start"`
+	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type B7ValidationSuite struct {
+	ID                        string             `db:"id" json:"id"`
+	PreregistrationID         string             `db:"preregistration_id" json:"preregistration_id"`
+	ResearchGenerationID      string             `db:"research_generation_id" json:"research_generation_id"`
+	StrategyVersionID         string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ManifestHash              interface{}        `db:"manifest_hash" json:"manifest_hash"`
+	CanonicalManifest         []byte             `db:"canonical_manifest" json:"canonical_manifest"`
+	EvidenceHash              interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	FinalTestConsumptionHash  interface{}        `db:"final_test_consumption_hash" json:"final_test_consumption_hash"`
+	PrimaryModes              []string           `db:"primary_modes" json:"primary_modes"`
+	PrimaryDatasetTier        string             `db:"primary_dataset_tier" json:"primary_dataset_tier"`
+	PrimaryConfidenceLabel    string             `db:"primary_confidence_label" json:"primary_confidence_label"`
+	HasIntegrationOnlyPrimary bool               `db:"has_integration_only_primary" json:"has_integration_only_primary"`
+	EligibleMaturities        []string           `db:"eligible_maturities" json:"eligible_maturities"`
+	ConfidenceLabel           string             `db:"confidence_label" json:"confidence_label"`
+	ViabilityDisposition      string             `db:"viability_disposition" json:"viability_disposition"`
+	DisclaimerPolicy          string             `db:"disclaimer_policy" json:"disclaimer_policy"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type B8ReplayFaultSchedule struct {
+	ID               string             `db:"id" json:"id"`
+	ReplayID         string             `db:"replay_id" json:"replay_id"`
+	CommandID        string             `db:"command_id" json:"command_id"`
+	ScheduleRevision int64              `db:"schedule_revision" json:"schedule_revision"`
+	FaultKind        string             `db:"fault_kind" json:"fault_kind"`
+	EventOrdinal     int64              `db:"event_ordinal" json:"event_ordinal"`
+	DelayNanos       int64              `db:"delay_nanos" json:"delay_nanos"`
+	Repeatable       bool               `db:"repeatable" json:"repeatable"`
+	Reason           string             `db:"reason" json:"reason"`
+	ActorUserID      string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID        string             `db:"session_id" json:"session_id"`
+	PayloadHash      interface{}        `db:"payload_hash" json:"payload_hash"`
+	SimulationOnly   bool               `db:"simulation_only" json:"simulation_only"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type B8ReplayFaultScheduleState struct {
+	ReplayID  string             `db:"replay_id" json:"replay_id"`
+	Revision  int64              `db:"revision" json:"revision"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type B8ReportExport struct {
+	ID             string             `db:"id" json:"id"`
+	ReportID       string             `db:"report_id" json:"report_id"`
+	CommandID      string             `db:"command_id" json:"command_id"`
+	Format         string             `db:"format" json:"format"`
+	ContentType    string             `db:"content_type" json:"content_type"`
+	Content        string             `db:"content" json:"content"`
+	PayloadHash    interface{}        `db:"payload_hash" json:"payload_hash"`
+	ActorUserID    string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	SimulationOnly bool               `db:"simulation_only" json:"simulation_only"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type CircuitBreakerEvent struct {
 	ID             string             `db:"id" json:"id"`
 	BreakerKind    string             `db:"breaker_kind" json:"breaker_kind"`
@@ -1028,6 +1115,109 @@ type QuarantinedScope struct {
 	ReleasedAt    pgtype.Timestamptz `db:"released_at" json:"released_at"`
 }
 
+type RebalancingChecklistStep struct {
+	RecommendationID string `db:"recommendation_id" json:"recommendation_id"`
+	StepIndex        int32  `db:"step_index" json:"step_index"`
+	Instruction      string `db:"instruction" json:"instruction"`
+}
+
+type RebalancingFactSet struct {
+	ID                string             `db:"id" json:"id"`
+	ConfigurationID   string             `db:"configuration_id" json:"configuration_id"`
+	ConfigurationHash interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	FactSchemaVersion string             `db:"fact_schema_version" json:"fact_schema_version"`
+	CostModelVersion  string             `db:"cost_model_version" json:"cost_model_version"`
+	CanonicalHash     interface{}        `db:"canonical_hash" json:"canonical_hash"`
+	RecordedAt        pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type RebalancingRecommendation struct {
+	ID                     string             `db:"id" json:"id"`
+	RequestID              string             `db:"request_id" json:"request_id"`
+	ConfigurationID        string             `db:"configuration_id" json:"configuration_id"`
+	ConfigurationHash      interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	FactSetID              string             `db:"fact_set_id" json:"fact_set_id"`
+	FactSetHash            interface{}        `db:"fact_set_hash" json:"fact_set_hash"`
+	SourceB5DecisionID     *string            `db:"source_b5_decision_id" json:"source_b5_decision_id"`
+	Method                 string             `db:"method" json:"method"`
+	SourceExchangeID       string             `db:"source_exchange_id" json:"source_exchange_id"`
+	SourceAssetSymbol      string             `db:"source_asset_symbol" json:"source_asset_symbol"`
+	DestinationExchangeID  string             `db:"destination_exchange_id" json:"destination_exchange_id"`
+	DestinationAssetSymbol string             `db:"destination_asset_symbol" json:"destination_asset_symbol"`
+	Quantity               interface{}        `db:"quantity" json:"quantity"`
+	FeeCost                interface{}        `db:"fee_cost" json:"fee_cost"`
+	SpreadCost             interface{}        `db:"spread_cost" json:"spread_cost"`
+	DepthCost              interface{}        `db:"depth_cost" json:"depth_cost"`
+	DelayCost              interface{}        `db:"delay_cost" json:"delay_cost"`
+	NetworkFeeCost         interface{}        `db:"network_fee_cost" json:"network_fee_cost"`
+	CompatibilityCost      interface{}        `db:"compatibility_cost" json:"compatibility_cost"`
+	VolatilityRiskCost     interface{}        `db:"volatility_risk_cost" json:"volatility_risk_cost"`
+	OperationalRiskCost    interface{}        `db:"operational_risk_cost" json:"operational_risk_cost"`
+	TotalCost              interface{}        `db:"total_cost" json:"total_cost"`
+	MinimumDurationNanos   int64              `db:"minimum_duration_nanos" json:"minimum_duration_nanos"`
+	MaximumDurationNanos   int64              `db:"maximum_duration_nanos" json:"maximum_duration_nanos"`
+	RiskScore              interface{}        `db:"risk_score" json:"risk_score"`
+	Warnings               []string           `db:"warnings" json:"warnings"`
+	AdvisoryOnly           bool               `db:"advisory_only" json:"advisory_only"`
+	CanonicalHash          interface{}        `db:"canonical_hash" json:"canonical_hash"`
+	RecordedAt             pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type RebalancingRecommendationStep struct {
+	RecommendationID string      `db:"recommendation_id" json:"recommendation_id"`
+	StepIndex        int32       `db:"step_index" json:"step_index"`
+	Role             string      `db:"role" json:"role"`
+	FactSetID        string      `db:"fact_set_id" json:"fact_set_id"`
+	FactID           string      `db:"fact_id" json:"fact_id"`
+	FactVersion      int64       `db:"fact_version" json:"fact_version"`
+	ProvenanceHash   interface{} `db:"provenance_hash" json:"provenance_hash"`
+}
+
+type RebalancingRouteFact struct {
+	FactSetID            string             `db:"fact_set_id" json:"fact_set_id"`
+	FactID               string             `db:"fact_id" json:"fact_id"`
+	LogicalKey           string             `db:"logical_key" json:"logical_key"`
+	FactVersion          int64              `db:"fact_version" json:"fact_version"`
+	FactKind             string             `db:"fact_kind" json:"fact_kind"`
+	FromExchangeID       string             `db:"from_exchange_id" json:"from_exchange_id"`
+	FromAssetSymbol      string             `db:"from_asset_symbol" json:"from_asset_symbol"`
+	ToExchangeID         string             `db:"to_exchange_id" json:"to_exchange_id"`
+	ToAssetSymbol        string             `db:"to_asset_symbol" json:"to_asset_symbol"`
+	InstrumentID         *string            `db:"instrument_id" json:"instrument_id"`
+	Network              *string            `db:"network" json:"network"`
+	SourceChain          *string            `db:"source_chain" json:"source_chain"`
+	DestinationChain     *string            `db:"destination_chain" json:"destination_chain"`
+	MinimumQuantity      interface{}        `db:"minimum_quantity" json:"minimum_quantity"`
+	Available            bool               `db:"available" json:"available"`
+	WithdrawalAvailable  bool               `db:"withdrawal_available" json:"withdrawal_available"`
+	DepositAvailable     bool               `db:"deposit_available" json:"deposit_available"`
+	Compatible           bool               `db:"compatible" json:"compatible"`
+	Ambiguous            bool               `db:"ambiguous" json:"ambiguous"`
+	FeeCost              interface{}        `db:"fee_cost" json:"fee_cost"`
+	SpreadCost           interface{}        `db:"spread_cost" json:"spread_cost"`
+	DepthCost            interface{}        `db:"depth_cost" json:"depth_cost"`
+	DelayCost            interface{}        `db:"delay_cost" json:"delay_cost"`
+	NetworkFeeCost       interface{}        `db:"network_fee_cost" json:"network_fee_cost"`
+	CompatibilityCost    interface{}        `db:"compatibility_cost" json:"compatibility_cost"`
+	VolatilityRiskCost   interface{}        `db:"volatility_risk_cost" json:"volatility_risk_cost"`
+	OperationalRiskCost  interface{}        `db:"operational_risk_cost" json:"operational_risk_cost"`
+	MinimumDurationNanos int64              `db:"minimum_duration_nanos" json:"minimum_duration_nanos"`
+	MaximumDurationNanos int64              `db:"maximum_duration_nanos" json:"maximum_duration_nanos"`
+	RiskScore            interface{}        `db:"risk_score" json:"risk_score"`
+	Warnings             []string           `db:"warnings" json:"warnings"`
+	ManualChecklist      []string           `db:"manual_checklist" json:"manual_checklist"`
+	Source               string             `db:"source" json:"source"`
+	Observer             string             `db:"observer" json:"observer"`
+	ObservedAt           pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+	ExpiresAt            pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	Confidence           interface{}        `db:"confidence" json:"confidence"`
+	Approved             bool               `db:"approved" json:"approved"`
+	ApprovalActor        *string            `db:"approval_actor" json:"approval_actor"`
+	ApprovalReference    *string            `db:"approval_reference" json:"approval_reference"`
+	ApprovedAt           pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
+	ProvenanceHash       interface{}        `db:"provenance_hash" json:"provenance_hash"`
+}
+
 type ReconciliationCase struct {
 	ID                string             `db:"id" json:"id"`
 	AccountID         string             `db:"account_id" json:"account_id"`
@@ -1319,6 +1509,45 @@ type StrategyDefinition struct {
 	ID     string `db:"id" json:"id"`
 	Name   string `db:"name" json:"name"`
 	Family string `db:"family" json:"family"`
+}
+
+type StrategyMaturityCommand struct {
+	ID                string             `db:"id" json:"id"`
+	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
+	EvidenceID        string             `db:"evidence_id" json:"evidence_id"`
+	EvidenceHash      interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	ActorUserID       string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID         string             `db:"session_id" json:"session_id"`
+	IdempotencyKey    string             `db:"idempotency_key" json:"idempotency_key"`
+	PayloadHash       interface{}        `db:"payload_hash" json:"payload_hash"`
+	ExpectedRevision  int64              `db:"expected_revision" json:"expected_revision"`
+	PriorMaturity     string             `db:"prior_maturity" json:"prior_maturity"`
+	TargetMaturity    string             `db:"target_maturity" json:"target_maturity"`
+	Outcome           string             `db:"outcome" json:"outcome"`
+	FailureCode       *string            `db:"failure_code" json:"failure_code"`
+	Reason            string             `db:"reason" json:"reason"`
+	CommandTime       pgtype.Timestamptz `db:"command_time" json:"command_time"`
+	RecordedAt        pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+	ResultingRevision int64              `db:"resulting_revision" json:"resulting_revision"`
+}
+
+type StrategyMaturityEvent struct {
+	CommandID         string             `db:"command_id" json:"command_id"`
+	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
+	EvidenceID        string             `db:"evidence_id" json:"evidence_id"`
+	PriorMaturity     string             `db:"prior_maturity" json:"prior_maturity"`
+	TargetMaturity    string             `db:"target_maturity" json:"target_maturity"`
+	Revision          int64              `db:"revision" json:"revision"`
+	EventHash         interface{}        `db:"event_hash" json:"event_hash"`
+	ActorUserID       string             `db:"actor_user_id" json:"actor_user_id"`
+	OccurredAt        pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type StrategyMaturityState struct {
+	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
+	Maturity          string             `db:"maturity" json:"maturity"`
+	Revision          int64              `db:"revision" json:"revision"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type StrategyParameter struct {

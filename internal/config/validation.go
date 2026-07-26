@@ -53,13 +53,17 @@ func Validate(configuration Configuration) error {
 	if err := validateCrossExchange(configuration.SchemaVersion, configuration.CrossExchange); err != nil {
 		return err
 	}
+	if err := validateRebalancing(configuration.SchemaVersion, configuration.Rebalancing); err != nil {
+		return err
+	}
 	return validateSecrets(configuration.Secrets)
 }
 
 func validateIdentity(configuration Configuration) error {
 	if (configuration.SchemaVersion != SchemaVersion && configuration.SchemaVersion != SchemaVersionV1B &&
 		configuration.SchemaVersion != SchemaVersionV1BB3 && configuration.SchemaVersion != SchemaVersionV1BB4 &&
-		configuration.SchemaVersion != SchemaVersionV1BB5) ||
+		configuration.SchemaVersion != SchemaVersionV1BB5 &&
+		configuration.SchemaVersion != SchemaVersionV1BB6) ||
 		configuration.Revision == 0 {
 		return configError("invalid_configuration", "schema")
 	}

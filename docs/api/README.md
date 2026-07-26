@@ -5,7 +5,9 @@ shape. It documents the complete A11 authenticated research workflow: session,
 system/Binance health, virtual portfolio and journal, risk, Trend decisions,
 backtest, replay controls, public-live shadow, incidents, audit, and resumable
 SSE. The A1 version/build endpoints remain available in addition to the exact
-30 required A11 method/path operations.
+30 required A11 method/path operations. B8 adds the generic multi-exchange
+resources and simulation commands documented in the
+[B8 console API](b8-console.md).
 
 Run `make contracts` to generate:
 

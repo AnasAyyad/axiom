@@ -13,6 +13,7 @@ import (
 )
 
 func (handler *handler) registerCommands(mux *http.ServeMux) {
+	handler.registerB8Commands(mux)
 	mux.HandleFunc("POST /api/v1/risk/pause", handler.authorizedMutation(handler.riskCommand("pause"), "commands.write"))
 	mux.HandleFunc("POST /api/v1/risk/resume", handler.authorizedMutation(handler.riskCommand("resume"), "commands.write"))
 	mux.HandleFunc("POST /api/v1/backtests", handler.authorizedMutation(handler.createJob("backtest"), "commands.write"))

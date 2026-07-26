@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"axiom/internal/backtest"
 	"axiom/internal/buildinfo"
@@ -17,6 +18,7 @@ import (
 	"axiom/internal/recorder"
 	"axiom/internal/replay"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -76,8 +78,93 @@ func (materializer *a11Materializer) materialize(ctx context.Context, jobID, kin
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
+	if kind == "replay" {
+		source, err = materializer.b8FaultSource(ctx, jobID, source)
+		if err != nil {
+			return backtest.JobClaim{}, err
+		}
+	}
 	return backtest.JobClaim{ID: jobID, Manifest: manifest, Configuration: configuration, Source: source,
 		TimingMode: timing, Acceleration: acceleration}, nil
+}
+
+type b8MaterializedFault struct {
+	id, actor string
+	fault     replay.Fault
+}
+
+func (materializer *a11Materializer) b8FaultSource(
+	ctx context.Context, jobID string, source replay.Source,
+) (replay.Source, error) {
+	rows, err := materializer.pool.Query(ctx, `SELECT id,fault_kind,
+	  event_ordinal,delay_nanos,repeatable,actor_user_id
+	FROM b8_replay_fault_schedules WHERE replay_id=$1 ORDER BY schedule_revision`, jobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	scheduled := []b8MaterializedFault{}
+	faults := []replay.Fault{}
+	for rows.Next() {
+		var item b8MaterializedFault
+		var ordinal uint64
+		var delay int64
+		if err = rows.Scan(&item.id, &item.fault.Kind, &ordinal, &delay,
+			&item.fault.Repeatable, &item.actor); err != nil {
+			return nil, err
+		}
+		item.fault.Ordinal = ordinal
+		item.fault.Delay = time.Duration(delay)
+		scheduled = append(scheduled, item)
+		faults = append(faults, item.fault)
+	}
+	if err = rows.Err(); err != nil || len(faults) == 0 {
+		return source, err
+	}
+	return replay.NewFaultSource(source, faults, func(event replay.FaultEvent) error {
+		for _, item := range scheduled {
+			if item.fault.Ordinal == event.Ordinal {
+				return materializer.recordB8Fault(jobID, item, event)
+			}
+		}
+		return fmt.Errorf("b8_fault_schedule_missing")
+	})
+}
+
+func (materializer *a11Materializer) recordB8Fault(
+	jobID string, scheduled b8MaterializedFault, event replay.FaultEvent,
+) error {
+	now := time.Now().UTC()
+	payload, err := json.Marshal(map[string]any{
+		"fault_id": scheduled.id, "fault": event.Kind, "ordinal": event.Ordinal,
+		"replay_id": jobID, "simulation_only": true,
+	})
+	if err != nil {
+		return err
+	}
+	hash := a11Hash(payload)
+	auditID, _ := a11Identifier("audit")
+	outboxID, _ := a11Identifier("event")
+	tx, err := materializer.pool.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if _, err = tx.Exec(context.Background(), `INSERT INTO audit_events(
+	  id,event_type,actor,causation_id,correlation_id,event_hash,recorded_at
+	) VALUES($1,'replay.fault.injected',$2,$3,$4,$5,$6)`,
+		auditID, scheduled.actor, scheduled.id, jobID, hash, now); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(context.Background(), `INSERT INTO outbox_events(
+	  id,topic,payload_hash,created_at,stream,schema_version,entity_type,entity_id,
+	  entity_revision,event_time,correlation_id,causation_id,payload
+	) VALUES($1,'replay.fault.injected',$2,$3,'job','axiom.stream.v1','replay',$4,
+	  $5,$3,$4,$6,$7)`, outboxID, hash, now, jobID, event.Ordinal, scheduled.id,
+		string(payload)); err != nil {
+		return err
+	}
+	return tx.Commit(context.Background())
 }
 
 type a11DatasetInput struct {

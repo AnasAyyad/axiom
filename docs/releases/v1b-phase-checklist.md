@@ -49,19 +49,25 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 ## B6 — advisory inventory and rebalancing
 
-- [ ] Confirm B5 is verified.
-- [ ] Implement and qualify every `AX-V1B-B06-*` requirement.
-- [ ] Prove no withdrawal or transfer execution surface exists.
+- [x] Confirm B5 is locally verified; formal predecessor and approver holds remain.
+- [x] Implement and locally qualify every `AX-V1B-B06-*` requirement, including immutable reviewed facts, exact advisory routes, PostgreSQL 18 clean/upgrade, cumulative B4+B5+B6 verification, and the clean image-backed Compose smoke.
+- [x] Prove no withdrawal or transfer execution surface exists in source, API, UI, configuration, or the compiled binary.
 
 ## B7 — validation and promotion evidence
 
-- [ ] Confirm B6 is verified.
-- [ ] Implement and qualify every `AX-V1B-B07-*` requirement.
+- [x] Confirm B6 is verified.
+- [x] Implement every `AX-V1B-B07-*` requirement, including immutable
+  preregistration, independent statistics, Tier-A eligibility, and explicit
+  audited promotion.
+- [x] Complete cumulative B4+B5+B6+B7 and committed-source image qualification.
 
 ## B8 — multi-exchange API and console
 
-- [ ] Confirm B7 is verified.
-- [ ] Implement and qualify every `AX-V1B-B08-*` requirement.
+- [x] Confirm B7 is verified.
+- [x] Implement and locally qualify every `AX-V1B-B08-*` requirement,
+  including cumulative B4-B8 verification, PostgreSQL 18 clean/upgrade,
+  desktop/mobile browser coverage, source/binary no-execution boundaries, and
+  committed-source image evidence.
 
 ## Release decision
 

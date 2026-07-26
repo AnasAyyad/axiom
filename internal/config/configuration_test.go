@@ -156,7 +156,7 @@ func TestV1BConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T)
 
 func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingOlderSchemas(t *testing.T) {
 	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB5 ||
+	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
 		configuration.MeanReversion.StrategyVersion != "mean-reversion.v1b.1" ||
 		configuration.MeanReversion.PrimaryTimeframe != "1h" || configuration.MeanReversion.HigherTimeframe != "4h" ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount {
@@ -175,6 +175,7 @@ func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingO
 	legacyV1B.MeanReversion = MeanReversionConfiguration{}
 	legacyV1B.Triangular = TriangularConfiguration{}
 	legacyV1B.CrossExchange = CrossExchangeConfiguration{}
+	legacyV1B.Rebalancing = RebalancingConfiguration{}
 	if err := Validate(legacyV1B); err != nil {
 		t.Fatalf("original V1B.1 graph reinterpreted: %v", err)
 	}
@@ -190,7 +191,7 @@ func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingO
 
 func TestB4ConfigurationRequiresCompleteTriangularGraphAndPreservesB3Schema(t *testing.T) {
 	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB5 ||
+	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
 		configuration.Triangular.StrategyVersion != "triangular.v1b.1" ||
 		configuration.Triangular.SettlementAsset != "USDT" ||
 		configuration.Triangular.DispatchMode != "sequential" ||
@@ -210,6 +211,7 @@ func TestB4ConfigurationRequiresCompleteTriangularGraphAndPreservesB3Schema(t *t
 	legacyB3.SchemaVersion = SchemaVersionV1BB3
 	legacyB3.Triangular = TriangularConfiguration{}
 	legacyB3.CrossExchange = CrossExchangeConfiguration{}
+	legacyB3.Rebalancing = RebalancingConfiguration{}
 	if err := Validate(legacyB3); err != nil {
 		t.Fatalf("B3 schema reinterpreted: %v", err)
 	}
@@ -254,7 +256,7 @@ func TestB4ConfigurationRejectsMetadataRangeCycleAndMissingGraph(t *testing.T) {
 
 func TestB5ConfigurationRequiresCompleteCrossExchangeGraphAndPreservesB4Schema(t *testing.T) {
 	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB5 ||
+	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
 		configuration.CrossExchange.StrategyVersion != "cross-exchange.v1b.1" ||
 		configuration.CrossExchange.DispatchMode != "concurrent" ||
 		configuration.CrossExchange.RebalancingMode != "advisory_only" ||
@@ -274,12 +276,96 @@ func TestB5ConfigurationRequiresCompleteCrossExchangeGraphAndPreservesB4Schema(t
 	legacyB4 := configuration
 	legacyB4.SchemaVersion = SchemaVersionV1BB4
 	legacyB4.CrossExchange = CrossExchangeConfiguration{}
+	legacyB4.Rebalancing = RebalancingConfiguration{}
 	if err := Validate(legacyB4); err != nil {
 		t.Fatalf("B4 schema reinterpreted: %v", err)
 	}
 	legacyB4.CrossExchange = configuration.CrossExchange
 	if code := configurationErrorCode(Validate(legacyB4)); code != "invalid_configuration" {
 		t.Fatalf("B5 graph accepted under B4 schema: %q", code)
+	}
+}
+
+func TestB6ConfigurationRequiresCompleteAdvisoryGraphAndPreservesB5Schema(t *testing.T) {
+	configuration := DefaultV1BConfiguration()
+	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
+		configuration.Rebalancing.OptimizerVersion != "rebalancing.v1b.1" ||
+		configuration.Rebalancing.FactSchemaVersion != "rebalancing-fact.v1" ||
+		configuration.Rebalancing.CostModelVersion != "rebalancing-cost.v1" ||
+		configuration.Rebalancing.Mode != "advisory_only" ||
+		configuration.Rebalancing.NaturalReversalPolicy != "prefer_eligible_before_transfer" ||
+		len(configuration.Rebalancing.ApprovedAssets) != 3 ||
+		len(configuration.Rebalancing.Exchanges) != 2 ||
+		len(configuration.Rebalancing.Parameters) != RebalancingParameterCount {
+		t.Fatalf("B6 graph = %#v", configuration.Rebalancing)
+	}
+	for _, parameter := range configuration.Rebalancing.Parameters {
+		if parameter.ID == "" || parameter.Description == "" || parameter.AlgorithmVersion == "" ||
+			parameter.EvaluationTimezone != "UTC" || parameter.ChangeBehavior == "" ||
+			parameter.ApprovalActor == "" || parameter.ApprovalReference == "" ||
+			parameter.ApprovedAt == "" || parameter.ChangeReason == "" {
+			t.Fatalf("incomplete B6 parameter = %#v", parameter)
+		}
+	}
+	cloned := cloneConfiguration(configuration)
+	cloned.Rebalancing.ApprovedAssets[0] = "MUTATED"
+	cloned.Rebalancing.Exchanges[0] = "mutated"
+	cloned.Rebalancing.Parameters[0].ModelDependencies[0] = "mutated"
+	if configuration.Rebalancing.ApprovedAssets[0] == "MUTATED" ||
+		configuration.Rebalancing.Exchanges[0] == "mutated" ||
+		configuration.Rebalancing.Parameters[0].ModelDependencies[0] == "mutated" {
+		t.Fatal("configuration clone shares B6 slices")
+	}
+
+	legacyB5 := configuration
+	legacyB5.SchemaVersion = SchemaVersionV1BB5
+	legacyB5.Rebalancing = RebalancingConfiguration{}
+	if err := Validate(legacyB5); err != nil {
+		t.Fatalf("B5 schema reinterpreted: %v", err)
+	}
+	legacyB5.Rebalancing = configuration.Rebalancing
+	if code := configurationErrorCode(Validate(legacyB5)); code != "invalid_configuration" {
+		t.Fatalf("B6 graph accepted under B5 schema: %q", code)
+	}
+}
+
+func TestB6ConfigurationRejectsMissingMetadataRangePolicyAndDuplicate(t *testing.T) {
+	tests := []struct {
+		name  string
+		alter func(*Configuration)
+		code  string
+	}{
+		{name: "missing", alter: func(c *Configuration) {
+			c.Rebalancing = RebalancingConfiguration{}
+		}, code: "invalid_rebalancing_configuration"},
+		{name: "metadata", alter: func(c *Configuration) {
+			c.Rebalancing.Parameters[0].AlgorithmVersion = "other"
+		}, code: "invalid_rebalancing_parameter"},
+		{name: "range", alter: func(c *Configuration) {
+			c.Rebalancing.Parameters[2].Value = "0.79"
+		}, code: "rebalancing_parameter_out_of_range"},
+		{name: "mode", alter: func(c *Configuration) {
+			c.Rebalancing.Mode = "automatic"
+		}, code: "invalid_rebalancing_configuration"},
+		{name: "policy", alter: func(c *Configuration) {
+			c.Rebalancing.NaturalReversalPolicy = "transfer_first"
+		}, code: "invalid_rebalancing_configuration"},
+		{name: "asset order", alter: func(c *Configuration) {
+			c.Rebalancing.ApprovedAssets[0], c.Rebalancing.ApprovedAssets[1] =
+				c.Rebalancing.ApprovedAssets[1], c.Rebalancing.ApprovedAssets[0]
+		}, code: "invalid_rebalancing_configuration"},
+		{name: "duplicate", alter: func(c *Configuration) {
+			c.Rebalancing.Parameters[1].ID = c.Rebalancing.Parameters[0].ID
+		}, code: "invalid_rebalancing_parameter"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			configuration := DefaultV1BConfiguration()
+			test.alter(&configuration)
+			if code := configurationErrorCode(Validate(configuration)); code != test.code {
+				t.Fatalf("error code = %q, want %q", code, test.code)
+			}
+		})
 	}
 }
 
@@ -357,10 +443,11 @@ func TestReviewedV1BRecorderConfigurationDecodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	configuration, err := DecodeJSON(payload)
-	if err != nil || configuration.SchemaVersion != SchemaVersionV1BB5 || len(configuration.Exchanges) != 2 ||
+	if err != nil || configuration.SchemaVersion != SchemaVersionV1BB6 || len(configuration.Exchanges) != 2 ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount ||
 		len(configuration.Triangular.Parameters) != TriangularParameterCount ||
-		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount {
+		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount ||
+		len(configuration.Rebalancing.Parameters) != RebalancingParameterCount {
 		t.Fatalf("reviewed V1B configuration = %#v, %v", configuration.Exchanges, err)
 	}
 }

@@ -10,8 +10,8 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 |---|---|
 | Program baseline | merged B3 `main` at `5d7cb43a90473909bf2091f5af268d5a000633cd` |
 | Baseline gate | B3 merge PR #15 completed before B4 source changes; `b4-b5-end-to-end` was created from the exact merged SHA |
-| Active implementation phase | B5 locally verified for every specified non-soak gate after the committed B4 checkpoint; formal predecessor and approver holds remain |
-| Later implementation phases | B6-B8 planned; no implementation claimed |
+| Active implementation phase | B8 locally verified from the committed B7 qualification checkpoint; formal release holds remain |
+| Later implementation phases | None in V1B |
 | External side effects | Impossible: public data and simulation only |
 
 ## Phase progress
@@ -23,9 +23,9 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 | B3 | Strategy / Research | 000015 | Locally verified; formal predecessor/approver hold | Exact completed-candle mean reversion, shared allocator/risk/execution/accounting, immutable decision/research evidence, and clean image qualification | [B3 local validation](evidence/b3-local-validation.md) |
 | B4 | Strategy / Execution | 000016 | Locally verified; formal predecessor/approver hold | Exact triangular arbitrage, atomic claims, sequential simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B4 local validation](evidence/b4-local-validation.md) |
 | B5 | Strategy / Portfolio | 000017 | Locally verified; formal predecessor/approver hold | Coherent cross-exchange arbitrage, owned inventory, atomic claims, concurrent simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B5 local validation](evidence/b5-local-validation.md) |
-| B6 | Portfolio / Research | 000018 | Planned | Advisory-only rebalancing graph and immutable transfer facts | Pending |
-| B7 | Research / Data Science | 000019 | Planned | Multi-strategy statistical validation and audited promotion evidence | Pending |
-| B8 | API / Frontend / SRE | 000020 | Planned | Generic multi-exchange API, SSE, console, and operational workflows | Pending |
+| B6 | Portfolio / Research | 000018 | Locally verified; formal predecessor/approver hold | Deterministic advisory graph, immutable reviewed facts, exact costs, natural reversal, PostgreSQL clean/upgrade, clean image qualification, and no-execution boundary | [B6 local validation](evidence/b6-local-validation.md) |
+| B7 | Research / Data Science | 000019 | Locally verified; formal predecessor/approver hold | Preregistered locked evidence, independent statistics, Tier-A eligibility, champion/challenger reports, explicit audited promotion, and clean image qualification | [B7 local validation](evidence/b7-local-validation.md) |
+| B8 | API / Frontend / SRE | 000020 | Locally verified; formal predecessor/approver hold | Generic multi-exchange API, SSE, console, deterministic replay faults, isolated inventory, advisory rebalancing, research exports, and operational workflows | [B8 local validation](evidence/b8-local-validation.md) |
 
 ## Locked sequencing
 
@@ -33,10 +33,13 @@ Each phase is implemented from the latest completed predecessor. B4 started
 from merged B3 `main` at
 `5d7cb43a90473909bf2091f5af268d5a000633cd` and is locally verified. The owner
 authorized B5 to continue from the committed B4 checkpoint on the same branch.
-B5 is now locally verified from that checkpoint; this changes only the
-intermediate merge boundary, not the B4 gate. A phase may be `Locally verified`
-after every non-soak gate passes; accepted predecessor, soak where specified,
-and approver evidence changes it to formally accepted.
+B5, B6, B7, and B8 are locally verified from their sequential committed
+checkpoints on the same owner-authorized branch. B8 passed its final cumulative
+and committed-image gates from source
+`30c3ade6ff1023a91e00a038a26379b47175dafa`. This changes only the
+intermediate merge boundary, not the individual B4-B8 gates. A phase may be
+`Locally verified` after every non-soak gate passes; accepted predecessor, soak
+where specified, and approver evidence changes it to formally accepted.
 
 ## Program references
 

@@ -48,6 +48,185 @@
   margin: 0 0 1rem;
   font: 650 1.1rem var(--font-display);
 }
+.card h3 {
+  margin: 0 0 0.75rem;
+  font: 650 0.95rem var(--font-display);
+}
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+.cardHeading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.cardHeading h2 {
+  margin-top: 0.3rem;
+}
+.quality {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+.quality[data-freshness="live"],
+.quality[data-freshness="fresh"] {
+  border-color: var(--color-good);
+  color: var(--color-good);
+}
+.quality[data-freshness="stale"],
+.quality[data-freshness="expired"] {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+.tabs {
+  display: flex;
+  width: fit-content;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.tabs button {
+  padding: 0.55rem 0.8rem;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] {
+  background: var(--color-surface-raised);
+  color: var(--color-accent-strong);
+}
+.operationsTable {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.operationsTable table {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: collapse;
+}
+.operationsTable caption {
+  padding: 1rem;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+.operationsTable th,
+.operationsTable td {
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+.operationsTable th {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.rowButton {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-strong);
+  text-align: left;
+  cursor: pointer;
+}
+.rowButton small {
+  max-width: 14rem;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+}
+.expandedCell {
+  background: var(--color-bg);
+}
+.evidenceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+.timeline,
+.checklist {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.timeline li {
+  padding-left: 0.25rem;
+}
+.timeline strong,
+.timeline span {
+  display: block;
+}
+.timeline span {
+  margin-top: 0.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+.filterBar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.filterBar label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  text-transform: capitalize;
+}
+.filterBar input,
+.filterBar button {
+  min-height: 2.5rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.filterBar button {
+  align-self: end;
+  cursor: pointer;
+}
+.notice {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  color: var(--color-text);
+  font-size: 0.82rem;
+}
+.disclaimer {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+}
+.hash {
+  max-width: 12rem;
+  overflow: hidden;
+  font-family: ui-monospace, monospace;
+  text-overflow: ellipsis;
+}
 .facts {
   display: grid;
   gap: 0;
@@ -151,6 +330,9 @@
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .filterBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 660px) {
   .metrics,
@@ -161,5 +343,9 @@
   .header {
     align-items: start;
     flex-direction: column;
+  }
+  .evidenceGrid,
+  .filterBar {
+    grid-template-columns: 1fr;
   }
 }

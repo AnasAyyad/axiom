@@ -9,6 +9,7 @@ const (
 	SchemaVersionV1BB3 = "axiom.config.v1b.2"
 	SchemaVersionV1BB4 = "axiom.config.v1b.3"
 	SchemaVersionV1BB5 = "axiom.config.v1b.4"
+	SchemaVersionV1BB6 = "axiom.config.v1b.5"
 )
 
 // Environment identifies an allowed V1A deployment class.
@@ -40,6 +41,7 @@ type Configuration struct {
 	MeanReversion MeanReversionConfiguration `json:"mean_reversion,omitempty"`
 	Triangular    TriangularConfiguration    `json:"triangular,omitempty"`
 	CrossExchange CrossExchangeConfiguration `json:"cross_exchange,omitempty"`
+	Rebalancing   RebalancingConfiguration   `json:"rebalancing,omitempty"`
 	Capabilities  []CapabilityDisposition    `json:"capabilities"`
 	Secrets       []SecretReference          `json:"secrets"`
 }
@@ -149,6 +151,20 @@ type CrossExchangeConfiguration struct {
 	ClaimModel      string              `json:"claim_model"`
 	RebalancingMode string              `json:"rebalancing_mode"`
 	Parameters      []StrategyParameter `json:"parameters"`
+}
+
+// RebalancingConfiguration identifies the immutable B6 advisory optimizer and
+// reviewed fact contract. Earlier schemas keep this graph absent so their
+// interpretation and canonical hashes do not change.
+type RebalancingConfiguration struct {
+	OptimizerVersion      string              `json:"optimizer_version"`
+	FactSchemaVersion     string              `json:"fact_schema_version"`
+	CostModelVersion      string              `json:"cost_model_version"`
+	Mode                  string              `json:"mode"`
+	NaturalReversalPolicy string              `json:"natural_reversal_policy"`
+	ApprovedAssets        []string            `json:"approved_assets"`
+	Exchanges             []string            `json:"exchanges"`
+	Parameters            []StrategyParameter `json:"parameters"`
 }
 
 // StrategyParameter is the complete auditable contract for one numeric rule.

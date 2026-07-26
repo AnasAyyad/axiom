@@ -133,3 +133,61 @@ it("rejects malformed registered research evidence", async () => {
     }),
   );
 });
+
+it("accepts isolated B8 inventory and rejects a combined balance", async () => {
+  const response = {
+    items: [
+      {
+        id: "decision-1:buy_venue",
+        exchange: "bybit",
+        asset: "BTC",
+        strategy_version: "cross.v1",
+        experiment_id: "run-1",
+        portfolio_id: "portfolio-1",
+        before: "1",
+        after: "0.9",
+        available: "0.9",
+        reserved: "0",
+        status: "normal",
+        virtual: true,
+        quality: {
+          tier: "local_tier_b",
+          confidence: "high",
+          freshness: "fresh",
+          source: "cross_exchange_inventory_snapshots",
+          observed_at: "2026-07-24T12:00:00Z",
+          provenance_complete: true,
+        },
+        updated_at: "2026-07-24T12:00:00Z",
+        revision: "1",
+      },
+    ],
+    revision: "4",
+    snapshot_revision: "4",
+    has_more: false,
+    combined_balance: false,
+    isolation_notice:
+      "Inventory remains isolated by every ownership dimension.",
+  };
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify(response), { status: 200 }),
+    )
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ ...response, combined_balance: true }), {
+        status: 200,
+      }),
+    );
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(
+    getAPI<"InventoryPage">("/api/v1/inventory?page_size=50"),
+  ).resolves.toEqual(response);
+  await expect(
+    getAPI<"InventoryPage">("/api/v1/inventory?page_size=50"),
+  ).rejects.toEqual(
+    expect.objectContaining<Partial<APIError>>({
+      code: "invalid_server_response",
+    }),
+  );
+});

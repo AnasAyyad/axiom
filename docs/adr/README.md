@@ -21,6 +21,10 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0013](0013-a11-authentication-and-session-policy.md) | Accepted | A11 uses file-bootstrapped Argon2id credentials and hashed opaque sessions. |
 | [0014](0014-v1b-public-multi-exchange-recording.md) | Accepted | B1 uses compiled credential-free Bybit routes, common recording facts, and separate immutable per-exchange datasets. |
 | [0015](0015-b4-exact-triangular-claims.md) | Accepted | B4 exhaustively evaluates exact cycles and fences every required resource in one restart-safe atomic claim group. |
+| [0016](0016-b5-closed-cycle-concurrent-arbitrage.md) | Accepted | B5 binds concurrent two-venue simulation to coherent views and complete closed-cycle inventory economics. |
+| [0017](0017-b6-reviewed-advisory-rebalancing.md) | Accepted | B6 deterministically ranks immutable reviewed route facts while retaining a compiled advisory-only boundary. |
+| [0018](0018-b7-preregistered-research-promotion.md) | Accepted | B7 separates preregistered statistical evidence from explicit authenticated research-maturity promotion. |
+| [0019](0019-b8-generic-multi-exchange-console.md) | Accepted | B8 exposes generic multi-exchange evidence and deterministic simulation commands without external execution authority. |
 
 ## Naming and lifecycle
 

@@ -272,6 +272,8 @@ func a11StreamForKind(kind string) string {
 		return "risk"
 	case kind == "create_shadow" || kind == "stop_shadow":
 		return "shadow"
+	case kind == "report.export":
+		return "research"
 	default:
 		return "job"
 	}

@@ -190,6 +190,48 @@ func TestB5MigrationDefinesCoherentConcurrentClosedCycleEvidence(t *testing.T) {
 	}
 }
 
+func TestB6MigrationDefinesImmutableReviewedAdvisoryEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b6 Migration
+	for _, migration := range migrations {
+		if migration.Version == "000018" {
+			b6 = migration
+			break
+		}
+	}
+	lower := strings.ToLower(b6.SQL)
+	for _, required := range []string{
+		"create table rebalancing_fact_sets",
+		"create table rebalancing_route_facts",
+		"fact_schema_version",
+		"cost_model_version",
+		"provenance_hash",
+		"confidence financial_amount",
+		"create table rebalancing_recommendations",
+		"natural_reverse_arbitrage",
+		"reviewed_graph_route",
+		"advisory_only boolean not null check (advisory_only)",
+		"create table rebalancing_recommendation_steps",
+		"create table rebalancing_checklist_steps",
+		"rebalancing_selected_fact_ineligible",
+		"rebalancing_recommendation_evidence_mismatch",
+		"rebalancing_natural_reverse_mismatch",
+		"rebalancing_graph_route_mismatch",
+		"security definer set search_path = pg_catalog, public",
+		"rebalancing_recommendations_immutable",
+	} {
+		if !strings.Contains(lower, required) {
+			t.Fatalf("B6 migration missing %q", required)
+		}
+	}
+	if b6.Version != "000018" {
+		t.Fatalf("B6 migration version = %s", b6.Version)
+	}
+}
+
 func TestMigrationVersionRejectsNonCanonicalNames(t *testing.T) {
 	for _, name := range []string{"1_bad.sql", "000001.sql", "00000x_bad.sql", "000001_.sql"} {
 		if _, ok := migrationVersion(name); ok {
@@ -198,6 +240,35 @@ func TestMigrationVersionRejectsNonCanonicalNames(t *testing.T) {
 	}
 	if version, ok := migrationVersion("000001_core.sql"); !ok || version != "000001" {
 		t.Fatalf("canonical version = %q, %t", version, ok)
+	}
+}
+
+func TestB8MigrationDefinesImmutableSimulationOnlyConsoleEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b8 Migration
+	for _, migration := range migrations {
+		if migration.Version == "000020" {
+			b8 = migration
+			break
+		}
+	}
+	lower := strings.ToLower(b8.SQL)
+	for _, required := range []string{
+		"create table b8_replay_fault_schedule_states",
+		"create table b8_replay_fault_schedules",
+		"create table b8_report_exports",
+		"simulation_only boolean not null check (simulation_only)",
+		"b8_fault_schedules_reference_guard",
+		"b8_fault_schedules_immutable",
+		"b8_report_exports_reference_guard",
+		"b8_report_exports_immutable",
+	} {
+		if !strings.Contains(lower, required) {
+			t.Fatalf("B8 migration missing %q", required)
+		}
 	}
 }
 

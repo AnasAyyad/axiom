@@ -132,6 +132,18 @@ func cloneConfiguration(configuration Configuration) Configuration {
 			[]string(nil), configuration.CrossExchange.Parameters[index].ModelDependencies...,
 		)
 	}
+	cloned.Rebalancing.ApprovedAssets = append(
+		[]string(nil), configuration.Rebalancing.ApprovedAssets...,
+	)
+	cloned.Rebalancing.Exchanges = append([]string(nil), configuration.Rebalancing.Exchanges...)
+	cloned.Rebalancing.Parameters = append(
+		[]StrategyParameter(nil), configuration.Rebalancing.Parameters...,
+	)
+	for index := range cloned.Rebalancing.Parameters {
+		cloned.Rebalancing.Parameters[index].ModelDependencies = append(
+			[]string(nil), configuration.Rebalancing.Parameters[index].ModelDependencies...,
+		)
+	}
 	cloned.Capabilities = append([]CapabilityDisposition(nil), configuration.Capabilities...)
 	cloned.Secrets = append([]SecretReference(nil), configuration.Secrets...)
 	return cloned

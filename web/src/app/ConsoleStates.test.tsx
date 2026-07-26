@@ -80,10 +80,8 @@ describe("A11 console states", () => {
     expect(screen.getByText("SHADOW · VIRTUAL")).toBeInTheDocument();
     expect(screen.getByText("production_public · shadow")).toBeInTheDocument();
     await screen.findByText("PAUSED");
-    await waitFor(async () => {
-      const result = await axe.run(view.container);
-      expect(result.violations).toHaveLength(0);
-    });
+    const result = await axe.run(view.container);
+    expect(result.violations).toHaveLength(0);
   });
 
   it("recovers an expired hidden EventSource cursor from the REST snapshot revision", async () => {
