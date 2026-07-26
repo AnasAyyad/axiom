@@ -45,9 +45,9 @@ func (repository *B7Repository) RecordPreregistration(
 		MinimumTrades:                    int64(manifest.MinimumTrades),
 		MinimumShadowDurationNanos:       int64(manifest.MinimumShadowDuration),
 		MinimumDeflatedSharpeProbability: minimumProbability,
-		RegisteredAt:                     pgTimestamp(manifest.RegisteredAt),
-		FinalTestStart:                   pgTimestamp(manifest.Split.FinalTest.Start),
-		CreatedAt:                        pgTimestamp(manifest.RegisteredAt),
+		RegisteredAt:                     b7Timestamp(manifest.RegisteredAt),
+		FinalTestStart:                   b7Timestamp(manifest.Split.FinalTest.Start),
+		CreatedAt:                        b7Timestamp(manifest.RegisteredAt),
 	}
 	if _, err = generated.New(repository.pool).InsertB7ExperimentPreregistration(ctx, write); err != nil {
 		return fmt.Errorf("b7_preregistration_failed: %w", err)
@@ -109,7 +109,7 @@ func (repository *B7Repository) RecordChampionChallenger(
 		CanonicalManifest:      canonical,
 		Disposition:            report.Disposition,
 		DisclaimerPolicy:       "no_production_profitability_claim",
-		CreatedAt:              pgTimestamp(report.CreatedAt),
+		CreatedAt:              b7Timestamp(report.CreatedAt),
 	}
 	if _, err = generated.New(repository.pool).InsertB7ChampionChallengerReport(ctx, write); err != nil {
 		return fmt.Errorf("b7_champion_challenger_failed: %w", err)
@@ -173,7 +173,7 @@ func b7ValidationSuiteWrite(
 		EligibleMaturities:        maturities, ConfidenceLabel: manifest.ConfidenceLabel,
 		ViabilityDisposition: manifest.ViabilityDisposition,
 		DisclaimerPolicy:     "no_production_profitability_claim",
-		CreatedAt:            pgTimestamp(manifest.CreatedAt),
+		CreatedAt:            b7Timestamp(manifest.CreatedAt),
 	}
 }
 
@@ -215,4 +215,8 @@ func b7Numeric(value string) (pgtype.Numeric, error) {
 		return pgtype.Numeric{}, err
 	}
 	return result, nil
+}
+
+func b7Timestamp(value time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: value.UTC(), Valid: true}
 }
