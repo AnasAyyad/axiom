@@ -3,6 +3,7 @@ package binance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -38,9 +39,24 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	if current.Bids()[0].Quantity.String() == "999" || !current.Eligible(source.MonotonicOffset(), time.Second) {
 		t.Fatal("collector exposed mutable or stale view")
 	}
+	if health := collector.HealthSnapshot(); !health.BookEligible || !health.ClockEligible || !health.Eligible {
+		t.Fatalf("combined health not ready: %#v", health)
+	}
+	collector.markClockDegraded(TimeHealth{}, time.Now().UTC())
+	if health := collector.HealthSnapshot(); !health.BookEligible || health.ClockEligible || health.Eligible ||
+		health.DegradedSince.IsZero() {
+		t.Fatalf("clock degradation did not fail combined readiness: %#v", health)
+	}
+	collector.setClockHealth(TimeHealth{ObservedAt: time.Now().UTC(), Eligible: true}, false)
+	beforeCancel, _ := collector.Views().Book(collectorExchange, instrument)
 	cancel()
 	if err = <-done; err != nil {
 		t.Fatal(err)
+	}
+	afterCancel, _ := collector.Views().Book(collectorExchange, instrument)
+	if afterCancel.Health() != beforeCancel.Health() || afterCancel.Version() != beforeCancel.Version() {
+		t.Fatalf("normal cancellation mutated final book: before=%s/%d after=%s/%d",
+			beforeCancel.Health(), beforeCancel.Version(), afterCancel.Health(), afterCancel.Version())
 	}
 	stats := collector.Stats()
 	if stats.Messages != 1 || stats.DepthUpdates != 1 || stats.Rebuilds != 1 ||
@@ -101,6 +117,30 @@ func TestInstrumentCollectorReconnectsAfterGap(t *testing.T) {
 	cancel()
 	if err = <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.T) {
+	instrument := approvedBTC(t)
+	clock := &domain.SystemClock{}
+	config := testCollectorConfig(instrument)
+	config.LifecycleEvidence = exchangecontracts.LifecycleEvidenceSinkFunc(
+		func(exchangecontracts.CollectorLifecycleEvidence) error {
+			return errors.New("bounded sink failure")
+		})
+	collector, err := NewInstrumentCollector(config,
+		newCollectorSource(t, instrument, clock, 101), &collectorRecorder{}, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err = collector.Run(ctx); err == nil {
+		t.Fatal("lifecycle journal failure did not terminate collector")
+	}
+	view, _ := collector.Views().Book(collectorExchange, instrument)
+	if view.Health() == marketdata.HealthHealthy {
+		t.Fatalf("collector remained healthy after lifecycle journal failure: %s", view.Health())
 	}
 }
 

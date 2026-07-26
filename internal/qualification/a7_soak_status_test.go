@@ -38,6 +38,7 @@ type soakStatus struct {
 	SchemaVersion        string                                    `json:"schema_version"`
 	SourceCommit         string                                    `json:"source_commit"`
 	Formal               bool                                      `json:"formal"`
+	TerminalCause        string                                    `json:"terminal_cause,omitempty"`
 	StartedAt            time.Time                                 `json:"started_at"`
 	ObservedAt           time.Time                                 `json:"observed_at"`
 	Elapsed              time.Duration                             `json:"elapsed_nanos"`
@@ -100,6 +101,24 @@ func monitorSoakFailClosed(
 	writer soakStatusWriter,
 	journal *qualificationJournal,
 ) string {
+	return monitorSoakFailClosedUntil(ctx, nil, root, client, streamRecorder, collectors,
+		collectorResults, flushEvery, sampleEvery, latestManifest, evidence, writer, journal)
+}
+
+func monitorSoakFailClosedUntil(
+	ctx context.Context,
+	officialEnd <-chan time.Time,
+	root string,
+	client *binance.PublicClient,
+	streamRecorder soakFlusher,
+	collectors map[string]*binance.InstrumentCollector,
+	collectorResults <-chan collectorResult,
+	flushEvery, sampleEvery time.Duration,
+	latestManifest *recorder.DatasetManifest,
+	evidence *soakEvidence,
+	writer soakStatusWriter,
+	journal *qualificationJournal,
+) string {
 	if failure := initializeSoakMonitor(root, client, streamRecorder, collectors,
 		latestManifest, evidence, writer, journal); failure != "" {
 		return failure
@@ -112,6 +131,8 @@ func monitorSoakFailClosed(
 		select {
 		case <-ctx.Done():
 			return ""
+		case ended := <-officialEnd:
+			return freezeSoakFinalHealth(ended, client, collectors, evidence, journal)
 		case result := <-collectorResults:
 			return handleSoakCollectorTerminal(ctx, result, root, client, streamRecorder,
 				collectors, latestManifest, evidence, writer, journal)
@@ -132,6 +153,27 @@ func monitorSoakFailClosed(
 			}
 		}
 	}
+}
+
+func freezeSoakFinalHealth(
+	ended time.Time,
+	client *binance.PublicClient,
+	collectors map[string]*binance.InstrumentCollector,
+	evidence *soakEvidence,
+	journal *qualificationJournal,
+) string {
+	evidence.EndedAt = ended.UTC()
+	for symbol, collector := range collectors {
+		evidence.FinalBooks[symbol] = currentBookSample(symbol, client, collector)
+	}
+	if !appendQualificationEvent(journal, evidence, qualificationEvent{
+		RecordedAt: evidence.EndedAt,
+		Phase:      "official_end_health_frozen",
+		Outcome:    "passed",
+	}) {
+		return "event_journal_failed"
+	}
+	return ""
 }
 
 func initializeSoakMonitor(root string, client *binance.PublicClient, streamRecorder soakFlusher,
@@ -300,8 +342,9 @@ func captureSoakStatus(
 		elapsed = 0
 	}
 	journalSequence, journalHash := journal.Snapshot()
-	return soakStatus{SchemaVersion: "axiom.a7-soak-status.v3", SourceCommit: evidence.SourceCommit,
+	return soakStatus{SchemaVersion: "axiom.a7-soak-status.v4", SourceCommit: evidence.SourceCommit,
 		Formal: evidence.Formal, StartedAt: evidence.StartedAt, ObservedAt: observed, Elapsed: elapsed,
+		TerminalCause:    evidence.TerminalCause,
 		RequiredDuration: evidence.RequiredDuration, ProvisionalQualified: len(failures) == 0,
 		ProvisionalFailures: failures, ProvisionalSLOs: slos, Collectors: statsBySymbol,
 		Memory: memory, Storage: storage, Books: books, Recorder: streamRecorder.PendingUsage(),
@@ -373,8 +416,10 @@ func currentBookSample(
 	if err != nil {
 		return bookSample{}
 	}
+	health := collector.HealthSnapshot()
 	return bookSample{Health: string(view.Health()), Generation: view.Generation(), Sequence: view.Sequence(),
-		Version: view.Version(), Eligible: view.Eligible(client.MonotonicOffset(), 5*time.Second)}
+		Version: view.Version(), BookEligible: health.BookEligible, ClockEligible: health.ClockEligible,
+		Eligible: health.Eligible, DegradedSince: health.DegradedSince}
 }
 
 func writeSoakStatus(root string, status soakStatus) error {

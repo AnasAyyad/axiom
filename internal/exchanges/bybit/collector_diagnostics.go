@@ -46,32 +46,42 @@ func (reason reconnectReason) String() string {
 
 // ReconnectDiagnostic is a bounded, sanitized Bybit lifecycle fact.
 type ReconnectDiagnostic struct {
-	ObservedAt       time.Time                   `json:"observed_at"`
-	Instrument       string                      `json:"instrument"`
-	Cycle            uint64                      `json:"cycle"`
-	Attempt          uint32                      `json:"attempt"`
-	Generation       uint64                      `json:"generation,omitempty"`
-	Phase            string                      `json:"phase"`
-	Stage            string                      `json:"stage,omitempty"`
-	Reason           string                      `json:"reason,omitempty"`
-	Cause            string                      `json:"cause,omitempty"`
-	Attribution      string                      `json:"attribution"`
-	FailureKind      exchangecontracts.ErrorKind `json:"failure_kind,omitempty"`
-	Operation        exchangecontracts.Operation `json:"operation,omitempty"`
-	RetryAfter       time.Duration               `json:"retry_after_nanos,omitempty"`
-	HTTPStatus       int                         `json:"http_status,omitempty"`
-	RequestDuration  time.Duration               `json:"request_duration_nanos,omitempty"`
-	HeaderDuration   time.Duration               `json:"response_header_duration_nanos,omitempty"`
-	BodyDuration     time.Duration               `json:"response_body_duration_nanos,omitempty"`
-	ResponseBytes    uint64                      `json:"response_bytes,omitempty"`
-	ContentLength    uint64                      `json:"content_length_bytes,omitempty"`
-	ContentKnown     bool                        `json:"content_length_known,omitempty"`
-	BodyLimit        uint64                      `json:"body_limit_bytes,omitempty"`
-	ClockUncertainty time.Duration               `json:"clock_uncertainty_nanos,omitempty"`
-	AttemptDuration  time.Duration               `json:"attempt_duration_nanos,omitempty"`
-	Backoff          time.Duration               `json:"backoff_nanos,omitempty"`
-	ResyncElapsed    time.Duration               `json:"resync_elapsed_nanos,omitempty"`
-	ReachedHealthy   bool                        `json:"reached_healthy"`
+	ObservedAt        time.Time                        `json:"observed_at"`
+	Instrument        string                           `json:"instrument"`
+	Cycle             uint64                           `json:"cycle"`
+	Attempt           uint32                           `json:"attempt"`
+	Generation        uint64                           `json:"generation,omitempty"`
+	Phase             string                           `json:"phase"`
+	Stage             string                           `json:"stage,omitempty"`
+	Reason            string                           `json:"reason,omitempty"`
+	Cause             string                           `json:"cause,omitempty"`
+	Attribution       string                           `json:"attribution"`
+	Action            exchangecontracts.RecoveryAction `json:"recovery_action,omitempty"`
+	FailureKind       exchangecontracts.ErrorKind      `json:"failure_kind,omitempty"`
+	Operation         exchangecontracts.Operation      `json:"operation,omitempty"`
+	RetryAfter        time.Duration                    `json:"retry_after_nanos,omitempty"`
+	HTTPStatus        int                              `json:"http_status,omitempty"`
+	RequestDuration   time.Duration                    `json:"request_duration_nanos,omitempty"`
+	HeaderDuration    time.Duration                    `json:"response_header_duration_nanos,omitempty"`
+	BodyDuration      time.Duration                    `json:"response_body_duration_nanos,omitempty"`
+	ResponseBytes     uint64                           `json:"response_bytes,omitempty"`
+	ContentLength     uint64                           `json:"content_length_bytes,omitempty"`
+	ContentKnown      bool                             `json:"content_length_known,omitempty"`
+	BodyLimit         uint64                           `json:"body_limit_bytes,omitempty"`
+	DNSDuration       time.Duration                    `json:"dns_duration_nanos,omitempty"`
+	TCPDuration       time.Duration                    `json:"tcp_duration_nanos,omitempty"`
+	TLSDuration       time.Duration                    `json:"tls_duration_nanos,omitempty"`
+	UpgradeDuration   time.Duration                    `json:"upgrade_duration_nanos,omitempty"`
+	WriteDuration     time.Duration                    `json:"write_duration_nanos,omitempty"`
+	CandidateCount    uint32                           `json:"candidate_count,omitempty"`
+	TransportAttempts uint32                           `json:"transport_attempt_count,omitempty"`
+	AddressFamily     string                           `json:"address_family,omitempty"`
+	SetupStage        string                           `json:"setup_stage,omitempty"`
+	ClockUncertainty  time.Duration                    `json:"clock_uncertainty_nanos,omitempty"`
+	AttemptDuration   time.Duration                    `json:"attempt_duration_nanos,omitempty"`
+	Backoff           time.Duration                    `json:"backoff_nanos,omitempty"`
+	ResyncElapsed     time.Duration                    `json:"resync_elapsed_nanos,omitempty"`
+	ReachedHealthy    bool                             `json:"reached_healthy"`
 }
 
 type generationOutcome struct {
@@ -118,8 +128,17 @@ func (collector *InstrumentCollector) outcomeDiagnostic(
 		HeaderDuration: metadata.ResponseHeaderDuration, BodyDuration: metadata.ResponseBodyDuration,
 		ResponseBytes: metadata.ResponseBytes, ContentLength: metadata.ContentLengthBytes,
 		ContentKnown: metadata.ContentLengthKnown, BodyLimit: metadata.BodyLimitBytes,
+		DNSDuration: metadata.DNSDuration, TCPDuration: metadata.TCPDuration,
+		TLSDuration: metadata.TLSDuration, UpgradeDuration: metadata.UpgradeDuration,
+		WriteDuration: metadata.WriteDuration, CandidateCount: metadata.CandidateCount,
+		TransportAttempts: metadata.AttemptCount, AddressFamily: metadata.AddressFamily,
+		SetupStage:       metadata.SetupStage,
 		ClockUncertainty: outcome.clockUncertainty, AttemptDuration: attemptDuration,
 		Backoff: backoff, ResyncElapsed: resyncElapsed, ReachedHealthy: outcome.reachedHealthy}
+	diagnostic.Action = exchangecontracts.RecoveryReconnect
+	if outcome.reason == reconnectScheduledRenewal {
+		diagnostic.Action = exchangecontracts.RecoveryScheduledRenewal
+	}
 	diagnostic.Attribution = reconnectAttribution(diagnostic)
 	return diagnostic
 }
@@ -168,7 +187,7 @@ func reconnectAttribution(diagnostic ReconnectDiagnostic) string {
 	if diagnostic.Cause == "recorder" {
 		return "internal"
 	}
-	return "unclassified"
+	return "external_unclassified"
 }
 
 func (collector *InstrumentCollector) recordOperationDiagnostic(
@@ -180,7 +199,8 @@ func (collector *InstrumentCollector) recordOperationDiagnostic(
 	diagnostic := collector.outcomeDiagnostic(generationOutcome{reachedHealthy: stage == "healthy",
 		generation: generation, stage: stage, cause: "success",
 		clockUncertainty: clockUncertainty}, "operation_succeeded", duration, 0, 0)
-	diagnostic.Attribution = "observed"
+	diagnostic.Attribution = "recovered"
+	diagnostic.Action = ""
 	collector.recordDiagnostic(diagnostic)
 }
 
@@ -190,6 +210,7 @@ func (collector *InstrumentCollector) recordDiagnostic(diagnostic ReconnectDiagn
 		"instrument", diagnostic.Instrument, "cycle", diagnostic.Cycle, "attempt", diagnostic.Attempt,
 		"generation", diagnostic.Generation, "phase", diagnostic.Phase, "stage", diagnostic.Stage,
 		"reason", diagnostic.Reason, "cause", diagnostic.Cause, "attribution", diagnostic.Attribution,
+		"recovery_action", diagnostic.Action,
 		"failure_kind", diagnostic.FailureKind, "operation", diagnostic.Operation,
 		"retry_after_nanos", diagnostic.RetryAfter.Nanoseconds(), "http_status", diagnostic.HTTPStatus,
 		"request_duration_nanos", diagnostic.RequestDuration.Nanoseconds(),
@@ -197,9 +218,18 @@ func (collector *InstrumentCollector) recordDiagnostic(diagnostic ReconnectDiagn
 		"response_body_duration_nanos", diagnostic.BodyDuration.Nanoseconds(),
 		"response_bytes", diagnostic.ResponseBytes, "content_length_bytes", diagnostic.ContentLength,
 		"content_length_known", diagnostic.ContentKnown, "body_limit_bytes", diagnostic.BodyLimit,
+		"dns_duration_nanos", diagnostic.DNSDuration.Nanoseconds(),
+		"tcp_duration_nanos", diagnostic.TCPDuration.Nanoseconds(),
+		"tls_duration_nanos", diagnostic.TLSDuration.Nanoseconds(),
+		"upgrade_duration_nanos", diagnostic.UpgradeDuration.Nanoseconds(),
+		"write_duration_nanos", diagnostic.WriteDuration.Nanoseconds(),
+		"candidate_count", diagnostic.CandidateCount,
+		"transport_attempt_count", diagnostic.TransportAttempts,
+		"address_family", diagnostic.AddressFamily, "setup_stage", diagnostic.SetupStage,
 		"clock_uncertainty_nanos", diagnostic.ClockUncertainty.Nanoseconds(),
 		"attempt_duration_nanos", diagnostic.AttemptDuration.Nanoseconds(),
 		"backoff_nanos", diagnostic.Backoff.Nanoseconds(),
 		"resync_elapsed_nanos", diagnostic.ResyncElapsed.Nanoseconds(),
 		"reached_healthy", diagnostic.ReachedHealthy)
+	collector.emitLifecycleEvidence(diagnostic)
 }

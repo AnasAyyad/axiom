@@ -4,6 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
 var bybitLatencyBounds = []time.Duration{
@@ -103,28 +105,30 @@ type ReconnectReasonCounts struct {
 
 // CollectorStats is one bounded qualification snapshot.
 type CollectorStats struct {
-	Connections          uint64                `json:"connections"`
-	Reconnects           uint64                `json:"reconnects"`
-	Snapshots            uint64                `json:"snapshots"`
-	Resets               uint64                `json:"resets"`
-	DepthUpdates         uint64                `json:"depth_updates"`
-	Trades               uint64                `json:"trades"`
-	Tickers              uint64                `json:"tickers"`
-	Candles              uint64                `json:"candles"`
-	Heartbeats           uint64                `json:"heartbeats"`
-	DecoderErrors        uint64                `json:"decoder_errors"`
-	SequenceGaps         uint64                `json:"sequence_gaps"`
-	QueueOverflows       uint64                `json:"queue_overflows"`
-	QueueHighWater       uint64                `json:"queue_high_water"`
-	HotPathP99           time.Duration         `json:"hot_path_p99"`
-	ReconnectReasons     ReconnectReasonCounts `json:"reconnect_reasons"`
-	ResyncSamples        uint64                `json:"resync_samples"`
-	ResyncOver15Seconds  uint64                `json:"resync_over_15_seconds"`
-	ResyncP95            time.Duration         `json:"resync_p95"`
-	ResyncMax            time.Duration         `json:"resync_max"`
-	ReconnectDiagnostics []ReconnectDiagnostic `json:"reconnect_diagnostics,omitempty"`
-	DiagnosticsDropped   uint64                `json:"diagnostics_dropped"`
-	FailureCauses        map[string]uint64     `json:"failure_causes"`
+	Connections          uint64                                     `json:"connections"`
+	Reconnects           uint64                                     `json:"reconnects"`
+	Snapshots            uint64                                     `json:"snapshots"`
+	Resets               uint64                                     `json:"resets"`
+	DepthUpdates         uint64                                     `json:"depth_updates"`
+	Trades               uint64                                     `json:"trades"`
+	Tickers              uint64                                     `json:"tickers"`
+	Candles              uint64                                     `json:"candles"`
+	Heartbeats           uint64                                     `json:"heartbeats"`
+	DecoderErrors        uint64                                     `json:"decoder_errors"`
+	SequenceGaps         uint64                                     `json:"sequence_gaps"`
+	QueueOverflows       uint64                                     `json:"queue_overflows"`
+	QueueHighWater       uint64                                     `json:"queue_high_water"`
+	HotPathP99           time.Duration                              `json:"hot_path_p99"`
+	ReconnectReasons     ReconnectReasonCounts                      `json:"reconnect_reasons"`
+	RecoveryActions      exchangecontracts.RecoveryActionCounts     `json:"recovery_actions"`
+	FailureAttributions  exchangecontracts.FailureAttributionCounts `json:"failure_attributions"`
+	ResyncSamples        uint64                                     `json:"resync_samples"`
+	ResyncOver15Seconds  uint64                                     `json:"resync_over_15_seconds"`
+	ResyncP95            time.Duration                              `json:"resync_p95"`
+	ResyncMax            time.Duration                              `json:"resync_max"`
+	ReconnectDiagnostics []ReconnectDiagnostic                      `json:"reconnect_diagnostics,omitempty"`
+	DiagnosticsDropped   uint64                                     `json:"diagnostics_dropped"`
+	FailureCauses        map[string]uint64                          `json:"failure_causes"`
 }
 
 type collectorCounters struct {
@@ -159,6 +163,8 @@ func (counters *collectorCounters) snapshot() CollectorStats {
 	resyncSamples, resyncOver, resyncP95, resyncMax := counters.resync.summary(95, 100, 15*time.Second)
 	counters.diagnosticMutex.Lock()
 	diagnostics := append([]ReconnectDiagnostic(nil), counters.diagnostics...)
+	actions := countRecoveryActions(diagnostics)
+	attributions := countFailureAttributions(diagnostics)
 	causes := make(map[string]uint64, len(counters.failureCauses))
 	for cause, count := range counters.failureCauses {
 		causes[cause] = count
@@ -183,7 +189,8 @@ func (counters *collectorCounters) snapshot() CollectorStats {
 			InvalidEvent:     counters.reconnectReasons[reconnectInvalidEvent].Load(),
 			SequenceGap:      counters.reconnectReasons[reconnectSequenceGap].Load(),
 			ScheduledRenewal: counters.reconnectReasons[reconnectScheduledRenewal].Load(),
-		}, ResyncSamples: resyncSamples, ResyncOver15Seconds: resyncOver,
+		}, RecoveryActions: actions, FailureAttributions: attributions,
+		ResyncSamples: resyncSamples, ResyncOver15Seconds: resyncOver,
 		ResyncP95: resyncP95, ResyncMax: resyncMax,
 		ReconnectDiagnostics: diagnostics, DiagnosticsDropped: dropped, FailureCauses: causes}
 }
@@ -225,6 +232,46 @@ func (counters *collectorCounters) observeQueue(depth int) {
 			return
 		}
 	}
+}
+
+func countRecoveryActions(diagnostics []ReconnectDiagnostic) exchangecontracts.RecoveryActionCounts {
+	var counts exchangecontracts.RecoveryActionCounts
+	for _, diagnostic := range diagnostics {
+		switch diagnostic.Action {
+		case exchangecontracts.RecoveryReconnect:
+			counts.Reconnect++
+		case exchangecontracts.RecoveryClockResample:
+			counts.ClockResample++
+		case exchangecontracts.RecoveryScheduledRenewal:
+			counts.ScheduledRenewal++
+		case exchangecontracts.RecoveryTerminate:
+			counts.Terminate++
+		}
+	}
+	return counts
+}
+
+func countFailureAttributions(diagnostics []ReconnectDiagnostic) exchangecontracts.FailureAttributionCounts {
+	var counts exchangecontracts.FailureAttributionCounts
+	for _, diagnostic := range diagnostics {
+		switch diagnostic.Attribution {
+		case string(exchangecontracts.AttributionInternal):
+			counts.Internal++
+		case string(exchangecontracts.AttributionNetwork):
+			counts.Network++
+		case string(exchangecontracts.AttributionUpstream):
+			counts.Upstream++
+		case string(exchangecontracts.AttributionContractMismatch):
+			counts.ContractMismatch++
+		case string(exchangecontracts.AttributionScheduled):
+			counts.Scheduled++
+		case string(exchangecontracts.AttributionRecovered):
+			counts.Recovered++
+		case string(exchangecontracts.AttributionExternalUnclassified):
+			counts.ExternalUnclassified++
+		}
+	}
+	return counts
 }
 
 func validBoundedCause(cause string) bool {

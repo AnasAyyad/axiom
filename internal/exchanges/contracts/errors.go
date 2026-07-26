@@ -34,6 +34,15 @@ type FailureMetadata struct {
 	ContentLengthBytes     uint64        `json:"content_length_bytes,omitempty"`
 	ContentLengthKnown     bool          `json:"content_length_known,omitempty"`
 	BodyLimitBytes         uint64        `json:"body_limit_bytes,omitempty"`
+	DNSDuration            time.Duration `json:"dns_duration_nanos,omitempty"`
+	TCPDuration            time.Duration `json:"tcp_duration_nanos,omitempty"`
+	TLSDuration            time.Duration `json:"tls_duration_nanos,omitempty"`
+	UpgradeDuration        time.Duration `json:"upgrade_duration_nanos,omitempty"`
+	WriteDuration          time.Duration `json:"write_duration_nanos,omitempty"`
+	CandidateCount         uint32        `json:"candidate_count,omitempty"`
+	AttemptCount           uint32        `json:"attempt_count,omitempty"`
+	AddressFamily          string        `json:"address_family,omitempty"`
+	SetupStage             string        `json:"setup_stage,omitempty"`
 }
 
 // Error is a sanitized typed exchange failure.
@@ -117,10 +126,22 @@ func validFailureMetadata(metadata FailureMetadata) bool {
 		metadata.ResponseBodyDuration < 0 || metadata.RequestDuration > maximumDiagnosticDuration ||
 		metadata.ResponseHeaderDuration > maximumDiagnosticDuration ||
 		metadata.ResponseBodyDuration > maximumDiagnosticDuration ||
-		metadata.BodyLimitBytes > 64*1024*1024 {
+		metadata.BodyLimitBytes > 64*1024*1024 ||
+		metadata.DNSDuration < 0 || metadata.DNSDuration > maximumDiagnosticDuration ||
+		metadata.TCPDuration < 0 || metadata.TCPDuration > maximumDiagnosticDuration ||
+		metadata.TLSDuration < 0 || metadata.TLSDuration > maximumDiagnosticDuration ||
+		metadata.UpgradeDuration < 0 || metadata.UpgradeDuration > maximumDiagnosticDuration ||
+		metadata.WriteDuration < 0 || metadata.WriteDuration > maximumDiagnosticDuration ||
+		metadata.CandidateCount > 64 || metadata.AttemptCount > 64 ||
+		!validAddressFamily(metadata.AddressFamily) ||
+		(metadata.SetupStage != "" && !validDiagnosticCause(metadata.SetupStage)) {
 		return false
 	}
 	return metadata.BodyLimitBytes == 0 || metadata.ResponseBytes <= metadata.BodyLimitBytes+1
+}
+
+func validAddressFamily(family string) bool {
+	return family == "" || family == "ipv4" || family == "ipv6" || family == "mixed"
 }
 
 // KindOf returns a stable kind without exposing wrapped details.

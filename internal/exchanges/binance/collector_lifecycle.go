@@ -73,6 +73,9 @@ func (collector *InstrumentCollector) runLifecycle(ctx context.Context, run gene
 		if outcome.reason.valid() {
 			collector.stats.recordReconnectReason(outcome.reason)
 		}
+		if evidenceErr := collector.lifecycleEvidenceError(); evidenceErr != nil {
+			return evidenceErr
+		}
 		if outcome.fatal != nil {
 			collector.recordDiagnostic(collector.outcomeDiagnostic(outcome, "fatal", attemptDuration, 0, 0))
 			return outcome.fatal
@@ -128,6 +131,9 @@ func (collector *InstrumentCollector) advanceLifecycle(
 	delay, err := collector.config.ConnectionPolicy.Backoff(backoffAttempt)
 	if err != nil {
 		return ReconnectDiagnostic{}, 0, err
+	}
+	if outcome.retryAfter > delay {
+		delay = outcome.retryAfter
 	}
 	return collector.outcomeDiagnostic(outcome, phase, attemptDuration, delay, resyncElapsed), delay, nil
 }

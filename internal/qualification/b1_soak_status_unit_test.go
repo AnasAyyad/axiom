@@ -16,7 +16,7 @@ func TestB1SoakStatusWriteIsAtomicAndComplete(t *testing.T) {
 	root := t.TempDir()
 	observed := time.Unix(1_800_000_000, 0).UTC()
 	status := b1SoakStatus{
-		SchemaVersion:        "axiom.b1-soak-status.v2",
+		SchemaVersion:        "axiom.b1-soak-status.v3",
 		SourceCommit:         testSourceCommit,
 		StartedAt:            observed.Add(-time.Hour),
 		ObservedAt:           observed,

@@ -13,6 +13,7 @@ const validStatuses = new Set([
   "Not started",
   "In progress",
   "Implemented",
+  "Accepted — owner waiver; automated SLO failed",
   "Verified",
   "Blocked",
   "Retired",

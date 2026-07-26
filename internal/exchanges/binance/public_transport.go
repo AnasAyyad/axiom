@@ -23,14 +23,17 @@ func (client *PublicClient) get(
 	query url.Values,
 	operation exchangecontracts.Operation,
 	weight uint64,
+	budgetClass exchangecontracts.BudgetClass,
 ) ([]byte, domain.EventTime, error) {
 	started := time.Now()
-	if err := client.acquirePublicBudget(operation, weight); err != nil {
+	if err := client.acquireBudget(operation, weight, budgetClass); err != nil {
 		return nil, domain.EventTime{}, err
 	}
+	requestContext, cancel := context.WithTimeout(ctx, publicSetupDeadline)
+	defer cancel()
 	target := *client.restOrigin
 	target.Path, target.RawQuery = path, query.Encode()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	request, err := http.NewRequestWithContext(requestContext, http.MethodGet, target.String(), nil)
 	if err != nil {
 		return nil, domain.EventTime{}, exchangecontracts.NewDetailedError(
 			exchangecontracts.ErrorValidation, operation, 0, 0, "request_build_failed")
@@ -41,14 +44,7 @@ func (client *PublicClient) get(
 	}
 	response, err := client.httpClient.Do(request)
 	if err != nil {
-		completed := time.Now()
-		if ctx.Err() != nil {
-			return nil, domain.EventTime{}, exchangecontracts.NewDetailedError(exchangecontracts.ErrorCanceled,
-				operation, 0, 0, "context_canceled", requestFailureMetadata(started, completed, completed, nil, 0))
-		}
-		return nil, domain.EventTime{}, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
-			operation, 0, 0, transportFailureCause(err),
-			requestFailureMetadata(started, completed, completed, nil, 0))
+		return nil, domain.EventTime{}, transportRequestError(ctx, operation, started, err)
 	}
 	headersAt := time.Now()
 	if err = responseError(response, operation,
@@ -63,9 +59,30 @@ func (client *PublicClient) get(
 	return body, client.clock.Now(), nil
 }
 
-func (client *PublicClient) acquirePublicBudget(operation exchangecontracts.Operation, weight uint64) error {
+func transportRequestError(
+	ctx context.Context,
+	operation exchangecontracts.Operation,
+	started time.Time,
+	err error,
+) error {
+	completed := time.Now()
+	metadata := requestFailureMetadata(started, completed, completed, nil, 0)
+	if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+		return exchangecontracts.NewDetailedError(exchangecontracts.ErrorCanceled,
+			operation, 0, 0, "context_canceled", metadata)
+	}
+	var typed *exchangecontracts.Error
+	if errors.As(err, &typed) {
+		return remapTransportError(operation, typed, typed.Metadata)
+	}
+	return exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
+		operation, 0, 0, transportFailureCause(err), metadata)
+}
+
+func (client *PublicClient) acquireBudget(operation exchangecontracts.Operation, weight uint64,
+	class exchangecontracts.BudgetClass) error {
 	decision, err := client.budget.TryAcquire(
-		client.monotonic(), exchangecontracts.BudgetPublic, weight)
+		client.monotonic(), class, weight)
 	if err != nil {
 		return exchangecontracts.NewDetailedError(
 			exchangecontracts.KindOf(err), operation, 0, 0, "rate_budget_failure")
@@ -177,6 +194,20 @@ func transportFailureCause(err error) string {
 	return "transport_failure"
 }
 
+func remapTransportError(operation exchangecontracts.Operation, err error,
+	metadata exchangecontracts.FailureMetadata) error {
+	var failure *exchangecontracts.Error
+	if errors.As(err, &failure) && failure != nil {
+		cause := failure.Cause
+		if cause == "" {
+			cause = "transport_failure"
+		}
+		return exchangecontracts.NewDetailedError(failure.Kind, operation, failure.RetryAfter,
+			failure.HTTPStatus, cause, metadata)
+	}
+	return exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient, operation, 0, 0,
+		transportFailureCause(err), metadata)
+}
 func approvedInstrument(instrument domain.Instrument) bool {
 	return instrument.Product == domain.ProductSpot &&
 		((instrument.Quote == "USDT" && (instrument.Base == "BTC" || instrument.Base == "ETH")) ||

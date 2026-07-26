@@ -3,6 +3,7 @@ package binance
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -23,6 +24,15 @@ type InstrumentCollector struct {
 	provider         *marketdata.Provider
 	stats            *CollectorStats
 	running          atomic.Bool
+	healthMutex      sync.RWMutex
+	clockHealth      TimeHealth
+	clockEligible    bool
+	degradedSince    time.Time
+	evidenceSink     exchangecontracts.LifecycleEvidenceSink
+	evidenceFailed   chan struct{}
+	evidenceOnce     sync.Once
+	evidenceMutex    sync.Mutex
+	evidenceErr      error
 	lifecycle        collectorLifecycle
 	lifecycleCycle   atomic.Uint64
 	lifecycleAttempt atomic.Uint64
@@ -57,6 +67,7 @@ func NewInstrumentCollector(
 	}
 	return &InstrumentCollector{config: config, source: source, recorder: recorder, clock: clock,
 		book: book, candles: stores["4h"], candleStores: stores, provider: provider, stats: newCollectorStats(),
+		evidenceSink: config.LifecycleEvidence, evidenceFailed: make(chan struct{}),
 		lifecycle: systemCollectorLifecycle{}}, nil
 }
 
@@ -76,7 +87,17 @@ func (collector *InstrumentCollector) Run(ctx context.Context) error {
 		return streamError()
 	}
 	defer collector.running.Store(false)
-	return collector.runLifecycle(ctx, collector.runGeneration)
+	err := collector.runLifecycle(ctx, collector.runGeneration)
+	diagnostic := collector.outcomeDiagnostic(generationOutcome{stage: "terminate",
+		cause: "normal_termination"}, "terminal", 0, 0, 0)
+	diagnostic.Action = exchangecontracts.RecoveryTerminate
+	diagnostic.Attribution = string(exchangecontracts.AttributionRecovered)
+	if err != nil && ctx.Err() == nil {
+		diagnostic.Cause = "collector_failure"
+		diagnostic.Attribution = string(exchangecontracts.AttributionInternal)
+	}
+	collector.recordDiagnostic(diagnostic)
+	return err
 }
 
 type generationOutcome struct {

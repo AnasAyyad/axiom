@@ -309,6 +309,20 @@ func TestLifecycleHighCycleReconnectStress(t *testing.T) {
 	}
 }
 
+func TestReconnectHonorsRetryAfterWhenItExceedsDeterministicBackoff(t *testing.T) {
+	clock := newDeterministicCollectorLifecycle()
+	collector := lifecycleTestCollector(clock, lifecycleTestPolicy())
+	state := lifecycleState{}
+	_, delay, err := collector.advanceLifecycle(&state, generationOutcome{
+		reason: reconnectSubscription, retryAfter: 17 * time.Second}, time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if delay != 17*time.Second {
+		t.Fatalf("delay=%s want=17s", delay)
+	}
+}
+
 func TestReconnectAttributionUsesBoundedObjectiveEvidence(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -326,7 +340,7 @@ func TestReconnectAttributionUsesBoundedObjectiveEvidence(t *testing.T) {
 		{diagnostic: ReconnectDiagnostic{FailureKind: "transient_outage", Cause: "transport_failure"},
 			want: "external_unclassified"},
 		{diagnostic: ReconnectDiagnostic{Cause: "recorder"}, want: "internal"},
-		{diagnostic: ReconnectDiagnostic{}, want: "unclassified"},
+		{diagnostic: ReconnectDiagnostic{}, want: "external_unclassified"},
 	}
 	for _, test := range tests {
 		if got := reconnectAttribution(test.diagnostic); got != test.want {
@@ -364,7 +378,7 @@ func TestSuccessfulOperationDiagnosticRetainsPhaseTimingAndClockSnapshot(t *test
 	}
 	diagnostic := snapshot.ReconnectDiagnostics[0]
 	if diagnostic.Phase != "operation_succeeded" || diagnostic.Stage != "clock" ||
-		diagnostic.Attribution != "observed" || diagnostic.Cycle != 4 || diagnostic.Attempt != 2 ||
+		diagnostic.Attribution != "recovered" || diagnostic.Cycle != 4 || diagnostic.Attempt != 2 ||
 		diagnostic.Generation != 9 || diagnostic.AttemptDuration != 17*time.Millisecond ||
 		diagnostic.ClockOffset != -3*time.Millisecond || diagnostic.ClockUncertainty != 8*time.Millisecond ||
 		diagnostic.SnapshotSequence != 12345 || diagnostic.BufferedDepth != 27 {

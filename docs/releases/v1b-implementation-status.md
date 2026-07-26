@@ -1,7 +1,7 @@
 # Axiom V1B implementation status
 
 This tracker separates implemented behavior, local verification, and formally
-accepted evidence. V1B work may proceed while A7 qualification remains open,
+accepted evidence. A7 is accepted under owner waiver and B1 is formally qualified,
 but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 
 ## Current program identity
@@ -10,7 +10,7 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 |---|---|
 | Program baseline | merged B3 `main` at `5d7cb43a90473909bf2091f5af268d5a000633cd` |
 | Baseline gate | B3 merge PR #15 completed before B4 source changes; `b4-b5-end-to-end` was created from the exact merged SHA |
-| Active implementation phase | B8 locally verified from the committed B7 qualification checkpoint; formal release holds remain |
+| Active implementation phase | B8 locally verified; B2 and B3-B8 formal release holds remain |
 | Later implementation phases | None in V1B |
 | External side effects | Impossible: public data and simulation only |
 
@@ -18,8 +18,8 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 
 | Phase | Owner | Migration | Status | Scope | Evidence |
 |---|---|---:|---|---|---|
-| B1 | Bybit Adapter / Exchange Platform | 000012-000013 forward fix | Locally verified; formal soak hold | Credential-free Bybit public adapter, common ticker/lifecycle contracts, three-instrument multi-exchange recording, PostgreSQL clean/upgrade, exact image, and short live qualification | [B1 local validation](evidence/b1-local-validation.md) |
-| B2 | Market Data / Storage | 000014 | Locally verified; formal soak hold | Coherent cross-market views, clock uncertainty, Tier-A manifests, and deterministic as-of joins | [B2 local validation](evidence/b2-local-validation.md); short live coherent view passed at 59.569181 ms / 40.927081 ms |
+| B1 | Bybit Adapter / Exchange Platform | 000012-000013 forward fix | Formally qualified | Credential-free Bybit public adapter, common ticker/lifecycle contracts, three-instrument multi-exchange recording, PostgreSQL clean/upgrade, exact image, short live qualification, and qualified 72-hour run | [B1 formal qualification](evidence/b1-formal-qualification-2026-07-26.md) |
+| B2 | Market Data / Storage | 000014 | Locally verified; own formal soak hold | Coherent cross-market views, clock uncertainty, Tier-A manifests, and deterministic as-of joins | [B2 local validation](evidence/b2-local-validation.md); short live coherent view passed at 59.569181 ms / 40.927081 ms |
 | B3 | Strategy / Research | 000015 | Locally verified; formal predecessor/approver hold | Exact completed-candle mean reversion, shared allocator/risk/execution/accounting, immutable decision/research evidence, and clean image qualification | [B3 local validation](evidence/b3-local-validation.md) |
 | B4 | Strategy / Execution | 000016 | Locally verified; formal predecessor/approver hold | Exact triangular arbitrage, atomic claims, sequential simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B4 local validation](evidence/b4-local-validation.md) |
 | B5 | Strategy / Portfolio | 000017 | Locally verified; formal predecessor/approver hold | Coherent cross-exchange arbitrage, owned inventory, atomic claims, concurrent simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B5 local validation](evidence/b5-local-validation.md) |

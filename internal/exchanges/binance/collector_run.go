@@ -19,10 +19,19 @@ type snapshotResult struct {
 	err      error
 }
 
+type clockSampleResult struct {
+	duration time.Duration
+	health   TimeHealth
+	err      error
+}
+
 func (collector *InstrumentCollector) runGeneration(ctx context.Context, resyncStarted time.Time) generationOutcome {
 	stream, connectionID, generation, outcome, ok := collector.beginGeneration(ctx)
 	if !ok {
 		return outcome
+	}
+	if err := collector.lifecycleEvidenceError(); err != nil {
+		return generationOutcome{fatal: err, generation: generation}
 	}
 	defer stream.Close()
 	channels := collector.startSynchronization(ctx, stream, connectionID, generation)
@@ -47,10 +56,6 @@ func (collector *InstrumentCollector) beginGeneration(
 	collector.recordOperationDiagnostic("subscription", generation,
 		collector.lifecycle.Now().Sub(subscriptionStarted), 0, 0, 0, 0)
 	if outcome, ready := collector.prepareGeneration(ctx, connectionID, generation); !ready {
-		_ = stream.Close()
-		return nil, "", 0, outcome, false
-	}
-	if outcome, failed := collector.sampleGenerationClock(ctx, connectionID, generation); failed {
 		_ = stream.Close()
 		return nil, "", 0, outcome, false
 	}
@@ -87,37 +92,11 @@ func (collector *InstrumentCollector) subscriptionNames() []string {
 	return names
 }
 
-func (collector *InstrumentCollector) sampleGenerationClock(
-	ctx context.Context,
-	connectionID string,
-	generation uint64,
-) (generationOutcome, bool) {
-	started := collector.lifecycle.Now()
-	health, _, err := collector.source.SampleServerTimeRecorded(ctx, collector.config.Instrument,
-		connectionID, generation, collector.recorder)
-	if isRecorderFailure(err) {
-		return generationFailure(generationOutcome{fatal: err, generation: generation},
-			"clock", "recorder", err), true
-	}
-	if err != nil || !health.Eligible {
-		outcome := collector.pauseOutcome(ctx, connectionID, generation, 0, reconnectClock)
-		cause := "clock_uncertainty"
-		if err != nil {
-			cause = "clock_sample_failed"
-		}
-		outcome = generationFailure(outcome, "clock", cause, err)
-		outcome.clockOffset, outcome.clockUncertainty = health.Offset, health.Uncertainty
-		return outcome, true
-	}
-	collector.recordOperationDiagnostic("clock", generation, collector.lifecycle.Now().Sub(started),
-		health.Offset, health.Uncertainty, 0, 0)
-	return generationOutcome{}, false
-}
-
 type generationChannels struct {
 	events    chan observedResult
 	overflow  chan struct{}
 	snapshots chan snapshotResult
+	clocks    chan clockSampleResult
 }
 
 func (collector *InstrumentCollector) startSynchronization(
@@ -138,7 +117,15 @@ func (collector *InstrumentCollector) startSynchronization(
 		snapshots <- snapshotResult{snapshot: snapshot, token: token, err: snapshotErr,
 			duration: collector.lifecycle.Now().Sub(started)}
 	}()
-	return generationChannels{events: events, overflow: overflow, snapshots: snapshots}
+	clocks := make(chan clockSampleResult, 1)
+	go func() {
+		started := collector.lifecycle.Now()
+		health, _, clockErr := collector.source.SampleServerTimeRecorded(ctx, collector.config.Instrument,
+			connectionID, generation, collector.recorder)
+		clocks <- clockSampleResult{health: health, err: clockErr,
+			duration: collector.lifecycle.Now().Sub(started)}
+	}()
+	return generationChannels{events: events, overflow: overflow, snapshots: snapshots, clocks: clocks}
 }
 
 func (collector *InstrumentCollector) awaitSynchronization(
@@ -149,10 +136,15 @@ func (collector *InstrumentCollector) awaitSynchronization(
 	resyncStarted time.Time,
 ) generationOutcome {
 	pending := make([]ObservedStreamEvent, 0, collector.config.QueueCapacity)
+	var snapshot snapshotResult
+	snapshotReady := false
+	clockReady := false
 	for {
 		select {
 		case <-ctx.Done():
 			return generationOutcome{}
+		case <-collector.evidenceFailed:
+			return generationOutcome{fatal: collector.lifecycleEvidenceError(), generation: generation}
 		case <-channels.overflow:
 			return generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
 				collector.book.View().Sequence(), reconnectQueue), "synchronization_queue", "queue_overflow", nil)
@@ -169,9 +161,40 @@ func (collector *InstrumentCollector) awaitSynchronization(
 				pending = append(pending, observed.event)
 			}
 		case result := <-channels.snapshots:
-			return collector.completeSynchronization(ctx, channels, result, pending, connectionID, generation, resyncStarted)
+			snapshot, snapshotReady = result, true
+			if clockReady {
+				return collector.completeSynchronization(ctx, channels, snapshot, pending,
+					connectionID, generation, resyncStarted)
+			}
+		case result := <-channels.clocks:
+			if outcome, failed := collector.recordInitialClock(generation, result); failed {
+				return outcome
+			}
+			clockReady = true
+			if snapshotReady {
+				return collector.completeSynchronization(ctx, channels, snapshot, pending,
+					connectionID, generation, resyncStarted)
+			}
 		}
 	}
+}
+
+func (collector *InstrumentCollector) recordInitialClock(
+	generation uint64,
+	result clockSampleResult,
+) (generationOutcome, bool) {
+	if isRecorderFailure(result.err) {
+		return generationFailure(generationOutcome{fatal: result.err, generation: generation},
+			"clock", "recorder", result.err), true
+	}
+	if result.err != nil || !result.health.Eligible {
+		collector.markClockDegraded(result.health, collector.lifecycle.Now())
+		collector.recordClockResult(generation, result, false, 0)
+		return generationOutcome{}, false
+	}
+	collector.setClockHealth(result.health, false)
+	collector.recordClockResult(generation, result, true, 0)
+	return generationOutcome{}, false
 }
 
 func (collector *InstrumentCollector) streamFailureOutcome(
@@ -220,24 +243,46 @@ func (collector *InstrumentCollector) completeSynchronization(
 	}
 	collector.recordOperationDiagnostic("snapshot_bridge", generation, collector.lifecycle.Now().Sub(bridgeStarted),
 		0, 0, result.snapshot.LastSequence, len(pending))
-	collector.stats.rebuilds.Add(1)
-	if _, err := collector.recordFact(ctx, RecordRebuild, connectionID, generation,
-		rebuildFact{SnapshotSequence: result.snapshot.LastSequence, BufferedDepth: len(pending), Generation: generation}); err != nil {
-		return generationFailure(generationOutcome{fatal: err, generation: generation},
-			"recorder", "recorder", err)
+	if outcome, failed := collector.recordSynchronizedGeneration(
+		ctx, result, pending, connectionID, generation); failed {
+		return outcome
 	}
-	if _, err := collector.recordFact(ctx, RecordLifecycle, connectionID, generation,
-		lifecycleFact{State: "HEALTHY", Generation: generation}); err != nil {
-		return generationFailure(generationOutcome{fatal: err, generation: generation},
-			"recorder", "recorder", err)
-	}
-	collector.recordOperationDiagnostic("healthy", generation, 0, 0, 0,
-		result.snapshot.LastSequence, len(pending))
 	collector.recordResynchronization(resyncStarted, generation)
 	outcome := collector.runHealthy(ctx, channels.events, channels.overflow, connectionID, generation)
 	outcome.reachedHealthy = true
 	outcome.generation = generation
 	return outcome
+}
+
+func (collector *InstrumentCollector) recordSynchronizedGeneration(
+	ctx context.Context,
+	result snapshotResult,
+	pending []ObservedStreamEvent,
+	connectionID string,
+	generation uint64,
+) (generationOutcome, bool) {
+	collector.stats.rebuilds.Add(1)
+	if _, err := collector.recordFact(ctx, RecordRebuild, connectionID, generation,
+		rebuildFact{
+			SnapshotSequence: result.snapshot.LastSequence,
+			BufferedDepth:    len(pending),
+			Generation:       generation,
+		}); err != nil {
+		return generationFailure(generationOutcome{fatal: err, generation: generation},
+			"recorder", "recorder", err), true
+	}
+	state := "HEALTHY"
+	if !collector.HealthSnapshot().ClockEligible {
+		state = "DEGRADED_CLOCK"
+	}
+	if _, err := collector.recordFact(ctx, RecordLifecycle, connectionID, generation,
+		lifecycleFact{State: state, Generation: generation}); err != nil {
+		return generationFailure(generationOutcome{fatal: err, generation: generation},
+			"recorder", "recorder", err), true
+	}
+	collector.recordOperationDiagnostic("healthy", generation, 0, 0, 0,
+		result.snapshot.LastSequence, len(pending))
+	return generationOutcome{}, false
 }
 
 func (collector *InstrumentCollector) receiveGeneration(

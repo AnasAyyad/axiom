@@ -2,9 +2,11 @@
 
 ## Current decision
 
-**V1A is not ready for release.** A0-A6 are verified; A7-A11 and every release
-gate remain unverified. This document is an evidence index, not evidence
-by itself. An unchecked item must not be inferred from source layout, planned
+**V1A is not ready for release.** A0-A6 are verified and A7 is accepted under
+the repository owner's time-bounded, non-safety availability/resynchronization
+waiver. A8-A11 remain implemented but require their own prerequisite-ordered
+formal acceptance, and every release gate remains unverified. This document is
+an evidence index, not evidence by itself. An unchecked item must not be inferred from source layout, planned
 work, or a passing narrower test.
 
 Normative requirement details live in
@@ -67,8 +69,8 @@ current phase status is [implementation-status.md](../implementation-status.md).
 | A4    | Storage/Accounting              | A3 verified                           | Verified    | [Local validation](evidence/a4-local-progress.md)                                                                                                                                |
 | A5    | Security/SRE                    | A4 verified                           | Verified    | [Completion evidence](evidence/a5-local-progress.md)                                                                                                                             |
 | A6    | Exchange Platform               | A5 verified                           | Verified    | [Local validation](evidence/a6-local-validation.md)                                                                                                                              |
-| A7    | Binance Adapter Team            | A6 verified                           | Not started | Pending                                                                                                                                                                          |
-| A8    | Execution/Research Platform     | A7 verified                           | Implemented | [Local validation](evidence/a8-local-validation.md); merged into `main`, formal entry gate remains open                                                                          |
+| A7    | Binance Adapter Team            | A6 verified                           | Accepted — owner waiver | [Owner-waiver acceptance](evidence/a7-owner-waiver-2026-07-26.md); terminal machine result remains `qualified:false`                                                             |
+| A8    | Execution/Research Platform     | A7 accepted                           | Implemented | [Local validation](evidence/a8-local-validation.md); merged into `main`, its own formal acceptance remains open                                                                  |
 | A9    | Portfolio/Risk Engineering      | A8 verified                           | Implemented | [Local validation](evidence/a9-local-validation.md); merged into `main`, formal entry gate remains open                                                                          |
 | A10   | Strategy/Research               | A9 verified                           | Implemented | [Local validation](evidence/a10-local-validation.md); merged into `main`, formal entry gate remains open                                                                         |
 | A11   | API/Frontend/Security           | A10 verified                          | Implemented | [Local validation](evidence/a11-local-validation.md); merged into `main`, formal entry gate remains open                                                                         |
@@ -202,13 +204,21 @@ Requirements: all `AX-V1A-A07-*` IDs. Entry: A6 verified.
 - [x] Binance fixture/emulator/public integration tests pass sequence bridging,
       gaps, reconnect, malformed/stale data, clock, and renewal scenarios.
 - [x] Manifest validator and bounded replay prove raw/canonical linkage and explicit gaps.
-- [ ] Continuous 72-hour declared-load soak meets freshness, resynchronization,
-      latency, and bounded-memory SLOs with every incident recorded.
-- [ ] Request/environment/image inspection proves public-only operation with no
+- [x] Continuous 72-hour declared-load soak completed with every incident
+      recorded and with data integrity, replay, manifests, memory, public-only
+      boundaries, and duration passing.
+- [ ] Automated resynchronization acceptance did not pass: the immutable
+      terminal result is `qualified:false` with `BTCUSDT_slo_failed`,
+      `ETHUSDT_slo_failed`, and `ETHUSDT_ineligible`.
+- [x] Request/environment/image inspection proves public-only operation with no
       credentials or order capability.
 
-Evidence register: [A7 local validation](evidence/a7-local-validation.md); the
-72-hour soak is pending and therefore A7 is not verified.
+Evidence register: [A7 owner-waiver acceptance](evidence/a7-owner-waiver-2026-07-26.md)
+and [A7 local validation](evidence/a7-local-validation.md). The repository owner
+accepted A7 on 2026-07-26 under the non-safety availability/resynchronization-only
+waiver `A7-RSK-2026-07-26-001`, expiring at `2026-08-26T00:00:00Z` or replacement
+by a passing exact-source A7 run. The waiver does not change the 15-second SLO
+and does not turn the failed machine result into `qualified:true`.
 
 ## A8
 
@@ -308,16 +318,19 @@ Release decision: **Not evaluated; all evidence pending.**
 
 - The repository contains verified A1-A6 foundations, the implemented A7
   production-public Binance collector/recorder, and locally implemented A8-A11
-  candidates. A7 remains gated on continuous soak and final inspection; formal
-  acceptance of the stacked A8-A11 candidates remains prerequisite-ordered.
+  candidates. A7 is accepted only through the time-bounded owner waiver above;
+  formal acceptance of the stacked A8-A11 candidates remains prerequisite-ordered
+  and is not implied by A7 acceptance.
 - A1 has a committed source identity, owner-verified hosted CI/supply-chain
   artifacts, local immutable-candidate evidence, and a completed clean-machine
   setup/governance walkthrough.
 - The A0 review is an independent Codex architecture/static audit, not an
   external human security assessment and not runtime or release certification.
 - A7 targeted unit, emulator, race, public-network, recorder-role, and short
-  qualification evidence exists. A11 has current PostgreSQL 18,
+  qualification evidence exists. Its completed 72-hour machine result failed
+  the unchanged resynchronization acceptance criteria and remains preserved as
+  `qualified:false`. A11 has current PostgreSQL 18,
   desktop/mobile Playwright, image, and image-backed Compose evidence; it is
   local implementation evidence, not formal phase acceptance.
-- The 72-hour Binance soak and clean backup/restore drill have not been executed.
+- The clean backup/restore drill and A8-A11 formal phase acceptances remain open.
 - A passing documentation review alone cannot advance A1–A11 or the release gate.

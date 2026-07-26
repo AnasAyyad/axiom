@@ -4,6 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
 type reconnectReason uint8
@@ -165,24 +167,26 @@ type ReconnectReasonCounts struct {
 
 // CollectorStatsSnapshot is a stable low-cardinality qualification record.
 type CollectorStatsSnapshot struct {
-	Messages             uint64                `json:"messages"`
-	DepthUpdates         uint64                `json:"depth_updates"`
-	Trades               uint64                `json:"trades"`
-	Candles              uint64                `json:"candles"`
-	Reconnects           uint64                `json:"reconnects"`
-	Rebuilds             uint64                `json:"rebuilds"`
-	Gaps                 uint64                `json:"gaps"`
-	DecoderErrors        uint64                `json:"decoder_errors"`
-	QueueHighWater       uint64                `json:"queue_high_water"`
-	HotPathP99           time.Duration         `json:"hot_path_p99"`
-	ReconnectReasons     ReconnectReasonCounts `json:"reconnect_reasons"`
-	ResyncSamples        uint64                `json:"resync_samples"`
-	ResyncOver15Seconds  uint64                `json:"resync_over_15_seconds"`
-	ResyncP95            time.Duration         `json:"resync_p95"`
-	ResyncMax            time.Duration         `json:"resync_max"`
-	ReconnectDiagnostics []ReconnectDiagnostic `json:"reconnect_diagnostics,omitempty"`
-	DiagnosticsDropped   uint64                `json:"diagnostics_dropped"`
-	FailureCauses        map[string]uint64     `json:"failure_causes"`
+	Messages             uint64                                     `json:"messages"`
+	DepthUpdates         uint64                                     `json:"depth_updates"`
+	Trades               uint64                                     `json:"trades"`
+	Candles              uint64                                     `json:"candles"`
+	Reconnects           uint64                                     `json:"reconnects"`
+	Rebuilds             uint64                                     `json:"rebuilds"`
+	Gaps                 uint64                                     `json:"gaps"`
+	DecoderErrors        uint64                                     `json:"decoder_errors"`
+	QueueHighWater       uint64                                     `json:"queue_high_water"`
+	HotPathP99           time.Duration                              `json:"hot_path_p99"`
+	ReconnectReasons     ReconnectReasonCounts                      `json:"reconnect_reasons"`
+	RecoveryActions      exchangecontracts.RecoveryActionCounts     `json:"recovery_actions"`
+	FailureAttributions  exchangecontracts.FailureAttributionCounts `json:"failure_attributions"`
+	ResyncSamples        uint64                                     `json:"resync_samples"`
+	ResyncOver15Seconds  uint64                                     `json:"resync_over_15_seconds"`
+	ResyncP95            time.Duration                              `json:"resync_p95"`
+	ResyncMax            time.Duration                              `json:"resync_max"`
+	ReconnectDiagnostics []ReconnectDiagnostic                      `json:"reconnect_diagnostics,omitempty"`
+	DiagnosticsDropped   uint64                                     `json:"diagnostics_dropped"`
+	FailureCauses        map[string]uint64                          `json:"failure_causes"`
 }
 
 func newCollectorStats() *CollectorStats {
@@ -196,6 +200,8 @@ func (stats *CollectorStats) Snapshot() CollectorStatsSnapshot {
 	stats.diagnosticMutex.Lock()
 	diagnostics := append([]ReconnectDiagnostic(nil), stats.diagnostics...)
 	diagnosticsLost := stats.diagnosticsLost
+	actions := countRecoveryActions(stats.diagnostics)
+	attributions := countFailureAttributions(stats.diagnostics)
 	failureCauses := make(map[string]uint64, len(stats.failureCauses))
 	for cause, count := range stats.failureCauses {
 		failureCauses[cause] = count
@@ -217,7 +223,8 @@ func (stats *CollectorStats) Snapshot() CollectorStatsSnapshot {
 			InvalidEvent:     stats.reconnectReasons[reconnectInvalidEvent].Load(),
 			SequenceGap:      stats.reconnectReasons[reconnectSequenceGap].Load(),
 			ScheduledRenewal: stats.reconnectReasons[reconnectScheduledRenewal].Load(),
-		}, ResyncSamples: resyncSamples, ResyncOver15Seconds: resyncOver,
+		}, RecoveryActions: actions, FailureAttributions: attributions,
+		ResyncSamples: resyncSamples, ResyncOver15Seconds: resyncOver,
 		ResyncP95: resyncP95, ResyncMax: resyncMax,
 		ReconnectDiagnostics: diagnostics, DiagnosticsDropped: diagnosticsLost,
 		FailureCauses: failureCauses}
@@ -244,6 +251,46 @@ func (stats *CollectorStats) recordDiagnostic(diagnostic ReconnectDiagnostic) {
 			stats.failureCauses["unclassified"]++
 		}
 	}
+}
+
+func countRecoveryActions(diagnostics []ReconnectDiagnostic) exchangecontracts.RecoveryActionCounts {
+	var counts exchangecontracts.RecoveryActionCounts
+	for _, diagnostic := range diagnostics {
+		switch diagnostic.Action {
+		case exchangecontracts.RecoveryReconnect:
+			counts.Reconnect++
+		case exchangecontracts.RecoveryClockResample:
+			counts.ClockResample++
+		case exchangecontracts.RecoveryScheduledRenewal:
+			counts.ScheduledRenewal++
+		case exchangecontracts.RecoveryTerminate:
+			counts.Terminate++
+		}
+	}
+	return counts
+}
+
+func countFailureAttributions(diagnostics []ReconnectDiagnostic) exchangecontracts.FailureAttributionCounts {
+	var counts exchangecontracts.FailureAttributionCounts
+	for _, diagnostic := range diagnostics {
+		switch diagnostic.Attribution {
+		case string(exchangecontracts.AttributionInternal):
+			counts.Internal++
+		case string(exchangecontracts.AttributionNetwork):
+			counts.Network++
+		case string(exchangecontracts.AttributionUpstream):
+			counts.Upstream++
+		case string(exchangecontracts.AttributionContractMismatch):
+			counts.ContractMismatch++
+		case string(exchangecontracts.AttributionScheduled):
+			counts.Scheduled++
+		case string(exchangecontracts.AttributionRecovered):
+			counts.Recovered++
+		case string(exchangecontracts.AttributionExternalUnclassified):
+			counts.ExternalUnclassified++
+		}
+	}
+	return counts
 }
 
 func validBoundedCause(cause string) bool {

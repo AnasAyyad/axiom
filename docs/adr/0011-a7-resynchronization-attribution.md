@@ -66,6 +66,42 @@ pending. The lower threshold preserves headroom for segment construction and
 compression. Capacity-triggered and scheduled flushes have distinct journal
 phases and triggers, and either failure fails qualification closed.
 
+
+Connection setup is one bounded operation: DNS, TCP, TLS, and WebSocket upgrade
+share a five-second deadline. The collector validates every DNS answer, tries at
+most four public candidates with bounded address-family fallback, and closes
+losing connections. Bybit subscription and heartbeat writes have a two-second
+deadline. Typed failures survive every wrapper and expose only bounded stage
+facts; deterministic backoff yields to a larger valid `Retry-After`.
+
+Binance recorder clients reserve 768 request-weight units for recovery so three
+simultaneous 5,000-level snapshots plus clock samples cannot be starved by
+unrelated public work. Snapshot depth remains 5,000 to preserve the internal
+book reserve.
+
+Clock sampling is independent of ordered stream processing with at most one
+request in flight. Binance and Bybit keep valid books and streams alive during
+clock-only degradation, retry the clock in place, and reconnect only for
+stream/book/subscription defects. Combined health is immutable and includes
+book freshness, book health, per-instrument clock validity, and degraded-since
+time. Production recorder readiness, A11 shadow input, and A7/B1 qualification
+all use combined health.
+
+Recovery evidence has fixed action counts (`reconnect`, `clock_resample`,
+`scheduled_renewal`, `terminate`) and evidence-derived attribution (`internal`,
+`network`, `upstream`, `contract_mismatch`, `scheduled`, `recovered`, or
+`external_unclassified`). Duration alone never assigns blame. Binance decoder
+evidence uses the same bounded stage/cause/operation/stream-kind contract as
+Bybit and retains raw-record ordinal/hash linkage.
+
+Formal runners may install a synchronous lifecycle sink. Every health
+transition, retry, operation result, recovery action, and terminal transition
+is appended to the hash-chained journal and mirrored to the service log;
+journal failure terminates qualification. The official end timer freezes final
+combined health before cancellation. Cancellation in any lifecycle phase is
+normal termination and cannot invalidate a healthy book, add a failure, or
+emit a reconnect; a genuine concurrent failure still fails closed.
+
 Collector completion is monitored independently of the five-minute sampling
 and flush timers. An unexpected clean return or any terminal error immediately
 marks that instrument stopped, appends a bounded terminal event, atomically

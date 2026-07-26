@@ -8,9 +8,11 @@ and a raw/canonical Parquet recorder. `platform recorder` composes those pieces
 for exactly BTC/USDT and ETH/USDT. The deterministic local emulator remains the
 test-only conformance boundary and is not linked into the platform binary.
 
-The A7 implementation is not phase-complete until the continuous 72-hour public
-qualification and final candidate inspections pass. A successful public probe
-or short harness smoke is not a soak result.
+A7 is accepted under the repository owner's time-bounded, non-safety
+availability/resynchronization waiver. Its preserved automated result remains
+`qualified:false`; the waiver neither changes the 15-second SLO nor converts a
+short public probe into soak evidence. Future exact-source qualification runs
+remain the remediation path.
 
 ## Public capabilities
 
@@ -60,6 +62,29 @@ Exchange time, local receipt, processing, and publication time are separate.
 Every view also carries connection ID, generation, source sequence, ingest
 ordinal, version, and monotonic freshness offsets.
 
+## Recovery transport and combined health
+
+DNS resolution, TCP connect, TLS negotiation, and WebSocket upgrade share one
+five-second setup deadline. Every DNS answer is validated before dialing, no
+more than four validated public addresses are tried with bounded IPv4/IPv6
+fallback, and losing connections are closed. Typed failures retain only bounded
+stage durations, candidate/attempt counts, family, HTTP status, response
+timing/size, and valid `Retry-After`; IPs, URLs, headers, payloads, and arbitrary
+errors are never evidence fields.
+
+Recorder clients reserve 768 Binance request-weight units for recovery. The
+three simultaneous 5,000-level snapshots and clock samples use that recovery
+class; unrelated public requests retain the ordinary public class. The
+5,000-level snapshot remains required for the internal reserve even though the
+published book retains 1,000 levels.
+
+Clock sampling runs asynchronously with at most one request in flight. Clock
+failure makes combined book/clock eligibility false without stopping a valid
+book or stream, and retries in place using deterministic bounded backoff or a
+larger valid `Retry-After`. Reconnect is reserved for stream, book, or
+subscription defects. Readiness consumers use the immutable combined health
+snapshot, never book health alone.
+
 ## Recording and qualification
 
 Wire bytes are appended before decoding. A successfully appended raw record is
@@ -77,6 +102,16 @@ the process container retains a separate 2 GiB hard limit.
 
 ## Safety
 
+Formal runners synchronously journal each health transition, retry, operation
+result, recovery action, and terminal transition while mirroring the bounded
+record to the service log. Journal, rolling-status, recorder-flush, capacity,
+or terminal-evidence failure terminates qualification. Five-minute status
+replacement remains atomic.
+
+At the official end time the runner freezes final combined health before
+canceling collectors. Cancellation during setup, write, receive, clock,
+snapshot, or backoff is normal termination: it must not invalidate a healthy
+book, increment failure counts, or create a false reconnect.
 No Binance credential field, signer, private route, account client, external
 order method, test environment, or arbitrary production URL exists in the A7
 boundary. The two exact public hosts are compiled in code. Redirects, proxies,

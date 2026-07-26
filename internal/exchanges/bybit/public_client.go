@@ -169,7 +169,8 @@ func (client *PublicClient) sampleServerTime(
 	}
 	server, err := NormalizeServerTime(body)
 	if err != nil {
-		return ClockHealth{}, token, client.recordDecodeFailure(ctx, recorder, token, err)
+		return ClockHealth{}, token, client.recordDecodeFailure(
+			ctx, recorder, token, err, "clock_normalize")
 	}
 	health, estimateErr := client.clockEstimator.Observe(sent.UTC, received.UTC, server,
 		sentMonotonic, receivedMonotonic)
@@ -207,11 +208,13 @@ func (client *PublicClient) recordDecodeFailure(
 	recorder exchangecontracts.PublicRecorder,
 	token exchangecontracts.StreamRecordToken,
 	cause error,
+	stage string,
 ) error {
 	if recorder != nil {
 		if err := recorder.RecordPublicCanonical(ctx, exchangecontracts.PublicCanonicalRecord{
 			Kind: exchangecontracts.RecordDecoderError, Token: token,
-			Canonical: boundedDecoderFailureEvidence(cause)}); err != nil {
+			Canonical: boundedDecoderFailureEvidence(
+				cause, stage, exchangecontracts.StreamKind(""))}); err != nil {
 			return recorderFailure{err}
 		}
 	}

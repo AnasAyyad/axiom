@@ -78,7 +78,7 @@ func TestQualificationSourceCommitIsExactAndSanitized(t *testing.T) {
 
 func TestWriteSoakStatusAtomicallyReplacesOneFile(t *testing.T) {
 	root := t.TempDir()
-	status := soakStatus{SchemaVersion: "axiom.a7-soak-status.v3", SourceCommit: testSourceCommit,
+	status := soakStatus{SchemaVersion: "axiom.a7-soak-status.v4", SourceCommit: testSourceCommit,
 		ManifestRevision: 1}
 	if err := writeSoakStatus(root, status); err != nil {
 		t.Fatal(err)
@@ -193,7 +193,7 @@ func TestWriteSoakEvidenceUsesAtomicTerminalReport(t *testing.T) {
 	if decoded.SchemaVersion != evidence.SchemaVersion || decoded.SourceCommit != testSourceCommit {
 		t.Fatalf("decoded evidence=%#v", decoded)
 	}
-	if decoded.SchemaVersion != "axiom.a7-soak.v4" {
+	if decoded.SchemaVersion != "axiom.a7-soak.v5" {
 		t.Fatalf("schema=%q", decoded.SchemaVersion)
 	}
 }

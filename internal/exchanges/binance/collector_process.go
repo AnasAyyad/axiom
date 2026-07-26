@@ -67,6 +67,100 @@ func snapshotBridgeGap(snapshotSequence uint64, pending []ObservedStreamEvent) (
 	return 0, 0, false
 }
 
+type healthyTimers struct {
+	renewal *time.Timer
+	clock   *time.Ticker
+	stale   *time.Ticker
+}
+
+func newHealthyTimers(config CollectorConfig) healthyTimers {
+	return healthyTimers{
+		renewal: time.NewTimer(config.ConnectionPolicy.Renewal),
+		clock:   time.NewTicker(config.ClockSyncEvery),
+		stale:   time.NewTicker(config.StaleCheckEvery),
+	}
+}
+
+func (timers healthyTimers) stop() {
+	timers.renewal.Stop()
+	timers.clock.Stop()
+	timers.stale.Stop()
+}
+
+type clockRecoveryState struct {
+	results      chan clockSampleResult
+	inFlight     bool
+	attempt      uint32
+	retry        *time.Timer
+	retryChannel <-chan time.Time
+}
+
+func newClockRecoveryState() *clockRecoveryState {
+	return &clockRecoveryState{results: make(chan clockSampleResult, 1)}
+}
+
+func (state *clockRecoveryState) stop() {
+	if state.retry != nil {
+		state.retry.Stop()
+	}
+}
+
+func (state *clockRecoveryState) start(
+	ctx context.Context,
+	collector *InstrumentCollector,
+	connectionID string,
+	generation uint64,
+) {
+	if state.inFlight {
+		return
+	}
+	state.inFlight = true
+	go collector.sampleClock(ctx, connectionID, generation, state.results)
+}
+
+func (state *clockRecoveryState) handle(
+	collector *InstrumentCollector,
+	generation uint64,
+	result clockSampleResult,
+) (generationOutcome, bool) {
+	state.inFlight = false
+	if isRecorderFailure(result.err) {
+		return generationFailure(generationOutcome{fatal: result.err, generation: generation},
+			"clock", "recorder", result.err), true
+	}
+	if result.err == nil && result.health.Eligible {
+		degraded := collector.setClockHealth(result.health, true)
+		collector.recordClockResult(generation, result, true, 0)
+		if !degraded.IsZero() {
+			collector.recordResynchronization(degraded, generation)
+		}
+		state.attempt = 0
+		if state.retry != nil && state.retry.Stop() {
+			state.retryChannel = nil
+		}
+		return generationOutcome{}, false
+	}
+	collector.markClockDegraded(result.health, collector.lifecycle.Now())
+	if state.attempt != ^uint32(0) {
+		state.attempt++
+	}
+	delay, err := collector.config.ConnectionPolicy.Backoff(max(state.attempt, 1))
+	if err != nil {
+		return generationOutcome{fatal: err, generation: generation}, true
+	}
+	if retry := retryAfterOf(result.err); retry > delay {
+		delay = retry
+	}
+	collector.recordClockResult(generation, result, false, delay)
+	if state.retry == nil {
+		state.retry = time.NewTimer(delay)
+	} else {
+		state.retry.Reset(delay)
+	}
+	state.retryChannel = state.retry.C
+	return generationOutcome{}, false
+}
+
 func (collector *InstrumentCollector) runHealthy(
 	ctx context.Context,
 	events <-chan observedResult,
@@ -74,26 +168,31 @@ func (collector *InstrumentCollector) runHealthy(
 	connectionID string,
 	generation uint64,
 ) generationOutcome {
-	renewal := time.NewTimer(collector.config.ConnectionPolicy.Renewal)
-	defer renewal.Stop()
-	clockTicker := time.NewTicker(collector.config.ClockSyncEvery)
-	defer clockTicker.Stop()
-	staleTicker := time.NewTicker(collector.config.StaleCheckEvery)
-	defer staleTicker.Stop()
+	timers := newHealthyTimers(collector.config)
+	defer timers.stop()
+	clock := newClockRecoveryState()
+	defer clock.stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return generationOutcome{}
-		case <-renewal.C:
+		case <-collector.evidenceFailed:
+			return generationOutcome{fatal: collector.lifecycleEvidenceError(), generation: generation}
+		case <-timers.renewal.C:
 			return collector.pauseOutcome(ctx, connectionID, generation, collector.book.View().Sequence(), reconnectScheduledRenewal)
 		case <-overflow:
 			return generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
 				collector.book.View().Sequence(), reconnectQueue), "healthy_queue", "queue_overflow", nil)
-		case <-clockTicker.C:
-			if outcome, failed := collector.clockHealthOutcome(ctx, connectionID, generation); failed {
+		case <-timers.clock.C:
+			clock.start(ctx, collector, connectionID, generation)
+		case <-clock.retryChannel:
+			clock.retryChannel = nil
+			clock.start(ctx, collector, connectionID, generation)
+		case result := <-clock.results:
+			if outcome, failed := clock.handle(collector, generation, result); failed {
 				return outcome
 			}
-		case <-staleTicker.C:
+		case <-timers.stale.C:
 			if collector.book.MarkStale(collector.source.MonotonicOffset(),
 				uint64(collector.config.MaximumBookAge.Nanoseconds())) != nil {
 				return generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
@@ -133,28 +232,20 @@ func (collector *InstrumentCollector) healthyEventOutcome(
 	return generationOutcome{}, false
 }
 
-func (collector *InstrumentCollector) clockHealthOutcome(
+func (collector *InstrumentCollector) sampleClock(
 	ctx context.Context,
 	connectionID string,
 	generation uint64,
-) (generationOutcome, bool) {
+	results chan<- clockSampleResult,
+) {
+	started := collector.lifecycle.Now()
 	health, _, err := collector.source.SampleServerTimeRecorded(ctx, collector.config.Instrument,
 		connectionID, generation, collector.recorder)
-	if isRecorderFailure(err) {
-		return generationFailure(generationOutcome{fatal: err, generation: generation},
-			"clock", "recorder", err), true
+	result := clockSampleResult{health: health, err: err, duration: collector.lifecycle.Now().Sub(started)}
+	select {
+	case results <- result:
+	case <-ctx.Done():
 	}
-	if err != nil || !health.Eligible {
-		cause := "clock_uncertainty"
-		if err != nil {
-			cause = "clock_sample_failed"
-		}
-		outcome := generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
-			collector.book.View().Sequence(), reconnectClock), "clock", cause, err)
-		outcome.clockOffset, outcome.clockUncertainty = health.Offset, health.Uncertainty
-		return outcome, true
-	}
-	return generationOutcome{}, false
 }
 
 func (collector *InstrumentCollector) processObserved(ctx context.Context, observed ObservedStreamEvent, generation uint64) error {

@@ -2,6 +2,7 @@ package binance
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -99,6 +100,38 @@ func TestPublicDialerRejectsAnyNonPublicResolution(t *testing.T) {
 	}
 	if !publicIP(net.ParseIP("93.184.216.34")) {
 		t.Fatal("public address rejected")
+	}
+}
+
+func TestPublicDialerValidatesAllAnswersAndFallsBackAcrossFamilies(t *testing.T) {
+	resolver := staticResolver{addresses: []net.IPAddr{
+		{IP: net.ParseIP("2606:4700:4700::1111")},
+		{IP: net.ParseIP("93.184.216.34")},
+		{IP: net.ParseIP("2606:4700:4700::1001")},
+	}}
+	calls := 0
+	var peer net.Conn
+	dialer := &publicDialer{host: "data-api.binance.vision", resolver: resolver,
+		dial: func(context.Context, string, string) (net.Conn, error) {
+			calls++
+			if calls == 1 {
+				return nil, errors.New("bounded fixture failure")
+			}
+			connection, other := net.Pipe()
+			peer = other
+			return connection, nil
+		}}
+	connection, metadata, err := dialer.dialValidated(
+		context.Background(), "tcp", "data-api.binance.vision:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	defer peer.Close()
+	if calls != 2 || metadata.CandidateCount != 3 || metadata.AttemptCount != 2 ||
+		metadata.AddressFamily != "ipv4" || metadata.SetupStage != "tcp" ||
+		metadata.DNSDuration < 0 || metadata.TCPDuration < 0 {
+		t.Fatalf("calls=%d metadata=%#v", calls, metadata)
 	}
 }
 

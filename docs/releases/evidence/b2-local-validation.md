@@ -9,9 +9,9 @@ The passing public run measured 59.569181 ms Binance and 40.927081 ms Bybit
 clock uncertainty, below the immutable 100 ms B2 limit, and retained the exact
 30-record Tier A dataset and coherent-view identity.
 
-Formal phase acceptance remains on an explicit hold for predecessor acceptance,
-the deferred continuous 72-hour B2 qualification, and Product, Security, QA,
-and SRE approval. No 72-hour B2 run or formal acceptance is claimed. B3 source
+A7 is accepted under its documented owner waiver and B1 is formally qualified.
+B2 remains on hold for its own continuous 72-hour qualification and Product,
+Security, QA, and SRE approval. No 72-hour B2 run or formal acceptance is claimed. B3 source
 must start only after this locally verified B2 completion is merged into `main`.
 
 ## Source and toolchain identity
@@ -132,6 +132,6 @@ fail-closed evidence but is superseded as the short coherent-view gate result.
 
 - The continuous B2 72-hour qualification remains explicitly deferred and was
   not run.
-- A7/V1A and B1 formal predecessor acceptance remains pending.
+- A7 is accepted under owner waiver and B1 is formally qualified.
 - Product, Security, QA, and SRE formal acceptance remains pending after those
   predecessor and deferred phase gates close.

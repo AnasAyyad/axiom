@@ -244,3 +244,16 @@ func TestBybitInitialHealthIsDiagnosedWithoutCreatingResyncSample(t *testing.T) 
 		t.Fatalf("diagnostic=%#v", diagnostic)
 	}
 }
+
+func TestB1ReconnectHonorsRetryAfterWhenItExceedsBackoff(t *testing.T) {
+	collector, _ := newLifecycleTestCollector(t)
+	state := lifecycleState{}
+	_, delay, err := collector.advanceLifecycle(&state, generationOutcome{
+		reason: reconnectSubscription, retryAfter: 19 * time.Second}, time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if delay != 19*time.Second {
+		t.Fatalf("delay=%s want=19s", delay)
+	}
+}

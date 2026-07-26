@@ -1,4 +1,4 @@
-package bybit
+package binance
 
 import (
 	"encoding/json"
@@ -13,27 +13,29 @@ type decoderFailureEvidence struct {
 	FailureKind exchangecontracts.ErrorKind  `json:"failure_kind"`
 	Operation   exchangecontracts.Operation  `json:"operation"`
 	StreamKind  exchangecontracts.StreamKind `json:"stream_kind,omitempty"`
-	Cause       string                       `json:"cause,omitempty"`
+	Cause       string                       `json:"cause"`
 }
 
 func boundedDecoderFailureEvidence(
-	cause error,
+	err error,
 	stage string,
 	streamKind exchangecontracts.StreamKind,
 ) []byte {
 	evidence := decoderFailureEvidence{Kind: "decoder_error", Stage: stage,
 		FailureKind: exchangecontracts.ErrorValidation,
 		Operation:   exchangecontracts.OperationStream,
-		StreamKind:  streamKind}
+		StreamKind:  streamKind, Cause: "decoder_validation"}
 	var failure *exchangecontracts.Error
-	if errors.As(cause, &failure) && failure != nil {
+	if errors.As(err, &failure) && failure != nil {
 		evidence.FailureKind = failure.Kind
 		evidence.Operation = failure.Operation
-		evidence.Cause = failure.Cause
+		if failure.Cause != "" {
+			evidence.Cause = failure.Cause
+		}
 	}
-	payload, err := json.Marshal(evidence)
-	if err != nil {
-		return []byte(`{"kind":"decoder_error","decoder_stage":"evidence_encode","failure_kind":"validation_rejected","operation":"stream"}`)
+	payload, marshalErr := json.Marshal(evidence)
+	if marshalErr != nil {
+		return []byte(`{"kind":"decoder_error","decoder_stage":"evidence_encode","failure_kind":"validation_rejected","operation":"stream","cause":"decoder_validation"}`)
 	}
 	return payload
 }

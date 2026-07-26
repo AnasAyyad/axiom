@@ -3,7 +3,8 @@
 These stable IDs are the canonical implementation and evidence register for
 V1B. `Implemented` means the source exists. `Verified (local)` means every
 implemented non-soak phase gate passed against identified source. Formal
-acceptance additionally requires predecessor, soak, and approver evidence.
+acceptance additionally requires predecessor, soak, and approver evidence,
+except that B1 now has retained formal 72-hour qualification evidence.
 
 | ID | Class | Requirement | Owner | Implementation target | Planned verification | Evidence | Status |
 |---|---|---|---|---|---|---|---|
@@ -14,7 +15,7 @@ acceptance additionally requires predecessor, soak, and approver evidence.
 | AX-V1B-B01-FUN-005 | Functional | Record Binance and Bybit BTC-USDT, ETH-USDT, and ETH-BTC with retained depth 1000 and configured 15m, 1h, and 4h candles. | Exchange Platform | V1B config and recorder composition | Configuration and composition tests | [B1 evidence](../releases/evidence/b1-local-validation.md) | Verified (local) |
 | AX-V1B-B01-SAF-001 | Safety | Bybit public code accepts no credentials, signer, arbitrary origin, private route, order, withdrawal, or transfer capability. | Security / Bybit Adapter | Endpoint policy and binary boundary | Negative route/config/source/binary scans | [B1 evidence](../releases/evidence/b1-local-validation.md) | Verified (local) |
 | AX-V1B-B01-QLT-001 | Quality | Binance, Bybit, and emulator satisfy the same consumer-owned public contracts and deterministic fault expectations. | QA / Exchange Platform | Shared conformance suite | Repeated conformance and fault tests | [B1 evidence](../releases/evidence/b1-local-validation.md) | Verified (local) |
-| AX-V1B-B01-OPS-001 | Operations | Pass short production-public validation and a continuous isolated 72-hour declared-load soak with retained evidence. | SRE / Bybit Adapter | B1 qualification harness | Live validation and immutable soak bundle | [B1 evidence](../releases/evidence/b1-local-validation.md) | Short validation verified; soak deferred |
+| AX-V1B-B01-OPS-001 | Operations | Pass short production-public validation and a continuous isolated 72-hour declared-load soak with retained evidence. | SRE / Bybit Adapter | B1 qualification harness | Live validation and immutable soak bundle | [B1 formal qualification](../releases/evidence/b1-formal-qualification-2026-07-26.md) | Formally qualified |
 | AX-V1B-B02-FUN-001 | Functional | Build deterministic coherent cross-market views with version vectors, clock-offset uncertainty, freshness/skew rejection, and immutable membership. | Market Data | Cross-market view service | Boundary, permutation, replay, and PostgreSQL tests | [B2 evidence](../releases/evidence/b2-local-validation.md) | Verified (local) |
 | AX-V1B-B02-QLT-001 | Quality | Produce Tier-A multi-exchange manifests and pass combined record-only and 72-hour coherent-view qualification. | Storage / SRE | Dataset manifests and qualification | Ten identical hashes and retained soak evidence | [B2 evidence](../releases/evidence/b2-local-validation.md); 72-hour soak explicitly deferred | Tier A and short coherent-view verified; soak deferred |
 | AX-V1B-B03-FUN-001 | Functional | Implement the specified completed-candle mean-reversion evaluator through the shared strategy pipeline. | Strategy | Strategy registry and mean reversion | Golden, no-look-ahead, parity, restart, and report tests | [B3 evidence](../releases/evidence/b3-local-validation.md) | Verified (local) |

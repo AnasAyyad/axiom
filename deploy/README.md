@@ -200,7 +200,8 @@ The `record` profile runs the A7 `platform recorder` composition. It connects
 only to the compiled Binance production-public hosts, synchronizes BTC/USDT and
 ETH/USDT, and writes linked wire/canonical Parquet segments under
 `MARKET_DATA_HOST_PATH`. Readiness remains false until PostgreSQL is available
-and both books are fresh and sequence-healthy. The default five-minute
+and every configured book is fresh and sequence-healthy and every instrument's
+exchange-clock sample is valid. The default five-minute
 finalization interval is also the declared raw recorder RPO; lowering it creates
 more cumulative manifest revisions and must be capacity-tested. Keep the
 recorder on the `exchange_egress` network and do not add proxy or credential
@@ -208,6 +209,30 @@ environment variables.
 
 Add the edge only after `APP_DOMAIN`, `ACME_EMAIL`, secure cookies, allowed origins, DNS, firewall, and TLS behavior are correct:
 
+Formal A7 and B1 qualifications run in separate, new empty output roots and
+separate service logs. Each runner must use a full committed source identity,
+public-only environment, `Restart=no`, and a 73-hour test timeout. A7 and B1
+may run concurrently, but their artifacts, status files, hash-chained journals,
+terminal evidence, and service logs must never be shared.
+
+A formal service is considered started only after all of the following are
+observed:
+
+- the unit is active with `NRestarts=0`, a valid PID, and expected start time;
+- the log names the exact A7 or B1 72-hour test and committed source;
+- the atomically replaced rolling status parses with the current schema;
+- lifecycle journal entries exist and their bounded facts mirror to the log;
+- segment and cumulative-manifest data are arriving in the dedicated root.
+
+DNS, TCP, TLS, and WebSocket upgrade share a five-second setup deadline and
+Bybit subscription/heartbeat writes use two seconds. Clock-only degradation is
+retried in place while stream/book processing continues; recorder and shadow
+readiness use combined book/clock health. The official end freezes terminal
+health before cancellation. Normal cancellation must not invalidate a healthy
+book or create a reconnect, while journal, rolling-status, recorder-flush,
+capacity, or terminal-evidence failure remains fail-closed.
+
+Do not modify old qualification directories, terminal JSON, journals, logs,
 ```bash
 docker compose --profile app --profile record --profile observability --profile edge up -d
 ```

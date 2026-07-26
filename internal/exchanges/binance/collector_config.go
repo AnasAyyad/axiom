@@ -12,16 +12,17 @@ const collectorExchange = "binance"
 
 // CollectorConfig fixes all memory, freshness, and lifecycle bounds for one instrument.
 type CollectorConfig struct {
-	Instrument       domain.Instrument
-	SnapshotDepth    uint32
-	BookDepth        int
-	QueueCapacity    int
-	CandleCapacity   int
-	CandleIntervals  []string
-	MaximumBookAge   time.Duration
-	ClockSyncEvery   time.Duration
-	StaleCheckEvery  time.Duration
-	ConnectionPolicy ConnectionPolicy
+	Instrument        domain.Instrument
+	SnapshotDepth     uint32
+	BookDepth         int
+	QueueCapacity     int
+	CandleCapacity    int
+	CandleIntervals   []string
+	MaximumBookAge    time.Duration
+	ClockSyncEvery    time.Duration
+	StaleCheckEvery   time.Duration
+	ConnectionPolicy  ConnectionPolicy
+	LifecycleEvidence exchangecontracts.LifecycleEvidenceSink
 }
 
 // DefaultCollectorConfig returns conservative A7 production-public defaults.
