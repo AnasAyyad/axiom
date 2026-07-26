@@ -515,7 +515,13 @@ b8-postgres-qualify: ## Run clean-install and exact B7-upgrade B8 gates on Postg
 
 b8-api-qualify: ## Verify generated B8 OpenAPI contracts, generic projections, commands, and SSE envelopes.
 	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
-	@$(GO) test ./internal/api/console ./internal/storage/postgres \
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
+		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
+		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/api/console ./internal/storage/postgres \
 		-run 'B8|Stream|Cursor|Filter' -count=1 -v
 	@$(NODE) scripts/check-b8-console-boundary.mjs
 
