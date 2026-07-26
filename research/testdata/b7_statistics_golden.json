@@ -1,0 +1,55 @@
+{
+  "multiple_testing_input": {
+    "method": "benjamini_hochberg_fdr.v1",
+    "alpha": "0.05",
+    "raw_p_values": [
+      "0.001",
+      "0.02",
+      "0.4",
+      "0.8"
+    ]
+  },
+  "multiple_testing": {
+    "method": "benjamini_hochberg_fdr.v1",
+    "alpha": "0.05",
+    "raw_p_values": [
+      "0.001",
+      "0.02",
+      "0.4",
+      "0.8"
+    ],
+    "adjusted_p_values": [
+      "0.004",
+      "0.04",
+      "0.533333333333",
+      "0.8"
+    ],
+    "rejected": [
+      true,
+      true,
+      false,
+      false
+    ],
+    "family_size": 4
+  },
+  "sharpe_input": {
+    "observed_sharpe": "2",
+    "benchmark_sharpe": "0",
+    "skewness": "0",
+    "excess_kurtosis": "0",
+    "observations": 400,
+    "independent_trials": 10
+  },
+  "sharpe": {
+    "observed_sharpe": "2",
+    "benchmark_sharpe": "0",
+    "skewness": "0",
+    "excess_kurtosis": "0",
+    "observations": 400,
+    "independent_trials": 10,
+    "probabilistic_sharpe_probability": "1",
+    "deflated_benchmark_sharpe": "0.136534988553",
+    "deflated_sharpe_probability": "1",
+    "algorithm": "bailey_lopez_de_prado_psr_dsr.v1"
+  }
+}

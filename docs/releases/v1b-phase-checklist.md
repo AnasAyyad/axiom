@@ -55,8 +55,11 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 ## B7 — validation and promotion evidence
 
-- [ ] Confirm B6 is verified.
-- [ ] Implement and qualify every `AX-V1B-B07-*` requirement.
+- [x] Confirm B6 is verified.
+- [x] Implement every `AX-V1B-B07-*` requirement, including immutable
+  preregistration, independent statistics, Tier-A eligibility, and explicit
+  audited promotion.
+- [ ] Complete cumulative B4+B5+B6+B7 and committed-source image qualification.
 
 ## B8 — multi-exchange API and console
 

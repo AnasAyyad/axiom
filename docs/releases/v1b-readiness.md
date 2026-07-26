@@ -10,7 +10,9 @@ clean and exact B5-upgrade qualification, cumulative B4+B5+B6 verification,
 the no-execution security boundary, a committed-source image, image
 inspection/reproducibility, an isolated image-backed Compose smoke, SPDX SBOM
 generation, and the exact HIGH/CRITICAL scan. Formal B3-B6 acceptance remains
-held by predecessor acceptance and approvers. B7-B8 are not implemented.
+held by predecessor acceptance and approvers. B7 is implemented with targeted
+research and PostgreSQL checks passing, but its cumulative committed-source
+qualification remains open. B8 is not implemented.
 
 ## Release identity
 
@@ -61,7 +63,7 @@ held by predecessor acceptance and approvers. B7-B8 are not implemented.
 | B4 | Locally verified B3 completion merged; formal B3 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B4 local validation](evidence/b4-local-validation.md) |
 | B5 | Locally verified B4 checkpoint; formal B4 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B5 local validation](evidence/b5-local-validation.md) |
 | B6 | Locally verified B5 checkpoint; formal B5 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B6 local validation](evidence/b6-local-validation.md) |
-| B7 | B6 verified | Planned | Not started | Pending |
+| B7 | B6 verified | Complete | Cumulative and committed-source qualification in progress | [B7 validation draft](evidence/b7-local-validation.md) |
 | B8 | B7 verified | Planned | Not started | Pending |
 
 ## Evidence rules
@@ -96,6 +98,7 @@ held by predecessor acceptance and approvers. B7-B8 are not implemented.
 - B6 continued from the committed and locally verified B5 checkpoint on the
   owner-authorized combined branch; every specified non-soak gate is locally
   verified. Its output is advisory only and cannot move external assets.
-- B7-B8 remain unimplemented.
+- B7 implementation is present, but its cumulative and committed-source image
+  qualification is not yet complete. B8 remains unimplemented.
 - V1B has no authenticated exchange transport, private endpoint, external
   order, withdrawal, transfer, testnet, demo, or live execution capability.

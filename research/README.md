@@ -6,7 +6,12 @@ image, is not mounted into `engine-shadow`, and cannot authorize a decision.
 The Go Trend and Mean Reversion implementations remain authoritative. Trend
 uses its original report contract; B3 uses the separate
 `mean-reversion-report.v1` contract so later evidence cannot silently weaken or
-reinterpret Trend evidence.
+reinterpret Trend evidence. B7 independently recalculates Benjamini-Hochberg
+false-discovery adjustments, probabilistic and deflated Sharpe evidence,
+registered-neighborhood stability, and research-maturity eligibility. Only
+formal Tier A backtest, replay, and shadow evidence can qualify; demo, testnet,
+paper, Tier B, low-confidence, and integration-only sources cannot serve as
+primary promotion evidence.
 
 Reusable logic belongs in `src/axiom_research/` and is covered by `tests/`.
 Notebooks are presentation-only and must import the tested modules rather than

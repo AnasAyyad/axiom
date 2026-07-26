@@ -34,7 +34,8 @@ func TestRuntimeMutationGrantsExcludeImmutableHistory(t *testing.T) {
 	updates := grantSQL("UPDATE", runtimeUpdateTables, `"axiom_runtime"`)
 	deletes := grantSQL("DELETE", runtimeDeleteTables, `"axiom_runtime"`)
 	for _, table := range []string{
-		"audit_events", "fills", "inbox_events", "journal_transactions", "ledger_entries", "order_events", "run_results",
+		"audit_events", "fills", "inbox_events", "journal_transactions", "ledger_entries", "order_events",
+		"run_results", "strategy_versions", "strategy_maturity_states",
 	} {
 		if strings.Contains(updates, `"`+table+`"`) || strings.Contains(deletes, `"`+table+`"`) {
 			t.Fatalf("runtime can mutate immutable history table %s", table)

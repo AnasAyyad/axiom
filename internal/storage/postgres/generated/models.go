@@ -207,6 +207,56 @@ type B5ClaimResource struct {
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type B7ChampionChallengerReport struct {
+	ID                          string             `db:"id" json:"id"`
+	ChampionStrategyVersionID   string             `db:"champion_strategy_version_id" json:"champion_strategy_version_id"`
+	ChallengerStrategyVersionID string             `db:"challenger_strategy_version_id" json:"challenger_strategy_version_id"`
+	ChampionSuiteID             string             `db:"champion_suite_id" json:"champion_suite_id"`
+	ChallengerSuiteID           string             `db:"challenger_suite_id" json:"challenger_suite_id"`
+	ChampionEvidenceHash        interface{}        `db:"champion_evidence_hash" json:"champion_evidence_hash"`
+	ChallengerEvidenceHash      interface{}        `db:"challenger_evidence_hash" json:"challenger_evidence_hash"`
+	ManifestHash                interface{}        `db:"manifest_hash" json:"manifest_hash"`
+	CanonicalManifest           []byte             `db:"canonical_manifest" json:"canonical_manifest"`
+	Disposition                 string             `db:"disposition" json:"disposition"`
+	DisclaimerPolicy            string             `db:"disclaimer_policy" json:"disclaimer_policy"`
+	CreatedAt                   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type B7ExperimentPreregistration struct {
+	ID                               string             `db:"id" json:"id"`
+	ResearchGenerationID             string             `db:"research_generation_id" json:"research_generation_id"`
+	StrategyVersionID                string             `db:"strategy_version_id" json:"strategy_version_id"`
+	RegistrationHash                 interface{}        `db:"registration_hash" json:"registration_hash"`
+	CanonicalRegistration            []byte             `db:"canonical_registration" json:"canonical_registration"`
+	MinimumSamples                   int64              `db:"minimum_samples" json:"minimum_samples"`
+	MinimumTrades                    int64              `db:"minimum_trades" json:"minimum_trades"`
+	MinimumShadowDurationNanos       int64              `db:"minimum_shadow_duration_nanos" json:"minimum_shadow_duration_nanos"`
+	MinimumDeflatedSharpeProbability pgtype.Numeric     `db:"minimum_deflated_sharpe_probability" json:"minimum_deflated_sharpe_probability"`
+	RegisteredAt                     pgtype.Timestamptz `db:"registered_at" json:"registered_at"`
+	FinalTestStart                   pgtype.Timestamptz `db:"final_test_start" json:"final_test_start"`
+	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type B7ValidationSuite struct {
+	ID                        string             `db:"id" json:"id"`
+	PreregistrationID         string             `db:"preregistration_id" json:"preregistration_id"`
+	ResearchGenerationID      string             `db:"research_generation_id" json:"research_generation_id"`
+	StrategyVersionID         string             `db:"strategy_version_id" json:"strategy_version_id"`
+	ManifestHash              interface{}        `db:"manifest_hash" json:"manifest_hash"`
+	CanonicalManifest         []byte             `db:"canonical_manifest" json:"canonical_manifest"`
+	EvidenceHash              interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	FinalTestConsumptionHash  interface{}        `db:"final_test_consumption_hash" json:"final_test_consumption_hash"`
+	PrimaryModes              []string           `db:"primary_modes" json:"primary_modes"`
+	PrimaryDatasetTier        string             `db:"primary_dataset_tier" json:"primary_dataset_tier"`
+	PrimaryConfidenceLabel    string             `db:"primary_confidence_label" json:"primary_confidence_label"`
+	HasIntegrationOnlyPrimary bool               `db:"has_integration_only_primary" json:"has_integration_only_primary"`
+	EligibleMaturities        []string           `db:"eligible_maturities" json:"eligible_maturities"`
+	ConfidenceLabel           string             `db:"confidence_label" json:"confidence_label"`
+	ViabilityDisposition      string             `db:"viability_disposition" json:"viability_disposition"`
+	DisclaimerPolicy          string             `db:"disclaimer_policy" json:"disclaimer_policy"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type CircuitBreakerEvent struct {
 	ID             string             `db:"id" json:"id"`
 	BreakerKind    string             `db:"breaker_kind" json:"breaker_kind"`
@@ -1422,6 +1472,45 @@ type StrategyDefinition struct {
 	ID     string `db:"id" json:"id"`
 	Name   string `db:"name" json:"name"`
 	Family string `db:"family" json:"family"`
+}
+
+type StrategyMaturityCommand struct {
+	ID                string             `db:"id" json:"id"`
+	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
+	EvidenceID        string             `db:"evidence_id" json:"evidence_id"`
+	EvidenceHash      interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	ActorUserID       string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID         string             `db:"session_id" json:"session_id"`
+	IdempotencyKey    string             `db:"idempotency_key" json:"idempotency_key"`
+	PayloadHash       interface{}        `db:"payload_hash" json:"payload_hash"`
+	ExpectedRevision  int64              `db:"expected_revision" json:"expected_revision"`
+	PriorMaturity     string             `db:"prior_maturity" json:"prior_maturity"`
+	TargetMaturity    string             `db:"target_maturity" json:"target_maturity"`
+	Outcome           string             `db:"outcome" json:"outcome"`
+	FailureCode       *string            `db:"failure_code" json:"failure_code"`
+	Reason            string             `db:"reason" json:"reason"`
+	CommandTime       pgtype.Timestamptz `db:"command_time" json:"command_time"`
+	RecordedAt        pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+	ResultingRevision int64              `db:"resulting_revision" json:"resulting_revision"`
+}
+
+type StrategyMaturityEvent struct {
+	CommandID         string             `db:"command_id" json:"command_id"`
+	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
+	EvidenceID        string             `db:"evidence_id" json:"evidence_id"`
+	PriorMaturity     string             `db:"prior_maturity" json:"prior_maturity"`
+	TargetMaturity    string             `db:"target_maturity" json:"target_maturity"`
+	Revision          int64              `db:"revision" json:"revision"`
+	EventHash         interface{}        `db:"event_hash" json:"event_hash"`
+	ActorUserID       string             `db:"actor_user_id" json:"actor_user_id"`
+	OccurredAt        pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type StrategyMaturityState struct {
+	StrategyVersionID string             `db:"strategy_version_id" json:"strategy_version_id"`
+	Maturity          string             `db:"maturity" json:"maturity"`
+	Revision          int64              `db:"revision" json:"revision"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type StrategyParameter struct {
