@@ -330,6 +330,7 @@ b4-sqlc: ## Generate and compile the reviewed B4 triangular-arbitrage queries.
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
 b4-model-qualify: ## Exercise exact B4 evaluation, atomic claims, central risk, sequential recovery, lifetime, and accounting.
@@ -358,6 +359,7 @@ b4-local-qualify: b4-model-qualify b4-postgres-qualify ## Pass every non-soak B4
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 b5-sqlc: ## Generate and compile the reviewed B5 cross-exchange-arbitrage queries.
@@ -368,6 +370,7 @@ b5-sqlc: ## Generate and compile the reviewed B5 cross-exchange-arbitrage querie
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
 b5-model-qualify: ## Exercise exact B5 coherent evaluation, closed-cycle economics, atomic claims, concurrent recovery, inventory, and accounting.
@@ -396,6 +399,7 @@ b5-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postg
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 b6-sqlc: ## Generate and compile the reviewed B6 advisory-rebalancing queries.
@@ -406,6 +410,7 @@ b6-sqlc: ## Generate and compile the reviewed B6 advisory-rebalancing queries.
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
 b6-model-qualify: ## Exercise reviewed facts, exact route costs, natural reversal, deterministic search, and advisory evidence.
@@ -438,6 +443,7 @@ b6-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postg
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 b7-sqlc: ## Generate and compile the reviewed B7 research-governance queries.
@@ -448,6 +454,7 @@ b7-sqlc: ## Generate and compile the reviewed B7 research-governance queries.
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
 b7-model-qualify: ## Exercise preregistration, locked suites, statistics, evidence eligibility, comparison, and promotion.
@@ -479,6 +486,7 @@ b7-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postg
 		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
 		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 b8-sqlc: ## Generate and compile the reviewed B8 multi-exchange console queries.
