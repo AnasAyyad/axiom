@@ -10,7 +10,7 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 |---|---|
 | Program baseline | merged B3 `main` at `5d7cb43a90473909bf2091f5af268d5a000633cd` |
 | Baseline gate | B3 merge PR #15 completed before B4 source changes; `b4-b5-end-to-end` was created from the exact merged SHA |
-| Active implementation phase | B7 implemented; cumulative and committed-source qualification in progress |
+| Active implementation phase | B7 locally verified; B8 is the next sequential phase |
 | Later implementation phases | B8 planned; no implementation claimed |
 | External side effects | Impossible: public data and simulation only |
 
@@ -24,7 +24,7 @@ but V1B cannot be released until V1A and the deferred phase soaks are accepted.
 | B4 | Strategy / Execution | 000016 | Locally verified; formal predecessor/approver hold | Exact triangular arbitrage, atomic claims, sequential simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B4 local validation](evidence/b4-local-validation.md) |
 | B5 | Strategy / Portfolio | 000017 | Locally verified; formal predecessor/approver hold | Coherent cross-exchange arbitrage, owned inventory, atomic claims, concurrent simulation, recovery/quarantine, immutable evidence, and clean image qualification | [B5 local validation](evidence/b5-local-validation.md) |
 | B6 | Portfolio / Research | 000018 | Locally verified; formal predecessor/approver hold | Deterministic advisory graph, immutable reviewed facts, exact costs, natural reversal, PostgreSQL clean/upgrade, clean image qualification, and no-execution boundary | [B6 local validation](evidence/b6-local-validation.md) |
-| B7 | Research / Data Science | 000019 | Implemented; qualification in progress | Preregistered locked evidence, independent statistics, Tier-A eligibility, champion/challenger reports, and explicit audited promotion | [B7 validation draft](evidence/b7-local-validation.md) |
+| B7 | Research / Data Science | 000019 | Locally verified; formal predecessor/approver hold | Preregistered locked evidence, independent statistics, Tier-A eligibility, champion/challenger reports, explicit audited promotion, and clean image qualification | [B7 local validation](evidence/b7-local-validation.md) |
 | B8 | API / Frontend / SRE | 000020 | Planned | Generic multi-exchange API, SSE, console, and operational workflows | Pending |
 
 ## Locked sequencing
@@ -33,12 +33,12 @@ Each phase is implemented from the latest completed predecessor. B4 started
 from merged B3 `main` at
 `5d7cb43a90473909bf2091f5af268d5a000633cd` and is locally verified. The owner
 authorized B5 to continue from the committed B4 checkpoint on the same branch.
-B5 and B6 are now locally verified from their sequential committed
-checkpoints; B7 implementation continues from committed B6 on the same
-owner-authorized branch. This changes only the intermediate merge boundary,
-not the B4, B5, or B6 gates. A phase may be `Locally verified` after every non-soak gate passes;
-accepted predecessor, soak where specified, and approver evidence changes it
-to formally accepted.
+B5, B6, and B7 are now locally verified from their sequential committed
+checkpoints on the same owner-authorized branch. B8 may continue from the
+committed B7 qualification checkpoint. This changes only the intermediate
+merge boundary, not the individual B4-B7 gates. A phase may be `Locally
+verified` after every non-soak gate passes; accepted predecessor, soak where
+specified, and approver evidence changes it to formally accepted.
 
 ## Program references
 
