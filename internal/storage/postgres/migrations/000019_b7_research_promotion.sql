@@ -63,7 +63,7 @@ CREATE TABLE b7_validation_suites (
   evidence_hash sha256_hex NOT NULL,
   final_test_consumption_hash sha256_hex NOT NULL,
   primary_modes text[] NOT NULL CHECK (
-    primary_modes <@ ARRAY['backtest','replay','shadow','paper','testnet','demo']::text[]
+    primary_modes <@ ARRAY['backtest','replay','shadow','paper','integration']::text[]
   ),
   primary_dataset_tier text NOT NULL CHECK (
     primary_dataset_tier IN ('tier_a','tier_b','low_confidence','integration_only')

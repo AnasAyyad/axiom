@@ -192,8 +192,8 @@ func b7PrimaryEvidence(sources []research.EvidenceSource) ([]string, string, str
 		if source.ConfidenceLabel != "formal_tier_a" {
 			confidence = source.ConfidenceLabel
 		}
-		if source.Mode == "paper" || source.Mode == "testnet" ||
-			source.Mode == "demo" || source.DatasetTier == "integration_only" {
+		if source.Mode == "paper" || source.Mode == "integration" ||
+			source.DatasetTier == "integration_only" {
 			integrationOnly = true
 		}
 	}

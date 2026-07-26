@@ -105,19 +105,20 @@ func TestB7ValidationSuiteQualifiesOnlyTierAPrimaryStatisticalEvidence(t *testin
 		t.Fatalf("low-confidence primary evidence qualified = %#v %v",
 			lowManifest.EligibleMaturities, err)
 	}
-	demo := completeB7ValidationInput(registration)
-	demo.Sources[0].Mode = "demo"
-	demoManifest, _, err := BuildValidationSuite(registration, demo)
-	if err != nil || len(demoManifest.EligibleMaturities) != 0 {
-		t.Fatalf("demo primary evidence qualified = %#v %v", demoManifest.EligibleMaturities, err)
+	integration := completeB7ValidationInput(registration)
+	integration.Sources[0].Mode = "integration"
+	integrationManifest, _, err := BuildValidationSuite(registration, integration)
+	if err != nil || len(integrationManifest.EligibleMaturities) != 0 {
+		t.Fatalf("integration primary evidence qualified = %#v %v",
+			integrationManifest.EligibleMaturities, err)
 	}
 }
 
 func TestB7ValidationRejectsIncompleteEvidenceAndAllowsSupplementalIntegrationFacts(t *testing.T) {
 	registration, _, _ := RegisterExperiment(completeB7RegistrationInput())
 	input := completeB7ValidationInput(registration)
-	input.Sources = append(input.Sources, EvidenceSource{RunID: "demo-run-supplemental",
-		Mode: "demo", DatasetTier: "integration_only", ConfidenceLabel: "insufficient",
+	input.Sources = append(input.Sources, EvidenceSource{RunID: "integration-run-supplemental",
+		Mode: "integration", DatasetTier: "integration_only", ConfidenceLabel: "insufficient",
 		ResultHash: strings.Repeat("9", 64), Primary: false})
 	manifest, _, err := BuildValidationSuite(registration, input)
 	if err != nil || !manifest.EligibleForMaturity(MaturityShadowValidated) {

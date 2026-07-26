@@ -35,7 +35,10 @@ class B7ValidationTest(unittest.TestCase):
             validate_multi_strategy_suite(registration, suite),
             ["BACKTEST_VALIDATED", "REPLAY_VALIDATED", "SHADOW_VALIDATED"],
         )
-        for field, value in (("dataset_tier", "low_confidence"), ("mode", "demo")):
+        for field, value in (
+            ("dataset_tier", "low_confidence"),
+            ("mode", "integration"),
+        ):
             rejected = copy.deepcopy(suite)
             rejected["sources"][0][field] = value
             rejected["eligible_maturities"] = []

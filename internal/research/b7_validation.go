@@ -229,7 +229,7 @@ func validEvidenceSources(sources []EvidenceSource) bool {
 	for _, source := range sources {
 		if !researchIdentifier.MatchString(source.RunID) ||
 			!validEvidenceHash(source.ResultHash) ||
-			!containsStrings([]string{"backtest", "replay", "shadow", "paper", "testnet", "demo"}, []string{source.Mode}) ||
+			!containsStrings([]string{"backtest", "replay", "shadow", "paper", "integration"}, []string{source.Mode}) ||
 			!containsStrings([]string{"tier_a", "tier_b", "low_confidence", "integration_only"}, []string{source.DatasetTier}) ||
 			!containsStrings([]string{"formal_tier_a", "local_tier_b", "insufficient"}, []string{source.ConfidenceLabel}) {
 			return false

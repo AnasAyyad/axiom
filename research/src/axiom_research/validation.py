@@ -187,7 +187,7 @@ def _validate_coverage(suite: dict[str, Any]) -> None:
         raise ValueError("validation_stress_incomplete")
     if not required_benchmarks.issubset(_names(suite.get("benchmarks"))):
         raise ValueError("validation_benchmarks_incomplete")
-    allowed_modes = {"backtest", "replay", "shadow", "paper", "testnet", "demo"}
+    allowed_modes = {"backtest", "replay", "shadow", "paper", "integration"}
     allowed_tiers = {"tier_a", "tier_b", "low_confidence", "integration_only"}
     allowed_confidence = {"formal_tier_a", "local_tier_b", "insufficient"}
     identities: set[tuple[str, str]] = set()

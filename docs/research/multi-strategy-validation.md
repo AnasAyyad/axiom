@@ -38,7 +38,8 @@ search from reusing a supposedly locked final window.
 `multi-strategy-validation.v1` retains:
 
 - exact immutable run sources and their dataset tier, confidence, result hash,
-  mode, and primary/supplemental role;
+  mode, and primary/supplemental role; external demo or testnet observations
+  use the generic non-executable `integration` evidence mode;
 - chronological walk-forward folds and a seeded block-bootstrap interval;
 - registered-neighborhood stability;
 - capacity points, market regimes, and all six execution/cost stresses;

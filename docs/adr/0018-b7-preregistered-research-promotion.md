@@ -25,8 +25,10 @@ Every final-test generation remains single-use through the A10 consumption
 boundary.
 
 A canonical validation suite binds that preregistration to immutable backtest,
-replay, shadow, paper, demo, or testnet run evidence. It includes walk-forward
-folds, block-bootstrap intervals, parameter-neighborhood stability, capacity,
+replay, shadow, paper, or non-executable integration evidence. External demo or
+testnet observations are retained only under that generic integration
+classification. The suite includes walk-forward folds, block-bootstrap
+intervals, parameter-neighborhood stability, capacity,
 registered stresses, benchmarks, regimes, Benjamini-Hochberg false-discovery
 adjustment, probabilistic Sharpe, deflated Sharpe, measurable criteria, and a
 mandatory non-profitability disclaimer. The standard-library Python research
