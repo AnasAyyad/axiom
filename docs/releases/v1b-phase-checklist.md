@@ -64,7 +64,10 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 ## B8 — multi-exchange API and console
 
 - [x] Confirm B7 is verified.
-- [ ] Implement and qualify every `AX-V1B-B08-*` requirement.
+- [x] Implement and locally qualify every `AX-V1B-B08-*` requirement,
+  including cumulative B4-B8 verification, PostgreSQL 18 clean/upgrade,
+  desktop/mobile browser coverage, source/binary no-execution boundaries, and
+  committed-source image evidence.
 
 ## Release decision
 

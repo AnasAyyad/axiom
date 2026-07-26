@@ -4,16 +4,14 @@
 
 **V1B is not ready for release.** B1 and B2 are locally verified and merged into
 `main`; their formal predecessor, deferred 72-hour, and approver holds remain.
-B3 through B7 are implemented and locally verified for every specified
-non-soak gate. B7 passed exact model/race/fuzz/benchmark gates, independent
-Python statistics, PostgreSQL 18 clean and exact B6-upgrade qualification,
-cumulative B4+B5+B6+B7 verification, the research/no-execution security
-boundary, a committed-source image, image inspection/reproducibility, an
-isolated image-backed Compose smoke, SPDX SBOM generation, and the exact
-HIGH/CRITICAL scan. Formal B3-B7 acceptance remains held by predecessor
-acceptance and approvers. B8 is implemented and has passed targeted contract,
-PostgreSQL clean/upgrade, component/accessibility, and desktop/mobile browser
-checks; its final cumulative and committed-image qualification is in progress.
+B3 through B8 are implemented and locally verified for every specified
+non-soak gate. B8 passed contract/model/race/fuzz/benchmark gates, independent
+Python statistics, PostgreSQL 18 clean and exact B7-upgrade qualification,
+cumulative B4-B8 verification, frontend/accessibility and desktop/mobile
+browser checks, source/binary no-execution boundaries, a committed-source
+image, image inspection/reproducibility, isolated image-backed Compose smoke,
+SPDX SBOM generation, and the exact HIGH/CRITICAL scan. Formal B3-B8
+acceptance remains held by predecessor acceptance and approvers.
 
 ## Release identity
 
@@ -55,6 +53,10 @@ checks; its final cumulative and committed-image qualification is in progress.
 | B7 PostgreSQL qualification | Migration 000019 passed clean install and exact B6-to-B7 upgrade in `axiom_b7_clean_b7_test` and `axiom_b7_upgrade_b7_test` |
 | B7 clean image | `axiom@sha256:4c135eeb53d4ee05e7a8727dbad0c6eef62e742c4c202467804c0d013480b72c`; inspection, reproducibility, image-backed Compose smoke, SPDX SBOM, and Trivy HIGH/CRITICAL gate passed |
 | B7 SPDX SBOM | 47 packages; SHA-256 `3dc20187c882475887e2a36023a3a921b7d5622d51ba633ea9adeddd911626e6` |
+| B8 qualifying source | `30c3ade6ff1023a91e00a038a26379b47175dafa` |
+| B8 PostgreSQL qualification | Migration 000020 passed clean install and exact B7-to-B8 upgrade in `axiom_b8_clean_b8_test` and `axiom_b8_upgrade_b8_test` |
+| B8 clean image | `axiom@sha256:cb34e3b98494d4d0a42cccc30dd6d68a0baa3a8a28fa9005b2853e3f52957c51`; inspection, reproducibility, image-backed Compose smoke, SPDX SBOM, and Trivy HIGH/CRITICAL gate passed |
+| B8 SPDX SBOM | 47 packages; SHA-256 `6ae42e3d92ca0f194d366247a18374e7bbbb19de07ba31900b889a15009f24c3` |
 | B1 72-hour soak | Deferred by owner; not run and not claimed |
 | B2 72-hour qualification | Deferred by owner; not run and not claimed |
 | Product / Security / QA / SRE approvers | Pending |
@@ -70,7 +72,7 @@ checks; its final cumulative and committed-image qualification is in progress.
 | B5 | Locally verified B4 checkpoint; formal B4 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B5 local validation](evidence/b5-local-validation.md) |
 | B6 | Locally verified B5 checkpoint; formal B5 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B6 local validation](evidence/b6-local-validation.md) |
 | B7 | B6 verified | Complete | Locally verified; formal hold: predecessor and approvers | [B7 local validation](evidence/b7-local-validation.md) |
-| B8 | B7 verified | Complete | Targeted gates passed; final cumulative/image qualification in progress | [B8 local validation](evidence/b8-local-validation.md) |
+| B8 | B7 verified | Complete | Locally verified; formal hold: predecessor and approvers | [B8 local validation](evidence/b8-local-validation.md) |
 
 ## Evidence rules
 
@@ -109,8 +111,8 @@ checks; its final cumulative and committed-image qualification is in progress.
   verified. Promotion changes research maturity only and cannot authorize
   external execution.
 - B8 continued from the committed and locally verified B7 checkpoint on the
-  owner-authorized combined branch. Its generic console and simulation-only
-  commands are implemented; final cumulative and committed-image evidence is
-  still pending.
+  owner-authorized combined branch; every specified non-soak gate is locally
+  verified. Its generic console and simulation-only commands cannot authorize
+  external execution.
 - V1B has no authenticated exchange transport, private endpoint, external
   order, withdrawal, transfer, testnet, demo, or live execution capability.
