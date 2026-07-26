@@ -207,41 +207,60 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 	}
 	workContext, cancel := context.WithCancel(ctx)
 	defer cancel()
-	errorsChannel := make(chan error, len(work.collectors)+len(work.bybitCollectors))
-	var group sync.WaitGroup
-	for _, collector := range work.collectors {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			errorsChannel <- collector.Run(workContext)
-		}()
-	}
-	for _, collector := range work.bybitCollectors {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			errorsChannel <- collector.Run(workContext)
-		}()
-	}
+	errorsChannel, group := work.startRecorderCollectors(workContext)
 	flushTicker := time.NewTicker(work.flush)
 	defer flushTicker.Stop()
+	binanceCapacity := work.recorder.FlushRequired()
+	var bybitCapacity <-chan struct{}
+	if work.bybitRecorder != nil {
+		bybitCapacity = work.bybitRecorder.FlushRequired()
+	}
 	for {
 		select {
 		case <-workContext.Done():
 			group.Wait()
 			return work.flushPending(logger, true)
 		case err := <-errorsChannel:
-			if err != nil {
-				cancel()
-				group.Wait()
-				return err
+			if err == nil {
+				err = fmt.Errorf("recorder_collector_unexpected_exit")
 			}
+			cancel()
+			group.Wait()
+			return err
 		case <-flushTicker.C:
 			if err := work.flushPending(logger, false); err != nil {
 				return err
 			}
+		case <-binanceCapacity:
+			if err := work.flushCapacity(logger, "binance", work.recorder); err != nil {
+				return err
+			}
+		case <-bybitCapacity:
+			if err := work.flushCapacity(logger, "bybit", work.bybitRecorder); err != nil {
+				return err
+			}
 		}
 	}
+}
+
+func (work *recorderRoleWork) startRecorderCollectors(ctx context.Context) (<-chan error, *sync.WaitGroup) {
+	errorsChannel := make(chan error, len(work.collectors)+len(work.bybitCollectors))
+	group := &sync.WaitGroup{}
+	for _, collector := range work.collectors {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			errorsChannel <- collector.Run(ctx)
+		}()
+	}
+	for _, collector := range work.bybitCollectors {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			errorsChannel <- collector.Run(ctx)
+		}()
+	}
+	return errorsChannel, group
 }
 
 func (work *recorderRoleWork) registerMetadata(ctx context.Context) error {
@@ -308,54 +327,6 @@ func (work *recorderRoleWork) Ready() bool {
 		}
 	}
 	return true
-}
-
-func (work *recorderRoleWork) flushPending(logger *slog.Logger, final bool) error {
-	if err := work.flushRecorder(logger, work.recorder, final); err != nil {
-		return err
-	}
-	if work.bybitRecorder != nil {
-		return work.flushRecorder(logger, work.bybitRecorder, final)
-	}
-	return nil
-}
-
-func (work *recorderRoleWork) flushRecorder(logger *slog.Logger,
-	recorder *marketrecorder.Recorder, final bool) error {
-	raw, canonical := recorder.PendingCounts()
-	if raw == 0 && canonical == 0 {
-		return nil
-	}
-	if final && raw != canonical {
-		return fmt.Errorf("recorder_segment_incomplete")
-	}
-	var manifest marketrecorder.DatasetManifest
-	flushed := true
-	var err error
-	if final {
-		manifest, err = recorder.Flush()
-	} else {
-		manifest, flushed, err = recorder.FlushReady()
-	}
-	if err != nil {
-		return err
-	}
-	if !flushed {
-		return nil
-	}
-	if work.catalog == nil {
-		return fmt.Errorf("recorder_catalog_unavailable")
-	}
-	catalogContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	datasetID, err := work.catalog.Register(catalogContext, manifest, work.commit)
-	if err != nil {
-		return err
-	}
-	logger.Info("recorder_segment_flushed", "event_code", "recorder_segment_flushed",
-		"dataset_id", datasetID, "revision", manifest.Revision, "records", manifest.CanonicalCount,
-		"gap_count", len(manifest.Gaps))
-	return nil
 }
 
 func recorderSession(instance string, started time.Time) string {

@@ -74,6 +74,8 @@ type soakEvidence struct {
 	ManifestGapCount    int                                       `json:"manifest_gap_count"`
 	DatasetVerification recorder.DatasetVerification              `json:"dataset_verification"`
 	Failures            []string                                  `json:"failures"`
+	Recorder            recorder.PendingUsage                     `json:"recorder"`
+	CollectorRunning    map[string]bool                           `json:"collector_running"`
 	FailureDetails      []qualificationFailure                    `json:"failure_details,omitempty"`
 	EventJournal        qualificationJournalEvidence              `json:"event_journal"`
 	root                string                                    `json:"-"`
@@ -159,7 +161,8 @@ func runA7Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time
 	collectorErrors, group := startSoakCollectors(ctx, components.collectors)
 	var latestManifest recorder.DatasetManifest
 	monitorFailure := monitorSoakFailClosed(ctx, root, components.client, components.recorder,
-		components.collectors, flushEvery, sampleEvery, &latestManifest, &evidence, writeSoakStatus, journal)
+		components.collectors, collectorErrors, flushEvery, sampleEvery, &latestManifest,
+		&evidence, writeSoakStatus, journal)
 	if monitorFailure != "" {
 		if !containsFailure(evidence.Failures, monitorFailure) {
 			evidence.Failures = append(evidence.Failures, monitorFailure)
@@ -167,7 +170,7 @@ func runA7Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time
 		cancel()
 	}
 	group.Wait()
-	collectSoakErrors(collectorErrors, &evidence)
+	collectSoakErrors(collectorErrors, &evidence, journal)
 	manifest := finishSoakRecorder(components.recorder, latestManifest, &evidence, journal)
 	finishA7Soak(t, root, sourceCommit, started, formal, components, manifest, &evidence, journal)
 }
@@ -206,6 +209,7 @@ func finishA7Soak(
 	t.Helper()
 	evidence.EndedAt, evidence.ActualDuration = time.Now().UTC(), time.Since(started)
 	completeSoakEvidence(root, components.client, components.collectors, manifest, evidence)
+	evidence.Recorder = components.recorder.PendingUsage()
 	terminalOutcome := "passed"
 	if len(evidence.Failures) != 0 || (formal && evidence.ActualDuration < formalSoakDuration) {
 		terminalOutcome = "failed"
@@ -226,7 +230,8 @@ func finishA7Soak(
 		writeEmergencyQualificationEvent(qualificationEvent{Phase: "terminal", Outcome: "failed",
 			Code: "event_journal_verification_failed"}, "event_journal_verification_failed")
 	}
-	if err := writeFinalSoakStatus(root, components.client, components.collectors, manifest, evidence, journal); err != nil {
+	if err := writeFinalSoakStatus(root, components.client, components.recorder,
+		components.collectors, manifest, evidence, journal); err != nil {
 		evidence.Failures = append(evidence.Failures, "status_write_failed")
 		evidence.FailureDetails = append(evidence.FailureDetails,
 			boundedQualificationFailure("status_write_failed", "final_status", "atomic_status_write", err))
@@ -292,26 +297,44 @@ func startSoakCollectors(
 }
 
 func newSoakEvidence(started time.Time, flushEvery time.Duration, formal bool, sourceCommit, root string) soakEvidence {
-	return soakEvidence{SchemaVersion: "axiom.a7-soak.v3", SourceCommit: sourceCommit,
+	return soakEvidence{SchemaVersion: "axiom.a7-soak.v4", SourceCommit: sourceCommit,
 		Formal: formal, StartedAt: started, RequiredDuration: formalSoakDuration,
 		EndpointSet: "market-data-only-v1", Instruments: []string{"BTCUSDT", "ETHUSDT"},
 		Streams: []string{"depth@100ms", "trade", "kline_4h"}, SnapshotDepth: 5000,
 		QueueCapacity: 8192, FlushEvery: flushEvery, HeapLimitBytes: declaredHeapLimit,
 		Collectors: make(map[string]binance.CollectorStatsSnapshot), FinalBooks: make(map[string]bookSample),
-		EventJournal: qualificationJournalEvidence{Path: "a7-soak-events.jsonl"}, root: root}
+		CollectorRunning: map[string]bool{"BTCUSDT": true, "ETHUSDT": true},
+		EventJournal:     qualificationJournalEvidence{Path: "a7-soak-events.jsonl"}, root: root}
 }
 
-func collectSoakErrors(collectorErrors chan collectorResult, evidence *soakEvidence) {
+func collectSoakErrors(collectorErrors chan collectorResult, evidence *soakEvidence,
+	journal *qualificationJournal) {
 	close(collectorErrors)
 	for result := range collectorErrors {
-		if result.err != nil {
-			evidence.Failures = append(evidence.Failures, "collector_failed")
-			detail := boundedQualificationFailure("collector_failed", "collector_terminal",
-				"collector_terminal_error", result.err)
-			detail.Instrument = result.instrument
-			evidence.FailureDetails = append(evidence.FailureDetails, detail)
+		evidence.CollectorRunning[result.instrument] = false
+		if result.err == nil || errors.Is(result.err, context.Canceled) ||
+			errors.Is(result.err, context.DeadlineExceeded) {
+			continue
 		}
+		recordSoakCollectorFailure(result, evidence, journal)
 	}
+}
+
+func recordSoakCollectorFailure(result collectorResult, evidence *soakEvidence,
+	journal *qualificationJournal) {
+	evidence.CollectorRunning[result.instrument] = false
+	cause := "unexpected_clean_exit"
+	if result.err != nil {
+		cause = "collector_terminal_error"
+	}
+	detail := boundedQualificationFailure("collector_failed", "collector_terminal", cause, result.err)
+	detail.Instrument = result.instrument
+	if !containsFailure(evidence.Failures, detail.Code) {
+		evidence.Failures = append(evidence.Failures, detail.Code)
+	}
+	evidence.FailureDetails = append(evidence.FailureDetails, detail)
+	appendQualificationEvent(journal, evidence, qualificationEvent{Phase: "collector_terminal",
+		Instrument: result.instrument, Outcome: "failed", Code: detail.Code, Recorder: detail.Recorder})
 }
 
 func completeSoakEvidence(

@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	qualificationJournalSchema   = "axiom.a7-soak-events.v2"
-	b1QualificationJournalSchema = "axiom.b1-soak-events.v1"
+	qualificationJournalSchema   = "axiom.a7-soak-events.v3"
+	b1QualificationJournalSchema = "axiom.b1-soak-events.v2"
 )
 
 type qualificationFailure struct {
@@ -33,22 +33,25 @@ type qualificationFailure struct {
 }
 
 type qualificationEvent struct {
-	SchemaVersion    string          `json:"schema_version"`
-	Sequence         uint64          `json:"sequence"`
-	SourceCommit     string          `json:"source_commit"`
-	ObservedAt       time.Time       `json:"observed_at,omitempty"`
-	RecordedAt       time.Time       `json:"recorded_at"`
-	Elapsed          time.Duration   `json:"elapsed_nanos"`
-	Phase            string          `json:"phase"`
-	Outcome          string          `json:"outcome"`
-	Code             string          `json:"code,omitempty"`
-	ManifestRevision uint64          `json:"manifest_revision,omitempty"`
-	PendingRaw       uint64          `json:"pending_raw,omitempty"`
-	PendingCanonical uint64          `json:"pending_canonical,omitempty"`
-	Duration         time.Duration   `json:"duration_nanos,omitempty"`
-	Recorder         *recorder.Error `json:"recorder,omitempty"`
-	PreviousHash     string          `json:"previous_hash,omitempty"`
-	Hash             string          `json:"hash"`
+	SchemaVersion    string                 `json:"schema_version"`
+	Sequence         uint64                 `json:"sequence"`
+	SourceCommit     string                 `json:"source_commit"`
+	ObservedAt       time.Time              `json:"observed_at,omitempty"`
+	RecordedAt       time.Time              `json:"recorded_at"`
+	Elapsed          time.Duration          `json:"elapsed_nanos"`
+	Phase            string                 `json:"phase"`
+	Trigger          string                 `json:"trigger,omitempty"`
+	Instrument       string                 `json:"instrument,omitempty"`
+	Outcome          string                 `json:"outcome"`
+	Code             string                 `json:"code,omitempty"`
+	ManifestRevision uint64                 `json:"manifest_revision,omitempty"`
+	PendingRaw       uint64                 `json:"pending_raw,omitempty"`
+	PendingCanonical uint64                 `json:"pending_canonical,omitempty"`
+	Duration         time.Duration          `json:"duration_nanos,omitempty"`
+	Recorder         *recorder.Error        `json:"recorder,omitempty"`
+	RecorderUsage    *recorder.PendingUsage `json:"recorder_usage,omitempty"`
+	PreviousHash     string                 `json:"previous_hash,omitempty"`
+	Hash             string                 `json:"hash"`
 }
 
 type qualificationJournal struct {

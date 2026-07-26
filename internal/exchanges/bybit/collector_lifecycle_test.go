@@ -2,6 +2,7 @@ package bybit
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"reflect"
@@ -10,7 +11,17 @@ import (
 
 	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
+	marketrecorder "axiom/internal/recorder"
 )
+
+func TestRecorderFailurePreservesBoundedCauseThroughAdapterWrapper(t *testing.T) {
+	want := &marketrecorder.Error{Code: "recorder_capacity_exceeded"}
+	wrapped := recorderFailure{want}
+	var got *marketrecorder.Error
+	if !errors.As(wrapped, &got) || got.Code != want.Code || !isRecorderFailure(wrapped) {
+		t.Fatalf("wrapped recorder failure=%v detail=%#v", wrapped, got)
+	}
+}
 
 type deterministicCollectorLifecycle struct {
 	now   time.Time

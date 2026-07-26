@@ -15,7 +15,21 @@ const (
 	maximumEventBytes      = 2 * 1024 * 1024
 	maximumPendingBytes    = 512 * 1024 * 1024
 	recordMemoryOverhead   = 1024
+	capacityFlushDivisor   = 4
 )
+
+// PendingUsage is a bounded recorder-capacity snapshot. It contains no paths,
+// payloads, or high-cardinality identifiers and is safe for status evidence.
+type PendingUsage struct {
+	RawRecords          uint64 `json:"raw_records"`
+	CanonicalRecords    uint64 `json:"canonical_records"`
+	PendingBytes        uint64 `json:"pending_bytes"`
+	ReservedBytes       uint64 `json:"reserved_bytes"`
+	UsedBytes           uint64 `json:"used_bytes"`
+	LimitBytes          uint64 `json:"limit_bytes"`
+	FlushThresholdBytes uint64 `json:"flush_threshold_bytes"`
+	HighWaterBytes      uint64 `json:"high_water_bytes"`
+}
 
 // EventType identifies one recorded public market or lifecycle fact.
 type EventType string

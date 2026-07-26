@@ -2,6 +2,7 @@ package binance
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -150,7 +151,10 @@ func (collector *InstrumentCollector) recordResynchronization(started time.Time,
 
 type recorderFailure struct{ error }
 
+// Unwrap preserves the bounded recorder cause for qualification evidence.
+func (failure recorderFailure) Unwrap() error { return failure.error }
+
 func isRecorderFailure(err error) bool {
-	_, ok := err.(recorderFailure)
-	return ok
+	var failure recorderFailure
+	return errors.As(err, &failure)
 }

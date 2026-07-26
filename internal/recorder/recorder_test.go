@@ -303,6 +303,52 @@ func TestRecorderFailsClosedAtConfiguredMemoryBound(t *testing.T) {
 	}
 }
 
+func TestRecorderSignalsAndFlushesBeforeCapacity(t *testing.T) {
+	recorder, err := testRecorder(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder.pendingLimit = 16 * 1024 * 1024
+	var latest DatasetManifest
+	flushes := 0
+	for sequence := uint64(1); sequence <= 6000; sequence++ {
+		recordPair(t, recorder, sequence, `{"kind":"depth"}`, `{"sequence":1}`)
+		select {
+		case <-recorder.FlushRequired():
+			before := recorder.PendingUsage()
+			if before.UsedBytes < before.FlushThresholdBytes || before.UsedBytes >= before.LimitBytes {
+				t.Fatalf("unsafe pre-flush usage=%#v", before)
+			}
+			manifest, flushed, flushErr := recorder.FlushReady()
+			if flushErr != nil || !flushed {
+				t.Fatalf("capacity flush=%#v flushed=%t error=%v", manifest, flushed, flushErr)
+			}
+			latest = manifest
+			flushes++
+			after := recorder.PendingUsage()
+			if after.UsedBytes >= after.FlushThresholdBytes || after.HighWaterBytes < before.UsedBytes {
+				t.Fatalf("unsafe post-flush usage=%#v before=%#v", after, before)
+			}
+		default:
+		}
+	}
+	if flushes < 2 || latest.Revision != uint64(flushes) {
+		t.Fatalf("capacity flushes=%d manifest=%#v", flushes, latest)
+	}
+	if manifest, flushed, flushErr := recorder.FlushReady(); flushErr != nil {
+		t.Fatal(flushErr)
+	} else if flushed {
+		latest = manifest
+	}
+	usage := recorder.PendingUsage()
+	if usage.UsedBytes != 0 || usage.HighWaterBytes == 0 || usage.HighWaterBytes >= usage.LimitBytes {
+		t.Fatalf("terminal usage=%#v", usage)
+	}
+	if _, err = ValidateDataset(recorder.root, latest); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRecorderConcurrentRawOrdinalsRemainUniqueAndReplayOrdered(t *testing.T) {
 	recorder, err := testRecorder(t)
 	if err != nil {

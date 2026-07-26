@@ -57,6 +57,23 @@ remote address, or arbitrary error text.
 - evidence that cannot support a narrower conclusion remains
   `external_unclassified` or `unclassified`.
 
+Recorder pressure is an explicit lifecycle boundary. Each recorder exposes
+pending raw and canonical counts, pending and reserved bytes, its hard limit,
+the proactive flush threshold, and the session high-water mark. Crossing one
+quarter of the hard limit emits an edge-coalesced signal; the runner flushes the
+complete raw/canonical prefix immediately and leaves any in-flight suffix
+pending. The lower threshold preserves headroom for segment construction and
+compression. Capacity-triggered and scheduled flushes have distinct journal
+phases and triggers, and either failure fails qualification closed.
+
+Collector completion is monitored independently of the five-minute sampling
+and flush timers. An unexpected clean return or any terminal error immediately
+marks that instrument stopped, appends a bounded terminal event, atomically
+updates rolling status, cancels the sibling collector, and ends the run. Adapter
+recorder wrappers preserve the underlying bounded recorder code, stage, class,
+cause, and errno. A service therefore cannot remain apparently healthy after
+its collector goroutines have exited.
+
 Arbitrary error text, URLs, addresses, response bodies, credentials, and
 payloads are never retained. Recent collector diagnostics are memory-bounded
 with an explicit dropped count. Immediate structured lifecycle records go to
@@ -75,6 +92,14 @@ roots, status files, journals, terminal reports, and service logs.
 - Diagnosis has immediate service-log evidence, five-minute status snapshots,
   durable qualification phase events, and a terminal report tied to the exact
   source commit.
+- Rolling and terminal evidence state whether each declared collector is still
+  running and report recorder usage and high-water facts.
+- Bybit decoder-error canonical records retain only bounded failure kind,
+  operation, and fixed cause code while their recorder link identifies the
+  exact preserved raw frame. Public Spot `BT` and `RPI` trade classifications
+  are accepted as trade facts; unknown fields and malformed envelope, identity,
+  sequence, numeric, ticker, book, and candle forms remain fail-closed with
+  fixed diagnostic causes.
 - The bounded in-memory diagnostic ring can roll over during an extreme event;
   the dropped count makes that visible and the service log remains the detailed
   immediate record.

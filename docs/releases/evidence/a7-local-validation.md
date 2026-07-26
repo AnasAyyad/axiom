@@ -51,6 +51,24 @@ commits recorder state only after the cumulative manifest is durable. Terminal
 flush remains strict. Filesystem and finalizer failures retain only fixed stage,
 class, cause, and errno evidence.
 
+The preserved `a7-5d34bcc-r1` run used source commit
+`5d34bcc447955d09bbfbc256d23474e4ccb83207`. Both collectors reached healthy,
+then terminated internally after approximately 20 minutes at the recorder
+boundary. The final successful flush contained 195,534 linked raw/canonical
+records, took 3.747 seconds, and advanced the manifest to revision 4. Because
+the prior monitor observed only timers, it continued writing status with the
+frozen revision after both collector goroutines had exited; the owner stopped
+the service and the run has no terminal qualification claim.
+
+Code-path reconstruction identified exhaustion of the 512 MiB recorder pending
+budget, while the adapter wrapper hid the bounded recorder cause from the old
+lifecycle log. The repair proactively flushes at 128 MiB, reports pending,
+reserved, used, limit, threshold, and high-water bytes, preserves the underlying
+recorder error through adapter wrappers, and treats any collector return as an
+immediate terminal event. Rolling status now includes explicit per-instrument
+running state. These changes prevent silent post-exit sampling and leave memory
+headroom for segment construction.
+
 Qualification evidence now includes the exact source commit, bounded reconnect
 reason counts, dedicated resynchronization sample/over-limit/p95/exact-maximum
 metrics, stage timings, HTTP status/retry-after, clock offset/uncertainty,
@@ -59,7 +77,9 @@ and filesystem capacity/inode samples. The five-minute
 `a7-soak-status.json` is atomically replaced. The append-only
 `a7-soak-events.jsonl` is synchronized per event, hash-chained, mirrored as
 `A7_EVENT` service-log records, and verified at termination. Periodic flush,
-status-write, or journal failures fail qualification closed. Recorded market
+capacity flush, collector termination, status-write, or journal failures fail
+qualification closed. Status, journal, and terminal schemas also report
+recorder pressure/high-water facts and declared collector running state. Recorded market
 data remains outside Git and all earlier qualification directories remain
 preserved. ADR-0011 keeps the all-sample 15-second SLO unchanged and records
 attribution separately; attribution never converts a failed run into a pass.
@@ -115,8 +135,10 @@ dataset manifests, append-only `a7-soak-events.jsonl`, rolling
 commit, bounded reconnect reasons and lifecycle diagnostics,
 resynchronization sample/over-limit/p95/exact-maximum metrics, incident/rebuild
 samples, Go heap and process resource samples, storage-capacity samples, final
-book eligibility, and the bounded canonical replay checksum. The service log
-retains immediate structured `binance_collector_lifecycle`, `A7_EVENT`, and
+book eligibility, recorder pending/reserved/used/limit/threshold/high-water
+facts, collector running state, and the bounded canonical replay checksum. The
+service log retains immediate structured `binance_collector_lifecycle`,
+`recorder_capacity_flush_requested`, `A7_EVENT`, and
 emergency fallback records. A7 advances only if the terminal artifact says
 `qualified: true` and the final cumulative candidate checks pass.
 

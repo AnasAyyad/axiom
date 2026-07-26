@@ -139,6 +139,10 @@ func TestB1RecordedStreamPersistsRawBeforeCanonicalAndDecoderFailure(t *testing.
 			if calls := strings.Join(sink.snapshot(), ","); calls != test.want {
 				t.Fatalf("recording order=%s want=%s", calls, test.want)
 			}
+			if test.name == "decoder" && string(sink.decoderSnapshot()) !=
+				`{"kind":"decoder_error","failure_kind":"validation_rejected","operation":"stream","cause":"decoder_schema_rejected"}` {
+				t.Fatalf("decoder evidence=%s", sink.decoderSnapshot())
+			}
 			if connector.target == nil || connector.target.String() != publicWSOrigin || len(connection.sent) != 1 ||
 				!strings.Contains(string(connection.sent[0]), "orderbook.1000.BTCUSDT") {
 				t.Fatalf("compiled stream target or subscription missing: %v %q", connector.target, connection.sent)
@@ -218,8 +222,9 @@ func (connection *bybitFakeConnection) Close() error {
 }
 
 type bybitFrameSink struct {
-	mutex sync.Mutex
-	calls []string
+	mutex   sync.Mutex
+	calls   []string
+	decoder []byte
 }
 
 func (sink *bybitFrameSink) RecordPublicRaw(_ context.Context, record exchangecontracts.PublicRawRecord) (exchangecontracts.StreamRecordToken, error) {
@@ -234,6 +239,7 @@ func (sink *bybitFrameSink) RecordPublicCanonical(_ context.Context, record exch
 	defer sink.mutex.Unlock()
 	if record.Kind == exchangecontracts.RecordDecoderError {
 		sink.calls = append(sink.calls, "decoder")
+		sink.decoder = append([]byte(nil), record.Canonical...)
 	} else {
 		sink.calls = append(sink.calls, "canonical")
 	}
@@ -248,6 +254,12 @@ func (sink *bybitFrameSink) reset() {
 	sink.mutex.Lock()
 	sink.calls = nil
 	sink.mutex.Unlock()
+}
+
+func (sink *bybitFrameSink) decoderSnapshot() []byte {
+	sink.mutex.Lock()
+	defer sink.mutex.Unlock()
+	return append([]byte(nil), sink.decoder...)
 }
 
 func (sink *bybitFrameSink) snapshot() []string {

@@ -112,7 +112,7 @@ func NormalizeTrades(
 	}
 	trades := make([]exchangecontracts.Trade, 0, len(result.List))
 	for _, native := range result.List {
-		if native.Symbol != instrument.Symbol() || native.ExecutionID == "" || native.BlockTrade || native.RPITrade ||
+		if native.Symbol != instrument.Symbol() || native.ExecutionID == "" ||
 			(native.Side != "Buy" && native.Side != "Sell") {
 			return nil, validationError(exchangecontracts.OperationTrades)
 		}

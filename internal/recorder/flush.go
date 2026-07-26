@@ -125,6 +125,7 @@ func (recorder *Recorder) discardFlushed(count int) {
 	for _, row := range recorder.canonical {
 		recorder.pendingBytes += uint64(len(row.CanonicalEvent) + recordMemoryOverhead)
 	}
+	recorder.updateCapacitySignalLocked()
 }
 
 func (recorder *Recorder) finalizeWire(revision uint64, rows []segments.WireRow) (segments.Manifest, error) {
