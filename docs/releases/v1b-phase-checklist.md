@@ -50,8 +50,8 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 ## B6 — advisory inventory and rebalancing
 
 - [x] Confirm B5 is locally verified; formal predecessor and approver holds remain.
-- [ ] Implement and qualify every `AX-V1B-B06-*` requirement.
-- [ ] Prove no withdrawal or transfer execution surface exists.
+- [x] Implement and locally qualify every `AX-V1B-B06-*` requirement, including immutable reviewed facts, exact advisory routes, PostgreSQL 18 clean/upgrade, cumulative B4+B5+B6 verification, and the clean image-backed Compose smoke.
+- [x] Prove no withdrawal or transfer execution surface exists in source, API, UI, configuration, or the compiled binary.
 
 ## B7 — validation and promotion evidence
 
