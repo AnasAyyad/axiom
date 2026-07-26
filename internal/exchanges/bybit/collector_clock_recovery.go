@@ -79,7 +79,7 @@ func (state *bybitClockRecovery) handle(
 				return generationFailure(generationOutcome{fatal: err, generation: generation},
 					"recorder", "recorder", err), true
 			}
-			collector.recordResynchronization(degraded, generation)
+			collector.recordClockResynchronization(degraded, generation)
 		}
 		state.attempt = 0
 		if state.retry != nil && state.retry.Stop() {

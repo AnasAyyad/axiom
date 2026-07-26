@@ -105,6 +105,15 @@ func (state *clockRecoveryState) stop() {
 	}
 }
 
+func (state *clockRecoveryState) scheduleRetry(delay time.Duration) {
+	if state.retry == nil {
+		state.retry = time.NewTimer(delay)
+	} else {
+		state.retry.Reset(delay)
+	}
+	state.retryChannel = state.retry.C
+}
+
 func (state *clockRecoveryState) start(
 	ctx context.Context,
 	collector *InstrumentCollector,
@@ -132,7 +141,7 @@ func (state *clockRecoveryState) handle(
 		degraded := collector.setClockHealth(result.health, true)
 		collector.recordClockResult(generation, result, true, 0)
 		if !degraded.IsZero() {
-			collector.recordResynchronization(degraded, generation)
+			collector.recordClockResynchronization(degraded, generation)
 		}
 		state.attempt = 0
 		if state.retry != nil && state.retry.Stop() {
@@ -152,12 +161,7 @@ func (state *clockRecoveryState) handle(
 		delay = retry
 	}
 	collector.recordClockResult(generation, result, false, delay)
-	if state.retry == nil {
-		state.retry = time.NewTimer(delay)
-	} else {
-		state.retry.Reset(delay)
-	}
-	state.retryChannel = state.retry.C
+	state.scheduleRetry(delay)
 	return generationOutcome{}, false
 }
 
@@ -167,11 +171,16 @@ func (collector *InstrumentCollector) runHealthy(
 	overflow <-chan struct{},
 	connectionID string,
 	generation uint64,
+	initialClockRetry time.Duration,
 ) generationOutcome {
 	timers := newHealthyTimers(collector.config)
 	defer timers.stop()
 	clock := newClockRecoveryState()
 	defer clock.stop()
+	if initialClockRetry > 0 {
+		clock.attempt = 1
+		clock.scheduleRetry(initialClockRetry)
+	}
 	for {
 		select {
 		case <-ctx.Done():

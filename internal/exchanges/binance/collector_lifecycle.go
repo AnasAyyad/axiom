@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
 // collectorLifecycle keeps reconnect timing deterministic in package tests
@@ -146,13 +148,27 @@ func maxDuration(left, right time.Duration) time.Duration {
 }
 
 func (collector *InstrumentCollector) recordResynchronization(started time.Time, generation uint64) {
+	collector.recordRecovery(started, generation, exchangecontracts.RecoveryReconnect)
+}
+
+func (collector *InstrumentCollector) recordClockResynchronization(started time.Time, generation uint64) {
+	collector.recordRecovery(started, generation, exchangecontracts.RecoveryClockResample)
+}
+
+func (collector *InstrumentCollector) recordRecovery(
+	started time.Time,
+	generation uint64,
+	action exchangecontracts.RecoveryAction,
+) {
 	if started.IsZero() {
 		return
 	}
 	duration := collector.lifecycle.Now().Sub(started)
 	collector.stats.resync.record(duration)
-	collector.recordDiagnostic(collector.outcomeDiagnostic(generationOutcome{reachedHealthy: true,
-		generation: generation, stage: "healthy", cause: "healthy"}, "health_restored", duration, 0, duration))
+	diagnostic := collector.outcomeDiagnostic(generationOutcome{reachedHealthy: true,
+		generation: generation, stage: "healthy", cause: "healthy"}, "health_restored", duration, 0, duration)
+	diagnostic.Action = action
+	collector.recordDiagnostic(diagnostic)
 }
 
 type recorderFailure struct{ error }

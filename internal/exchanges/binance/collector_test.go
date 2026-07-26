@@ -65,6 +65,68 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	}
 }
 
+func TestInitialClockDegradationRetriesInPlaceBeforePeriodicSample(t *testing.T) {
+	instrument := approvedBTC(t)
+	clock := &domain.SystemClock{}
+	recorder := &collectorRecorder{}
+	source := &recoveringClockCollectorSource{
+		collectorSourceFixture: newCollectorSource(t, instrument, clock, 101),
+	}
+	config := testCollectorConfig(instrument)
+	config.ClockSyncEvery = time.Hour
+	config.ConnectionPolicy.MinimumBackoff = 5 * time.Millisecond
+	config.ConnectionPolicy.MaximumBackoff = 5 * time.Millisecond
+	collector, err := NewInstrumentCollector(config, source, recorder, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- collector.Run(ctx) }()
+	waitFor(t, func() bool {
+		return source.clockSamples.Load() >= 2 && collector.HealthSnapshot().Eligible
+	})
+	cancel()
+	if err = <-done; err != nil {
+		t.Fatal(err)
+	}
+	assertInitialClockRecoveryEvidence(t, collector.Stats(), config.ConnectionPolicy.MinimumBackoff)
+}
+
+func assertInitialClockRecoveryEvidence(
+	t *testing.T,
+	stats CollectorStatsSnapshot,
+	minimumBackoff time.Duration,
+) {
+	t.Helper()
+	if stats.ResyncSamples != 1 || stats.ResyncOver15Seconds != 0 ||
+		stats.ResyncMax <= 0 || stats.ResyncMax >= time.Second {
+		t.Fatalf("initial clock recovery timing=%#v", stats)
+	}
+	if stats.RecoveryActions.ClockResample < 3 || stats.RecoveryActions.Reconnect != 0 {
+		t.Fatalf("initial clock recovery actions=%#v", stats.RecoveryActions)
+	}
+	var lostWithBackoff, recoveredInPlace bool
+	for _, diagnostic := range stats.ReconnectDiagnostics {
+		switch diagnostic.Phase {
+		case "health_lost":
+			if diagnostic.Stage == "clock" &&
+				diagnostic.Action == exchangecontracts.RecoveryClockResample &&
+				diagnostic.Backoff >= minimumBackoff {
+				lostWithBackoff = true
+			}
+		case "health_restored":
+			if diagnostic.Stage == "healthy" &&
+				diagnostic.Action == exchangecontracts.RecoveryClockResample {
+				recoveredInPlace = true
+			}
+		}
+	}
+	if !lostWithBackoff || !recoveredInPlace {
+		t.Fatalf("missing bounded in-place recovery evidence: %#v", stats.ReconnectDiagnostics)
+	}
+}
+
 func TestInstrumentCollectorFailsClosedAndRecordsSequenceGap(t *testing.T) {
 	instrument := approvedBTC(t)
 	clock := &domain.SystemClock{}
@@ -151,6 +213,27 @@ type collectorSourceFixture struct {
 	lastSequences []uint64
 	offset        atomic.Uint64
 	generation    atomic.Uint64
+}
+
+type recoveringClockCollectorSource struct {
+	*collectorSourceFixture
+	clockSamples atomic.Uint64
+}
+
+func (source *recoveringClockCollectorSource) SampleServerTimeRecorded(
+	ctx context.Context,
+	instrument domain.Instrument,
+	connectionID string,
+	generation uint64,
+	recorder PublicRecorder,
+) (TimeHealth, StreamRecordToken, error) {
+	health, token, err := source.collectorSourceFixture.SampleServerTimeRecorded(
+		ctx, instrument, connectionID, generation, recorder)
+	if source.clockSamples.Add(1) == 1 {
+		health.Eligible = false
+		health.Uncertainty = time.Second
+	}
+	return health, token, err
 }
 
 func newCollectorSource(t *testing.T, instrument domain.Instrument, clock domain.Clock, sequences ...uint64) *collectorSourceFixture {

@@ -137,8 +137,8 @@ func (collector *InstrumentCollector) awaitSynchronization(
 ) generationOutcome {
 	pending := make([]ObservedStreamEvent, 0, collector.config.QueueCapacity)
 	var snapshot snapshotResult
-	snapshotReady := false
-	clockReady := false
+	var initialClockRetry time.Duration
+	snapshotReady, clockReady := false, false
 	for {
 		select {
 		case <-ctx.Done():
@@ -163,17 +163,17 @@ func (collector *InstrumentCollector) awaitSynchronization(
 		case result := <-channels.snapshots:
 			snapshot, snapshotReady = result, true
 			if clockReady {
-				return collector.completeSynchronization(ctx, channels, snapshot, pending,
-					connectionID, generation, resyncStarted)
+				return collector.completeSynchronization(ctx, channels, snapshot, pending, connectionID, generation, resyncStarted, initialClockRetry)
 			}
 		case result := <-channels.clocks:
-			if outcome, failed := collector.recordInitialClock(generation, result); failed {
+			outcome, failed, retry := collector.recordInitialClock(generation, result)
+			if failed {
 				return outcome
 			}
+			initialClockRetry = retry
 			clockReady = true
 			if snapshotReady {
-				return collector.completeSynchronization(ctx, channels, snapshot, pending,
-					connectionID, generation, resyncStarted)
+				return collector.completeSynchronization(ctx, channels, snapshot, pending, connectionID, generation, resyncStarted, initialClockRetry)
 			}
 		}
 	}
@@ -182,19 +182,27 @@ func (collector *InstrumentCollector) awaitSynchronization(
 func (collector *InstrumentCollector) recordInitialClock(
 	generation uint64,
 	result clockSampleResult,
-) (generationOutcome, bool) {
+) (generationOutcome, bool, time.Duration) {
 	if isRecorderFailure(result.err) {
 		return generationFailure(generationOutcome{fatal: result.err, generation: generation},
-			"clock", "recorder", result.err), true
+			"clock", "recorder", result.err), true, 0
 	}
 	if result.err != nil || !result.health.Eligible {
 		collector.markClockDegraded(result.health, collector.lifecycle.Now())
-		collector.recordClockResult(generation, result, false, 0)
-		return generationOutcome{}, false
+		delay, err := collector.config.ConnectionPolicy.Backoff(1)
+		if err != nil {
+			return generationFailure(generationOutcome{fatal: err, generation: generation},
+				"clock", "backoff", err), true, 0
+		}
+		if retry := retryAfterOf(result.err); retry > delay {
+			delay = retry
+		}
+		collector.recordClockResult(generation, result, false, delay)
+		return generationOutcome{}, false, delay
 	}
 	collector.setClockHealth(result.health, false)
 	collector.recordClockResult(generation, result, true, 0)
-	return generationOutcome{}, false
+	return generationOutcome{}, false, 0
 }
 
 func (collector *InstrumentCollector) streamFailureOutcome(
@@ -222,6 +230,7 @@ func (collector *InstrumentCollector) completeSynchronization(
 	connectionID string,
 	generation uint64,
 	resyncStarted time.Time,
+	initialClockRetry time.Duration,
 ) generationOutcome {
 	if isRecorderFailure(result.err) {
 		return generationFailure(generationOutcome{fatal: result.err, generation: generation},
@@ -248,7 +257,8 @@ func (collector *InstrumentCollector) completeSynchronization(
 		return outcome
 	}
 	collector.recordResynchronization(resyncStarted, generation)
-	outcome := collector.runHealthy(ctx, channels.events, channels.overflow, connectionID, generation)
+	outcome := collector.runHealthy(ctx, channels.events, channels.overflow,
+		connectionID, generation, initialClockRetry)
 	outcome.reachedHealthy = true
 	outcome.generation = generation
 	return outcome
