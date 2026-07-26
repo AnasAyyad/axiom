@@ -1,10 +1,11 @@
 openapi: 3.0.3
 info:
-  title: Axiom V1A API
-  version: 1.0.0
+  title: Axiom V1B API
+  version: 1.1.0
   description: >-
-    Authenticated research, replay, and production-public shadow operations.
-    Axiom V1A is simulation software and cannot place external orders.
+    Authenticated multi-exchange research, replay, and production-public shadow
+    operations. Axiom V1B is simulation software and cannot place external
+    orders or move external assets.
 servers:
   - url: /
 tags:
@@ -12,9 +13,16 @@ tags:
   - name: Session
   - name: System
   - name: Binance
+  - name: Exchanges
+  - name: Opportunities
   - name: Portfolio
+  - name: Inventory
   - name: Risk
   - name: Trend
+  - name: Strategies
+  - name: Rebalancing
+  - name: Research
+  - name: Reports
   - name: Backtest
   - name: Replay
   - name: Shadow
@@ -174,6 +182,56 @@ paths:
               schema: { $ref: "#/components/schemas/InstrumentPage" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/exchanges:
+    get:
+      operationId: listExchanges
+      tags: [Exchanges]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Generic production-public exchange quality projections
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExchangePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/opportunities:
+    get:
+      operationId: listOpportunities
+      tags: [Opportunities]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: kind
+          schema: { type: string, enum: [triangular, cross_exchange] }
+      responses:
+        "200":
+          description: Durable triangular and cross-exchange scanner snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OpportunityPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/opportunities/{id}:
+    get:
+      operationId: getOpportunity
+      tags: [Opportunities]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Multi-leg evidence, inventory impact, and recovery analysis
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OpportunityDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/portfolios:
     get:
       operationId: listPortfolios
@@ -223,6 +281,34 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/inventory:
+    get:
+      operationId: listInventory
+      tags: [Inventory]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: exchange
+          schema: { type: string, maxLength: 32 }
+        - in: query
+          name: asset
+          schema: { type: string, maxLength: 16 }
+        - in: query
+          name: strategy
+          schema: { type: string, maxLength: 128 }
+        - in: query
+          name: portfolio
+          schema: { type: string, maxLength: 192 }
+      responses:
+        "200":
+          description: Isolated virtual inventory positions; never a combined balance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InventoryPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /api/v1/risk/status:
     get:
       operationId: getRiskStatus
@@ -311,6 +397,95 @@ paths:
               schema: { $ref: "#/components/schemas/TrendDecisionPage" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/strategies:
+    get:
+      operationId: listStrategies
+      tags: [Strategies]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Generic strategy versions, modes, evidence, and maturity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StrategyPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/rebalancing/recommendations:
+    get:
+      operationId: listRebalancingRecommendations
+      tags: [Rebalancing]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Read-only advisory rebalancing snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RebalancingPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/rebalancing/recommendations/{id}:
+    get:
+      operationId: getRebalancingRecommendation
+      tags: [Rebalancing]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Advisory route evidence and manual checklist
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RebalancingDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/research/champion-challenger:
+    get:
+      operationId: listChampionChallengerReports
+      tags: [Research]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Immutable research comparison reports without trading authority
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChampionChallengerPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/reports/{id}/exports:
+    post:
+      operationId: exportResearchReport
+      tags: [Reports]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportExportRequest" }
+      responses:
+        "201":
+          description: Immutable bounded report export created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportExportResource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /api/v1/backtests:
     post:
       operationId: createBacktest
@@ -438,6 +613,43 @@ paths:
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
       responses: *commandResponses
+  /api/v1/replays/{id}/faults:
+    get:
+      operationId: listReplayFaults
+      tags: [Replay]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Immutable deterministic replay fault schedule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReplayFaultPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: scheduleReplayFault
+      tags: [Replay]
+      security: [{ sessionCookie: [] }]
+      parameters: *replayCommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReplayFaultRequest" }
+      responses:
+        "201":
+          description: Fault schedule persisted before replay materialization
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReplayFaultResource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
   /api/v1/shadow-sessions:
     post:
       operationId: createShadowSession
@@ -774,8 +986,8 @@ components:
           real_trading_enabled,
         ]
       properties:
-        release: { type: string, enum: [V1A] }
-        phase: { type: string, enum: [A1, A11] }
+        release: { type: string, enum: [V1A, V1B] }
+        phase: { type: string, enum: [A1, A11, B8] }
         role: { type: string, minLength: 1 }
         lifecycle_state:
           {
@@ -904,6 +1116,645 @@ components:
                 type: array,
                 items: { $ref: "#/components/schemas/Instrument" },
               }
+    QualityEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        [tier, confidence, freshness, source, observed_at, provenance_complete]
+      properties:
+        tier:
+          {
+            type: string,
+            enum: [formal_tier_a, local_tier_b, integration_only, unknown],
+          }
+        confidence:
+          { type: string, enum: [high, medium, low, insufficient, unknown] }
+        freshness:
+          { type: string, enum: [live, fresh, stale, historical, expired] }
+        source: { type: string, minLength: 1, maxLength: 192 }
+        observer: { type: string, maxLength: 192 }
+        observed_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        provenance_complete: { type: boolean }
+        warnings:
+          { type: array, items: { type: string, maxLength: 500 }, maxItems: 64 }
+    ExchangeSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          environment,
+          public_only,
+          websocket_state,
+          book_state,
+          recorder_state,
+          capabilities,
+          instruments,
+          quality,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        environment: { type: string, enum: [production_public] }
+        public_only: { type: boolean, enum: [true] }
+        websocket_state:
+          { type: string, enum: [healthy, reconnecting, degraded, stale] }
+        book_state: { type: string, enum: [healthy, rebuilding, gapped, stale] }
+        recorder_state:
+          { type: string, enum: [healthy, degraded, paused, unavailable] }
+        capabilities: { type: array, items: { type: string }, maxItems: 32 }
+        instruments: { type: integer, minimum: 0 }
+        last_message_age_ms: { $ref: "#/components/schemas/Revision" }
+        sequence_gaps: { type: integer, minimum: 0 }
+        reconnects: { type: integer, minimum: 0 }
+        quality: { $ref: "#/components/schemas/QualityEvidence" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    ExchangePage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [snapshot_revision, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/ExchangeSummary" },
+              }
+    OpportunitySummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          kind,
+          label,
+          strategy_version,
+          tested_size,
+          maximum_size,
+          gross_metric,
+          net_metric,
+          expected_profit,
+          worst_case_profit,
+          status,
+          simulation_only,
+          quality,
+          recorded_at,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [triangular, cross_exchange] }
+        label: { type: string }
+        instrument: { type: string }
+        cycle_path:
+          { type: array, items: { type: string }, minItems: 2, maxItems: 8 }
+        strategy_version: { type: string }
+        buy_exchange: { type: string }
+        sell_exchange: { type: string }
+        exchange: { type: string }
+        tested_size: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        maximum_size: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        gross_metric: { $ref: "#/components/schemas/Decimal" }
+        net_metric: { $ref: "#/components/schemas/Decimal" }
+        expected_profit: { $ref: "#/components/schemas/Decimal" }
+        worst_case_profit: { $ref: "#/components/schemas/Decimal" }
+        opportunity_age_nanos: { $ref: "#/components/schemas/Revision" }
+        lifetime_nanos: { $ref: "#/components/schemas/Revision" }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                detected,
+                qualified,
+                simulated,
+                recovery_required,
+                quarantined,
+                rejected,
+                expired,
+              ],
+          }
+        simulation_only: { type: boolean, enum: [true] }
+        quality: { $ref: "#/components/schemas/QualityEvidence" }
+        recorded_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    OpportunityPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [snapshot_revision, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/OpportunitySummary" },
+              }
+    OpportunityLeg:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          index,
+          exchange,
+          instrument,
+          side,
+          input_quantity,
+          trade_quantity,
+          gross_output,
+          net_output,
+          fee_asset,
+          fee_quantity,
+          fee_quote_equivalent,
+          vwap,
+          depth_cost,
+          state,
+          revision,
+        ]
+      properties:
+        index: { type: integer, minimum: 0, maximum: 7 }
+        exchange: { type: string }
+        instrument: { type: string }
+        side: { type: string, enum: [buy, sell] }
+        source_asset: { type: string }
+        target_asset: { type: string }
+        input_quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        trade_quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        gross_output: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        net_output: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        fee_asset: { type: string }
+        fee_quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        fee_quote_equivalent:
+          { $ref: "#/components/schemas/NonnegativeDecimal" }
+        vwap: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        depth_cost: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        arrival_offset_nanos: { $ref: "#/components/schemas/Revision" }
+        state: { type: string }
+        revision: { $ref: "#/components/schemas/Revision" }
+    InventoryImpact:
+      type: object
+      additionalProperties: false
+      required:
+        [exchange, asset, before, after, band_state, natural_reverse_preferred]
+      properties:
+        exchange: { type: string }
+        asset: { type: string }
+        before: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        after: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        band_state: { type: string }
+        natural_reverse_preferred: { type: boolean }
+    RecoveryAnalysis:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          attempted,
+          succeeded,
+          quarantined,
+          disposition,
+          recovery_loss,
+          explanation,
+        ]
+      properties:
+        attempted: { type: boolean }
+        succeeded: { type: boolean }
+        quarantined: { type: boolean }
+        disposition: { type: string }
+        recovery_loss: { $ref: "#/components/schemas/Decimal" }
+        explanation: { type: string, maxLength: 1000 }
+    EvidenceTimelineEvent:
+      type: object
+      additionalProperties: false
+      required:
+        [index, event_type, label, occurred_at, correlation_id, revision]
+      properties:
+        index: { type: integer, minimum: 0 }
+        event_type: { type: string }
+        label: { type: string, maxLength: 500 }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        correlation_id: { type: string }
+        revision: { $ref: "#/components/schemas/Revision" }
+    OpportunityDetail:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          summary,
+          legs,
+          inventory,
+          recovery,
+          cost_attribution,
+          timeline,
+          raw_evidence_available,
+        ]
+      properties:
+        summary: { $ref: "#/components/schemas/OpportunitySummary" }
+        legs:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/OpportunityLeg" },
+          }
+        inventory:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/InventoryImpact" },
+          }
+        recovery: { $ref: "#/components/schemas/RecoveryAnalysis" }
+        cost_attribution:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/Decimal" }
+        timeline:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/EvidenceTimelineEvent" },
+          }
+        raw_evidence_available: { type: boolean }
+    StrategySummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          family,
+          name,
+          version,
+          supported_modes,
+          maturity,
+          evidence_role,
+          confidence,
+          viability,
+          disclaimer,
+          revision,
+          created_at,
+        ]
+      properties:
+        id: { type: string }
+        family: { type: string }
+        name: { type: string }
+        version: { type: string }
+        supported_modes:
+          type: array
+          items: { type: string, enum: [backtest, replay, shadow] }
+          minItems: 1
+          maxItems: 3
+        maturity:
+          {
+            type: string,
+            enum:
+              [
+                EXPERIMENTAL,
+                BACKTEST_VALIDATED,
+                REPLAY_VALIDATED,
+                SHADOW_VALIDATED,
+                REJECTED,
+              ],
+          }
+        evidence_role:
+          { type: string, enum: [champion, challenger, unassigned] }
+        confidence:
+          {
+            type: string,
+            enum: [formal_tier_a, local_tier_b, insufficient, rejected],
+          }
+        viability:
+          {
+            type: string,
+            enum: [undetermined, viable_for_more_research, rejected],
+          }
+        primary_metric: { type: string }
+        disclaimer: { type: string }
+        revision: { $ref: "#/components/schemas/Revision" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    StrategyPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [snapshot_revision, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/StrategySummary" },
+              }
+    InventoryPosition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          portfolio_id,
+          experiment_id,
+          strategy_version,
+          exchange,
+          asset,
+          available,
+          reserved,
+          before,
+          after,
+          status,
+          virtual,
+          quality,
+          updated_at,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        portfolio_id: { type: string }
+        experiment_id: { type: string }
+        strategy_version: { type: string }
+        exchange: { type: string }
+        asset: { type: string }
+        available: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        reserved: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        before: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        after: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        target: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        minimum_band: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        maximum_band: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        cost_basis: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        market_value: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        inventory_pnl: { $ref: "#/components/schemas/Decimal" }
+        status: { type: string }
+        virtual: { type: boolean, enum: [true] }
+        quality: { $ref: "#/components/schemas/QualityEvidence" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    InventoryPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required:
+            [snapshot_revision, combined_balance, isolation_notice, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            combined_balance: { type: boolean, enum: [false] }
+            isolation_notice: { type: string, minLength: 1, maxLength: 500 }
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/InventoryPosition" },
+              }
+    RebalancingSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          method,
+          source_exchange,
+          source_asset,
+          destination_exchange,
+          destination_asset,
+          quantity,
+          total_cost,
+          minimum_duration_nanos,
+          maximum_duration_nanos,
+          risk_score,
+          warnings,
+          advisory_only,
+          quality,
+          recorded_at,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        method:
+          {
+            type: string,
+            enum: [natural_reverse_arbitrage, reviewed_graph_route],
+          }
+        source_exchange: { type: string }
+        source_asset: { type: string }
+        destination_exchange: { type: string }
+        destination_asset: { type: string }
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        total_cost: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        minimum_duration_nanos: { $ref: "#/components/schemas/Revision" }
+        maximum_duration_nanos: { $ref: "#/components/schemas/Revision" }
+        risk_score: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        warnings:
+          { type: array, items: { type: string, maxLength: 500 }, maxItems: 64 }
+        advisory_only: { type: boolean, enum: [true] }
+        quality: { $ref: "#/components/schemas/QualityEvidence" }
+        recorded_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    RebalancingPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [snapshot_revision, execution_available, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            execution_available: { type: boolean, enum: [false] }
+            items:
+              {
+                type: array,
+                items: { $ref: "#/components/schemas/RebalancingSummary" },
+              }
+    RebalancingRouteStep:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          index,
+          role,
+          fact_id,
+          fact_version,
+          from_exchange,
+          from_asset,
+          to_exchange,
+          to_asset,
+          expected_cost,
+          minimum_duration_nanos,
+          maximum_duration_nanos,
+          confidence,
+          approved,
+          warnings,
+          provenance_hash,
+        ]
+      properties:
+        index: { type: integer, minimum: 0 }
+        role: { type: string, enum: [trade, transfer] }
+        fact_id: { type: string }
+        fact_version: { $ref: "#/components/schemas/Revision" }
+        from_exchange: { type: string }
+        from_asset: { type: string }
+        to_exchange: { type: string }
+        to_asset: { type: string }
+        network: { type: string }
+        expected_cost: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        minimum_duration_nanos: { $ref: "#/components/schemas/Revision" }
+        maximum_duration_nanos: { $ref: "#/components/schemas/Revision" }
+        confidence: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        approved: { type: boolean }
+        warnings:
+          { type: array, items: { type: string, maxLength: 500 }, maxItems: 64 }
+        provenance_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+    ManualChecklistStep:
+      type: object
+      additionalProperties: false
+      required: [index, instruction, manual_only]
+      properties:
+        index: { type: integer, minimum: 0 }
+        instruction: { type: string, minLength: 1, maxLength: 1000 }
+        manual_only: { type: boolean, enum: [true] }
+    RebalancingDetail:
+      type: object
+      additionalProperties: false
+      required: [summary, route, checklist, execution_available]
+      properties:
+        summary: { $ref: "#/components/schemas/RebalancingSummary" }
+        route:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/RebalancingRouteStep" },
+          }
+        checklist:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ManualChecklistStep" },
+          }
+        execution_available: { type: boolean, enum: [false] }
+    ChampionChallengerReport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          champion_strategy_version,
+          challenger_strategy_version,
+          disposition,
+          confidence,
+          viability,
+          disclaimer,
+          manifest_hash,
+          created_at,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        champion_strategy_version: { type: string }
+        challenger_strategy_version: { type: string }
+        champion_suite_id: { type: string }
+        challenger_suite_id: { type: string }
+        disposition: { type: string }
+        confidence: { type: string }
+        viability: { type: string }
+        disclaimer: { type: string }
+        manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    ChampionChallengerPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [snapshot_revision, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            items:
+              {
+                type: array,
+                items:
+                  { $ref: "#/components/schemas/ChampionChallengerReport" },
+              }
+    ReplayFaultKind:
+      type: string
+      enum:
+        [
+          disconnect,
+          sequence_gap,
+          latency,
+          rejection,
+          partial_fill,
+          cancel_fill_race,
+          unknown_state,
+          storage_failure,
+          restart_at_event,
+        ]
+    ReplayFaultRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, fault, ordinal, delay_nanos, reason]
+      properties:
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        fault: { $ref: "#/components/schemas/ReplayFaultKind" }
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        delay_nanos: { $ref: "#/components/schemas/Revision" }
+        repeatable: { type: boolean, default: false }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    ReplayFaultResource:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          replay_id,
+          fault,
+          ordinal,
+          delay_nanos,
+          repeatable,
+          simulation_only,
+          revision,
+          created_at,
+        ]
+      properties:
+        id: { type: string }
+        replay_id: { type: string }
+        fault: { $ref: "#/components/schemas/ReplayFaultKind" }
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        delay_nanos: { $ref: "#/components/schemas/Revision" }
+        repeatable: { type: boolean }
+        simulation_only: { type: boolean, enum: [true] }
+        revision: { $ref: "#/components/schemas/Revision" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    ReplayFaultPage:
+      type: object
+      additionalProperties: false
+      required: [revision, simulation_only, items]
+      properties:
+        revision: { $ref: "#/components/schemas/Revision" }
+        simulation_only: { type: boolean, enum: [true] }
+        items:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ReplayFaultResource" },
+          }
+    ReportExportRequest:
+      type: object
+      additionalProperties: false
+      required: [format]
+      properties:
+        format: { type: string, enum: [json, csv] }
+    ReportExportResource:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          report_id,
+          format,
+          content_type,
+          content,
+          payload_hash,
+          simulation_only,
+          created_at,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        report_id: { type: string }
+        format: { type: string, enum: [json, csv] }
+        content_type: { type: string, enum: [application/json, text/csv] }
+        content: { type: string, maxLength: 1048576 }
+        payload_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        simulation_only: { type: boolean, enum: [true] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
     PortfolioSummary:
       type: object
       additionalProperties: false
@@ -1497,6 +2348,11 @@ components:
                 alert,
                 order,
                 fill,
+                opportunity,
+                strategy,
+                inventory,
+                rebalancing,
+                research,
               ],
           }
         schema_version: { type: string, enum: [axiom.stream.v1] }

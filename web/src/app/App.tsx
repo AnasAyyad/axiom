@@ -26,6 +26,14 @@ import {
   RiskPage,
   TrendPage,
 } from "./OperationalPages";
+import {
+  ExchangesPage,
+  InventoryPage as MultiExchangeInventoryPage,
+  OpportunityScanner,
+  RebalancingCenter,
+  ResearchReports,
+  StrategyCenter,
+} from "./MultiExchangePages";
 
 const BacktestLab = lazy(() =>
   import("./LabPages").then((module) => ({ default: module.BacktestLab })),
@@ -59,11 +67,20 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route element={<AuthenticatedShell />}>
               <Route index element={<CommandCenter />} />
+              <Route path="exchanges" element={<ExchangesPage />} />
               <Route path="exchanges/binance" element={<BinancePage />} />
+              <Route path="opportunities" element={<OpportunityScanner />} />
               <Route path="portfolios" element={<PortfolioPage />} />
               <Route path="portfolios/:id" element={<PortfolioPage />} />
               <Route path="risk" element={<RiskPage />} />
               <Route path="strategies/trend" element={<TrendPage />} />
+              <Route path="strategies" element={<StrategyCenter />} />
+              <Route
+                path="inventory"
+                element={<MultiExchangeInventoryPage />}
+              />
+              <Route path="rebalancing" element={<RebalancingCenter />} />
+              <Route path="research/reports" element={<ResearchReports />} />
               <Route path="backtests" element={<BacktestLab />} />
               <Route path="backtests/:id" element={<BacktestLab />} />
               <Route path="replays" element={<ReplayLab />} />

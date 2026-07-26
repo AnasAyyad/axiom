@@ -14,10 +14,16 @@ import { useLiveStream } from "./useLiveStream";
 
 const navigation = [
   ["/", "Command Center"],
+  ["/exchanges", "Exchanges"],
   ["/exchanges/binance", "Binance"],
+  ["/opportunities", "Opportunities"],
+  ["/strategies", "Strategies"],
+  ["/strategies/trend", "Trend"],
+  ["/inventory", "Inventory"],
+  ["/rebalancing", "Rebalancing"],
+  ["/research/reports", "Reports"],
   ["/portfolios", "Portfolio"],
   ["/risk", "Risk Center"],
-  ["/strategies/trend", "Trend"],
   ["/backtests", "Backtest Lab"],
   ["/replays", "Replay Lab"],
   ["/shadow", "Shadow Center"],

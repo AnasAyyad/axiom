@@ -11,7 +11,9 @@ cumulative B4+B5+B6+B7 verification, the research/no-execution security
 boundary, a committed-source image, image inspection/reproducibility, an
 isolated image-backed Compose smoke, SPDX SBOM generation, and the exact
 HIGH/CRITICAL scan. Formal B3-B7 acceptance remains held by predecessor
-acceptance and approvers. B8 is not implemented.
+acceptance and approvers. B8 is implemented and has passed targeted contract,
+PostgreSQL clean/upgrade, component/accessibility, and desktop/mobile browser
+checks; its final cumulative and committed-image qualification is in progress.
 
 ## Release identity
 
@@ -68,7 +70,7 @@ acceptance and approvers. B8 is not implemented.
 | B5 | Locally verified B4 checkpoint; formal B4 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B5 local validation](evidence/b5-local-validation.md) |
 | B6 | Locally verified B5 checkpoint; formal B5 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B6 local validation](evidence/b6-local-validation.md) |
 | B7 | B6 verified | Complete | Locally verified; formal hold: predecessor and approvers | [B7 local validation](evidence/b7-local-validation.md) |
-| B8 | B7 verified | Planned | Not started | Pending |
+| B8 | B7 verified | Complete | Targeted gates passed; final cumulative/image qualification in progress | [B8 local validation](evidence/b8-local-validation.md) |
 
 ## Evidence rules
 
@@ -105,6 +107,10 @@ acceptance and approvers. B8 is not implemented.
 - B7 continued from the committed and locally verified B6 checkpoint on the
   owner-authorized combined branch; every specified non-soak gate is locally
   verified. Promotion changes research maturity only and cannot authorize
-  external execution. B8 remains unimplemented.
+  external execution.
+- B8 continued from the committed and locally verified B7 checkpoint on the
+  owner-authorized combined branch. Its generic console and simulation-only
+  commands are implemented; final cumulative and committed-image evidence is
+  still pending.
 - V1B has no authenticated exchange transport, private endpoint, external
   order, withdrawal, transfer, testnet, demo, or live execution capability.

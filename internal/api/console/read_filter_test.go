@@ -12,12 +12,31 @@ import (
 
 type a11FilterReadStub struct {
 	ReadService
-	incidentState string
-	auditEvent    string
-	auditRaw      bool
-	jobID         string
-	eventOrdinal  string
-	incidentRaw   bool
+	incidentState    string
+	auditEvent       string
+	auditRaw         bool
+	jobID            string
+	eventOrdinal     string
+	incidentRaw      bool
+	opportunityKind  string
+	inventoryFilters InventoryFilters
+}
+
+func (stub *a11FilterReadStub) Opportunities(
+	_ context.Context, _ string, _ int, kind string,
+) (generated.OpportunityPage, error) {
+	stub.opportunityKind = kind
+	return generated.OpportunityPage{Items: []generated.OpportunitySummary{},
+		Revision: "0", SnapshotRevision: "0"}, nil
+}
+
+func (stub *a11FilterReadStub) Inventory(
+	_ context.Context, _ string, _ int, filters InventoryFilters,
+) (generated.InventoryPage, error) {
+	stub.inventoryFilters = filters
+	return generated.InventoryPage{Items: []generated.InventoryPosition{},
+		Revision: "0", SnapshotRevision: "0", CombinedBalance: false,
+		IsolationNotice: "isolated"}, nil
 }
 
 func (stub *a11FilterReadStub) Job(_ context.Context, id, eventOrdinal string) (generated.JobResource, error) {
@@ -117,5 +136,36 @@ func TestReplayEventOrdinalReachesAuthoritativeProjection(t *testing.T) {
 	handler.job(backtestResponse, backtestRequest, authentication.Principal{})
 	if backtestResponse.Code != http.StatusBadRequest || stub.jobID != "replay-a11" {
 		t.Fatalf("backtest accepted replay inspection = %d forwarded=%q", backtestResponse.Code, stub.jobID)
+	}
+}
+
+func TestB8GenericFiltersReachAuthoritativeProjectionAndFailClosed(t *testing.T) {
+	stub := &a11FilterReadStub{}
+	handler := &handler{options: Options{Read: stub}}
+
+	opportunities := httptest.NewRecorder()
+	handler.opportunities(opportunities, httptest.NewRequest(http.MethodGet,
+		"/api/v1/opportunities?kind=cross_exchange&page_size=25", nil),
+		authentication.Principal{})
+	if opportunities.Code != http.StatusOK || stub.opportunityKind != "cross_exchange" {
+		t.Fatalf("B8 opportunity filter=%d %q", opportunities.Code, stub.opportunityKind)
+	}
+
+	invalid := httptest.NewRecorder()
+	handler.opportunities(invalid, httptest.NewRequest(http.MethodGet,
+		"/api/v1/opportunities?kind=production&page_size=25", nil),
+		authentication.Principal{})
+	if invalid.Code != http.StatusBadRequest || stub.opportunityKind != "cross_exchange" {
+		t.Fatalf("unsafe B8 kind forwarded=%d %q", invalid.Code, stub.opportunityKind)
+	}
+
+	inventory := httptest.NewRecorder()
+	handler.inventory(inventory, httptest.NewRequest(http.MethodGet,
+		"/api/v1/inventory?exchange=bybit&asset=BTC&strategy=cross.v1&portfolio=portfolio-1&page_size=25", nil),
+		authentication.Principal{})
+	if inventory.Code != http.StatusOK ||
+		stub.inventoryFilters != (InventoryFilters{Exchange: "bybit", Asset: "BTC",
+			Strategy: "cross.v1", Portfolio: "portfolio-1"}) {
+		t.Fatalf("B8 inventory filter=%d %#v", inventory.Code, stub.inventoryFilters)
 	}
 }

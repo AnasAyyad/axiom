@@ -19,6 +19,56 @@ function pageEnvelope<T>(items: T[]) {
     has_more: false,
   };
 }
+function snapshotEnvelope<T>(items: T[]) {
+  return { ...pageEnvelope(items), snapshot_revision: "12" };
+}
+function qualityFixture() {
+  return {
+    tier: "local_tier_b",
+    confidence: "high",
+    freshness: "fresh",
+    source: "immutable_simulation_evidence",
+    observed_at: now,
+    provenance_complete: true,
+  };
+}
+function exchangeFixture(id: string, name: string) {
+  return {
+    id,
+    name,
+    environment: "production_public",
+    public_only: true,
+    websocket_state: "healthy",
+    book_state: "healthy",
+    recorder_state: "healthy",
+    capabilities: ["public_metadata", "public_order_book"],
+    instruments: 2,
+    quality: qualityFixture(),
+    revision: "2",
+  };
+}
+function opportunityFixture() {
+  return {
+    id: "decision-b8",
+    kind: "cross_exchange",
+    label: "buy_binance_sell_bybit",
+    buy_exchange: "binance",
+    sell_exchange: "bybit",
+    instrument: "BTCUSDT",
+    gross_metric: "0.01",
+    net_metric: "0.006",
+    expected_profit: "0.60",
+    worst_case_profit: "0.20",
+    maximum_size: "100",
+    tested_size: "50",
+    status: "simulated",
+    simulation_only: true,
+    strategy_version: "cross-v1",
+    quality: qualityFixture(),
+    recorded_at: now,
+    revision: "3",
+  };
+}
 
 test.beforeEach(async ({ page }) => {
   const state: FixtureState = {
@@ -208,6 +258,70 @@ test("authenticated research workflow remains virtual and recovers state", async
   ).toBeVisible();
 });
 
+test("B8 multi-exchange workflows remain simulation-only and keyboard reachable", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("owner@example.test");
+  await page.getByLabel("Password").fill("qualification-password");
+  await page.getByRole("button", { name: "Enter console" }).click();
+
+  await page.getByRole("link", { name: "Exchanges", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Exchange Operations" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bybit" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Opportunities" }).click();
+  await page
+    .getByRole("button", { name: /cross exchange.*decision-b8/i })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Leg evidence" }),
+  ).toBeVisible();
+  await expect(page.getByText("Simulation outcome recorded")).toBeVisible();
+
+  await page.getByRole("link", { name: "Strategies", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Cross venue" }),
+  ).toBeVisible();
+  await expect(page.getByText("challenger", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Inventory" }).click();
+  await expect(page.getByText("Combined balance:")).toBeVisible();
+  await expect(
+    page.getByText("DISABLED", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByText(/never netted across exchanges/i)).toBeVisible();
+
+  await page.getByRole("link", { name: "Rebalancing" }).click();
+  await expect(page.getByText(/no transfer controls/i)).toBeVisible();
+  await page
+    .getByRole("button", { name: "Review route and checklist" })
+    .click();
+  await expect(
+    page.getByText("Verify destination deposit availability"),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Reports" }).click();
+  await page.getByRole("button", { name: "Create JSON export" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Immutable export" }),
+  ).toBeVisible();
+  await expect(page.getByText(/application\/json/)).toBeVisible();
+
+  await expect(page.getByText("REAL TRADING DISABLED")).toBeVisible();
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe(
+    "BODY",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 async function fillRun(page: Page) {
   await page.getByLabel("Configuration ID").fill("configuration-a10");
   await page.getByLabel("Dataset ID").fill("dataset-a11");
@@ -265,6 +379,199 @@ async function routeAPI(route: Route, state: FixtureState) {
       observed_at: now,
       revision: "12",
       capabilities: ["public_metadata", "public_order_book"],
+    };
+  else if (path === "/api/v1/exchanges")
+    body = snapshotEnvelope([
+      exchangeFixture("binance", "Binance"),
+      exchangeFixture("bybit", "Bybit"),
+    ]);
+  else if (path === "/api/v1/opportunities")
+    body = snapshotEnvelope([opportunityFixture()]);
+  else if (path === "/api/v1/opportunities/decision-b8")
+    body = {
+      summary: opportunityFixture(),
+      legs: [
+        {
+          index: 0,
+          exchange: "binance",
+          instrument: "BTCUSDT",
+          side: "buy",
+          input_quantity: "50",
+          trade_quantity: "0.001",
+          gross_output: "0.001",
+          net_output: "0.00099",
+          fee_asset: "BTC",
+          fee_quantity: "0.00001",
+          fee_quote_equivalent: "0.50",
+          vwap: "50000",
+          depth_cost: "0.05",
+          state: "FILLED",
+          revision: "4",
+        },
+      ],
+      inventory: [],
+      recovery: {
+        attempted: false,
+        succeeded: false,
+        quarantined: false,
+        disposition: "both_filled",
+        explanation: "Closed-cycle simulation completed.",
+        recovery_loss: "0",
+      },
+      cost_attribution: { buy_fee: "0.05", latency: "0.02" },
+      timeline: [
+        {
+          index: 0,
+          event_type: "cross_exchange.candidate",
+          label: "Immutable candidate recorded",
+          occurred_at: now,
+          correlation_id: "decision-b8",
+          revision: "3",
+        },
+        {
+          index: 1,
+          event_type: "cross_exchange.simulation",
+          label: "Simulation outcome recorded",
+          occurred_at: now,
+          correlation_id: "decision-b8",
+          revision: "4",
+        },
+      ],
+      raw_evidence_available: true,
+    };
+  else if (path === "/api/v1/strategies")
+    body = snapshotEnvelope([
+      {
+        id: "cross-v1",
+        family: "cross_exchange",
+        name: "Cross venue",
+        version: "1",
+        supported_modes: ["backtest", "replay", "shadow"],
+        maturity: "EXPERIMENTAL",
+        evidence_role: "challenger",
+        confidence: "local_tier_b",
+        viability: "viable_for_more_research",
+        disclaimer: "No production profitability claim.",
+        created_at: now,
+        revision: "3",
+      },
+    ]);
+  else if (path === "/api/v1/inventory")
+    body = {
+      ...snapshotEnvelope([
+        {
+          id: "decision-b8:buy_venue",
+          exchange: "binance",
+          asset: "BTC",
+          strategy_version: "cross-v1",
+          experiment_id: "run-b8",
+          portfolio_id: "portfolio-b8-binance",
+          before: "1",
+          after: "0.999",
+          available: "0.999",
+          reserved: "0",
+          status: "normal",
+          virtual: true,
+          quality: qualityFixture(),
+          updated_at: now,
+          revision: "1",
+        },
+      ]),
+      combined_balance: false,
+      isolation_notice:
+        "Virtual inventory is isolated by exchange, strategy, experiment, and portfolio.",
+    };
+  else if (path === "/api/v1/rebalancing/recommendations")
+    body = {
+      ...snapshotEnvelope([
+        {
+          id: "b6-aaaaaaaaaaaaaaaaaaaaaaaa",
+          method: "reviewed_graph_route",
+          source_exchange: "binance",
+          source_asset: "BTC",
+          destination_exchange: "bybit",
+          destination_asset: "BTC",
+          quantity: "0.1",
+          total_cost: "0.2",
+          minimum_duration_nanos: "1000000",
+          maximum_duration_nanos: "2000000",
+          risk_score: "0.2",
+          warnings: ["operator review required"],
+          advisory_only: true,
+          quality: qualityFixture(),
+          recorded_at: now,
+          revision: "5",
+        },
+      ]),
+      execution_available: false,
+    };
+  else if (
+    path === "/api/v1/rebalancing/recommendations/b6-aaaaaaaaaaaaaaaaaaaaaaaa"
+  )
+    body = {
+      summary: {
+        id: "b6-aaaaaaaaaaaaaaaaaaaaaaaa",
+        advisory_only: true,
+      },
+      route: [
+        {
+          index: 0,
+          role: "transfer",
+          fact_id: "fact-b8",
+          fact_version: "1",
+          from_exchange: "binance",
+          from_asset: "BTC",
+          to_exchange: "bybit",
+          to_asset: "BTC",
+          confidence: "0.9",
+          expected_cost: "0.2",
+          minimum_duration_nanos: "1000000",
+          maximum_duration_nanos: "2000000",
+          warnings: [],
+          approved: true,
+          provenance_hash: "a".repeat(64),
+        },
+      ],
+      checklist: [
+        {
+          index: 0,
+          instruction: "Verify destination deposit availability",
+          manual_only: true,
+        },
+      ],
+      execution_available: false,
+    };
+  else if (path === "/api/v1/research/champion-challenger")
+    body = snapshotEnvelope([
+      {
+        id: "comparison-b8",
+        champion_strategy_version: "trend-v1a-1",
+        challenger_strategy_version: "cross-v1",
+        champion_suite_id: "suite-1",
+        challenger_suite_id: "suite-2",
+        confidence: "local_tier_b",
+        viability: "viable_for_more_research",
+        disposition: "retain_champion",
+        disclaimer: "No production profitability claim.",
+        manifest_hash: "b".repeat(64),
+        created_at: now,
+        revision: "6",
+      },
+    ]);
+  else if (
+    method === "POST" &&
+    path === "/api/v1/reports/comparison-b8/exports"
+  )
+    body = {
+      id: "b8-export-aaaaaaaaaaaaaaaaaaaaaaaa",
+      report_id: "comparison-b8",
+      format: "json",
+      content_type: "application/json",
+      content: '{"simulation_only":true}\n',
+      payload_hash: "c".repeat(64),
+      revision: "1",
+      simulation_only: true,
+      created_at: now,
     };
   else if (path === "/api/v1/exchanges/binance/instruments")
     body = pageEnvelope([

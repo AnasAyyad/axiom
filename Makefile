@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
 .PHONY: a7-soak-smoke b1-soak-smoke
 
 IMAGE ?= axiom:local
@@ -481,10 +481,60 @@ b7-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postg
 		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify \
-b8-security-qualify b8-live-qualify:
-	@echo "$@ is reserved for its sequential V1B phase and is not implemented by B7" >&2
-	@exit 2
+b8-sqlc: ## Generate and compile the reviewed B8 multi-exchange console queries.
+	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
+	@$(SQLC) generate --file sqlc.yaml
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
+		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
+		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/storage/postgres/...
+
+b8-model-qualify: ## Exercise deterministic replay faults and fail-closed B8 request boundaries.
+	@$(GO) test ./internal/replay ./internal/api/console -count=1 -v
+	@$(GO) test -race ./internal/replay ./internal/api/console -count=1
+
+b8-postgres-qualify: ## Run clean-install and exact B7-upgrade B8 gates on PostgreSQL 18 *_b8_test databases.
+	@test -n "$(AXIOM_B8_TEST_DSN)" || { echo "AXIOM_B8_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B8_UPGRADE_TEST_DSN)" || { echo "AXIOM_B8_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) b8-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_B8_TEST_DSN="$(AXIOM_B8_TEST_DSN)" \
+		AXIOM_B8_UPGRADE_TEST_DSN="$(AXIOM_B8_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestB8Postgres(CleanInstall|B7ToB8Upgrade)Qualification$$' -count=1 -v
+
+b8-api-qualify: ## Verify generated B8 OpenAPI contracts, generic projections, commands, and SSE envelopes.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(GO) test ./internal/api/console ./internal/storage/postgres \
+		-run 'B8|Stream|Cursor|Filter' -count=1 -v
+	@$(NODE) scripts/check-b8-console-boundary.mjs
+
+b8-frontend-qualify: ## Typecheck, lint, test, and build the accessible responsive B8 console.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+
+b8-security-qualify: ## Prove B8 remains public-data, virtual, advisory, and unable to submit real orders or move assets.
+	@$(NODE) scripts/check-b8-console-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)"
+	@$(MAKE) build-backend GO="$(GO)"
+	@bash scripts/check-b6-binary-boundary.sh "$(PLATFORM)"
+	@bash scripts/check-b8-binary-boundary.sh "$(PLATFORM)"
+
+b8-live-qualify: ## Verify B8 navigation, responsive layout, keyboard flow, and simulation lock in Chromium.
+	@$(PNPM) --filter @axiom/web test:e2e --grep 'B8 multi-exchange'
+
+b8-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify ## Pass every non-soak B4-B8 phase gate cumulatively.
+	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
+		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
+		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
+		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
+		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 image: ## Build the pinned minimal Axiom image.
 	@docker build --file deploy/docker/Dockerfile --tag "$(IMAGE)" \

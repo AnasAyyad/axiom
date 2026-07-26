@@ -71,6 +71,8 @@ readonly -a EXCLUDES=(
   --glob '!**/test-check-prohibited-capabilities.sh'
   --glob '!scripts/check-b1-public-boundary.mjs'
   --glob '!scripts/check-b6-rebalancing-boundary.mjs'
+  --glob '!scripts/check-b8-console-boundary.mjs'
+  --glob '!scripts/check-b8-binary-boundary.sh'
 )
 
 readonly -a ALL_INPUT_GLOBS=(

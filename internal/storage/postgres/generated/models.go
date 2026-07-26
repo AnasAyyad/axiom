@@ -257,6 +257,43 @@ type B7ValidationSuite struct {
 	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type B8ReplayFaultSchedule struct {
+	ID               string             `db:"id" json:"id"`
+	ReplayID         string             `db:"replay_id" json:"replay_id"`
+	CommandID        string             `db:"command_id" json:"command_id"`
+	ScheduleRevision int64              `db:"schedule_revision" json:"schedule_revision"`
+	FaultKind        string             `db:"fault_kind" json:"fault_kind"`
+	EventOrdinal     int64              `db:"event_ordinal" json:"event_ordinal"`
+	DelayNanos       int64              `db:"delay_nanos" json:"delay_nanos"`
+	Repeatable       bool               `db:"repeatable" json:"repeatable"`
+	Reason           string             `db:"reason" json:"reason"`
+	ActorUserID      string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID        string             `db:"session_id" json:"session_id"`
+	PayloadHash      interface{}        `db:"payload_hash" json:"payload_hash"`
+	SimulationOnly   bool               `db:"simulation_only" json:"simulation_only"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type B8ReplayFaultScheduleState struct {
+	ReplayID  string             `db:"replay_id" json:"replay_id"`
+	Revision  int64              `db:"revision" json:"revision"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type B8ReportExport struct {
+	ID             string             `db:"id" json:"id"`
+	ReportID       string             `db:"report_id" json:"report_id"`
+	CommandID      string             `db:"command_id" json:"command_id"`
+	Format         string             `db:"format" json:"format"`
+	ContentType    string             `db:"content_type" json:"content_type"`
+	Content        string             `db:"content" json:"content"`
+	PayloadHash    interface{}        `db:"payload_hash" json:"payload_hash"`
+	ActorUserID    string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	SimulationOnly bool               `db:"simulation_only" json:"simulation_only"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type CircuitBreakerEvent struct {
 	ID             string             `db:"id" json:"id"`
 	BreakerKind    string             `db:"breaker_kind" json:"breaker_kind"`

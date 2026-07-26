@@ -61,6 +61,58 @@ export const auditQuery = queryOptions({
   queryFn: () => getAPI<"AuditEventPage">("/api/v1/audit-events?page_size=50"),
 });
 
+export const exchangesQuery = queryOptions({
+  queryKey: ["exchanges"],
+  queryFn: () => getAPI<"ExchangePage">("/api/v1/exchanges?page_size=50"),
+});
+
+export function opportunitiesQuery(kind = "") {
+  const filter = kind === "" ? "" : `&kind=${encodeURIComponent(kind)}`;
+  return queryOptions({
+    queryKey: ["opportunities", kind],
+    queryFn: () =>
+      getAPI<"OpportunityPage">(`/api/v1/opportunities?page_size=50${filter}`),
+  });
+}
+
+export const strategiesQuery = queryOptions({
+  queryKey: ["strategies"],
+  queryFn: () => getAPI<"StrategyPage">("/api/v1/strategies?page_size=50"),
+});
+
+export function inventoryQuery(filters: {
+  exchange: string;
+  asset: string;
+  strategy: string;
+  portfolio: string;
+}) {
+  const parameters = new URLSearchParams({ page_size: "50" });
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== "") parameters.set(key, value);
+  }
+  return queryOptions({
+    queryKey: ["inventory", filters],
+    queryFn: () =>
+      getAPI<"InventoryPage">(`/api/v1/inventory?${parameters.toString()}`),
+  });
+}
+
+export const rebalancingQuery = queryOptions({
+  queryKey: ["rebalancing"],
+  queryFn: () =>
+    getAPI<"RebalancingPage">(
+      "/api/v1/rebalancing/recommendations?page_size=50",
+    ),
+});
+
+export const championChallengerQuery = queryOptions({
+  queryKey: ["champion-challenger"],
+  queryFn: () =>
+    getAPI<"ChampionChallengerPage">(
+      "/api/v1/research/champion-challenger?page_size=50",
+    ),
+});
+
 export function auditQueryForType(eventType: string, includeDetail = false) {
   const eventFilter =
     eventType === "" ? "" : `&event_type=${encodeURIComponent(eventType)}`;

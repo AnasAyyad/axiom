@@ -9,6 +9,7 @@ import (
 )
 
 func (handler *handler) registerReads(mux *http.ServeMux) {
+	handler.registerB8Reads(mux)
 	mux.HandleFunc("GET /api/v1/system/status", handler.authorized(handler.systemStatus, "operations.read"))
 	mux.HandleFunc("GET /api/v1/exchanges/binance/health", handler.authorized(handler.binanceHealth, "operations.read"))
 	mux.HandleFunc("GET /api/v1/exchanges/binance/instruments", handler.authorized(handler.instruments, "operations.read"))

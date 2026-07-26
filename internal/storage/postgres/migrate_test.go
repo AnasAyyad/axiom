@@ -243,6 +243,35 @@ func TestMigrationVersionRejectsNonCanonicalNames(t *testing.T) {
 	}
 }
 
+func TestB8MigrationDefinesImmutableSimulationOnlyConsoleEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b8 Migration
+	for _, migration := range migrations {
+		if migration.Version == "000020" {
+			b8 = migration
+			break
+		}
+	}
+	lower := strings.ToLower(b8.SQL)
+	for _, required := range []string{
+		"create table b8_replay_fault_schedule_states",
+		"create table b8_replay_fault_schedules",
+		"create table b8_report_exports",
+		"simulation_only boolean not null check (simulation_only)",
+		"b8_fault_schedules_reference_guard",
+		"b8_fault_schedules_immutable",
+		"b8_report_exports_reference_guard",
+		"b8_report_exports_immutable",
+	} {
+		if !strings.Contains(lower, required) {
+			t.Fatalf("B8 migration missing %q", required)
+		}
+	}
+}
+
 func TestMigrationsContainA4HistoryAndOwnershipGuards(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {

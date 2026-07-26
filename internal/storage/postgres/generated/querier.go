@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	AcknowledgeAlert(ctx context.Context, arg AcknowledgeAlertParams) (*Alert, error)
 	AcquireLease(ctx context.Context, arg AcquireLeaseParams) (*ExecutionLease, error)
+	AdvanceB8ReplayFaultScheduleState(ctx context.Context, arg AdvanceB8ReplayFaultScheduleStateParams) (*B8ReplayFaultScheduleState, error)
 	AdvanceConsumerCursor(ctx context.Context, arg AdvanceConsumerCursorParams) (*ConsumerCursor, error)
 	BootstrapOwnerUser(ctx context.Context, arg BootstrapOwnerUserParams) (*User, error)
 	ClaimB4Resources(ctx context.Context, arg ClaimB4ResourcesParams) error
@@ -44,6 +45,7 @@ type Querier interface {
 	GetB7ExperimentPreregistration(ctx context.Context, id string) (*B7ExperimentPreregistration, error)
 	GetB7MaturityState(ctx context.Context, strategyVersionID string) (*StrategyMaturityState, error)
 	GetB7ValidationSuite(ctx context.Context, id string) (*B7ValidationSuite, error)
+	GetB8ReplayFaultScheduleState(ctx context.Context, replayID string) (*B8ReplayFaultScheduleState, error)
 	GetBootstrapAuthorizationRole(ctx context.Context, arg GetBootstrapAuthorizationRoleParams) (*AuthorizationRole, error)
 	GetCrossExchangeCandidate(ctx context.Context, decisionID string) (*CrossExchangeCandidate, error)
 	GetCrossExchangeSimulationOutcome(ctx context.Context, decisionID string) (*CrossExchangeSimulationOutcome, error)
@@ -86,6 +88,9 @@ type Querier interface {
 	InsertB7ChampionChallengerReport(ctx context.Context, arg InsertB7ChampionChallengerReportParams) (*B7ChampionChallengerReport, error)
 	InsertB7ExperimentPreregistration(ctx context.Context, arg InsertB7ExperimentPreregistrationParams) (*B7ExperimentPreregistration, error)
 	InsertB7ValidationSuite(ctx context.Context, arg InsertB7ValidationSuiteParams) (*B7ValidationSuite, error)
+	InsertB8ReplayFaultSchedule(ctx context.Context, arg InsertB8ReplayFaultScheduleParams) (*B8ReplayFaultSchedule, error)
+	InsertB8ReplayFaultScheduleState(ctx context.Context, arg InsertB8ReplayFaultScheduleStateParams) (*B8ReplayFaultScheduleState, error)
+	InsertB8ReportExport(ctx context.Context, arg InsertB8ReportExportParams) (*B8ReportExport, error)
 	InsertCanonicalFill(ctx context.Context, arg InsertCanonicalFillParams) (*Fill, error)
 	InsertCanonicalOrderEvent(ctx context.Context, arg InsertCanonicalOrderEventParams) (*OrderEvent, error)
 	InsertCanonicalOutput(ctx context.Context, arg InsertCanonicalOutputParams) (*RunCanonicalOutput, error)
@@ -148,6 +153,7 @@ type Querier interface {
 	ListA11OutboxAfter(ctx context.Context, arg ListA11OutboxAfterParams) ([]*OutboxEvent, error)
 	ListB4ClaimItems(ctx context.Context, groupID string) ([]*B4ClaimItem, error)
 	ListB5ClaimItems(ctx context.Context, groupID string) ([]*B5ClaimItem, error)
+	ListB8ReplayFaultSchedules(ctx context.Context, replayID string) ([]*B8ReplayFaultSchedule, error)
 	ListCanonicalOutputs(ctx context.Context, runID string) ([]*RunCanonicalOutput, error)
 	ListCrossExchangeCandidateLegs(ctx context.Context, decisionID string) ([]*CrossExchangeCandidateLeg, error)
 	ListCrossExchangeCandidateMembers(ctx context.Context, decisionID string) ([]*CrossExchangeCandidateMember, error)

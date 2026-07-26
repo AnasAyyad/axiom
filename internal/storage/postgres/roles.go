@@ -28,6 +28,7 @@ var runtimeReadInsertTables = []string{
 	"rebalancing_fact_sets", "rebalancing_route_facts", "rebalancing_recommendations",
 	"rebalancing_recommendation_steps", "rebalancing_checklist_steps",
 	"b7_experiment_preregistrations", "b7_validation_suites", "b7_champion_challenger_reports",
+	"b8_replay_fault_schedule_states", "b8_replay_fault_schedules", "b8_report_exports",
 	"exchange_capabilities", "exchanges", "execution_lease_epochs", "execution_leases", "execution_plan_legs",
 	"execution_plans", "experiment_registrations", "fills", "inbox_events", "incidents", "instrument_metadata_versions",
 	"instruments", "jobs", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
@@ -43,6 +44,7 @@ var runtimeUpdateTables = []string{
 	"execution_leases", "incidents", "jobs", "market_data_segments", "model_versions", "orders", "outbox_events",
 	"liquidity_domains", "liquidity_reservations", "positions", "projection_revisions", "quarantined_scopes", "reconciliation_cases", "reservations", "runs", "sessions", "startup_recovery_attempts",
 	"api_entity_revisions", "shadow_sessions", "stream_connections", "users", "virtual_balances",
+	"b8_replay_fault_schedule_states",
 }
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
@@ -79,6 +81,7 @@ var readOnlyTables = []string{
 	"rebalancing_fact_sets", "rebalancing_route_facts", "rebalancing_recommendations",
 	"rebalancing_recommendation_steps", "rebalancing_checklist_steps",
 	"b7_experiment_preregistrations", "b7_validation_suites", "b7_champion_challenger_reports",
+	"b8_replay_fault_schedule_states", "b8_replay_fault_schedules", "b8_report_exports",
 	"strategy_maturity_states", "strategy_maturity_commands", "strategy_maturity_events",
 	"circuit_breaker_events", "exchanges", "execution_plan_legs", "execution_plans", "fill_journal_postings", "fills", "incidents", "instrument_metadata_versions",
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
