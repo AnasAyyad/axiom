@@ -1,4 +1,4 @@
-# A7 implementation complete — formal 72-hour qualification pending
+# A7 accepted — repository-owner waiver
 
 **Date:** 2026-07-20
 
@@ -8,11 +8,16 @@
 
 ## Current outcome
 
-The A7 implementation and short checks pass, but A7 is not a completed phase.
-The first continuous 72-hour production-public run completed and did not qualify;
-a new formal run from the repaired candidate commit remains required.
-The owner separately authorized speculative A8-A11 work on isolated branches;
-that exception does not satisfy or bypass the formal A7 gate.
+A7 is accepted by repository-owner decision on 2026-07-26 under the bounded
+non-safety waiver recorded in
+[A7 owner-waiver acceptance](a7-owner-waiver-2026-07-26.md). The continuous
+72-hour production-public run completed and its immutable machine result remains
+`qualified:false`, with `BTCUSDT_slo_failed`, `ETHUSDT_slo_failed`, and
+`ETHUSDT_ineligible`.
+
+The waiver is limited to availability/resynchronization, does not weaken the
+15-second SLO, expires at `2026-08-26T00:00:00Z` or on replacement by a passing
+exact-source A7 run, and does not accept A8-A11.
 
 Implemented scope includes the compiled credential-free Binance public
 transport, server-time uncertainty, metadata/trades/candles, stream-first

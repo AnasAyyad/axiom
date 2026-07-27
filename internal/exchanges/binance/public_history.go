@@ -29,7 +29,8 @@ func (client *PublicClient) Instruments(
 		}
 		seen[instrument.Symbol()] = struct{}{}
 		query := url.Values{"showPermissionSets": {"false"}, "symbol": {instrument.Symbol()}}
-		body, received, err := client.get(ctx, "/api/v3/exchangeInfo", query, exchangecontracts.OperationMetadata, 20)
+		body, received, err := client.get(ctx, "/api/v3/exchangeInfo", query,
+			exchangecontracts.OperationMetadata, 20, exchangecontracts.BudgetPublic)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +52,8 @@ func (client *PublicClient) Trades(
 		return nil, exchangecontracts.NewError(exchangecontracts.ErrorValidation, exchangecontracts.OperationTrades, 0)
 	}
 	query := url.Values{"limit": {strconv.FormatUint(uint64(request.Limit), 10)}, "symbol": {request.Instrument.Symbol()}}
-	body, received, err := client.get(ctx, "/api/v3/trades", query, exchangecontracts.OperationTrades, 25)
+	body, received, err := client.get(ctx, "/api/v3/trades", query,
+		exchangecontracts.OperationTrades, 25, exchangecontracts.BudgetPublic)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +72,8 @@ func (client *PublicClient) Candles(
 	query := url.Values{"endTime": {strconv.FormatInt(request.End.UnixMilli(), 10)}, "interval": {request.Interval},
 		"limit": {strconv.FormatUint(uint64(request.Limit), 10)}, "startTime": {strconv.FormatInt(request.Start.UnixMilli(), 10)},
 		"symbol": {request.Instrument.Symbol()}, "timeZone": {"0"}}
-	body, received, err := client.get(ctx, "/api/v3/klines", query, exchangecontracts.OperationCandles, 2)
+	body, received, err := client.get(ctx, "/api/v3/klines", query,
+		exchangecontracts.OperationCandles, 2, exchangecontracts.BudgetPublic)
 	if err != nil {
 		return nil, err
 	}

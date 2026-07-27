@@ -48,11 +48,30 @@ func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, err
 	return NewPublicClientWithMonotonic(endpointSet, clock, exchangecontracts.NewProcessMonotonicSource())
 }
 
+// NewRecorderPublicClientWithMonotonic reserves enough request weight for three
+// simultaneous 5,000-level recovery snapshots and their clock samples.
+func NewRecorderPublicClientWithMonotonic(
+	endpointSet string,
+	clock domain.Clock,
+	monotonic exchangecontracts.MonotonicSource,
+) (*PublicClient, error) {
+	return newPublicClientWithReserve(endpointSet, clock, monotonic, 768)
+}
+
 // NewPublicClientWithMonotonic binds Binance to a caller-owned cross-exchange ordering epoch.
 func NewPublicClientWithMonotonic(
 	endpointSet string,
 	clock domain.Clock,
 	monotonic exchangecontracts.MonotonicSource,
+) (*PublicClient, error) {
+	return newPublicClientWithReserve(endpointSet, clock, monotonic, 100)
+}
+
+func newPublicClientWithReserve(
+	endpointSet string,
+	clock domain.Clock,
+	monotonic exchangecontracts.MonotonicSource,
+	recoveryReserve uint64,
 ) (*PublicClient, error) {
 	if endpointSet != publicEndpointSet || clock == nil || monotonic == nil {
 		return nil, policyError(exchangecontracts.OperationCapability)
@@ -66,7 +85,7 @@ func NewPublicClientWithMonotonic(
 		return nil, policyError(exchangecontracts.OperationStream)
 	}
 	budget, err := exchangecontracts.NewRateBudget(exchangecontracts.BudgetConfig{
-		Capacity: 1200, RecoveryReserve: 100, RefillAmount: 1200, RefillInterval: time.Minute,
+		Capacity: 1200, RecoveryReserve: recoveryReserve, RefillAmount: 1200, RefillInterval: time.Minute,
 	}, 0)
 	if err != nil {
 		return nil, err
@@ -103,7 +122,8 @@ func (client *PublicClient) Capabilities() exchangecontracts.Descriptor {
 
 // Ping checks only the compiled public connectivity route.
 func (client *PublicClient) Ping(ctx context.Context) error {
-	_, _, err := client.get(ctx, "/api/v3/ping", nil, exchangecontracts.OperationMetadata, 1)
+	_, _, err := client.get(ctx, "/api/v3/ping", nil, exchangecontracts.OperationMetadata, 1,
+		exchangecontracts.BudgetPublic)
 	return err
 }
 
@@ -137,7 +157,11 @@ func (client *PublicClient) sampleServerTime(
 ) (TimeHealth, StreamRecordToken, error) {
 	sent := client.clock.Now()
 	sentMonotonic := client.monotonic()
-	body, received, err := client.get(ctx, "/api/v3/time", nil, exchangecontracts.OperationMetadata, 1)
+	budgetClass := exchangecontracts.BudgetPublic
+	if recorder != nil {
+		budgetClass = exchangecontracts.BudgetRecovery
+	}
+	body, received, err := client.get(ctx, "/api/v3/time", nil, exchangecontracts.OperationMetadata, 1, budgetClass)
 	receivedMonotonic := client.monotonic()
 	if err != nil {
 		return TimeHealth{}, StreamRecordToken{}, err
@@ -150,7 +174,7 @@ func (client *PublicClient) sampleServerTime(
 	}
 	server, err := normalizeServerTime(body)
 	if err != nil {
-		if recordErr := client.recordDecodeFailure(ctx, recorder, token); recordErr != nil {
+		if recordErr := client.recordDecodeFailure(ctx, recorder, token, err, "clock_normalize"); recordErr != nil {
 			return TimeHealth{}, token, recorderFailure{recordErr}
 		}
 		return TimeHealth{}, token, err
@@ -212,7 +236,12 @@ func (client *PublicClient) snapshot(
 		)
 	}
 	query := url.Values{"limit": {strconv.FormatUint(uint64(request.Depth), 10)}, "symbol": {request.Instrument.Symbol()}}
-	body, received, err := client.get(ctx, "/api/v3/depth", query, exchangecontracts.OperationSnapshot, snapshotWeight(request.Depth))
+	budgetClass := exchangecontracts.BudgetPublic
+	if recorder != nil {
+		budgetClass = exchangecontracts.BudgetRecovery
+	}
+	body, received, err := client.get(ctx, "/api/v3/depth", query, exchangecontracts.OperationSnapshot,
+		snapshotWeight(request.Depth), budgetClass)
 	if err != nil {
 		return exchangecontracts.BookSnapshot{}, StreamRecordToken{}, err
 	}
@@ -224,7 +253,7 @@ func (client *PublicClient) snapshot(
 	}
 	snapshot, err := NormalizeSnapshot(body, request.Instrument, received)
 	if err != nil {
-		if recordErr := client.recordDecodeFailure(ctx, recorder, token); recordErr != nil {
+		if recordErr := client.recordDecodeFailure(ctx, recorder, token, err, "snapshot_normalize"); recordErr != nil {
 			return exchangecontracts.BookSnapshot{}, token, recorderFailure{recordErr}
 		}
 		return exchangecontracts.BookSnapshot{}, token, err
@@ -261,12 +290,15 @@ func (client *PublicClient) recordDecodeFailure(
 	ctx context.Context,
 	recorder PublicRecorder,
 	token StreamRecordToken,
+	cause error,
+	stage string,
 ) error {
 	if recorder == nil {
 		return nil
 	}
 	return recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordDecoderError,
-		Token: token, Canonical: []byte(`{"kind":"decoder_error"}`)})
+		Token: token, Canonical: boundedDecoderFailureEvidence(
+			cause, stage, exchangecontracts.StreamKind(""))})
 }
 
 func positiveOffset(value time.Duration) uint64 {

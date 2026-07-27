@@ -3,6 +3,7 @@ package bybit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"axiom/internal/domain"
@@ -26,11 +27,11 @@ func (stream *publicStream) normalizeObserved(
 		Event: event, RecordToken: token, DecodeNanos: positiveOffset(time.Since(decodeStarted)),
 		ReceivedOffsetNanos: receivedOffset}
 	if normalizeErr != nil {
-		return observed, stream.recordDecoderFailure(ctx, token, normalizeErr)
+		return observed, stream.recordDecoderFailure(ctx, token, name, normalizeErr)
 	}
 	if event.Kind != exchangecontracts.StreamLifecycle {
 		if _, ok := stream.expected[name]; !ok {
-			return observed, stream.recordDecoderFailure(ctx, token, streamError())
+			return observed, stream.recordDecoderFailure(ctx, token, name, streamError())
 		}
 	}
 	return stream.completeObserved(ctx, observed, name, event, token)
@@ -100,14 +101,19 @@ func incomingRecordKind(name string) exchangecontracts.PublicRecordKind {
 func (stream *publicStream) recordDecoderFailure(
 	ctx context.Context,
 	token exchangecontracts.StreamRecordToken,
+	name string,
 	cause error,
 ) error {
 	if stream.recorder == nil {
 		return cause
 	}
+	streamKind := exchangecontracts.StreamKind("")
+	if expected, exists := stream.expected[name]; exists {
+		streamKind = expected
+	}
 	if err := stream.recorder.RecordPublicCanonical(ctx, exchangecontracts.PublicCanonicalRecord{
 		Kind: exchangecontracts.RecordDecoderError, Token: token,
-		Canonical: boundedDecoderFailureEvidence(cause)}); err != nil {
+		Canonical: boundedDecoderFailureEvidence(cause, "stream_normalize", streamKind)}); err != nil {
 		return recorderFailure{err}
 	}
 	return cause
@@ -120,10 +126,22 @@ func (stream *publicStream) sendRecorded(
 ) error {
 	stream.writeMutex.Lock()
 	defer stream.writeMutex.Unlock()
+	if ctx.Err() != nil {
+		return exchangecontracts.NewDetailedError(exchangecontracts.ErrorCanceled,
+			exchangecontracts.OperationStream, 0, 0, "context_canceled")
+	}
 	if err := stream.recordOutgoing(ctx, kind, payload); err != nil {
 		return err
 	}
 	if err := stream.connection.Send(payload); err != nil {
+		if ctx.Err() != nil {
+			return exchangecontracts.NewDetailedError(exchangecontracts.ErrorCanceled,
+				exchangecontracts.OperationStream, 0, 0, "context_canceled")
+		}
+		var typed *exchangecontracts.Error
+		if errors.As(err, &typed) {
+			return typed
+		}
 		return exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
 			exchangecontracts.OperationStream, 0, 0, "websocket_send_failure")
 	}

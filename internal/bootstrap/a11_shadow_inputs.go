@@ -30,11 +30,12 @@ func (session *a11LiveShadowSession) evaluateReadyInputs(ctx context.Context) er
 			!latest.CloseTime.After(session.seen[instrument]) {
 			continue
 		}
+		health := collector.HealthSnapshot()
 		book, bookErr := collector.Views().Book("binance", instrument)
-		if bookErr != nil || !book.Eligible(session.client.MonotonicOffset(), session.trendConfig.MaximumBookAge) {
+		if bookErr != nil || !health.Eligible {
 			continue
 		}
-		input, inputErr := session.buildTrendInput(instrument, candles, book, now)
+		input, inputErr := session.buildTrendInput(instrument, candles, book, now, health.Eligible)
 		if inputErr != nil {
 			return inputErr
 		}
@@ -47,7 +48,7 @@ func (session *a11LiveShadowSession) evaluateReadyInputs(ctx context.Context) er
 }
 
 func (session *a11LiveShadowSession) buildTrendInput(instrument domain.Instrument, candleView marketdata.CandleView,
-	book marketdata.BookView, now time.Time) (trend.Input, error) {
+	book marketdata.BookView, now time.Time, marketHealthy bool) (trend.Input, error) {
 	metadata, exists := session.metadata[instrument]
 	if !exists || len(book.Bids()) == 0 || len(book.Asks()) == 0 {
 		return trend.Input{}, fmt.Errorf("shadow_decision_evidence_incomplete")
@@ -89,7 +90,7 @@ func (session *a11LiveShadowSession) buildTrendInput(instrument domain.Instrumen
 		InstrumentMetadata: metadata, CentralRiskEligible: session.entries.Load(),
 		LiquidityDomain: session.claim.Models.LiquidityDomain, FencingToken: logical}
 	return trend.Input{LogicalTime: logical, Now: now, Instrument: instrument, Candles: candles,
-		MarketHealthy: book.Health() == marketdata.HealthHealthy, BookAge: bookAge, Position: position,
+		MarketHealthy: marketHealthy, BookAge: bookAge, Position: position,
 		Sizing: sizing, Evidence: evidence}, nil
 }
 

@@ -61,7 +61,8 @@ func (client *PublicClient) snapshot(
 	}
 	snapshot, err := NormalizeSnapshot(body, request.Instrument, received)
 	if err != nil {
-		return exchangecontracts.BookSnapshot{}, token, client.recordDecodeFailure(ctx, recorder, token, err)
+		return exchangecontracts.BookSnapshot{}, token, client.recordDecodeFailure(
+			ctx, recorder, token, err, "snapshot_normalize")
 	}
 	if recorder != nil {
 		canonical, _ := jsonMarshal(snapshot)

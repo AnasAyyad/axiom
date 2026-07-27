@@ -234,7 +234,8 @@ func TestBybitInitialHealthIsDiagnosedWithoutCreatingResyncSample(t *testing.T) 
 	collector, _ := newLifecycleTestCollector(t)
 	collector.recordResynchronization(time.Time{}, 7)
 	stats := collector.Stats()
-	if stats.ResyncSamples != 0 || len(stats.ReconnectDiagnostics) != 1 {
+	if stats.ResyncSamples != 0 || stats.RecoveryActions.Reconnect != 0 ||
+		len(stats.ReconnectDiagnostics) != 1 {
 		t.Fatalf("stats=%#v", stats)
 	}
 	diagnostic := stats.ReconnectDiagnostics[0]
@@ -242,5 +243,21 @@ func TestBybitInitialHealthIsDiagnosedWithoutCreatingResyncSample(t *testing.T) 
 		diagnostic.Generation != 7 || !diagnostic.ReachedHealthy ||
 		diagnostic.Attribution != "recovered" || diagnostic.ResyncElapsed != 0 {
 		t.Fatalf("diagnostic=%#v", diagnostic)
+	}
+	if diagnostic.Action != "" {
+		t.Fatalf("initial health must not claim a recovery action: %#v", diagnostic)
+	}
+}
+
+func TestB1ReconnectHonorsRetryAfterWhenItExceedsBackoff(t *testing.T) {
+	collector, _ := newLifecycleTestCollector(t)
+	state := lifecycleState{}
+	_, delay, err := collector.advanceLifecycle(&state, generationOutcome{
+		reason: reconnectSubscription, retryAfter: 19 * time.Second}, time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if delay != 19*time.Second {
+		t.Fatalf("delay=%s want=19s", delay)
 	}
 }

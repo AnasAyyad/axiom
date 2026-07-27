@@ -22,6 +22,31 @@ zero-quantity levels. Native update ID `1` is normalized as a full replacement,
 even when the wire envelope says `delta`. Gaps, resets, decoder failures,
 subscription acknowledgements, heartbeats, and connection generations are
 recorded as explicit evidence.
+## Recovery transport and combined health
+
+DNS resolution, TCP connect, TLS negotiation, and WebSocket upgrade share one
+five-second setup deadline. Every DNS answer is validated before dialing, no
+more than four validated public addresses are tried with bounded IPv4/IPv6
+fallback, and losing connections are closed. Subscription and heartbeat writes
+have a two-second deadline.
+
+Typed transport failures preserve bounded DNS/TCP/TLS/upgrade/write durations,
+candidate and attempt counts, address family, HTTP status, response timing and
+size, and valid `Retry-After`. They never retain IPs, URLs, headers, payloads,
+or arbitrary error text. Deterministic retry waits for the larger of local
+backoff and a valid upstream `Retry-After`.
+
+Initial clock acquisition and book synchronization run concurrently. Periodic
+clock sampling remains off the ordered event loop with at most one request in
+flight. A clock failure marks combined eligibility false but keeps a valid book
+and stream alive, then retries in place. Reconnect is reserved for stream,
+book, or subscription defects. Recorder and shadow readiness consume the
+immutable combined book/clock health snapshot.
+
+Formal runners synchronously append bounded lifecycle evidence to their
+hash-chained journal and mirror it to the service log. Journal, status,
+recorder-flush, capacity, or terminal-evidence failure terminates
+qualification. Final combined health is frozen at the official end time before
 
 ## Recording
 

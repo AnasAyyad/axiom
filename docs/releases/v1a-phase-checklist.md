@@ -68,14 +68,20 @@ in [V1A readiness](v1a-readiness.md). Clause-level plan coverage is in
 ## A7 — Binance public data and recorder
 
 - [x] Confirm A6 is verified.
-- [ ] Verify all `AX-V1A-A07-*` requirements.
+- [x] Record A7 acceptance under the bounded owner waiver while retaining the
+      failed automated SLO requirements as failed machine results.
 - [x] Pass public adapter sequence, reconnect, time, malformed/stale, and manifest tests.
-- [ ] Complete the 72-hour declared-load soak with bounded memory and all incidents.
-- [ ] Prove the process and image are public-only and credential-free.
+- [x] Complete the 72-hour declared-load soak with bounded memory and all incidents.
+- [x] Prove the process and image are public-only and credential-free.
+- [ ] Automated freshness/resynchronization acceptance did not pass; retain the
+      immutable `qualified:false` result and unchanged 15-second SLO.
+- [x] Record waiver `A7-RSK-2026-07-26-001`, limited to
+      availability/resynchronization and expiring `2026-08-26T00:00:00Z` or on
+      a passing exact-source rerun.
 
 ## A8 — backtest, replay, simulation, and orders
 
-- [ ] Confirm A7 is verified.
+- [x] Confirm A7 is accepted under the documented owner waiver.
 - [ ] Verify all `AX-V1A-A08-*` requirements.
 - [ ] Produce ten byte-identical canonical run results.
 - [ ] Pass no-look-ahead, fill/fee/dust/recovery, liquidity, and namespace tests.

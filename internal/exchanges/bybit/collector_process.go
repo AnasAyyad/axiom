@@ -14,39 +14,50 @@ type observedResult struct {
 	err   error
 }
 
+type clockSampleResult struct {
+	duration time.Duration
+	health   ClockHealth
+	err      error
+}
+
 func (collector *InstrumentCollector) consumeGeneration(
 	ctx context.Context,
 	stream ObservedStream,
 	resyncStarted time.Time,
 ) generationOutcome {
 	events, overflow := collector.startReceiver(ctx, stream)
-	heartbeat := time.NewTicker(collector.config.HeartbeatEvery)
-	stale := time.NewTicker(collector.config.StaleCheckEvery)
-	renewal := time.NewTimer(collector.config.Renewal)
-	defer heartbeat.Stop()
-	defer stale.Stop()
-	defer renewal.Stop()
+	timers := newGenerationTimers(collector.config)
+	defer timers.stop()
 	reachedHealthy := false
+	clock := newBybitClockRecovery()
+	defer clock.stop()
+	clock.start(ctx, collector, stream)
 	for {
 		select {
 		case <-ctx.Done():
 			return generationOutcome{reachedHealthy: reachedHealthy, generation: stream.Generation()}
+		case <-collector.evidenceFailed:
+			return generationOutcome{fatal: collector.lifecycleEvidenceError(), generation: stream.Generation()}
 		case <-overflow:
-			err := collector.handleQueueOverflow(ctx, stream)
-			return collector.failedGeneration(ctx, stream, reachedHealthy,
-				reconnectQueue, "receiver_queue", "queue_overflow", err)
-		case <-heartbeat.C:
-			if err := stream.Ping(ctx); err != nil {
-				return collector.failedGeneration(ctx, stream, reachedHealthy,
-					reconnectHeartbeat, "heartbeat", "heartbeat_failed", err)
+			return collector.queueOverflowOutcome(ctx, stream, reachedHealthy)
+		case <-timers.heartbeat.C:
+			if outcome, failed := collector.heartbeatOutcome(ctx, stream, reachedHealthy); failed {
+				return outcome
 			}
-		case <-stale.C:
-			if collector.book.View().Version() > 0 && collector.book.MarkStale(collector.source.MonotonicOffset(),
-				uint64(collector.config.MaximumBookAge.Nanoseconds())) != nil {
-				return collector.failedGeneration(ctx, stream, reachedHealthy,
-					reconnectStaleBook, "stale_book", "book_stale", nil)
+		case <-timers.clock.C:
+			clock.start(ctx, collector, stream)
+		case <-clock.retryChannel:
+			clock.retryChannel = nil
+			clock.start(ctx, collector, stream)
+		case result := <-clock.results:
+			if outcome, failed := clock.handle(ctx, collector, stream, result, reachedHealthy); failed {
+				return outcome
 			}
-		case <-renewal.C:
+		case <-timers.stale.C:
+			if outcome, failed := collector.staleOutcome(ctx, stream, reachedHealthy); failed {
+				return outcome
+			}
+		case <-timers.renewal.C:
 			return collector.failedGeneration(ctx, stream, reachedHealthy,
 				reconnectScheduledRenewal, "scheduled_renewal", "scheduled_renewal", nil)
 		case result := <-events:
@@ -86,12 +97,18 @@ func (collector *InstrumentCollector) consumeObserved(
 		result.event.Event.Snapshot == nil {
 		return reachedHealthy, generationOutcome{}
 	}
-	if err = collector.recordLifecycle(ctx, stream, "HEALTHY", "snapshot_applied"); err != nil {
+	state, reason := "HEALTHY", "snapshot_applied"
+	if !collector.HealthSnapshot().ClockEligible {
+		state, reason = "DEGRADED_CLOCK", "snapshot_applied_clock_invalid"
+	}
+	if err = collector.recordLifecycle(ctx, stream, state, reason); err != nil {
 		return true, collector.failedGeneration(ctx, stream, true,
 			reconnectSnapshot, "recorder", "recorder", err)
 	}
 	collector.recordOperationDiagnostic("snapshot", stream.Generation(), duration, 0)
-	collector.recordResynchronization(resyncStarted, stream.Generation())
+	if state == "HEALTHY" {
+		collector.recordResynchronization(resyncStarted, stream.Generation())
+	}
 	return true, generationOutcome{}
 }
 
@@ -182,6 +199,21 @@ func (collector *InstrumentCollector) startReceiver(
 		}
 	}()
 	return events, overflow
+}
+
+func (collector *InstrumentCollector) sampleClock(
+	ctx context.Context,
+	stream ObservedStream,
+	results chan<- clockSampleResult,
+) {
+	started := collector.lifecycle.Now()
+	health, _, err := collector.source.SampleServerTimeRecorded(ctx, collector.config.Instrument,
+		stream.ConnectionID(), stream.Generation(), collector.recorder)
+	result := clockSampleResult{health: health, err: err, duration: collector.lifecycle.Now().Sub(started)}
+	select {
+	case results <- result:
+	case <-ctx.Done():
+	}
 }
 
 func (collector *InstrumentCollector) processObserved(

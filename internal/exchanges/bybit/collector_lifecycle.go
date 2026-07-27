@@ -3,6 +3,8 @@ package bybit
 import (
 	"context"
 	"time"
+
+	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
 type collectorLifecycle interface {
@@ -72,6 +74,9 @@ func (collector *InstrumentCollector) runLifecycle(ctx context.Context, run gene
 		if outcome.reason.valid() {
 			collector.stats.recordReconnectReason(outcome.reason)
 		}
+		if evidenceErr := collector.lifecycleEvidenceError(); evidenceErr != nil {
+			return evidenceErr
+		}
 		if outcome.fatal != nil {
 			collector.recordDiagnostic(collector.outcomeDiagnostic(outcome, "fatal", duration, 0, 0))
 			return outcome.fatal
@@ -125,17 +130,38 @@ func (collector *InstrumentCollector) advanceLifecycle(
 		backoffAttempt = state.attempt
 	}
 	delay := reconnectBackoff(backoffAttempt, collector.config.MinimumBackoff, collector.config.MaximumBackoff)
+	if outcome.retryAfter > delay {
+		delay = outcome.retryAfter
+	}
 	return collector.outcomeDiagnostic(outcome, phase, attemptDuration, delay, resyncElapsed), delay, nil
 }
 
 func (collector *InstrumentCollector) recordResynchronization(started time.Time, generation uint64) {
+	collector.recordRecovery(started, generation, exchangecontracts.RecoveryReconnect)
+}
+
+func (collector *InstrumentCollector) recordClockResynchronization(started time.Time, generation uint64) {
+	collector.recordRecovery(started, generation, exchangecontracts.RecoveryClockResample)
+}
+
+func (collector *InstrumentCollector) recordRecovery(
+	started time.Time,
+	generation uint64,
+	action exchangecontracts.RecoveryAction,
+) {
 	duration := time.Duration(0)
 	if !started.IsZero() {
 		duration = maxDuration(collector.lifecycle.Now().Sub(started), 0)
 		collector.stats.resync.record(duration)
 	}
-	collector.recordDiagnostic(collector.outcomeDiagnostic(generationOutcome{reachedHealthy: true,
-		generation: generation, stage: "healthy", cause: "healthy"}, "health_restored", duration, 0, duration))
+	diagnostic := collector.outcomeDiagnostic(generationOutcome{reachedHealthy: true,
+		generation: generation, stage: "healthy", cause: "healthy"}, "health_restored", duration, 0, duration)
+	if started.IsZero() {
+		diagnostic.Action = ""
+	} else {
+		diagnostic.Action = action
+	}
+	collector.recordDiagnostic(diagnostic)
 }
 
 func maxDuration(left, right time.Duration) time.Duration {

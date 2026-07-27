@@ -3,6 +3,7 @@ package bybit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -43,9 +44,36 @@ func TestB1InstrumentCollectorAppliesSnapshotsMonotonicDeltasAndPublicEvents(t *
 			stats.Snapshots == 2 && stats.Resets == 1 && stats.DepthUpdates == 1 && stats.Trades == 1 &&
 			stats.Tickers == 1 && stats.Candles == 1 && stats.Heartbeats == 1
 	})
+	if health := collector.HealthSnapshot(); !health.BookEligible || !health.ClockEligible || !health.Eligible {
+		t.Fatalf("combined health not ready: %#v", health)
+	}
+	collector.markClockDegraded(ClockHealth{}, time.Now().UTC())
+	if health := collector.HealthSnapshot(); !health.BookEligible || health.ClockEligible || health.Eligible ||
+		health.DegradedSince.IsZero() {
+		t.Fatalf("clock degradation did not fail combined readiness: %#v", health)
+	}
+	assertHealthyBybitCancellation(t, collector, recorder, instrument, cancel, done)
+}
+
+func assertHealthyBybitCancellation(
+	t *testing.T,
+	collector *InstrumentCollector,
+	recorder *bybitCollectorRecorder,
+	instrument domain.Instrument,
+	cancel context.CancelFunc,
+	done <-chan error,
+) {
+	t.Helper()
+	collector.setClockHealth(ClockHealth{ObservedAt: time.Now().UTC(), Eligible: true}, false)
+	beforeCancel, _ := collector.Views().Book(collectorExchange, instrument)
 	cancel()
-	if err = <-done; err != nil {
+	if err := <-done; err != nil {
 		t.Fatal(err)
+	}
+	afterCancel, _ := collector.Views().Book(collectorExchange, instrument)
+	if afterCancel.Health() != beforeCancel.Health() || afterCancel.Version() != beforeCancel.Version() {
+		t.Fatalf("normal cancellation mutated final book: before=%s/%d after=%s/%d",
+			beforeCancel.Health(), beforeCancel.Version(), afterCancel.Health(), afterCancel.Version())
 	}
 	if recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 || recorder.canonical.Load() > recorder.raw.Load() {
 		t.Fatalf("collector linkage raw=%d canonical=%d", recorder.raw.Load(), recorder.canonical.Load())
@@ -85,6 +113,33 @@ func TestB1InstrumentCollectorRecordsConservativeGapAndReconnects(t *testing.T) 
 	recorder.mutex.Unlock()
 	if gap.FirstSequence != 21 || gap.LastSequence != ^uint64(0) || gap.Reason != "stream_interruption" {
 		t.Fatalf("conservative gap=%#v", gap)
+	}
+}
+
+func TestB1LifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.T) {
+	clock := &domain.SystemClock{}
+	instrument := approvedInstruments()[0]
+	source := &bybitCollectorSource{clock: clock, generations: [][]exchangecontracts.StreamEvent{{
+		bybitSnapshotEvent(t, clock, instrument, 10, "100", "101"),
+	}}}
+	config := DefaultCollectorConfig(instrument)
+	config.MinimumBackoff, config.MaximumBackoff = time.Millisecond, 2*time.Millisecond
+	config.LifecycleEvidence = exchangecontracts.LifecycleEvidenceSinkFunc(
+		func(exchangecontracts.CollectorLifecycleEvidence) error {
+			return errors.New("bounded sink failure")
+		})
+	collector, err := NewInstrumentCollector(config, source, &bybitCollectorRecorder{}, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err = collector.Run(ctx); err == nil {
+		t.Fatal("lifecycle journal failure did not terminate collector")
+	}
+	view, _ := collector.Views().Book(collectorExchange, instrument)
+	if view.Health() == marketdata.HealthHealthy {
+		t.Fatalf("collector remained healthy after lifecycle journal failure: %s", view.Health())
 	}
 }
 

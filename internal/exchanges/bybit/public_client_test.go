@@ -2,6 +2,7 @@ package bybit
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -140,7 +141,7 @@ func TestB1RecordedStreamPersistsRawBeforeCanonicalAndDecoderFailure(t *testing.
 				t.Fatalf("recording order=%s want=%s", calls, test.want)
 			}
 			if test.name == "decoder" && string(sink.decoderSnapshot()) !=
-				`{"kind":"decoder_error","failure_kind":"validation_rejected","operation":"stream","cause":"decoder_schema_rejected"}` {
+				`{"kind":"decoder_error","decoder_stage":"stream_normalize","failure_kind":"validation_rejected","operation":"stream","cause":"decoder_schema_rejected"}` {
 				t.Fatalf("decoder evidence=%s", sink.decoderSnapshot())
 			}
 			if connector.target == nil || connector.target.String() != publicWSOrigin || len(connection.sent) != 1 ||
@@ -260,6 +261,43 @@ func (sink *bybitFrameSink) decoderSnapshot() []byte {
 	sink.mutex.Lock()
 	defer sink.mutex.Unlock()
 	return append([]byte(nil), sink.decoder...)
+}
+
+type bybitRecoveryResolver struct{ addresses []net.IPAddr }
+
+func (resolver bybitRecoveryResolver) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) {
+	return resolver.addresses, nil
+}
+
+func TestBybitPublicDialerValidatesAllAnswersAndFallsBackAcrossFamilies(t *testing.T) {
+	resolver := bybitRecoveryResolver{addresses: []net.IPAddr{
+		{IP: net.ParseIP("2606:4700:4700::1111")},
+		{IP: net.ParseIP("93.184.216.34")},
+		{IP: net.ParseIP("2606:4700:4700::1001")},
+	}}
+	calls := 0
+	var peer net.Conn
+	dialer := &publicDialer{host: "api.bybit.com", resolver: resolver,
+		dial: func(context.Context, string, string) (net.Conn, error) {
+			calls++
+			if calls == 1 {
+				return nil, errors.New("bounded fixture failure")
+			}
+			connection, other := net.Pipe()
+			peer = other
+			return connection, nil
+		}}
+	connection, metadata, err := dialer.dialValidated(context.Background(), "tcp", "api.bybit.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	defer peer.Close()
+	if calls != 2 || metadata.CandidateCount != 3 || metadata.AttemptCount != 2 ||
+		metadata.AddressFamily != "ipv4" || metadata.SetupStage != "tcp" ||
+		metadata.DNSDuration < 0 || metadata.TCPDuration < 0 {
+		t.Fatalf("calls=%d metadata=%#v", calls, metadata)
+	}
 }
 
 func (sink *bybitFrameSink) snapshot() []string {

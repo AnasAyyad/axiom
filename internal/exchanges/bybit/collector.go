@@ -2,7 +2,9 @@ package bybit
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
@@ -21,6 +23,15 @@ type InstrumentCollector struct {
 	stats            *collectorCounters
 	lifecycle        collectorLifecycle
 	running          atomic.Bool
+	healthMutex      sync.RWMutex
+	clockHealth      ClockHealth
+	clockEligible    bool
+	degradedSince    time.Time
+	evidenceSink     exchangecontracts.LifecycleEvidenceSink
+	evidenceFailed   chan struct{}
+	evidenceOnce     sync.Once
+	evidenceMutex    sync.Mutex
+	evidenceErr      error
 	lifecycleCycle   atomic.Uint64
 	lifecycleAttempt atomic.Uint64
 }
@@ -50,6 +61,7 @@ func NewInstrumentCollector(
 	}
 	return &InstrumentCollector{config: config, source: source, recorder: recorder,
 		clock: clock, book: book, candles: stores, provider: provider,
+		evidenceSink: config.LifecycleEvidence, evidenceFailed: make(chan struct{}),
 		stats: newCollectorCounters(), lifecycle: systemCollectorLifecycle{}}, nil
 }
 
@@ -86,5 +98,15 @@ func (collector *InstrumentCollector) Run(ctx context.Context) error {
 		return streamError()
 	}
 	defer collector.running.Store(false)
-	return collector.runLifecycle(ctx, collector.runGeneration)
+	err := collector.runLifecycle(ctx, collector.runGeneration)
+	diagnostic := collector.outcomeDiagnostic(generationOutcome{stage: "terminate",
+		cause: "normal_termination"}, "terminal", 0, 0, 0)
+	diagnostic.Action = exchangecontracts.RecoveryTerminate
+	diagnostic.Attribution = string(exchangecontracts.AttributionRecovered)
+	if err != nil && ctx.Err() == nil {
+		diagnostic.Cause = "collector_failure"
+		diagnostic.Attribution = string(exchangecontracts.AttributionInternal)
+	}
+	collector.recordDiagnostic(diagnostic)
+	return err
 }

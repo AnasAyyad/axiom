@@ -54,7 +54,7 @@ func newRecorderRoleWork(
 	}
 	exchanges := product.PublicExchanges()
 	monotonic := exchangecontracts.NewProcessMonotonicSource()
-	client, err := binance.NewPublicClientWithMonotonic(exchanges[0].EndpointSet, clock, monotonic)
+	client, err := binance.NewRecorderPublicClientWithMonotonic(exchanges[0].EndpointSet, clock, monotonic)
 	if err != nil {
 		return nil, err
 	}
@@ -312,17 +312,15 @@ func bybitInstruments(collectors map[domain.Instrument]*bybit.InstrumentCollecto
 	return instruments
 }
 
-// Ready requires both approved books to be healthy and fresh.
+// Ready requires every approved book and its instrument clock to be healthy.
 func (work *recorderRoleWork) Ready() bool {
-	for instrument, collector := range work.collectors {
-		view, err := collector.Views().Book("binance", instrument)
-		if err != nil || !view.Eligible(work.client.MonotonicOffset(), 5*time.Second) {
+	for _, collector := range work.collectors {
+		if !collector.HealthSnapshot().Eligible {
 			return false
 		}
 	}
-	for instrument, collector := range work.bybitCollectors {
-		view, err := collector.Views().Book("bybit", instrument)
-		if err != nil || !view.Eligible(work.bybitClient.MonotonicOffset(), 5*time.Second) {
+	for _, collector := range work.bybitCollectors {
+		if !collector.HealthSnapshot().Eligible {
 			return false
 		}
 	}

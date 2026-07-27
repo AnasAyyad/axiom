@@ -8,7 +8,7 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 
 - [x] Record the clean merged-main baseline identity.
 - [x] Pass cumulative `make verify` before V1B changes.
-- [x] Reconcile A8-A11 as merged but formally dependent on A7.
+- [x] Reconcile A7 as owner-waiver accepted; A8-A11 retain their own formal gates.
 - [x] Create stable B01-B08 requirements, coverage, readiness, owners, migrations, limitations, and evidence paths.
 - [x] Keep A7 server evidence changes out of the B1 implementation branch.
 
@@ -22,15 +22,15 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 - [x] Accept 15m, 1h, and 4h intervals in the versioned V1B configuration while retaining V1A compatibility.
 - [x] Pass B1 model, PostgreSQL 18 clean/upgrade, adapter, emulator, security, image, and cumulative verification gates.
 - [x] Complete short production-public validation.
-- [ ] Complete and retain the isolated continuous 72-hour B1 soak (explicitly deferred; not run).
+- [x] Complete and retain the isolated continuous 72-hour B1 soak; terminal result `qualified:true`.
 
 ## B2 — coherent views and Tier-A datasets
 
-- [x] Confirm the locally verified B1 completion branch is merged into `main` at `91d8bab54216210f2ef54dc20fed716ccf22c831`; formal A7/B1-soak acceptance remains deferred.
+- [x] Confirm B1 is formally qualified and its implementation branch is merged into `main` at `91d8bab54216210f2ef54dc20fed716ccf22c831`.
 - [x] Implement every `AX-V1B-B02-*` requirement and pass model, deterministic replay, Tier A, and PostgreSQL 18 clean/upgrade gates.
 - [x] Retain a short real Binance/Bybit Tier A dataset with exact child/replay identities and zero hidden gaps.
 - [x] Close the short public coherent-view gate at or below 100 ms clock uncertainty (Southeast Asia passed at 59.569181 ms Binance / 40.927081 ms Bybit).
-- [ ] Complete the continuous B2 72-hour qualification (explicitly deferred; not run).
+- [ ] Complete the continuous B2 72-hour qualification; it remains open.
 
 ## B3 — mean reversion
 

@@ -33,30 +33,48 @@ func (connector *secureWebsocketConnector) Connect(ctx context.Context, target *
 	if _, err := validateWebSocketTarget(target); err != nil {
 		return nil, err
 	}
-	raw, err := connector.dialer.DialContext(ctx, "tcp", "data-stream.binance.vision:443")
+	setupContext, cancel := context.WithTimeout(ctx, publicSetupDeadline)
+	defer cancel()
+	raw, metadata, err := connector.dialer.dialValidated(setupContext, "tcp", "data-stream.binance.vision:443")
 	if err != nil {
-		return nil, exchangecontracts.NewError(exchangecontracts.ErrorTransient, exchangecontracts.OperationStream, 0)
+		return nil, remapTransportError(exchangecontracts.OperationStream, err, metadata)
 	}
 	tlsConnection := tls.Client(raw, &tls.Config{MinVersion: tls.VersionTLS12, ServerName: "data-stream.binance.vision"})
-	if err = tlsConnection.HandshakeContext(ctx); err != nil {
+	tlsStarted := time.Now()
+	if err = tlsConnection.HandshakeContext(setupContext); err != nil {
 		_ = raw.Close()
-		return nil, exchangecontracts.NewError(exchangecontracts.ErrorTransient, exchangecontracts.OperationStream, 0)
+		metadata.TLSDuration, metadata.SetupStage = time.Since(tlsStarted), "tls"
+		return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
+			exchangecontracts.OperationStream, 0, 0, "tls_handshake_failure", metadata)
 	}
+	metadata.TLSDuration = time.Since(tlsStarted)
 	configuration, err := websocket.NewConfig(target.String(), "https://data-stream.binance.vision")
 	if err != nil {
 		_ = tlsConnection.Close()
 		return nil, policyError(exchangecontracts.OperationStream)
 	}
+	upgradeStarted := time.Now()
 	connection, err := websocket.NewClient(configuration, tlsConnection)
 	if err != nil {
 		_ = tlsConnection.Close()
-		return nil, exchangecontracts.NewError(exchangecontracts.ErrorTransient, exchangecontracts.OperationStream, 0)
+		metadata.UpgradeDuration, metadata.SetupStage = time.Since(upgradeStarted), "upgrade"
+		return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
+			exchangecontracts.OperationStream, 0, 0, "websocket_upgrade_failure", metadata)
 	}
+	metadata.UpgradeDuration, metadata.SetupStage = time.Since(upgradeStarted), "upgrade"
 	connection.MaxPayloadBytes = publicBodyLimit
-	return &xNetConnection{connection: connection}, nil
+	return &xNetConnection{connection: connection, metadata: metadata}, nil
 }
 
-type xNetConnection struct{ connection *websocket.Conn }
+type xNetConnection struct {
+	connection *websocket.Conn
+	metadata   exchangecontracts.FailureMetadata
+}
+
+// TransportMetadata returns the bounded setup-stage facts for this connection.
+func (connection *xNetConnection) TransportMetadata() exchangecontracts.FailureMetadata {
+	return connection.metadata
+}
 
 // Receive reads one bounded binary/text payload.
 func (connection *xNetConnection) Receive() ([]byte, error) {

@@ -12,17 +12,19 @@ const collectorExchange = "bybit"
 
 // CollectorConfig fixes memory, freshness, intervals, and reconnect bounds.
 type CollectorConfig struct {
-	Instrument      domain.Instrument
-	BookDepth       int
-	QueueCapacity   int
-	CandleCapacity  int
-	CandleIntervals []string
-	MaximumBookAge  time.Duration
-	HeartbeatEvery  time.Duration
-	StaleCheckEvery time.Duration
-	MinimumBackoff  time.Duration
-	MaximumBackoff  time.Duration
-	Renewal         time.Duration
+	Instrument        domain.Instrument
+	BookDepth         int
+	QueueCapacity     int
+	CandleCapacity    int
+	CandleIntervals   []string
+	MaximumBookAge    time.Duration
+	HeartbeatEvery    time.Duration
+	ClockSyncEvery    time.Duration
+	StaleCheckEvery   time.Duration
+	MinimumBackoff    time.Duration
+	MaximumBackoff    time.Duration
+	Renewal           time.Duration
+	LifecycleEvidence exchangecontracts.LifecycleEvidenceSink
 }
 
 // DefaultCollectorConfig returns conservative B1 public recording defaults.
@@ -30,6 +32,7 @@ func DefaultCollectorConfig(instrument domain.Instrument) CollectorConfig {
 	return CollectorConfig{Instrument: instrument, BookDepth: 1000, QueueCapacity: 8192,
 		CandleCapacity: 512, CandleIntervals: []string{"15m", "1h", "4h"},
 		MaximumBookAge: 5 * time.Second, HeartbeatEvery: 20 * time.Second,
+		ClockSyncEvery:  30 * time.Second,
 		StaleCheckEvery: time.Second, MinimumBackoff: time.Second, MaximumBackoff: time.Minute,
 		Renewal: 23 * time.Hour}
 }
@@ -39,6 +42,7 @@ func (config CollectorConfig) validate() error {
 		config.QueueCapacity < config.BookDepth || config.QueueCapacity > 1<<20 ||
 		config.CandleCapacity <= 0 || config.CandleCapacity > 100_000 ||
 		config.MaximumBookAge <= 0 || config.HeartbeatEvery <= 0 || config.StaleCheckEvery <= 0 ||
+		config.ClockSyncEvery <= 0 ||
 		config.MinimumBackoff <= 0 || config.MaximumBackoff < config.MinimumBackoff ||
 		config.MaximumBackoff > 5*time.Minute || config.Renewal <= 0 || config.Renewal > 24*time.Hour ||
 		!validCollectorIntervals(config.CandleIntervals) {

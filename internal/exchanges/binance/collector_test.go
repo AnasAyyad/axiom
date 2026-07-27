@@ -3,6 +3,7 @@ package binance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -38,14 +39,91 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	if current.Bids()[0].Quantity.String() == "999" || !current.Eligible(source.MonotonicOffset(), time.Second) {
 		t.Fatal("collector exposed mutable or stale view")
 	}
+	if health := collector.HealthSnapshot(); !health.BookEligible || !health.ClockEligible || !health.Eligible {
+		t.Fatalf("combined health not ready: %#v", health)
+	}
+	collector.markClockDegraded(TimeHealth{}, time.Now().UTC())
+	if health := collector.HealthSnapshot(); !health.BookEligible || health.ClockEligible || health.Eligible ||
+		health.DegradedSince.IsZero() {
+		t.Fatalf("clock degradation did not fail combined readiness: %#v", health)
+	}
+	collector.setClockHealth(TimeHealth{ObservedAt: time.Now().UTC(), Eligible: true}, false)
+	beforeCancel, _ := collector.Views().Book(collectorExchange, instrument)
 	cancel()
 	if err = <-done; err != nil {
 		t.Fatal(err)
+	}
+	afterCancel, _ := collector.Views().Book(collectorExchange, instrument)
+	if afterCancel.Health() != beforeCancel.Health() || afterCancel.Version() != beforeCancel.Version() {
+		t.Fatalf("normal cancellation mutated final book: before=%s/%d after=%s/%d",
+			beforeCancel.Health(), beforeCancel.Version(), afterCancel.Health(), afterCancel.Version())
 	}
 	stats := collector.Stats()
 	if stats.Messages != 1 || stats.DepthUpdates != 1 || stats.Rebuilds != 1 ||
 		recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 {
 		t.Fatalf("unexpected collector evidence: %#v raw=%d canonical=%d", stats, recorder.raw.Load(), recorder.canonical.Load())
+	}
+}
+
+func TestInitialClockDegradationRetriesInPlaceBeforePeriodicSample(t *testing.T) {
+	instrument := approvedBTC(t)
+	clock := &domain.SystemClock{}
+	recorder := &collectorRecorder{}
+	source := &recoveringClockCollectorSource{
+		collectorSourceFixture: newCollectorSource(t, instrument, clock, 101),
+	}
+	config := testCollectorConfig(instrument)
+	config.ClockSyncEvery = time.Hour
+	config.ConnectionPolicy.MinimumBackoff = 5 * time.Millisecond
+	config.ConnectionPolicy.MaximumBackoff = 5 * time.Millisecond
+	collector, err := NewInstrumentCollector(config, source, recorder, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- collector.Run(ctx) }()
+	waitFor(t, func() bool {
+		return source.clockSamples.Load() >= 2 && collector.HealthSnapshot().Eligible
+	})
+	cancel()
+	if err = <-done; err != nil {
+		t.Fatal(err)
+	}
+	assertInitialClockRecoveryEvidence(t, collector.Stats(), config.ConnectionPolicy.MinimumBackoff)
+}
+
+func assertInitialClockRecoveryEvidence(
+	t *testing.T,
+	stats CollectorStatsSnapshot,
+	minimumBackoff time.Duration,
+) {
+	t.Helper()
+	if stats.ResyncSamples != 1 || stats.ResyncOver15Seconds != 0 ||
+		stats.ResyncMax <= 0 || stats.ResyncMax >= time.Second {
+		t.Fatalf("initial clock recovery timing=%#v", stats)
+	}
+	if stats.RecoveryActions.ClockResample < 3 || stats.RecoveryActions.Reconnect != 0 {
+		t.Fatalf("initial clock recovery actions=%#v", stats.RecoveryActions)
+	}
+	var lostWithBackoff, recoveredInPlace bool
+	for _, diagnostic := range stats.ReconnectDiagnostics {
+		switch diagnostic.Phase {
+		case "health_lost":
+			if diagnostic.Stage == "clock" &&
+				diagnostic.Action == exchangecontracts.RecoveryClockResample &&
+				diagnostic.Backoff >= minimumBackoff {
+				lostWithBackoff = true
+			}
+		case "health_restored":
+			if diagnostic.Stage == "healthy" &&
+				diagnostic.Action == exchangecontracts.RecoveryClockResample {
+				recoveredInPlace = true
+			}
+		}
+	}
+	if !lostWithBackoff || !recoveredInPlace {
+		t.Fatalf("missing bounded in-place recovery evidence: %#v", stats.ReconnectDiagnostics)
 	}
 }
 
@@ -104,6 +182,30 @@ func TestInstrumentCollectorReconnectsAfterGap(t *testing.T) {
 	}
 }
 
+func TestLifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.T) {
+	instrument := approvedBTC(t)
+	clock := &domain.SystemClock{}
+	config := testCollectorConfig(instrument)
+	config.LifecycleEvidence = exchangecontracts.LifecycleEvidenceSinkFunc(
+		func(exchangecontracts.CollectorLifecycleEvidence) error {
+			return errors.New("bounded sink failure")
+		})
+	collector, err := NewInstrumentCollector(config,
+		newCollectorSource(t, instrument, clock, 101), &collectorRecorder{}, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err = collector.Run(ctx); err == nil {
+		t.Fatal("lifecycle journal failure did not terminate collector")
+	}
+	view, _ := collector.Views().Book(collectorExchange, instrument)
+	if view.Health() == marketdata.HealthHealthy {
+		t.Fatalf("collector remained healthy after lifecycle journal failure: %s", view.Health())
+	}
+}
+
 type collectorSourceFixture struct {
 	testing       *testing.T
 	instrument    domain.Instrument
@@ -111,6 +213,27 @@ type collectorSourceFixture struct {
 	lastSequences []uint64
 	offset        atomic.Uint64
 	generation    atomic.Uint64
+}
+
+type recoveringClockCollectorSource struct {
+	*collectorSourceFixture
+	clockSamples atomic.Uint64
+}
+
+func (source *recoveringClockCollectorSource) SampleServerTimeRecorded(
+	ctx context.Context,
+	instrument domain.Instrument,
+	connectionID string,
+	generation uint64,
+	recorder PublicRecorder,
+) (TimeHealth, StreamRecordToken, error) {
+	health, token, err := source.collectorSourceFixture.SampleServerTimeRecorded(
+		ctx, instrument, connectionID, generation, recorder)
+	if source.clockSamples.Add(1) == 1 {
+		health.Eligible = false
+		health.Uncertainty = time.Second
+	}
+	return health, token, err
 }
 
 func newCollectorSource(t *testing.T, instrument domain.Instrument, clock domain.Clock, sequences ...uint64) *collectorSourceFixture {

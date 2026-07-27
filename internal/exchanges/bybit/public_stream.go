@@ -3,6 +3,7 @@ package bybit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -77,6 +78,10 @@ func (client *PublicClient) subscribe(
 	}
 	connection, err := client.connector.Connect(ctx, &target)
 	if err != nil {
+		var typed *exchangecontracts.Error
+		if errors.As(err, &typed) {
+			return nil, typed
+		}
 		return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
 			exchangecontracts.OperationStream, 0, 0, "websocket_connect_failure")
 	}

@@ -1,11 +1,12 @@
-# B1 local validation evidence
+# B1 formal qualification evidence
 
 ## Status
 
-Locally verified for every implemented and non-soak B1 gate on 2026-07-21.
-Formal phase acceptance remains on an explicit owner-authorized hold for the
-open A7 predecessor and the deferred continuous 72-hour B1 soak. No 72-hour
-run is claimed by this evidence.
+B1 is formally qualified from source
+`da47d143ac26806eb8f318d8e141f396d5576fea`. The immutable 72-hour result is
+`qualified:true`, with 4,212,483 verified records and zero recoveries over
+15 seconds. Exact hashes and retained-artifact facts are in
+[B1 formal qualification](b1-formal-qualification-2026-07-26.md).
 
 ## Source and toolchain identity
 
@@ -75,18 +76,17 @@ and local because repository policy treats recordings as sensitive.
 - SPDX SBOM: `.local/b1-image-evidence/axiom-b1.spdx.json`, 45 packages,
   SHA-256 `028e502ad8e2c8afbf94f2c00349ec6786a71fef7255859b4a1a41a66fd172a3`.
 
-## Explicitly deferred formal gates
+## Remaining release gates
 
-- A7 formal qualification and dependent V1A acceptance.
-- Continuous isolated 72-hour declared-load Binance/Bybit recording soak and
-  its combined retained manifest bundle.
-- Product, Security, QA, and SRE formal acceptance after those gates close.
+- B1 qualification does not formally accept B2 or any B3-B8 phase.
+- B2 retains its own continuous 72-hour qualification and approver gates.
+- V1B release-level Product, Security, QA, and SRE acceptance remains pending.
 
 ## New isolated B1 formal runner
 
-The current candidate adds a dedicated Bybit formal runner rather than sharing
-process state or artifacts with A7. This implementation is not a claim that the
-72-hour B1 gate has passed. Before a formal run, the 20-second smoke is:
+The dedicated Bybit formal runner does not share process state or artifacts with
+A7. Its first completed run is the formally qualified source and bundle linked
+above. Future candidate runs must first pass the 20-second smoke:
 
 ```text
 make b1-soak-smoke AXIOM_B1_SOURCE_COMMIT=<full-40-character-commit>

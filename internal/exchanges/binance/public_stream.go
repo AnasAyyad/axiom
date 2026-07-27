@@ -3,6 +3,7 @@ package binance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"sort"
 	"strconv"
@@ -121,6 +122,10 @@ func (client *PublicClient) subscribe(
 	}
 	connection, err := client.connector.Connect(ctx, &target)
 	if err != nil {
+		var failure *exchangecontracts.Error
+		if errors.As(err, &failure) {
+			return nil, err
+		}
 		return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
 			exchangecontracts.OperationStream, 0, 0, "websocket_connect_failure")
 	}
@@ -192,8 +197,13 @@ func (stream *publicStream) normalizeRead(ctx context.Context, read streamRead) 
 		RecordToken: token, DecodeNanos: decodeNanos, ReceivedOffsetNanos: receivedOffset}
 	if err != nil {
 		if stream.recorder != nil {
+			streamKind := exchangecontracts.StreamKind("")
+			if expected, exists := stream.expected[name]; exists {
+				streamKind = expected
+			}
 			if recordErr := stream.recorder.RecordPublicCanonical(ctx, PublicCanonicalRecord{Kind: RecordDecoderError,
-				Token: token, Canonical: []byte(`{"kind":"decoder_error"}`)}); recordErr != nil {
+				Token: token, Canonical: boundedDecoderFailureEvidence(
+					err, "stream_normalize", streamKind)}); recordErr != nil {
 				return observed, recorderFailure{recordErr}
 			}
 		}

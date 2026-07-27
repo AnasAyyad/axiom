@@ -12,6 +12,7 @@ import (
 
 	"axiom/internal/domain"
 	"axiom/internal/exchanges/bybit"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/recorder"
 	runtimecore "axiom/internal/runtime"
 	"axiom/internal/storage/segments"
@@ -46,6 +47,7 @@ type b1SoakEvidence struct {
 	SourceCommit        string                          `json:"source_commit"`
 	Formal              bool                            `json:"formal"`
 	Qualified           bool                            `json:"qualified"`
+	TerminalCause       string                          `json:"terminal_cause,omitempty"`
 	StartedAt           time.Time                       `json:"started_at"`
 	EndedAt             time.Time                       `json:"ended_at"`
 	RequiredDuration    time.Duration                   `json:"required_duration_nanos"`
@@ -97,6 +99,7 @@ type b1SoakStatus struct {
 	SchemaVersion        string                          `json:"schema_version"`
 	SourceCommit         string                          `json:"source_commit"`
 	Formal               bool                            `json:"formal"`
+	TerminalCause        string                          `json:"terminal_cause,omitempty"`
 	StartedAt            time.Time                       `json:"started_at"`
 	ObservedAt           time.Time                       `json:"observed_at"`
 	Elapsed              time.Duration                   `json:"elapsed_nanos"`
@@ -148,23 +151,26 @@ func runB1Soak(t *testing.T, root string, duration, flushEvery, sampleEvery time
 		_ = journal.Close()
 		t.Fatal("B1 qualification event journal preflight failed")
 	}
-	components := newB1SoakComponents(t, root)
+	components := newB1SoakComponents(t, root, qualificationLifecycleSink{journal: journal})
 	if !appendB1QualificationEvent(journal, &evidence,
 		qualificationEvent{Phase: "startup", Outcome: "passed"}) {
 		_ = journal.Close()
 		t.Fatal("B1 qualification startup evidence failed")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	results, group := startB1Collectors(ctx, components.collectors)
 	var latest recorder.DatasetManifest
-	if failure := monitorB1Soak(ctx, root, components, results, flushEvery,
+	officialEnd := time.NewTimer(duration)
+	if failure := monitorB1SoakUntil(ctx, officialEnd.C, root, components, results, flushEvery,
 		sampleEvery, &latest, &evidence, journal); failure != "" {
 		if !containsFailure(evidence.Failures, failure) {
 			evidence.Failures = append(evidence.Failures, failure)
 		}
 		cancel()
 	}
+	officialEnd.Stop()
+	cancel()
 	group.Wait()
 	collectB1Errors(results, &evidence, journal)
 	manifest := finishB1Recorder(components.recorder, latest, &evidence, journal)
@@ -200,7 +206,7 @@ func b1QualificationSourceCommit() (string, error) {
 }
 
 func newB1SoakEvidence(started time.Time, flushEvery time.Duration, formal bool, sourceCommit, root string) b1SoakEvidence {
-	return b1SoakEvidence{SchemaVersion: "axiom.b1-soak.v2", SourceCommit: sourceCommit,
+	return b1SoakEvidence{SchemaVersion: "axiom.b1-soak.v3", SourceCommit: sourceCommit,
 		Formal: formal, StartedAt: started, RequiredDuration: b1FormalSoakDuration,
 		EndpointSet: "bybit-public-v1", Instruments: []string{"BTCUSDT", "ETHUSDT"},
 		Streams:       []string{"orderbook.1000", "publicTrade", "tickers", "kline.15", "kline.60", "kline.240"},
@@ -211,7 +217,8 @@ func newB1SoakEvidence(started time.Time, flushEvery time.Duration, formal bool,
 		EventJournal:     qualificationJournalEvidence{Path: "b1-soak-events.jsonl"}, root: root}
 }
 
-func newB1SoakComponents(t *testing.T, root string) b1SoakComponents {
+func newB1SoakComponents(t *testing.T, root string,
+	lifecycleSink exchangecontracts.LifecycleEvidenceSink) b1SoakComponents {
 	t.Helper()
 	clock := &domain.SystemClock{}
 	client, err := bybit.NewPublicClient("bybit-public-v1", clock)
@@ -231,8 +238,10 @@ func newB1SoakComponents(t *testing.T, root string) b1SoakComponents {
 	instruments := soakInstruments(t)
 	collectors := make(map[string]*bybit.InstrumentCollector, len(instruments))
 	for _, instrument := range instruments {
+		config := bybit.DefaultCollectorConfig(instrument)
+		config.LifecycleEvidence = lifecycleSink
 		collector, collectorErr := bybit.NewInstrumentCollector(
-			bybit.DefaultCollectorConfig(instrument), client, sink, clock)
+			config, client, sink, clock)
 		if collectorErr != nil {
 			t.Fatal(collectorErr)
 		}
@@ -296,6 +305,21 @@ func monitorB1Soak(
 	evidence *b1SoakEvidence,
 	journal *qualificationJournal,
 ) string {
+	return monitorB1SoakUntil(ctx, nil, root, components, collectorResults, flushEvery,
+		sampleEvery, latest, evidence, journal)
+}
+
+func monitorB1SoakUntil(
+	ctx context.Context,
+	officialEnd <-chan time.Time,
+	root string,
+	components b1SoakComponents,
+	collectorResults <-chan b1CollectorResult,
+	flushEvery, sampleEvery time.Duration,
+	latest *recorder.DatasetManifest,
+	evidence *b1SoakEvidence,
+	journal *qualificationJournal,
+) string {
 	if failure := initializeB1SoakMonitor(root, components, latest, evidence, journal); failure != "" {
 		return failure
 	}
@@ -306,6 +330,16 @@ func monitorB1Soak(
 	for {
 		select {
 		case <-ctx.Done():
+			return ""
+		case ended := <-officialEnd:
+			evidence.EndedAt = ended.UTC()
+			for symbol, collector := range components.collectors {
+				evidence.FinalBooks[symbol] = currentB1BookSample(symbol, components.client, collector)
+			}
+			if !appendB1QualificationEvent(journal, evidence, qualificationEvent{
+				RecordedAt: evidence.EndedAt, Phase: "official_end_health_frozen", Outcome: "passed"}) {
+				return "event_journal_failed"
+			}
 			return ""
 		case result := <-collectorResults:
 			return handleB1CollectorTerminal(ctx, result, root, components, latest, evidence, journal)
@@ -470,8 +504,9 @@ func captureB1SoakStatus(
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	return b1SoakStatus{SchemaVersion: "axiom.b1-soak-status.v2", SourceCommit: evidence.SourceCommit,
+	return b1SoakStatus{SchemaVersion: "axiom.b1-soak-status.v3", SourceCommit: evidence.SourceCommit,
 		Formal: evidence.Formal, StartedAt: evidence.StartedAt, ObservedAt: observed, Elapsed: elapsed,
+		TerminalCause:    evidence.TerminalCause,
 		RequiredDuration: evidence.RequiredDuration, ProvisionalQualified: len(failures) == 0,
 		ProvisionalFailures: failures, ProvisionalSLOs: slos, Collectors: collectors,
 		Memory: memory, Storage: storage, Books: books, Recorder: components.recorder.PendingUsage(),
@@ -522,8 +557,10 @@ func currentB1BookSample(symbol string, client *bybit.PublicClient, collector *b
 	if err != nil {
 		return bookSample{}
 	}
+	health := collector.HealthSnapshot()
 	return bookSample{Health: string(view.Health()), Generation: view.Generation(), Sequence: view.Sequence(),
-		Version: view.Version(), Eligible: view.Eligible(client.MonotonicOffset(), 5*time.Second)}
+		Version: view.Version(), BookEligible: health.BookEligible, ClockEligible: health.ClockEligible,
+		Eligible: health.Eligible, DegradedSince: health.DegradedSince}
 }
 
 func finishB1Soak(
@@ -537,15 +574,50 @@ func finishB1Soak(
 	journal *qualificationJournal,
 ) {
 	t.Helper()
-	evidence.EndedAt, evidence.ActualDuration = time.Now().UTC(), time.Since(started)
+	if evidence.EndedAt.IsZero() {
+		evidence.EndedAt = time.Now().UTC()
+	}
+	evidence.ActualDuration = evidence.EndedAt.Sub(started)
 	completeB1Evidence(root, components, manifest, evidence)
 	evidence.Recorder = components.recorder.PendingUsage()
+	finalizeB1Journal(sourceCommit, formal, manifest.Revision, evidence, journal)
+	evidence.Failures = uniqueSortedFailures(evidence.Failures)
+	evidence.Qualified = len(evidence.Failures) == 0 && (!formal || evidence.ActualDuration >= b1FormalSoakDuration)
+	status := captureB1SoakStatus(time.Now().UTC(), components, manifest, evidence, journal)
+	status.ProvisionalFailures = append([]string(nil), evidence.Failures...)
+	status.ProvisionalQualified = len(status.ProvisionalFailures) == 0
+	if err := writeB1SoakStatus(root, status); err != nil {
+		evidence.Failures = append(evidence.Failures, statusWriteFailure)
+		evidence.FailureDetails = append(evidence.FailureDetails,
+			boundedQualificationFailure(statusWriteFailure, "final_status", "atomic_status_write", err))
+		evidence.Qualified = false
+		evidence.TerminalCause = "qualification_failed"
+	}
+	if err := writeAtomicJSON(filepath.Join(root, "b1-soak-evidence.json"), evidence); err != nil {
+		t.Fatal(err)
+	}
+	if !evidence.Qualified {
+		t.Fatalf("B1 public soak did not qualify: %v", evidence.Failures)
+	}
+}
+
+func finalizeB1Journal(
+	sourceCommit string,
+	formal bool,
+	manifestRevision uint64,
+	evidence *b1SoakEvidence,
+	journal *qualificationJournal,
+) {
 	outcome := "passed"
 	if len(evidence.Failures) != 0 || (formal && evidence.ActualDuration < b1FormalSoakDuration) {
 		outcome = "failed"
 	}
 	appendB1QualificationEvent(journal, evidence, qualificationEvent{
-		RecordedAt: evidence.EndedAt, Phase: "terminal", Outcome: outcome, ManifestRevision: manifest.Revision})
+		RecordedAt:       evidence.EndedAt,
+		Phase:            "terminal",
+		Outcome:          outcome,
+		ManifestRevision: manifestRevision,
+	})
 	if err := journal.Close(); err != nil {
 		evidence.Failures = append(evidence.Failures, "event_journal_close_failed")
 	}
@@ -557,22 +629,9 @@ func finishB1Soak(
 			boundedQualificationFailure("event_journal_verification_failed", "terminal",
 				"hash_chain_verification", err))
 	}
-	evidence.Failures = uniqueSortedFailures(evidence.Failures)
-	evidence.Qualified = len(evidence.Failures) == 0 && (!formal || evidence.ActualDuration >= b1FormalSoakDuration)
-	status := captureB1SoakStatus(time.Now().UTC(), components, manifest, evidence, journal)
-	status.ProvisionalFailures = append([]string(nil), evidence.Failures...)
-	status.ProvisionalQualified = len(status.ProvisionalFailures) == 0
-	if err := writeB1SoakStatus(root, status); err != nil {
-		evidence.Failures = append(evidence.Failures, statusWriteFailure)
-		evidence.FailureDetails = append(evidence.FailureDetails,
-			boundedQualificationFailure(statusWriteFailure, "final_status", "atomic_status_write", err))
-		evidence.Qualified = false
-	}
-	if err := writeAtomicJSON(filepath.Join(root, "b1-soak-evidence.json"), evidence); err != nil {
-		t.Fatal(err)
-	}
-	if !evidence.Qualified {
-		t.Fatalf("B1 public soak did not qualify: %v", evidence.Failures)
+	evidence.TerminalCause = "qualification_passed"
+	if len(evidence.Failures) != 0 || (formal && evidence.ActualDuration < b1FormalSoakDuration) {
+		evidence.TerminalCause = "qualification_failed"
 	}
 }
 
@@ -595,7 +654,10 @@ func completeB1Evidence(
 	for symbol, collector := range components.collectors {
 		stats := collector.Stats()
 		evidence.Collectors[symbol] = stats
-		book := currentB1BookSample(symbol, components.client, collector)
+		book, frozen := evidence.FinalBooks[symbol]
+		if !frozen {
+			book = currentB1BookSample(symbol, components.client, collector)
+		}
 		evidence.FinalBooks[symbol] = book
 		if stats.DiagnosticsDropped != 0 {
 			evidence.Failures = append(evidence.Failures, symbol+"_diagnostics_dropped")
