@@ -11,7 +11,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .DEFAULT_GOAL := help
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
-.PHONY: a7-soak-smoke b1-soak-smoke
+.PHONY: a7-soak-smoke b1-soak-smoke b2-soak-smoke b2-soak-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -295,6 +295,23 @@ b2-live-qualify: ## Run the explicitly enabled short public-only Binance/Bybit c
 		$(GO) test ./internal/qualification -run '^TestB2ProductionPublicRecordOnlyAndCoherentQualification$$' -count=1 -v
 
 b2-local-qualify: b2-model-qualify b2-postgres-qualify verify ## Pass every non-soak B2 gate cumulatively.
+
+b2-soak-smoke: ## Run the 20-second non-formal six-collector B2 qualification harness.
+	@test -n "$(AXIOM_B2_SOURCE_COMMIT)" || { echo "AXIOM_B2_SOURCE_COMMIT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_SOAK_OUTPUT)" || { echo "AXIOM_B2_SOAK_OUTPUT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_COLLECTOR_REGION)" || { echo "AXIOM_B2_COLLECTOR_REGION is required" >&2; exit 1; }
+	@test "$(AXIOM_B2_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_B2_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "B2 smoke requires an exact clean committed source" >&2; exit 1; }
+	@AXIOM_B2_SOAK_SMOKE=1 AXIOM_B2_SOURCE_COMMIT="$(AXIOM_B2_SOURCE_COMMIT)" AXIOM_B2_SOAK_OUTPUT="$(AXIOM_B2_SOAK_OUTPUT)" AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestB2PublicSoakHarnessSmoke$$' -count=1 -timeout=5m -v
+
+b2-soak-qualify: ## Run the explicit formal 72-hour B2 qualification; never use this target for smoke.
+	@test "$(AXIOM_B2_SOAK)" = "1" || { echo "AXIOM_B2_SOAK=1 explicit opt-in is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_SOURCE_COMMIT)" || { echo "AXIOM_B2_SOURCE_COMMIT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_SOAK_OUTPUT)" || { echo "AXIOM_B2_SOAK_OUTPUT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_COLLECTOR_REGION)" || { echo "AXIOM_B2_COLLECTOR_REGION is required" >&2; exit 1; }
+	@test "$(AXIOM_B2_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_B2_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "formal B2 qualification requires a clean committed source" >&2; exit 1; }
+	@AXIOM_B2_SOAK=1 AXIOM_B2_SOURCE_COMMIT="$(AXIOM_B2_SOURCE_COMMIT)" AXIOM_B2_SOAK_OUTPUT="$(AXIOM_B2_SOAK_OUTPUT)" AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestB2Continuous72HourPublicSoak$$' -count=1 -timeout=73h -v
 
 b3-sqlc: ## Generate and compile the reviewed B3 mean-reversion and research queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }

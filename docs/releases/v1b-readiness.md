@@ -3,8 +3,8 @@
 ## Current decision
 
 **V1B is not ready for release.** A7 is accepted under its time-bounded owner
-waiver and B1 is formally qualified. B2 is locally verified with its own
-72-hour qualification and approver holds still open.
+waiver and B1 is formally qualified. The B2 runner is implemented and locally
+verified; its formal 72-hour qualification and approver holds remain open.
 B3 through B8 are implemented and locally verified for every specified
 non-soak gate. B8 passed contract/model/race/fuzz/benchmark gates, independent
 Python statistics, PostgreSQL 18 clean and exact B7-upgrade qualification,
@@ -60,7 +60,7 @@ acceptance remains held by predecessor acceptance and approvers.
 | B8 clean image | `axiom@sha256:cb34e3b98494d4d0a42cccc30dd6d68a0baa3a8a28fa9005b2853e3f52957c51`; inspection, reproducibility, image-backed Compose smoke, SPDX SBOM, and Trivy HIGH/CRITICAL gate passed |
 | B8 SPDX SBOM | 47 packages; SHA-256 `6ae42e3d92ca0f194d366247a18374e7bbbb19de07ba31900b889a15009f24c3` |
 | B1 72-hour soak | Formally qualified; [immutable evidence](evidence/b1-formal-qualification-2026-07-26.md) |
-| B2 72-hour qualification | Deferred by owner; not run and not claimed |
+| B2 72-hour qualification | Runner implemented and locally verified; formal run pending, not started, and not claimed |
 | Product / Security / QA / SRE approvers | Pending |
 
 ## Phase gates
@@ -68,7 +68,7 @@ acceptance remains held by predecessor acceptance and approvers.
 | Phase | Entry dependency | Implementation | Verification | Evidence |
 |---|---|---|---|---|
 | B1 | A7 accepted under owner waiver | Complete | Formally qualified from exact source; release approvers remain | [B1 formal qualification](evidence/b1-formal-qualification-2026-07-26.md) |
-| B2 | B1 formally qualified and merged implementation retained | Complete | Locally verified; own 72-hour qualification and approvers remain open | [B2 local validation](evidence/b2-local-validation.md) |
+| B2 | B1 formally qualified and merged implementation retained | Complete | Runner implemented and locally verified; formal 72-hour qualification and approvers remain open | [B2 local validation](evidence/b2-local-validation.md) |
 | B3 | Locally verified B2 completion merged; formal B2 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B3 local validation](evidence/b3-local-validation.md) |
 | B4 | Locally verified B3 completion merged; formal B3 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B4 local validation](evidence/b4-local-validation.md) |
 | B5 | Locally verified B4 checkpoint; formal B4 acceptance remains held | Complete | Locally verified; formal hold: predecessor and approvers | [B5 local validation](evidence/b5-local-validation.md) |
@@ -94,8 +94,8 @@ acceptance remains held by predecessor acceptance and approvers.
 - B1 is formally qualified from `da47d143ac26806eb8f318d8e141f396d5576fea`;
   that qualification does not promote B2 or B3-B8.
 - B2 began from merged B1 `main` at `91d8bab54216210f2ef54dc20fed716ccf22c831`;
-  every implemented non-soak gate is locally verified, but its own 72-hour
-  qualification and formal acceptance remain open.
+  every implemented non-soak gate and the formal runner are locally verified,
+  but the 72-hour qualification and formal acceptance remain open.
 - B3 began from merged B2 `main` at `0c2fce26cae9e171d4e622c080aaf9af5cab018f`;
   every specified non-soak gate is locally verified. Strategy viability remains
   `undetermined`; local platform correctness is not profitability evidence.

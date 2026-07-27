@@ -198,11 +198,7 @@ func finishB1Recorder(
 }
 
 func b1QualificationSourceCommit() (string, error) {
-	commit := os.Getenv("AXIOM_B1_SOURCE_COMMIT")
-	if !validGitCommit(commit) {
-		return "", errors.New("AXIOM_B1_SOURCE_COMMIT must be the exact 40-character source commit")
-	}
-	return commit, nil
+	return qualificationSourceCommitFromEnv("AXIOM_B1_SOURCE_COMMIT")
 }
 
 func newB1SoakEvidence(started time.Time, flushEvery time.Duration, formal bool, sourceCommit, root string) b1SoakEvidence {

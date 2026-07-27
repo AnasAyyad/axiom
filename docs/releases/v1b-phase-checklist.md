@@ -30,6 +30,9 @@ Requirement details are in [V1B traceability](../requirements/v1b-traceability.m
 - [x] Implement every `AX-V1B-B02-*` requirement and pass model, deterministic replay, Tier A, and PostgreSQL 18 clean/upgrade gates.
 - [x] Retain a short real Binance/Bybit Tier A dataset with exact child/replay identities and zero hidden gaps.
 - [x] Close the short public coherent-view gate at or below 100 ms clock uncertainty (Southeast Asia passed at 59.569181 ms Binance / 40.927081 ms Bybit).
+- [x] Implement and locally verify the exact-source six-collector formal runner,
+  five-second coherent sampling, atomic replay segments, fail-closed status and
+  lifecycle evidence, dual-recorder Tier-A finalization, and non-formal smoke target.
 - [ ] Complete the continuous B2 72-hour qualification; it remains open.
 
 ## B3 — mean reversion

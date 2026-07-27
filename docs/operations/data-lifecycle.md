@@ -78,6 +78,17 @@ segments. A provably complete segment may be finalized; otherwise it is
 quarantined and an explicit dataset gap/incident is recorded. An incomplete or
 unverified segment is never relabelled ready to meet an RPO or soak target.
 
+B2 coherent-view evidence follows the same lifecycle in five-minute atomic
+segments. Every successful or rejected sample is retained with bounded facts,
+exact input references when available, a checksum, and a hash-chain predecessor.
+Finalization verifies every segment and deterministically replays each outcome;
+partial writes, checksum or chain corruption, identity drift, and unbounded error
+text fail qualification. The independent Binance and Bybit candidate recorders
+finalize only after collector shutdown. Their cumulative manifests, raw/canonical
+linkage, replay hashes, compatibility metadata, instance/region coverage, gap
+declarations, and shared ordinal continuity must all validate before the aggregate
+`axiom.multi-exchange-dataset.v1` manifest can be retained as Tier A.
+
 Before production-public recording begins, the owner measures bytes/day for
 each stream/depth and documents capacity for the retention window plus at least
 30% headroom. The integer-only A4 planner also reserves at least 10 GiB free and

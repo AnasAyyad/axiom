@@ -17,6 +17,7 @@ acceptance wording remains in the matrix.
 | Plan/B1-07 | Malformed, enum, reconnect, heartbeat, throttle, queue, linkage, recovery, endpoint, and credential qualification | AX-V1B-B01-QLT-001; AX-V1B-B01-SAF-001 |
 | Plan/B1-08 | Short public validation and isolated 72-hour soak | AX-V1B-B01-OPS-001 |
 | Plan/B2 | Coherent versioned views and Tier-A multi-exchange datasets | AX-V1B-B02-FUN-001; AX-V1B-B02-QLT-001 |
+| Plan/B2-formal | Six-collector readiness, coherent sample replay, bounded degradation, fail-closed evidence, and Tier-A 72-hour qualification | AX-V1B-B02-FUN-001; AX-V1B-B02-QLT-001 |
 | Plan/B3 | Mean-reversion implementation and safety invariants | AX-V1B-B03-FUN-001; AX-V1B-B03-SAF-001 |
 | Plan/B4 | Exact triangular evaluation, allocation, simulation, and recovery | AX-V1B-B04-FUN-001; AX-V1B-B04-SAF-001 |
 | Plan/B5 | Cross-exchange arbitrage, owned inventory, and separated economics | AX-V1B-B05-FUN-001; AX-V1B-B05-SAF-001 |

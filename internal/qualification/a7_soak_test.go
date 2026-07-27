@@ -515,6 +515,10 @@ func readStorage(observedAt time.Time, root string) storageSample {
 }
 
 func positiveLeakTrend(samples []memorySample) bool {
+	return positiveLeakTrendWithLimit(samples, declaredHeapLimit)
+}
+
+func positiveLeakTrendWithLimit(samples []memorySample, limit uint64) bool {
 	if len(samples) < 24 {
 		return false
 	}
@@ -526,7 +530,7 @@ func positiveLeakTrend(samples []memorySample) bool {
 	if percent := first / 20; percent > tolerance {
 		tolerance = percent
 	}
-	return last > first+tolerance || last > declaredHeapLimit
+	return last > first+tolerance || last > limit
 }
 
 func medianHeap(samples []memorySample) uint64 {

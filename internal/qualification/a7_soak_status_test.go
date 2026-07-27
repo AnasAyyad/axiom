@@ -69,9 +69,13 @@ type provisionalCollectorSLO struct {
 }
 
 func qualificationSourceCommit() (string, error) {
-	commit := os.Getenv("AXIOM_A7_SOURCE_COMMIT")
+	return qualificationSourceCommitFromEnv("AXIOM_A7_SOURCE_COMMIT")
+}
+
+func qualificationSourceCommitFromEnv(environment string) (string, error) {
+	commit := os.Getenv(environment)
 	if !validGitCommit(commit) {
-		return "", errors.New("AXIOM_A7_SOURCE_COMMIT must be the exact 40-character source commit")
+		return "", errors.New(environment + " must be the exact 40-character source commit")
 	}
 	return commit, nil
 }
