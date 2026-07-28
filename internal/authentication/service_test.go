@@ -194,6 +194,9 @@ func TestPasswordHasherProfileAndFloor(t *testing.T) {
 }
 
 func TestArgon2idDeploymentProfileUnderOneSecond(t *testing.T) {
+	if raceInstrumentation {
+		t.Skip("wall-clock profile is enforced by the non-race qualification run")
+	}
 	hasher := PasswordHasher{}
 	encoded, err := hasher.Hash("deployment-profile-benchmark")
 	if err != nil {

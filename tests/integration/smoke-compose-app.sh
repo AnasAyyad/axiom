@@ -29,7 +29,8 @@ cleanup() {
 	status=$?
 	if [[ ${status} -ne 0 ]]; then
 		compose ps --all >&2 || true
-		compose logs --no-color --tail 100 postgres migrate api engine-shadow recorder backtest-worker prometheus grafana >&2 || true
+		compose logs --no-color --tail 200 engine-shadow >&2 || true
+		compose logs --no-color --tail 40 postgres migrate api recorder backtest-worker prometheus grafana >&2 || true
 	fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
   rm -rf -- "${temp_dir}"
@@ -47,10 +48,13 @@ readonly -a secret_names=(
   postgres_backup_password
   backup_encryption_key
   postgres_readonly_password
+  postgres_binance_engine_password
+  postgres_bybit_engine_password
   grafana_admin_password
   health_detail_token
   csrf_key
   session_signing_key
+  totp_seed
 )
 for name in "${secret_names[@]}"; do
   openssl rand -base64 32 >"${secret_dir}/${name}"
@@ -71,6 +75,8 @@ docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   /secrets/postgres_backup_password \
   /secrets/backup_encryption_key \
   /secrets/postgres_readonly_password \
+  /secrets/postgres_binance_engine_password \
+  /secrets/postgres_bybit_engine_password \
   /secrets/health_detail_token >/dev/null
 docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   --mount "type=bind,src=${secret_dir},dst=/secrets" \
@@ -78,7 +84,8 @@ docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   /secrets/bootstrap_owner_email \
   /secrets/bootstrap_owner_password_hash \
   /secrets/csrf_key \
-  /secrets/session_signing_key >/dev/null
+  /secrets/session_signing_key \
+  /secrets/totp_seed >/dev/null
 docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   --mount "type=bind,src=${secret_dir},dst=/secrets" \
   postgres:18.4-alpine 0 /secrets/grafana_admin_password >/dev/null

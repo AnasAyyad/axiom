@@ -84,12 +84,18 @@ func insertA11Owner(ctx context.Context, queries *generated.Queries, owner authe
 }
 
 func grantA11Permissions(ctx context.Context, queries *generated.Queries, now pgtype.Timestamptz) error {
-	for _, permission := range []string{"operations.read", "commands.write", "incident.raw", "audit.raw"} {
+	for _, permission := range []string{
+		"operations.read", "commands.write", "incident.raw", "audit.raw",
+		"sandbox.read", "sandbox.arm", "sandbox.cancel", "sandbox.admin",
+	} {
 		if _, err := queries.GrantRolePermission(ctx, generated.GrantRolePermissionParams{RoleID: "owner", PermissionID: permission, GrantedAt: now}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("a11_bootstrap_permission_failed")
 		}
 	}
 	if _, err := queries.GrantRolePermission(ctx, generated.GrantRolePermissionParams{RoleID: "viewer", PermissionID: "operations.read", GrantedAt: now}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("a11_bootstrap_permission_failed")
+	}
+	if _, err := queries.GrantRolePermission(ctx, generated.GrantRolePermissionParams{RoleID: "viewer", PermissionID: "sandbox.read", GrantedAt: now}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("a11_bootstrap_permission_failed")
 	}
 	return nil

@@ -1,5 +1,17 @@
 # Axiom V1A implementation status
 
+## V1C PR1 C1-C3 foundation
+
+The `v1c-c1-c3-foundation` branch adds the default-off
+`axiom.config.v1c.1` policy, neutral sandbox contracts, closed authenticated
+signers and proxies, TOTP/one-use authorization and rotation foundations,
+durable sandbox dispatch/recovery models, and migrations `000021`/`000022`.
+
+C1-C3 and the aggregate PR1 local qualification pass. A frozen clean candidate,
+image-backed Compose smoke, and security/owner acceptance remain pending. C4,
+C5, C6, exchange canaries, and the V1C 72-hour soak are not implemented or
+claimed here. See `docs/releases/v1c-pr1-readiness.md`.
+
 This tracker records implemented behavior and verified evidence. A phase is marked complete only after every acceptance criterion in the authoritative specification and the V1A implementation plan has current evidence.
 
 | Phase | Status                                                                                              | Current slice                                                                                                                           | Evidence                                                                                                                                                                        |
@@ -19,7 +31,11 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 
 ## Absolute V1A boundary
 
-V1A is public-data research and simulation software only. It contains no authenticated exchange transport, signing implementation, private endpoint, production broker, withdrawal or transfer operation, or execution mode capable of external order side effects. The only V1A execution modes are `backtest`, `replay`, `paper`, and `shadow`; `testnet`, `demo`, and `live` are rejected.
+V1A application roles remain public-data research and simulation software
+only. They receive no exchange credentials and expose no external order side
+effects. The repository now also contains separately gated, default-off V1C
+Testnet/Demo foundations. Production `live` execution and every prohibited
+product or fund-management capability remain rejected.
 
 ## Current limitations
 
@@ -47,6 +63,10 @@ V1A is public-data research and simulation software only. It contains no authent
   not formal phase acceptance; A11 remains blocked by formal A8/A9/A10
   acceptance.
 - The clean backup/restore drill and A8-A11 formal acceptances remain open release evidence.
+- V1C PR1 C1-C3 local qualification passes. The current local image is
+  reproducible and scan-clean but truthfully marked dirty, so image-backed
+  startup remains fail-closed until a committed candidate is frozen and
+  rebuilt.
 
 V1B planning and implementation status is tracked separately in
 [V1B implementation status](releases/v1b-implementation-status.md). V1B work

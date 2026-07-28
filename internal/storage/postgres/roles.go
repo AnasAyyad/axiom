@@ -15,6 +15,8 @@ var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 var runtimeReadInsertTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "asset_screening_versions", "assets", "audit_events",
 	"api_entity_revisions", "authentication_failures", "authorization_permissions",
+	"v1c_high_risk_audit_events", "v1c_sandbox_authorizations", "v1c_session_control_events",
+	"v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
 	"allocation_candidates", "allocation_reservations", "allocation_score_components",
 	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
@@ -45,6 +47,7 @@ var runtimeUpdateTables = []string{
 	"liquidity_domains", "liquidity_reservations", "positions", "projection_revisions", "quarantined_scopes", "reconciliation_cases", "reservations", "runs", "sessions", "startup_recovery_attempts",
 	"api_entity_revisions", "shadow_sessions", "stream_connections", "users", "virtual_balances",
 	"b8_replay_fault_schedule_states",
+	"v1c_sandbox_authorizations", "v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_arms",
 }
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
@@ -64,6 +67,19 @@ var recorderWriteTables = []string{
 }
 
 var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events"}
+
+var v1cEngineReadWriteTables = []string{
+	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
+	"v1c_credential_rotations",
+	"v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
+	"v1c_authenticated_request_evidence",
+	"v1c_account_snapshots", "v1c_daily_cap_counters", "v1c_submission_plans",
+	"v1c_plan_eligibility", "v1c_plan_entry_safety", "v1c_sandbox_reservations",
+	"v1c_submission_outbox", "v1c_private_inbox",
+	"v1c_exchange_fills", "v1c_exchange_metadata", "v1c_reconciliation_differences",
+	"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
+	"v1c_risk_unlocks", "v1c_account_leases",
+}
 
 var readOnlyTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "allocation_candidates", "allocation_reservations", "allocation_score_components", "asset_screening_versions", "assets", "audit_events",
@@ -90,6 +106,39 @@ var readOnlyTables = []string{
 	"projection_revisions", "quarantined_scopes", "reconciliation_cases", "reconciliation_differences", "reconciliation_suspense", "reservations", "risk_evaluation_policies", "risk_evaluations", "risk_policies", "risk_policy_limits", "risk_state_events",
 	"experiment_final_test_consumptions", "research_generations", "research_reports", "run_canonical_outputs", "run_checkpoints", "run_manifests", "run_results", "runs", "shadow_sessions", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters", "strategy_portfolios",
 	"strategy_versions", "trend_decisions", "virtual_accounts", "virtual_balances",
+}
+
+// ApplyV1CEngineRoleGrants keeps authenticated engines on distinct database
+// principals and restricts both to the V1C execution schema.
+func ApplyV1CEngineRoleGrants(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	binanceRole, bybitRole string,
+) error {
+	if pool == nil || !validDistinctRoles([]string{binanceRole, bybitRole}) {
+		return fmt.Errorf("v1c_database_role_invalid")
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("v1c_role_grant_transaction_unavailable")
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	available, err := existingPublicTables(ctx, tx)
+	if err != nil {
+		return err
+	}
+	tables := filterTableGrants([]tableGrant{{
+		privileges: "SELECT, INSERT, UPDATE", tables: v1cEngineReadWriteTables,
+	}}, available)
+	for _, role := range []string{binanceRole, bybitRole} {
+		if err = applyTableGrants(ctx, tx, role, tables); err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("v1c_role_grant_commit_failed")
+	}
+	return nil
 }
 
 // ApplyRoleGrants applies the closed runtime, recorder, and reporting matrices.

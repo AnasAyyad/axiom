@@ -111,6 +111,8 @@ services:
       POSTGRES_RECORDER_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
       POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER:-axiom_backup}
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
+      POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
+      POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
       TZ: UTC
     secrets:
       - postgres_owner_password
@@ -119,6 +121,8 @@ services:
       - postgres_recorder_password
       - postgres_backup_password
       - postgres_readonly_password
+      - postgres_binance_engine_password
+      - postgres_bybit_engine_password
     volumes:
       # PostgreSQL official images 18+ use versioned PGDATA below this parent.
       - postgres_data:/var/lib/postgresql
@@ -154,6 +158,8 @@ services:
       POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-axiom_app}
       POSTGRES_RECORDER_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
+      POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
+      POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
     secrets:
       - postgres_migrator_password
     depends_on:
@@ -174,6 +180,7 @@ services:
       AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE: /run/secrets/bootstrap_owner_password_hash
       AUTH_CSRF_KEY_FILE: /run/secrets/csrf_key
       AUTH_SESSION_SIGNING_KEY_FILE: /run/secrets/session_signing_key
+      AXIOM_TOTP_SEED_FILE: /run/secrets/totp_seed
     secrets:
       - postgres_runtime_password
       - health_detail_token
@@ -181,6 +188,7 @@ services:
       - bootstrap_owner_password_hash
       - csrf_key
       - session_signing_key
+      - totp_seed
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -411,6 +419,32 @@ services:
     pids_limit: 128
     logging: *default-logging
 
+  binance-testnet-egress:
+    <<: *app-base
+    profiles: [sandbox-foundation]
+    command: ["egress-proxy", "--exchange=binance"]
+    environment: {}
+    networks:
+      - binance_engine
+      - binance_proxy_egress
+    healthcheck:
+      test: ["NONE"]
+    mem_limit: ${SANDBOX_PROXY_MEMORY_LIMIT:-128m}
+    cpus: ${SANDBOX_PROXY_CPU_LIMIT:-0.5}
+
+  bybit-demo-egress:
+    <<: *app-base
+    profiles: [sandbox-foundation]
+    command: ["egress-proxy", "--exchange=bybit"]
+    environment: {}
+    networks:
+      - bybit_engine
+      - bybit_proxy_egress
+    healthcheck:
+      test: ["NONE"]
+    mem_limit: ${SANDBOX_PROXY_MEMORY_LIMIT:-128m}
+    cpus: ${SANDBOX_PROXY_CPU_LIMIT:-0.5}
+
   prometheus:
     image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
     profiles: [observability]
@@ -508,6 +542,12 @@ networks:
     internal: true
   edge: {}
   exchange_egress: {}
+  binance_engine:
+    internal: true
+  bybit_engine:
+    internal: true
+  binance_proxy_egress: {}
+  bybit_proxy_egress: {}
 
 volumes:
   postgres_data:
@@ -544,3 +584,17 @@ secrets:
     file: ${SECRETS_DIR:-./.secrets}/csrf_key
   session_signing_key:
     file: ${SECRETS_DIR:-./.secrets}/session_signing_key
+  postgres_binance_engine_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_binance_engine_password
+  postgres_bybit_engine_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_bybit_engine_password
+  binance_testnet_api_key:
+    file: ${SECRETS_DIR:-./.secrets}/binance_testnet_api_key
+  binance_testnet_api_secret:
+    file: ${SECRETS_DIR:-./.secrets}/binance_testnet_api_secret
+  bybit_demo_api_key:
+    file: ${SECRETS_DIR:-./.secrets}/bybit_demo_api_key
+  bybit_demo_api_secret:
+    file: ${SECRETS_DIR:-./.secrets}/bybit_demo_api_secret
+  totp_seed:
+    file: ${SECRETS_DIR:-./.secrets}/totp_seed

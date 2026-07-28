@@ -41,8 +41,7 @@ for required_literal in \
   fi
 done
 for forbidden_literal in \
-  'api.'"binance.com" \
-  'test'"net.binance"; do
+  'api.'"binance.com"; do
   if "${RG}" -a -F -q -- "${forbidden_literal}" "${TEMP_DIR}/platform"; then
     printf 'ERROR [a7-binary-boundary] forbidden Binance origin linked: %s\n' \
       "${forbidden_literal}" >&2

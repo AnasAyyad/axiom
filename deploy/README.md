@@ -6,7 +6,9 @@ an explicit image reference and never pretends an unpublished image exists.
 
 The base Compose project starts PostgreSQL only. V1A application, recorder,
 worker, observability, and edge services are profile-gated. The encrypted
-backup service arrives in A4; authenticated exchange services are absent.
+backup service arrives in A4. V1C PR1 adds only the default-off authenticated
+foundation and two closed egress-proxy services; complete authenticated engine
+roles remain unavailable until C4/C5.
 
 ## 1. Prepare configuration
 
@@ -59,6 +61,8 @@ Required for PostgreSQL:
 - `.secrets/postgres_backup_password`
 - `.secrets/backup_encryption_key`
 - `.secrets/postgres_readonly_password`
+- `.secrets/postgres_binance_engine_password`
+- `.secrets/postgres_bybit_engine_password`
 
 The A11 `api` service exposes redacted public liveness/readiness/build data and
 uses the independent health-detail token for authenticated component status.
@@ -71,6 +75,22 @@ Required for A11 API startup:
 - `.secrets/bootstrap_owner_password_hash`
 - `.secrets/csrf_key`
 - `.secrets/session_signing_key`
+- `.secrets/totp_seed` when the V1C high-risk authorization service is enabled
+
+The TOTP seed is provisioned through the API service only. There is no browser
+enrollment, secret-return endpoint, recovery-code bypass, or raw seed variable.
+
+V1C exchange credentials are operator-provisioned files and are declared for
+the later engine profiles:
+
+- `.secrets/binance_testnet_api_key`
+- `.secrets/binance_testnet_api_secret`
+- `.secrets/bybit_demo_api_key`
+- `.secrets/bybit_demo_api_secret`
+
+No PR1 API, public collector, recorder, worker, proxy, or browser service
+receives those files. Raw credential variables and endpoint/proxy overrides
+are startup errors.
 
 The bootstrap password file must contain a precomputed Argon2id PHC hash using
 64 MiB, three iterations, parallelism one, a 16-byte random salt, and 32-byte
@@ -114,6 +134,8 @@ openssl rand -base64 48 > .secrets/postgres_recorder_password
 openssl rand -base64 48 > .secrets/postgres_backup_password
 openssl rand -base64 32 > .secrets/backup_encryption_key
 openssl rand -base64 48 > .secrets/postgres_readonly_password
+openssl rand -base64 48 > .secrets/postgres_binance_engine_password
+openssl rand -base64 48 > .secrets/postgres_bybit_engine_password
 openssl rand -base64 48 > .secrets/grafana_admin_password
 openssl rand -base64 48 > .secrets/health_detail_token
 sudo chgrp 70 .secrets/postgres_*_password
@@ -162,8 +184,30 @@ docker compose ps
 ```
 
 The PostgreSQL initialization script creates distinct owner, migrator, runtime,
-recorder, backup, and read-only roles only on an empty data volume. Later changes belong
-in migrations.
+recorder, backup, read-only, Binance-engine, and Bybit-engine roles only on an
+empty data volume. Later changes belong in migrations. Authenticated engines
+share no database login.
+
+Before upgrading an existing database to migrations `000021` and `000022`, a
+database administrator must provision the separate Binance-engine and
+Bybit-engine login roles and their password files. Empty-volume initialization
+does not run again on an existing volume, and migration startup fails closed if
+either role is absent. Do not reuse an existing application login for an
+authenticated engine.
+
+The `sandbox-foundation` profile starts only the two CONNECT-only proxies:
+
+```bash
+APP_IMAGE=axiom:local APP_PULL_POLICY=never \
+  docker compose --profile sandbox-foundation up -d
+```
+
+Each proxy has one internal future-engine network and one independent external
+egress network. It accepts port-443 CONNECT for its compiled host set, resolves
+each tunnel, rejects any private/link-local/loopback/multicast/mixed answer,
+and dials the validated address. Proxies receive no credentials. PR1 does not
+include runnable authenticated engine services and this profile performs no
+exchange order operation.
 
 The exact migration command is `/app/platform admin migrate`. A4 applies the
 embedded checksummed forward-only migrations under an advisory lock after

@@ -19,13 +19,15 @@ const (
 	commandWorker      CommandKind = "worker"
 	commandMigrate     CommandKind = "admin_migrate"
 	commandHealthcheck CommandKind = "healthcheck"
+	commandEgressProxy CommandKind = "egress_proxy"
 )
 
 // Command is validated local intent; it owns no business behavior.
 type Command struct {
-	Kind CommandKind
-	Mode config.ExecutionMode
-	URL  string
+	Kind     CommandKind
+	Mode     config.ExecutionMode
+	URL      string
+	Exchange string
 }
 
 var errUsage = errors.New("invalid_command")
@@ -50,11 +52,24 @@ func parseCommand(arguments []string) (Command, error) {
 		return Command{}, errUsage
 	case "healthcheck":
 		return parseHealthcheck(arguments[1:])
+	case "egress-proxy":
+		return parseEgressProxy(arguments[1:])
 	case "help", "--help", "-h":
 		return Command{}, flag.ErrHelp
 	default:
 		return Command{}, errUsage
 	}
+}
+
+func parseEgressProxy(arguments []string) (Command, error) {
+	flags := flag.NewFlagSet("egress-proxy", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	exchange := flags.String("exchange", "", "closed sandbox exchange policy")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 ||
+		(*exchange != "binance" && *exchange != "bybit") {
+		return Command{}, errUsage
+	}
+	return Command{Kind: commandEgressProxy, Exchange: *exchange}, nil
 }
 
 func commandWithoutArguments(kind CommandKind, arguments []string) (Command, error) {
@@ -101,7 +116,8 @@ Usage:
   platform worker
   platform admin migrate
   platform healthcheck [--url http://127.0.0.1:8080/health/live]
+  platform egress-proxy --exchange binance|bybit
 
-V1A contains no authenticated exchange or external-order command.
+The egress proxy is CONNECT-only and has a compile-time destination policy.
 `)
 }

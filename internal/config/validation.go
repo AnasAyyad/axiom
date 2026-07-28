@@ -1,12 +1,9 @@
 package config
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 
 	"axiom/internal/domain"
-	"axiom/internal/security"
 )
 
 const publicEndpointSet = "market-data-only-v1"
@@ -16,7 +13,7 @@ func Validate(configuration Configuration) error {
 	if err := validateIdentity(configuration); err != nil {
 		return err
 	}
-	if err := validateSafety(configuration.Safety, configuration.Capabilities); err != nil {
+	if err := validateSafety(configuration.SchemaVersion, configuration.Safety, configuration.Capabilities); err != nil {
 		return err
 	}
 	if err := validateEndpoint(configuration.Endpoint); err != nil {
@@ -56,6 +53,9 @@ func Validate(configuration Configuration) error {
 	if err := validateRebalancing(configuration.SchemaVersion, configuration.Rebalancing); err != nil {
 		return err
 	}
+	if err := validateSandbox(configuration.SchemaVersion, configuration.Sandbox); err != nil {
+		return err
+	}
 	return validateSecrets(configuration.Secrets)
 }
 
@@ -63,12 +63,13 @@ func validateIdentity(configuration Configuration) error {
 	if (configuration.SchemaVersion != SchemaVersion && configuration.SchemaVersion != SchemaVersionV1B &&
 		configuration.SchemaVersion != SchemaVersionV1BB3 && configuration.SchemaVersion != SchemaVersionV1BB4 &&
 		configuration.SchemaVersion != SchemaVersionV1BB5 &&
-		configuration.SchemaVersion != SchemaVersionV1BB6) ||
+		configuration.SchemaVersion != SchemaVersionV1BB6 &&
+		configuration.SchemaVersion != SchemaVersionV1C) ||
 		configuration.Revision == 0 {
 		return configError("invalid_configuration", "schema")
 	}
 	switch configuration.Environment {
-	case EnvironmentLocal, EnvironmentTest, EnvironmentShadow:
+	case EnvironmentLocal, EnvironmentTest, EnvironmentShadow, EnvironmentSandbox:
 	default:
 		return configError("prohibited_environment", "environment")
 	}
@@ -77,6 +78,15 @@ func validateIdentity(configuration Configuration) error {
 	}
 	if configuration.Environment == EnvironmentShadow && configuration.Mode != ModeShadow {
 		return configError("invalid_configuration", "environment_mode")
+	}
+	if configuration.SchemaVersion == SchemaVersionV1C {
+		if configuration.Environment != EnvironmentSandbox ||
+			(configuration.Mode != ModeTestnet && configuration.Mode != ModeDemo) {
+			return configError("invalid_configuration", "environment_mode")
+		}
+	} else if configuration.Environment == EnvironmentSandbox ||
+		configuration.Mode == ModeTestnet || configuration.Mode == ModeDemo {
+		return configError("prohibited_mode", "mode")
 	}
 	if configuration.Product != domain.ProductSpot {
 		return configError("prohibited_product", "product")
@@ -132,11 +142,12 @@ func validateExchangeDefinition(
 	return nil
 }
 
-func validateSafety(safety SafetyConfiguration, capabilities []CapabilityDisposition) error {
+func validateSafety(schema string, safety SafetyConfiguration, capabilities []CapabilityDisposition) error {
 	if !safety.FailClosed || safety.RiskInitialState != "PAUSED" || safety.AutoUnpause {
 		return configError("unsafe_configuration", "safety")
 	}
-	if !capabilitiesExactlyUnsupported(capabilities) {
+	if (schema == SchemaVersionV1C && !capabilitiesExactlyV1C(capabilities)) ||
+		(schema != SchemaVersionV1C && !capabilitiesExactlyUnsupported(capabilities)) {
 		return configError("prohibited_capability", "capabilities")
 	}
 	return nil
@@ -353,47 +364,4 @@ func equalStrings(left, right []string) bool {
 		}
 	}
 	return true
-}
-
-func validateSecrets(references []SecretReference) error {
-	seen := make(map[string]struct{}, len(references))
-	for _, reference := range references {
-		if reference.Name == "" || placeholder(reference.Name) {
-			return configError("secret_reference_rejected", "secrets.name")
-		}
-		if _, duplicate := seen[reference.Name]; duplicate {
-			return configError("secret_reference_rejected", "secrets.name")
-		}
-		seen[reference.Name] = struct{}{}
-		if err := validateSecretFile(reference); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateSecretFile(reference SecretReference) error {
-	if !filepath.IsAbs(reference.File) || placeholder(filepath.Base(reference.File)) {
-		return configError("secret_reference_rejected", "secrets.file")
-	}
-	information, err := os.Lstat(reference.File)
-	if err != nil {
-		if reference.Required {
-			return configError("required_secret_missing", "secrets.file")
-		}
-		return nil
-	}
-	if information.Mode()&os.ModeSymlink != 0 || !information.Mode().IsRegular() {
-		return configError("secret_reference_rejected", "secrets.file")
-	}
-	if _, err := security.ReadSecretFile(reference.File); err != nil {
-		return configError("secret_reference_rejected", "secrets.file")
-	}
-	return nil
-}
-
-func placeholder(value string) bool {
-	lower := strings.ToLower(value)
-	return strings.Contains(lower, "placeholder") || strings.Contains(lower, "changeme") ||
-		strings.Contains(lower, "<") || strings.Contains(lower, ">")
 }

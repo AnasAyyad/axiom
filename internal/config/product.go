@@ -12,6 +12,16 @@ const maximumConfigurationBytes = 1024 * 1024
 func LoadProductConfiguration(requestedMode ExecutionMode) (Configuration, Source, error) {
 	path, configured := os.LookupEnv("APP_CONFIG_FILE")
 	if !configured || path == "" {
+		if requestedMode == ModeTestnet || requestedMode == ModeDemo {
+			configuration, err := DefaultV1CConfiguration(requestedMode)
+			if err != nil {
+				return Configuration{}, "", err
+			}
+			if err := validateRequestedMode(configuration, requestedMode); err != nil {
+				return Configuration{}, "", err
+			}
+			return configuration, SourceDefault, nil
+		}
 		configuration := DefaultConfiguration()
 		if requestedMode != "" {
 			configuration.Mode = requestedMode

@@ -7,7 +7,7 @@ import (
 )
 
 func validateRebalancing(schema string, optimizer RebalancingConfiguration) error {
-	if schema != SchemaVersionV1BB6 {
+	if schema != SchemaVersionV1BB6 && schema != SchemaVersionV1C {
 		if !emptyRebalancing(optimizer) {
 			return configError("invalid_configuration", "rebalancing")
 		}

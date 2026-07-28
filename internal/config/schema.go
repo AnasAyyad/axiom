@@ -10,6 +10,7 @@ const (
 	SchemaVersionV1BB4 = "axiom.config.v1b.3"
 	SchemaVersionV1BB5 = "axiom.config.v1b.4"
 	SchemaVersionV1BB6 = "axiom.config.v1b.5"
+	SchemaVersionV1C   = "axiom.config.v1c.1"
 )
 
 // Environment identifies an allowed V1A deployment class.
@@ -17,9 +18,10 @@ type Environment string
 
 // Allowed V1A deployment environments.
 const (
-	EnvironmentLocal  Environment = "local"
-	EnvironmentTest   Environment = "test"
-	EnvironmentShadow Environment = "shadow"
+	EnvironmentLocal   Environment = "local"
+	EnvironmentTest    Environment = "test"
+	EnvironmentShadow  Environment = "shadow"
+	EnvironmentSandbox Environment = "sandbox"
 )
 
 // Configuration is the complete versioned V1A product configuration graph.
@@ -42,6 +44,7 @@ type Configuration struct {
 	Triangular    TriangularConfiguration    `json:"triangular,omitempty"`
 	CrossExchange CrossExchangeConfiguration `json:"cross_exchange,omitempty"`
 	Rebalancing   RebalancingConfiguration   `json:"rebalancing,omitempty"`
+	Sandbox       SandboxConfiguration       `json:"sandbox,omitempty"`
 	Capabilities  []CapabilityDisposition    `json:"capabilities"`
 	Secrets       []SecretReference          `json:"secrets"`
 }
@@ -165,6 +168,44 @@ type RebalancingConfiguration struct {
 	ApprovedAssets        []string            `json:"approved_assets"`
 	Exchanges             []string            `json:"exchanges"`
 	Parameters            []StrategyParameter `json:"parameters"`
+}
+
+// SandboxConfiguration is the complete C1-C6 default-off authenticated
+// sandbox policy. It contains no credential values, endpoints, or proxy URLs.
+type SandboxConfiguration struct {
+	IntegrationsEnabled       bool                           `json:"integrations_enabled"`
+	SubmissionEnabled         bool                           `json:"submission_enabled"`
+	ArmDurationSeconds        uint32                         `json:"arm_duration_seconds"`
+	ReauthorizationSeconds    uint32                         `json:"reauthorization_seconds"`
+	MaximumOrderNotional      FinancialValue                 `json:"maximum_order_notional"`
+	MaximumDailyNotional      FinancialValue                 `json:"maximum_daily_notional"`
+	MaximumOpenPerAccount     uint32                         `json:"maximum_open_per_account"`
+	MaximumOpenGlobal         uint32                         `json:"maximum_open_global"`
+	OrderStyles               []string                       `json:"order_styles"`
+	EligibleStrategies        []string                       `json:"eligible_strategies"`
+	RebalancingMode           string                         `json:"rebalancing_mode"`
+	SandboxProfitabilityProof bool                           `json:"sandbox_profitability_proof"`
+	Exchanges                 []SandboxExchangeConfiguration `json:"exchanges"`
+	SecretFileEnvironment     SandboxSecretEnvironment       `json:"secret_file_environment"`
+}
+
+// SandboxExchangeConfiguration contains only closed environment identifiers
+// and independent enablement gates. Network destinations remain compiled code.
+type SandboxExchangeConfiguration struct {
+	ID                 string `json:"id"`
+	Environment        string `json:"environment"`
+	IntegrationEnabled bool   `json:"integration_enabled"`
+	SubmissionEnabled  bool   `json:"submission_enabled"`
+}
+
+// SandboxSecretEnvironment freezes the only accepted file-reference variable
+// names. Values are resolved by the owning process, never by product config.
+type SandboxSecretEnvironment struct {
+	BinanceAPIKeyFile    string `json:"binance_api_key_file"`
+	BinanceAPISecretFile string `json:"binance_api_secret_file"`
+	BybitAPIKeyFile      string `json:"bybit_api_key_file"`
+	BybitAPISecretFile   string `json:"bybit_api_secret_file"`
+	TOTPSeedFile         string `json:"totp_seed_file"`
 }
 
 // StrategyParameter is the complete auditable contract for one numeric rule.

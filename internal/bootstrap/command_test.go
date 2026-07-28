@@ -6,6 +6,7 @@ func TestParseCommandExactSurface(t *testing.T) {
 	accepted := [][]string{
 		{"api"}, {"trader", "--mode", "shadow"}, {"recorder"},
 		{"worker"}, {"admin", "migrate"}, {"healthcheck"},
+		{"egress-proxy", "--exchange", "binance"}, {"egress-proxy", "--exchange", "bybit"},
 	}
 	for _, arguments := range accepted {
 		if _, err := parseCommand(arguments); err != nil {
