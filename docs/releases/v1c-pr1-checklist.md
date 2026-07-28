@@ -7,7 +7,7 @@
   evidence, closed proxies, and deterministic authenticated emulators.
 - [x] Add startup identity and permission validation.
 - [x] Pass C1 source, binary, endpoint, secret, and Compose-render capture gates.
-- [ ] Pass image-backed Compose smoke on a truthful clean candidate.
+- [x] Pass image-backed Compose smoke on a truthful clean candidate.
 
 ## C2
 
@@ -34,5 +34,5 @@
   SPDX, and current-database Trivy gates pass.
 - [x] Confirm dirty-image smoke fails closed at build admission before engine
   readiness.
-- [ ] Freeze a committed candidate and pass image-backed Compose smoke.
+- [x] Freeze a committed candidate and pass image-backed Compose smoke.
 - [ ] Security and owner acceptance recorded.
