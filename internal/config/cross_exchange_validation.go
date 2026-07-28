@@ -7,7 +7,8 @@ import (
 )
 
 func validateCrossExchange(schema string, strategy CrossExchangeConfiguration) error {
-	if schema != SchemaVersionV1BB5 && schema != SchemaVersionV1BB6 {
+	if schema != SchemaVersionV1BB5 && schema != SchemaVersionV1BB6 &&
+		schema != SchemaVersionV1C {
 		if !emptyCrossExchange(strategy) {
 			return configError("invalid_configuration", "cross_exchange")
 		}

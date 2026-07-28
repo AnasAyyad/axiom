@@ -10,6 +10,8 @@ func TestValidateEnvironment(t *testing.T) {
 	for _, key := range []string{
 		"BINANCE_API_KEY=value",
 		"EXCHANGE_SIGNING_KEY=value",
+		"BINANCE_PRIVATE_PROXY=http://proxy.invalid",
+		"BYBIT_ENDPOINT_URL=https://example.invalid",
 		"ENABLE_LIVE_TRADING=true",
 		"ALLOW_WITHDRAWAL=true",
 		"FUTURES_ENABLED=true",
@@ -21,6 +23,20 @@ func TestValidateEnvironment(t *testing.T) {
 	}
 	if err := ValidateEnvironment([]string{"DB_PASSWORD_FILE=/run/secrets/db", "EXECUTION_MODE=shadow"}); err != nil {
 		t.Fatalf("safe environment rejected: %v", err)
+	}
+	for _, key := range []string{
+		"AXIOM_BINANCE_TESTNET_API_KEY_FILE=/run/secrets/binance_testnet_api_key",
+		"AXIOM_BINANCE_TESTNET_API_SECRET_FILE=/run/secrets/binance_testnet_api_secret",
+		"AXIOM_BYBIT_DEMO_API_KEY_FILE=/run/secrets/bybit_demo_api_key",
+		"AXIOM_BYBIT_DEMO_API_SECRET_FILE=/run/secrets/bybit_demo_api_secret",
+		"AXIOM_TOTP_SEED_FILE=/run/secrets/totp_seed",
+	} {
+		if err := ValidateEnvironment([]string{key}); err != nil {
+			t.Fatalf("reviewed file reference rejected for %q: %v", key, err)
+		}
+	}
+	if err := ValidateEnvironment([]string{"AXIOM_TOTP_SEED_FILE=relative"}); err == nil {
+		t.Fatal("relative TOTP seed file accepted")
 	}
 }
 

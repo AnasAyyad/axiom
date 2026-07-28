@@ -82,6 +82,28 @@ func TestReadOnlyReportingExcludesCredentialTables(t *testing.T) {
 	}
 }
 
+func TestV1CEngineGrantIncludesOnlyClosedExecutionTables(t *testing.T) {
+	statement := grantSQL(
+		"SELECT, INSERT, UPDATE",
+		v1cEngineReadWriteTables,
+		`"axiom_binance_testnet_engine"`,
+	)
+	if !strings.Contains(
+		statement,
+		`"public"."v1c_authenticated_request_evidence"`,
+	) {
+		t.Fatal("V1C engine cannot persist authenticated request evidence")
+	}
+	for _, forbidden := range []string{
+		"users", "sessions", "journal_transactions", "api_entity_revisions",
+		"public_clock_samples", "command_requests",
+	} {
+		if strings.Contains(statement, `"public"."`+forbidden+`"`) {
+			t.Fatalf("V1C engine grant exposes non-execution table %s", forbidden)
+		}
+	}
+}
+
 func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
@@ -95,7 +117,8 @@ func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 		"runtime read/insert": runtimeReadInsertTables, "runtime update": runtimeUpdateTables,
 		"runtime read": runtimeReadTables, "runtime delete": runtimeDeleteTables, "recorder read": recorderReadTables,
 		"recorder write": recorderWriteTables, "recorder append": recorderAppendTables,
-		"reporting read": readOnlyTables,
+		"reporting read":        readOnlyTables,
+		"v1c engine read/write": v1cEngineReadWriteTables,
 	}
 	for name, tables := range groups {
 		seen := make(map[string]struct{}, len(tables))

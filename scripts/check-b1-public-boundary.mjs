@@ -42,7 +42,12 @@ for (const forbidden of [
 }
 
 const production = goFiles("internal/exchanges/bybit")
-  .filter((file) => !file.endsWith("_test.go"))
+  .filter(
+    (file) =>
+      !file.endsWith("_test.go") &&
+      !file.endsWith("/authenticated_client.go") &&
+      !file.endsWith("/authenticated_policy.go"),
+  )
   .map((file) => fs.readFileSync(file, "utf8"))
   .join("\n");
 

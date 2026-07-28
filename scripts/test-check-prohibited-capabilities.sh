@@ -63,6 +63,10 @@ printf '%s\n' \
 printf '%s\n' \
   'package binance' \
   'const orderRoute = "https://api.binance.com/api/v3/order"' \
+  'const exchangeCredential = "BINANCE_TESTNET_API_KEY_FILE"' \
+  'const sandboxMode = "testnet"' \
+  'const executionMode = "live"' \
+  'const capability = "private_order_capability"' \
   'type Signer interface { SignRequest() }' \
   'func PlaceOrder() {}' \
   >"${TEMP_ROOT}/internal/exchanges/binance/client.go"

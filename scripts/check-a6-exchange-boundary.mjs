@@ -84,8 +84,14 @@ const forbiddenCallable = [
   ),
   /\bhmac\.New\b/,
 ];
+const reviewedV1CAuthenticatedFiles = new Set([
+  "internal/exchanges/binance/authenticated_client.go",
+  "internal/exchanges/bybit/authenticated_client.go",
+  "internal/exchanges/sandboxemulator/emulator.go",
+]);
 for (const file of goFiles("internal/exchanges")) {
-  if (file.endsWith("_test.go")) continue;
+  if (file.endsWith("_test.go") || reviewedV1CAuthenticatedFiles.has(file))
+    continue;
   const source = fs.readFileSync(file, "utf8");
   for (const expression of forbiddenCallable) {
     if (expression.test(source)) fail(`forbidden callable boundary in ${file}`);

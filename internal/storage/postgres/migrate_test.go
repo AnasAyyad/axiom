@@ -272,6 +272,57 @@ func TestB8MigrationDefinesImmutableSimulationOnlyConsoleEvidence(t *testing.T) 
 	}
 }
 
+func TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v1cAuth, v1cExecution Migration
+	for _, migration := range migrations {
+		switch migration.Version {
+		case "000021":
+			v1cAuth = migration
+		case "000022":
+			v1cExecution = migration
+		}
+	}
+	if v1cAuth.SQL == "" || v1cExecution.SQL == "" {
+		t.Fatal("V1C migrations are missing")
+	}
+	auth := strings.ToLower(v1cAuth.SQL)
+	for _, required := range []string{
+		"create table v1c_totp_replay_state",
+		"create table v1c_sandbox_authorizations",
+		"create table v1c_high_risk_audit_events",
+		"create table v1c_session_control_events",
+		"session_revision bigint not null",
+		"v1c_authorization_session_active",
+		"v1c_revoke_all_authorized",
+		"v1c_high_risk_audit_immutable",
+	} {
+		if !strings.Contains(auth, required) {
+			t.Fatalf("V1C auth migration missing %q", required)
+		}
+	}
+	execution := strings.ToLower(v1cExecution.SQL)
+	for _, required := range []string{
+		"create table v1c_authenticated_request_evidence",
+		"create table v1c_plan_entry_safety",
+		"v1c_authenticated_evidence_fields_valid",
+		"v1c_authenticated_evidence_enumerations_valid",
+		"v1c_authenticated_request_evidence_immutable",
+		"v1c_plan_entry_safety_immutable",
+		"v1c_credential_rotation_protected",
+		"primary key (exchange,request_hash)",
+		"host='testnet.binance.vision'",
+		"host='api-demo.bybit.com'",
+	} {
+		if !strings.Contains(execution, required) {
+			t.Fatalf("V1C execution migration missing %q", required)
+		}
+	}
+}
+
 func TestMigrationsContainA4HistoryAndOwnershipGuards(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
