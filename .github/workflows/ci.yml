@@ -78,7 +78,12 @@ jobs:
         env:
           POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
         run: |
-          for role in axiom_app axiom_recorder axiom_readonly; do
+          for role in \
+            axiom_app \
+            axiom_recorder \
+            axiom_readonly \
+            axiom_binance_engine \
+            axiom_bybit_engine; do
             docker exec "${POSTGRES_SERVICE_ID}" psql \
               --username postgres --dbname axiom --set=ON_ERROR_STOP=1 \
               --command "CREATE ROLE ${role} NOLOGIN"
