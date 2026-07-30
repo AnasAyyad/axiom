@@ -16,6 +16,7 @@ type sandboxPrivateStreamSignal struct {
 func (work *sandboxEngineRoleWork) consumePrivateEvents(
 	ctx context.Context,
 	store *postgresstore.V1CDispatcherStore,
+	account postgresstore.V1CEngineAccount,
 	fence uint64,
 	source sandbox.PrivateEventSource,
 	signals chan<- sandboxPrivateStreamSignal,
@@ -26,13 +27,8 @@ func (work *sandboxEngineRoleWork) consumePrivateEvents(
 			if ctx.Err() != nil {
 				return
 			}
-			if !sendSandboxPrivateSignal(
-				ctx, signals, sandboxPrivateStreamSignal{healthy: false},
-			) || !reconnectSandboxPrivateSource(ctx, source) {
-				return
-			}
-			if !sendSandboxPrivateSignal(
-				ctx, signals, sandboxPrivateStreamSignal{healthy: true},
+			if !work.recoverSandboxPrivateEvents(
+				ctx, store, account, fence, source, signals,
 			) {
 				return
 			}
@@ -47,6 +43,38 @@ func (work *sandboxEngineRoleWork) consumePrivateEvents(
 			return
 		}
 	}
+}
+
+func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
+	ctx context.Context,
+	store *postgresstore.V1CDispatcherStore,
+	account postgresstore.V1CEngineAccount,
+	fence uint64,
+	source sandbox.PrivateEventSource,
+	signals chan<- sandboxPrivateStreamSignal,
+) bool {
+	if !sendSandboxPrivateSignal(
+		ctx, signals, sandboxPrivateStreamSignal{healthy: false},
+	) {
+		return false
+	}
+	reconnectStarted := time.Now()
+	if !reconnectSandboxPrivateSource(ctx, source) {
+		return false
+	}
+	err := store.RecordEngineRuntimeEvent(
+		ctx, account.AccountID, account.Epoch, work.exchange, fence,
+		"PRIVATE_RECONNECT", time.Since(reconnectStarted), true, time.Now().UTC(),
+	)
+	if err != nil {
+		sendSandboxPrivateSignal(
+			ctx, signals, sandboxPrivateStreamSignal{fatal: err},
+		)
+		return false
+	}
+	return sendSandboxPrivateSignal(
+		ctx, signals, sandboxPrivateStreamSignal{healthy: true},
+	)
 }
 
 func reconnectSandboxPrivateSource(

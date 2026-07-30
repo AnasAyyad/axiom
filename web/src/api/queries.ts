@@ -113,6 +113,35 @@ export const championChallengerQuery = queryOptions({
     ),
 });
 
+export const sandboxOverviewQuery = queryOptions({
+  queryKey: ["sandbox", "overview"],
+  queryFn: () => getAPI<"SandboxOverview">("/api/v1/sandbox/overview"),
+  refetchInterval: 5_000,
+});
+
+export const sandboxOrdersQuery = queryOptions({
+  queryKey: ["sandbox", "orders"],
+  queryFn: () =>
+    getAPI<"SandboxOrderPage">("/api/v1/sandbox/orders?page_size=100"),
+  refetchInterval: 5_000,
+});
+
+export const sandboxReconciliationsQuery = queryOptions({
+  queryKey: ["sandbox", "reconciliations"],
+  queryFn: () =>
+    getAPI<"SandboxReconciliationPage">(
+      "/api/v1/sandbox/reconciliations?page_size=100",
+    ),
+  refetchInterval: 5_000,
+});
+
+export const c6QualificationQuery = queryOptions({
+  queryKey: ["sandbox", "qualification"],
+  queryFn: () =>
+    getAPI<"C6QualificationStatus">("/api/v1/sandbox/qualification"),
+  refetchInterval: 5_000,
+});
+
 export function auditQueryForType(eventType: string, includeDetail = false) {
   const eventFilter =
     eventType === "" ? "" : `&event_type=${encodeURIComponent(eventType)}`;

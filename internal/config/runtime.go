@@ -58,6 +58,7 @@ type AuthenticationRuntime struct {
 	BootstrapOwnerPasswordHashFile string
 	CSRFKeyFile                    string
 	SessionSigningKeyFile          string
+	TOTPSeedFile                   string
 	AllowedOrigins                 []string
 	SecureCookies                  bool
 }
@@ -139,6 +140,7 @@ func loadAuthenticationRuntime() (AuthenticationRuntime, error) {
 		BootstrapOwnerPasswordHashFile: value("AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE", "/run/secrets/bootstrap_owner_password_hash"),
 		CSRFKeyFile:                    value("AUTH_CSRF_KEY_FILE", "/run/secrets/csrf_key"),
 		SessionSigningKeyFile:          value("AUTH_SESSION_SIGNING_KEY_FILE", "/run/secrets/session_signing_key"),
+		TOTPSeedFile:                   value("AXIOM_TOTP_SEED_FILE", "/run/secrets/totp_seed"),
 		AllowedOrigins:                 origins,
 		SecureCookies:                  secure,
 	}, nil
@@ -292,6 +294,7 @@ func validateRuntime(runtimeConfig Runtime) error {
 		runtimeConfig.Authentication.BootstrapOwnerPasswordHashFile,
 		runtimeConfig.Authentication.CSRFKeyFile,
 		runtimeConfig.Authentication.SessionSigningKeyFile,
+		runtimeConfig.Authentication.TOTPSeedFile,
 	} {
 		if !filepath.IsAbs(secretPath) {
 			return fmt.Errorf("invalid_configuration:AUTH_SECRET_FILE")

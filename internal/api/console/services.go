@@ -71,3 +71,22 @@ type InventoryFilters struct {
 type StreamService interface {
 	Serve(http.ResponseWriter, *http.Request, authentication.Principal) error
 }
+
+// SandboxReadService exposes only redacted authoritative V1C projections.
+type SandboxReadService interface {
+	SandboxOverview(context.Context) (generated.SandboxOverview, error)
+	SandboxOrders(context.Context, string, int, string, string) (generated.SandboxOrderPage, error)
+	SandboxReconciliations(context.Context, string, int, string) (generated.SandboxReconciliationPage, error)
+	C6Qualification(context.Context) (generated.C6QualificationStatus, error)
+}
+
+// SandboxCommandService persists C6 controls through existing V1C state
+// machines. It owns no exchange client and cannot perform network I/O.
+type SandboxCommandService interface {
+	CreateSandboxArm(context.Context, authentication.Principal, string, string, generated.SandboxArmRequest, authentication.ConsumedAuthorization) (generated.SandboxArm, error)
+	RevokeSandboxArm(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
+	UnlockSandboxAccount(context.Context, authentication.Principal, string, string, generated.SandboxUnlockRequest, authentication.ConsumedAuthorization) (generated.CommandAccepted, error)
+	CreateSandboxTestOrder(context.Context, authentication.Principal, string, generated.SandboxTestOrderRequest) (generated.CommandAccepted, error)
+	QueueSandboxOrderCommand(context.Context, authentication.Principal, string, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
+	QueueSandboxAccountReconciliation(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
+}

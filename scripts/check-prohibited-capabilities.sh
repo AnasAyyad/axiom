@@ -98,6 +98,7 @@ readonly -a EXCLUDES=(
   --glob '!scripts/check-compose-command-contract.mjs'
   --glob '!scripts/check-compose.sh'
   --glob '!scripts/check-v1c-security-boundary.sh'
+  --glob '!scripts/check-v1c-pr3-boundary.mjs'
 )
 
 readonly -a ALL_INPUT_GLOBS=(
@@ -263,6 +264,21 @@ is_v1c_sandbox_boundary_literal() {
     later-release-sandbox:internal/storage/postgres/migrations/000023_v1c_private_stream_runtime.sql)
       return 0
       ;;
+    later-release-sandbox:api/openapi.yaml | \
+    later-release-sandbox:internal/api/generated/types.gen.go | \
+    later-release-sandbox:internal/bootstrap/runtime.go | \
+    later-release-sandbox:internal/observability/metrics.go | \
+    later-release-sandbox:internal/qualification/c6/model.go | \
+    later-release-sandbox:internal/storage/postgres/migrations/000024_v1c_c6_console_qualification.sql | \
+    later-release-sandbox:monitoring/alerts.yml | \
+    later-release-sandbox:monitoring/grafana/dashboards/axiom-operations.json | \
+    later-release-sandbox:web/src/api/c6Validation.ts | \
+    later-release-sandbox:web/src/api/generated/schema.ts | \
+    later-release-sandbox:web/src/app/AppShell.tsx | \
+    later-release-sandbox:web/src/app/Sandbox*.tsx | \
+    later-release-sandbox:web/src/app/sandboxPresentation.ts)
+      return 0
+      ;;
     later-release-sandbox:Makefile)
       [[ "${line_text}" == *"c4-binance-testnet-qualify"* ||
          "${line_text}" == *"c5-bybit-demo-qualify"* ||
@@ -369,7 +385,7 @@ run_rule 'private-endpoint' \
   'private, account, order, or later-release exchange endpoint is forbidden in V1A' \
   "${PRIVATE_ENDPOINT_RE}" 'b1-public' ALL_INPUT_GLOBS .
 run_rule 'later-release-sandbox' \
-  'testnet/demo executable input is forbidden before V1C' \
+  'testnet/demo executable input is outside the reviewed V1C boundary' \
   "${LATER_SANDBOX_RE}" 'typed-unsupported' ALL_INPUT_GLOBS .
 run_rule 'external-live-mode' \
   'live external execution mode/service is forbidden in every V1 release' \

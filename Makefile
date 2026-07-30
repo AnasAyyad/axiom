@@ -12,6 +12,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
 .PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify v1c-pr1-local-qualify v1c-pr2-local-qualify
+.PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-soak v1c-pr3-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -59,6 +60,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-b7-research-boundary.mjs
 	@$(NODE) scripts/check-a10-strategy-boundary.mjs
 	@$(NODE) scripts/check-a11-console-boundary.mjs
+	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -185,6 +187,52 @@ v1c-pr1-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify v
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 v1c-pr2-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify ## Pass every C1-C5 PR2 phase gate plus cumulative repository verification.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+c6-api-qualify: ## Prove C6 contracts, redacted projections, durable controls, RBAC, and storage boundaries.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/api/... ./internal/authentication \
+			./internal/bootstrap ./internal/storage/postgres -count=1
+
+c6-frontend-qualify: ## Type-check, lint, test, build, and inspect the C6 sandbox console fixtures.
+	@$(MAKE) a11-frontend-qualify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'C6 sandbox'
+
+c6-security-qualify: ## Prove C6 endpoint, secret, production-target, and prohibited-capability denial.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/authentication ./internal/qualification/c6 \
+			./internal/storage/postgres -count=1
+	@scripts/check-v1c-security-boundary.sh
+	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)"
+
+c6-chaos-qualify: ## Exercise deterministic C6 fault, race, reset, reconnect, and recovery scenarios.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/qualification/c6 ./internal/sandbox \
+			./internal/exchanges/sandboxemulator ./internal/exchanges/binance \
+			./internal/exchanges/bybit ./internal/execution \
+			./internal/reconciliation ./internal/bootstrap \
+			./internal/storage/postgres -count=1
+
+c6-soak-smoke: ## Run only the short deterministic C6 smoke runner; never grants formal qualification.
+	@$(GO) test ./cmd/c6-soak ./internal/qualification/c6 \
+		-run '^TestC6' -count=1 -timeout=2m -v
+
+c6-soak: ## MANUAL: run the default-off exact 72-hour observer; requires explicit identity and evidence variables.
+	@test "$(AXIOM_C6_SOAK_ENABLED)" = "1" || { echo "AXIOM_C6_SOAK_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_C6_SOAK_MODE)" = "formal" || { echo "AXIOM_C6_SOAK_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_RUN_ID)" || { echo "AXIOM_C6_RUN_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_COMMIT_SHA)" || { echo "AXIOM_C6_COMMIT_SHA is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_BUILD_HASH)" || { echo "AXIOM_C6_BUILD_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_EXECUTABLE_HASH)" || { echo "AXIOM_C6_EXECUTABLE_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_IMAGE_HASH)" || { echo "AXIOM_C6_IMAGE_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_CONFIGURATION_HASH)" || { echo "AXIOM_C6_CONFIGURATION_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_EVIDENCE_PATH)" || { echo "AXIOM_C6_EVIDENCE_PATH is required" >&2; exit 1; }
+	@$(GO) run ./cmd/c6-soak
+
+v1c-pr3-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke v1c-postgres-qualify ## Pass every V1C non-soak gate; formal C6 soak remains separate and pending.
 	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 

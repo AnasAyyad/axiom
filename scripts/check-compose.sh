@@ -18,7 +18,7 @@ done
 actual="$(docker compose --env-file .env.example --profile '*' config --services | sort)"
 expected="$(printf '%s\n' api backup backtest-worker binance-sandbox-canary binance-sandbox-engine binance-testnet-egress bybit-demo-egress bybit-sandbox-canary bybit-sandbox-engine caddy engine-shadow grafana migrate postgres prometheus recorder restore | sort)"
 if [[ "${actual}" != "${expected}" ]]; then
-  printf 'ERROR [compose] rendered service set differs from the reviewed V1A/V1C PR2 set\n' >&2
+  printf 'ERROR [compose] rendered service set differs from the reviewed V1A/V1C PR3 set\n' >&2
   exit 1
 fi
 

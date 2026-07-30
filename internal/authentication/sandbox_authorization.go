@@ -93,6 +93,12 @@ type ConsumedAuthorization struct {
 	ConsumedAt            time.Time
 }
 
+// AuthorizationBindingHash returns the canonical redacted binding used for
+// high-risk source and reason comparisons. It never exposes the input value.
+func AuthorizationBindingHash(value string) string {
+	return stableHash(strings.TrimSpace(value))
+}
+
 // SandboxAuthorizationStore owns the compare-and-set TOTP counter, one-use
 // grants, session revocation, and append-only audit hash chain.
 type SandboxAuthorizationStore interface {

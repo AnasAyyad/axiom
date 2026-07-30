@@ -10,6 +10,10 @@ const user = {
     "commands.write",
     "incident.raw",
     "audit.raw",
+    "sandbox.read",
+    "sandbox.arm",
+    "sandbox.cancel",
+    "sandbox.admin",
   ],
 };
 function pageEnvelope<T>(items: T[]) {
@@ -322,6 +326,56 @@ test("B8 multi-exchange workflows remain simulation-only and keyboard reachable"
   ).toBe(true);
 });
 
+test("C6 sandbox workflows remain test/demo-only, responsive, and recoverable", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("owner@example.test");
+  await page.getByLabel("Password").fill("qualification-password");
+  await page.getByRole("button", { name: "Enter console" }).click();
+
+  await page.getByRole("link", { name: "Sandbox Operations" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Sandbox Operations" }),
+  ).toBeVisible();
+  const boundary = page.getByRole("region", { name: "Execution boundary" });
+  await expect(boundary.getByText("BINANCE SPOT TESTNET")).toBeVisible();
+  await expect(boundary.getByText("BYBIT DEMO")).toBeVisible();
+  await expect(boundary.getByText("REAL TRADING DISABLED")).toBeVisible();
+  await expect(page.getByText("UNKNOWN", { exact: true })).toBeVisible();
+  await expect(page.getByText("NOT QUALIFIED")).toBeVisible();
+  await expect(
+    page.getByText(/smoke pass is never a 72-hour pass/i),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cancel order-c6" }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Query order-c6" }),
+  ).toBeEnabled();
+
+  const orderButton = page.getByRole("button", {
+    name: "Request capped test order",
+  });
+  await expect(orderButton).toBeDisabled();
+  await orderButton.evaluate((button) => button.removeAttribute("disabled"));
+  await orderButton.click();
+  await expect(
+    page.getByText("active_arm_confirmation_required"),
+  ).toBeVisible();
+  await expect(page.getByText(/production environment/i)).toHaveCount(0);
+
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe(
+    "BODY",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 async function fillRun(page: Page) {
   await page.getByLabel("Configuration ID").fill("configuration-a10");
   await page.getByLabel("Dataset ID").fill("dataset-a11");
@@ -351,6 +405,16 @@ async function routeAPI(route: Route, state: FixtureState) {
       session_revision: "1",
       reauthenticated_at: now,
     };
+  else if (path === "/api/v1/sandbox/overview") body = sandboxOverviewFixture();
+  else if (path === "/api/v1/sandbox/orders")
+    body = pageEnvelope([sandboxOrderFixture()]);
+  else if (path === "/api/v1/sandbox/reconciliations")
+    body = {
+      ...pageEnvelope([sandboxReconciliationFixture()]),
+      reset_incidents: [],
+    };
+  else if (path === "/api/v1/sandbox/qualification")
+    body = sandboxQualificationFixture();
   else if (path === "/api/v1/system/status")
     body = {
       release: "V1A",
@@ -742,6 +806,147 @@ async function routeAPI(route: Route, state: FixtureState) {
     contentType: "application/json",
     body: JSON.stringify(body),
   });
+}
+
+function sandboxAccountFixture() {
+  return {
+    id: "binance-c6",
+    exchange: "binance",
+    environment: "spot_testnet",
+    state: "ARMED",
+    engine_ready: true,
+    account_epoch: 3,
+    credential_generation: 2,
+    revision: "4",
+    session_id: "sandbox-session-c6",
+    session_revision: "5",
+    startup_cycle: 7,
+    private_stream_healthy: true,
+    reconciliation_clean: true,
+    evidence_healthy: true,
+    lease_held: true,
+    observed_at: now,
+    stale: false,
+    active_arm: sandboxArmFixture(),
+    cap_usage: {
+      utc_day: "2026-07-30",
+      per_order_limit: "10",
+      daily_limit: "50",
+      daily_reserved: "5",
+      daily_remaining: "45",
+      account_open: 1,
+      account_open_limit: 1,
+      global_open: 1,
+      global_open_limit: 2,
+    },
+    audit_url: "/api/v1/audit-events?event_type=sandbox_account",
+  };
+}
+
+function sandboxArmFixture() {
+  return {
+    id: "arm-c6",
+    session_id: "sandbox-session-c6",
+    account_ids: ["binance-c6"],
+    state: "active",
+    created_at: now,
+    expires_at: "2099-07-30T12:15:00Z",
+    revision: "1",
+    audit_url: "/api/v1/audit-events?event_type=sandbox_arm",
+  };
+}
+
+function sandboxOrderFixture() {
+  return {
+    id: "order-c6",
+    account_id: "binance-c6",
+    exchange: "binance",
+    environment: "spot_testnet",
+    state: "UNKNOWN",
+    action: "ENTRY",
+    instrument: "BTCUSDT",
+    side: "buy",
+    quantity: "0.0001",
+    limit_price: "50000",
+    notional: "5",
+    style: "LIMIT_GTC",
+    attempt: 1,
+    recovery_status: "required",
+    unknown_since: now,
+    created_at: now,
+    updated_at: now,
+    revision: "6",
+    fills: [],
+    audit_url: "/api/v1/audit-events?event_type=v1c_order",
+  };
+}
+
+function sandboxReconciliationFixture() {
+  return {
+    id: "reconciliation-c6",
+    account_id: "binance-c6",
+    exchange: "binance",
+    account_epoch: 3,
+    state: "clean",
+    reconciled_at: now,
+    differences: [],
+    suspense_count: 0,
+    quarantine_count: 0,
+    audit_url: "/api/v1/audit-events?event_type=reconciliation",
+  };
+}
+
+function sandboxQualificationFixture() {
+  return {
+    state: "SMOKE_PASSED",
+    mode: "smoke",
+    required_duration_seconds: 2,
+    observed_duration_seconds: 2,
+    profitability_evidence: false,
+    qualified: false,
+    failures: [],
+    chaos: {
+      status: "passed",
+      passed: 14,
+      failed: 0,
+      last_observed_at: now,
+    },
+    slo: {
+      samples: 3,
+      critical_alert_latency_ms: 100,
+      recovery_duration_ms: 200,
+      duplicate_creates: 0,
+      lost_fills: 0,
+      double_posted_fills: 0,
+      unknown_orders: 0,
+      reconciliation_mismatches: 0,
+      suspense_items: 0,
+      reconnects: 1,
+      restarts: 0,
+      resident_memory_delta_bytes: 1024,
+      positive_memory_leak_trend: false,
+      passing: true,
+    },
+    formal_soak_pending: true,
+    audit_url: "/api/v1/audit-events?event_type=c6_qualification",
+  };
+}
+
+function sandboxOverviewFixture() {
+  return {
+    environment_label: "BINANCE SPOT TESTNET + BYBIT DEMO / VIRTUAL",
+    real_trading_enabled: false,
+    observed_at: now,
+    stale: false,
+    accounts: [sandboxAccountFixture()],
+    active_arms: [sandboxArmFixture()],
+    orders: [sandboxOrderFixture()],
+    reconciliations: [sandboxReconciliationFixture()],
+    reset_incidents: [],
+    risk_state: "PAUSED",
+    qualification: sandboxQualificationFixture(),
+    audit_url: "/api/v1/audit-events?event_type=c6",
+  };
 }
 
 function job(kind: "backtest" | "replay", state: FixtureState) {

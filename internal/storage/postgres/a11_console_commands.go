@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"axiom/internal/api/console"
@@ -268,6 +269,8 @@ func completeA11Command(ctx context.Context, tx pgx.Tx, id, auditID string, prin
 
 func a11StreamForKind(kind string) string {
 	switch {
+	case strings.HasPrefix(kind, "sandbox."):
+		return "sandbox"
 	case kind == "pause" || kind == "resume":
 		return "risk"
 	case kind == "create_shadow" || kind == "stop_shadow":

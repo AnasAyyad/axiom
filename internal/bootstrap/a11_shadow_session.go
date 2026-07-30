@@ -213,8 +213,11 @@ func (session *a11LiveShadowSession) loadReferenceData(ctx context.Context) erro
 	}
 	sort.Slice(instruments, func(left, right int) bool { return instruments[left].Symbol() < instruments[right].Symbol() })
 	records, err := session.client.Instruments(ctx, instruments)
-	if err != nil || len(records) != len(instruments) {
-		return fmt.Errorf("shadow_metadata_unavailable")
+	if err != nil {
+		return a11ShadowPublicDataError("shadow_metadata_unavailable", err)
+	}
+	if len(records) != len(instruments) {
+		return fmt.Errorf("shadow_metadata_count_invalid")
 	}
 	for _, record := range records {
 		evidence, registerErr := session.store.RegisterMetadata(ctx, record.Metadata)
@@ -230,12 +233,24 @@ func (session *a11LiveShadowSession) loadReferenceData(ctx context.Context) erro
 		candles, candleErr := session.client.Candles(ctx, exchangecontracts.CandleRequest{
 			HistoryRequest: exchangecontracts.HistoryRequest{Instrument: instrument, Start: start, End: end, Limit: 1000},
 			Interval:       "4h"})
-		if candleErr != nil || len(candles) < session.trendConfig.EMARegime {
-			return fmt.Errorf("shadow_candle_history_unavailable")
+		if candleErr != nil {
+			return a11ShadowPublicDataError("shadow_candle_history_unavailable", candleErr)
+		}
+		if len(candles) < session.trendConfig.EMARegime {
+			return fmt.Errorf("shadow_candle_history_insufficient")
 		}
 		session.history[instrument] = candles
 	}
 	return nil
+}
+
+func a11ShadowPublicDataError(code string, err error) error {
+	cause, status, _, metadata := exchangecontracts.DiagnosticOf(err)
+	if cause == "" {
+		cause = "unspecified"
+	}
+	return fmt.Errorf("%s kind=%s cause=%s status=%d stage=%s",
+		code, exchangecontracts.KindOf(err), cause, status, metadata.SetupStage)
 }
 
 // SetEntriesEnabled changes only the local fail-closed gate after durable control.

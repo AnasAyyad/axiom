@@ -280,8 +280,14 @@ func metricCatalog(product config.Configuration) observability.MetricCatalog {
 		instruments = append(instruments, instrument.Base+instrument.Quote)
 	}
 	return observability.MetricCatalog{
-		Exchanges: []string{"binance"}, Instruments: instruments,
-		Strategies: []string{"trend"}, Modes: []string{string(product.Mode)},
+		Exchanges: []string{"binance", "bybit"}, Instruments: instruments,
+		Strategies: []string{
+			"trend", "mean-reversion", "triangular",
+			"cross-exchange-arbitrage", "sandbox-canary",
+		},
+		Modes: []string{
+			"backtest", "replay", "paper", "shadow", "testnet", "demo",
+		},
 	}
 }
 

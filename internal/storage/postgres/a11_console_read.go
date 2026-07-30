@@ -20,6 +20,7 @@ type A11ConsoleStore struct {
 	pool   *pgxpool.Pool
 	cursor console.CursorCodec
 	clock  domain.Clock
+	v1c    *V1CDispatcherStore
 }
 
 // NewA11ConsoleStore constructs the PostgreSQL-backed A11 service boundary.
@@ -31,7 +32,13 @@ func NewA11ConsoleStore(pool *pgxpool.Pool, cursorKey []byte, clock domain.Clock
 	if err != nil {
 		return nil, err
 	}
-	return &A11ConsoleStore{pool: pool, cursor: codec, clock: clock}, nil
+	v1c, err := NewV1CDispatcherStore(pool)
+	if err != nil {
+		return nil, err
+	}
+	return &A11ConsoleStore{
+		pool: pool, cursor: codec, clock: clock, v1c: v1c,
+	}, nil
 }
 
 // SystemStatus returns current durable risk, shadow, and incident state.

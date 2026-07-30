@@ -24,12 +24,15 @@ const (
 
 // Options are immutable A11 HTTP dependencies.
 type Options struct {
-	Authentication *authentication.Service
-	AllowedOrigins []string
-	SecureCookies  bool
-	Read           ReadService
-	Commands       CommandService
-	Streams        StreamService
+	Authentication        *authentication.Service
+	SandboxAuthorizations *authentication.SandboxAuthorizationService
+	AllowedOrigins        []string
+	SecureCookies         bool
+	Read                  ReadService
+	Commands              CommandService
+	Streams               StreamService
+	SandboxRead           SandboxReadService
+	SandboxCommands       SandboxCommandService
 }
 
 // Register installs all authenticated A11 routes on one mux.
@@ -43,6 +46,7 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("GET /api/v1/session/me", handler.authorized(handler.me, ""))
 	handler.registerReads(mux)
 	handler.registerCommands(mux)
+	handler.registerSandbox(mux)
 	mux.HandleFunc("GET /api/v1/stream", handler.authorized(handler.stream, "operations.read"))
 }
 

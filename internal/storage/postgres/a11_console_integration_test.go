@@ -31,7 +31,9 @@ func TestA11PostgresAuthenticationCommandsAndConsoleQualification(t *testing.T) 
 	defer pool.Close()
 	clock, _ := domain.NewReplayClock(now)
 	authService, password, login := a11QualificationAuthentication(t, ctx, pool, clock)
-	seedA10References(t, ctx, pool)
+	seedA10ReferenceRows(t, ctx, pool, "decision_inputs")
+	seedA11DatasetEvidence(t, ctx, pool, now)
+	qualifyA10Dataset(t, ctx, pool)
 	repository, _ := NewA10Repository(pool)
 	if err := repository.Register(ctx, a10RegistrationFixture()); err != nil {
 		t.Fatal(err)
@@ -465,7 +467,6 @@ func seedA11RuntimeEvidence(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 		sql  string
 		args []any
 	}{
-		{`UPDATE dataset_manifests SET dataset_kind='decision_inputs' WHERE id='dataset-a7-formal-pending'`, nil},
 		{`INSERT INTO runs(id,mode,configuration_id,strategy_version_id,dataset_id,root_seed_hash,reproducibility_hash,state,created_at)
           VALUES('run-a11-shadow','shadow','configuration-a10','trend-v1a-1','dataset-a7-formal-pending',$1,$1,'created',$2)`, []any{hash, now}},
 		{`INSERT INTO portfolios(id,name,reporting_asset,created_at) VALUES('portfolio-a11','A11 virtual portfolio','USDT',$1)`, []any{now}},
@@ -479,11 +480,6 @@ func seedA11RuntimeEvidence(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 		  minimum_quantity,minimum_notional,effective_at,recorded_at)
 		  VALUES('metadata-a11-binance','binance','instrument-a10',1,0.01,0.00001,0.00001,10,$1,$1),
 		        ('metadata-a11-binance-eth','binance','instrument-eth-a10',1,0.01,0.00001,0.00001,10,$1,$1)`, []any{now}},
-		{`INSERT INTO market_data_segments(id,recorder_session,exchange_id,instrument_id,event_type,schema_version,parser_version,normalization_version,compression,path,checksum,ordered_content_hash,record_count,first_ordinal,last_ordinal,started_at,ended_at,state,finalized_at)
-		  VALUES('segment-a11','recorder-a11','binance','instrument-a10','book','market-wire.v1','parser-a11','normalizer-a11','zstd','a11/segment.zst',$1,$1,1,1,1,$2,$2,'ready',$2)`, []any{hash, now}},
-		{`INSERT INTO market_data_segments(id,recorder_session,exchange_id,instrument_id,event_type,schema_version,parser_version,normalization_version,compression,path,checksum,ordered_content_hash,record_count,first_ordinal,last_ordinal,started_at,ended_at,state,finalized_at)
-		  VALUES('segment-a11-candle','recorder-a11','binance','instrument-a10','candle','market-wire.v1','parser-a11','normalizer-a11','zstd','a11/candle.zst',$1,$1,1,2,2,$2,$2,'ready',$2)`, []any{hash, now}},
-		{`INSERT INTO dataset_segments(dataset_id,segment_id,ordinal) VALUES('dataset-a7-formal-pending','segment-a11',0)`, nil},
 		{`INSERT INTO startup_recovery_attempts(id,run_id,state,build_hash,configuration_hash,started_at,completed_at)
           VALUES('recovery-a11','run-a11-shadow','ready_paused',$1,$1,$2,$2)`, []any{hash, now}},
 	}
@@ -500,6 +496,62 @@ func seedA11RuntimeEvidence(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 		if _, err := pool.Exec(ctx, `INSERT INTO startup_recovery_evidence(attempt_id,ordinal,stage,evidence_hash,recorded_at) VALUES('recovery-a11',$1,$2,$3,$4)`, ordinal, stage, hash, now); err != nil {
 			t.Fatalf("recovery evidence %d failed: %v", ordinal, err)
 		}
+	}
+}
+
+func seedA11DatasetEvidence(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	now time.Time,
+) {
+	t.Helper()
+	hash := strings.Repeat("7", 64)
+	statements := []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO market_data_segments(id,recorder_session,exchange_id,instrument_id,event_type,schema_version,parser_version,normalization_version,compression,path,checksum,ordered_content_hash,record_count,first_ordinal,last_ordinal,started_at,ended_at,state,finalized_at)
+		  VALUES('segment-a11','recorder-a11','binance','instrument-a10','book','market-wire.v1','parser-a11','normalizer-a11','zstd','a11/segment.zst',$1,$1,1,1,1,$2,$2,'ready',$2)`, []any{hash, now}},
+		{`INSERT INTO market_data_segments(id,recorder_session,exchange_id,instrument_id,event_type,schema_version,parser_version,normalization_version,compression,path,checksum,ordered_content_hash,record_count,first_ordinal,last_ordinal,started_at,ended_at,state,finalized_at)
+		  VALUES('segment-a11-candle','recorder-a11','binance','instrument-a10','candle','market-wire.v1','parser-a11','normalizer-a11','zstd','a11/candle.zst',$1,$1,1,2,2,$2,$2,'ready',$2)`, []any{hash, now}},
+		{`INSERT INTO dataset_segments(dataset_id,segment_id,ordinal)
+		  VALUES('dataset-a7-formal-pending','segment-a11',0)`, nil},
+	}
+	if os.Getenv("AXIOM_A11_E2E_DATASET_MANIFEST") != "" {
+		seedA11E2EDatasetWindow(t, ctx, pool)
+	}
+	for index, statement := range statements {
+		if _, err := pool.Exec(ctx, statement.sql, statement.args...); err != nil {
+			t.Fatalf("A11 dataset evidence %d failed: %v", index+1, err)
+		}
+	}
+}
+
+func seedA11E2EDatasetWindow(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	now := time.Now().UTC()
+	_, err := pool.Exec(ctx, `INSERT INTO market_data_segments(
+ id,recorder_session,exchange_id,instrument_id,event_type,schema_version,
+ parser_version,normalization_version,compression,path,checksum,
+ ordered_content_hash,record_count,first_ordinal,last_ordinal,started_at,
+ ended_at,state,finalized_at
+) VALUES(
+ 'segment-a11-e2e-window','a11-e2e-window','binance','instrument-a10',
+ 'candle','market-wire.v1','decision-input-v1','decision-input-v1','zstd',
+ 'a11/e2e-window.zst',$1,$1,1,1,1,$2,$3,'ready',$3
+)`, strings.Repeat("9", 64), now.Add(-time.Second), now.Add(time.Second))
+	if err != nil {
+		t.Fatalf("A11 E2E window segment failed: %v", err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO dataset_segments(
+ dataset_id,segment_id,ordinal
+) VALUES('dataset-a7-formal-pending','segment-a11-e2e-window',1)`); err != nil {
+		t.Fatalf("A11 E2E window membership failed: %v", err)
 	}
 }
 
