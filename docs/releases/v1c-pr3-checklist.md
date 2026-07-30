@@ -43,10 +43,10 @@
 - [x] Pass PostgreSQL 18.4 clean install and exact B8 upgrade.
 - [x] Pass all 1,024 Compose profile renders and the closed security boundary.
 - [x] Pass complete `make verify` and `make v1c-pr3-local-qualify`.
-- [ ] Freeze a clean implementation commit and pass image reproducibility,
+- [x] Freeze a clean implementation commit and pass image reproducibility,
   non-root/read-only inspection, compiled-absence scan, image-backed Compose
   smoke, SPDX SBOM, and current Trivy vulnerability/secret/configuration scans.
-- [ ] Commit evidence documentation and push `v1c-c6-console-soak`.
+- [x] Commit evidence documentation and push `v1c-c6-console-soak`.
 
 ## Deferred formal decision
 

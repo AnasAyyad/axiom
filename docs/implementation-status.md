@@ -14,10 +14,14 @@ Focused API, authentication, storage, React/axe, desktop/mobile C6 Playwright,
 and the complete unmocked A11 browser workflow pass. The cumulative C1-C6
 non-soak aggregate, PostgreSQL 18.4 clean-install and exact B8-upgrade gates,
 all 1,024 Compose renders, security boundaries, and complete `make verify`
-pass. The exact-source clean artifact record is in progress. The formal
-72-hour C6 soak is explicitly pending and is not run as part of PR3
-implementation qualification. No additional authenticated exchange order is
-required or authorized for this branch.
+pass. The exact-source reproducible image, non-root/read-only and compiled
+absence checks, image-backed Compose smoke, SPDX SBOM, and current Trivy gates
+also pass for implementation commit
+`b5ac868ec38d9204afc6f9fd4db6673aee10e852`. Implementation and non-soak
+qualification are complete. The formal 72-hour C6 soak and owner/security
+acceptance are explicitly pending and are not run as part of PR3
+implementation qualification. No additional authenticated exchange order was
+placed or required for this branch.
 
 ## V1C PR2 C4-C5 adapters and engines
 
@@ -106,6 +110,11 @@ product or fund-management capability remain rejected.
   merged into `main`; formal owner/security acceptance remains open. PR3 C6
   implementation is tracked above, while its 72-hour qualification remains
   pending.
+- V1C PR3 C6 implementation and non-soak qualification pass on exact
+  implementation commit
+  `b5ac868ec38d9204afc6f9fd4db6673aee10e852`, including the clean artifact
+  record. The formal 72-hour soak, sealed evidence review, and owner/security
+  acceptance remain open.
 
 V1B planning and implementation status is tracked separately in
 [V1B implementation status](releases/v1b-implementation-status.md). V1B work

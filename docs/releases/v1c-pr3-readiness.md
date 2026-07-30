@@ -2,7 +2,8 @@
 
 ## Current decision
 
-**C6 implementation is complete and non-soak qualification is in progress.**
+**Implementation and non-soak qualification are complete; the formal C6 soak
+and acceptance are pending.**
 
 The branch adds the redacted sandbox operations API and React console,
 purpose-bound controls, migration `000024`, bounded observability,
@@ -10,10 +11,16 @@ deterministic chaos/smoke infrastructure, and the default-off exact 72-hour
 observer. It extends the merged C1-C5 state and does not add a parallel order,
 risk, reconciliation, authorization, or incident state machine.
 
+The cumulative C1-C6 aggregate, PostgreSQL 18.4 clean and exact B8-upgrade
+paths, full repository verification, exact-source reproducible image,
+non-root/read-only and compiled-absence checks, image-backed Compose smoke,
+SPDX SBOM, and current Trivy gates pass for implementation commit
+`b5ac868ec38d9204afc6f9fd4db6673aee10e852`.
+
 The formal C6 run has not started. Therefore V1C is not formally qualified or
-accepted. The later decision requires an exact-source 72-hour run, sealed
-terminal evidence review, and explicit owner/security acceptance. Sandbox
-results are never profitability evidence.
+accepted. The later decision requires a 72-hour run from one exact source and
+artifact identity, sealed terminal evidence review, and explicit
+owner/security acceptance. Sandbox results are never profitability evidence.
 
 ## Safety decision
 
