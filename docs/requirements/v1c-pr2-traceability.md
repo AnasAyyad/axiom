@@ -1,8 +1,9 @@
 # V1C PR2 C4-C5 traceability
 
-Status here distinguishes deterministic implementation/local qualification from
-the two required operator-armed exchange canaries. No C4/C5 row is formally
-accepted until its independent canary evidence is sealed.
+Status here distinguishes deterministic implementation/local qualification,
+the two required operator-armed exchange canaries, and formal owner/security
+acceptance. Both independent canary evidence files are sealed; this table does
+not itself record formal acceptance.
 
 | ID | Requirement | Implementation | Verification |
 |---|---|---|---|
@@ -21,8 +22,8 @@ accepted until its independent canary evidence is sealed.
 | AX-V1C-PR2-002 | Each engine starts `LOCKED`, verifies identity/epoch/integrity, replays inbox, reconciles, proves public/private health, and reaches `READY_PAUSED` under a fencing lease | sandbox engine role, attestation, boundary, loop, and runtime stores | ordered startup, crash recovery, lease overlap, fencing, restart, and PostgreSQL tests |
 | AX-V1C-PR2-003 | New entry retains all four enablement gates and current entry-safety checks; cancellation, query, reconciliation, recovery, and private events remain available while entry is blocked | engine dispatcher/command loop and V1C command/observation stores | arm-expiry, disabled-entry, stale-observation, cancellation, and recovery tests |
 | AX-V1C-PR2-004 | A manually armed canary is buy-only, at most 10 USDT, and uses intent → allocator → central risk → planner → durable dispatcher | `internal/sandbox/canary.go` and sandbox canary bootstrap files | builder, protected-input, cap/style, authorization, and durable-path tests |
-| AX-V1C-PR2-005 | Each exchange canary queries, cancels or observes fill, reconciles, survives a controlled engine restart, and proves exactly one create attempt | V1C engine command, canary read/store/evidence, and one-shot coordinator services | deterministic/emulator tests complete; independent real Binance and Bybit canaries pending |
-| AX-V1C-PR2-006 | Canary evidence is immutable, excludes secrets/private values, states that profitability is false, and identifies the exact configuration, build, and running executable | `internal/bootstrap/sandbox_canary_verify.go`, `internal/sandbox/canary_evidence.go`, and migration `000023` | atomic no-overwrite/file-mode tests and evidence completeness checks; real evidence pending |
+| AX-V1C-PR2-005 | Each exchange canary queries, cancels or observes fill, reconciles, survives a controlled engine restart, and proves exactly one create attempt | V1C engine command, canary read/store/evidence, and one-shot coordinator services | deterministic/emulator tests and both independent real canaries passed; each sealed record proves one authenticated create and one outbox attempt |
+| AX-V1C-PR2-006 | Canary evidence is immutable, excludes secrets/private values, states that profitability is false, and identifies the exact configuration, build, and running executable | `internal/bootstrap/sandbox_canary_verify.go`, `internal/sandbox/canary_evidence.go`, and migration `000023` | atomic no-overwrite/file-mode tests and evidence completeness checks passed; Binance evidence `22072e94ccd24ee10094068ca74720479ba2362b374efac961751f23f4fc3473` and Bybit evidence `e39883d4f5e0650b3861b2c3cd753ba1fc832f0536902c9bcbf357568dfa765b` are sealed |
 | AX-V1C-PR2-007 | Clean PostgreSQL 18 installation and exact B8 upgrade preserve role, fencing, command, observation, and immutable evidence constraints | migration `000023` and V1C PostgreSQL stores | dedicated clean-install and exact-upgrade qualification |
 
 C6 API/console work and the concurrent 72-hour V1C qualification remain
