@@ -17,6 +17,9 @@ var runtimeReadInsertTables = []string{
 	"api_entity_revisions", "authentication_failures", "authorization_permissions",
 	"v1c_high_risk_audit_events", "v1c_sandbox_authorizations", "v1c_session_control_events",
 	"v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
+	"v1c_submission_plans", "v1c_plan_eligibility", "v1c_plan_entry_safety",
+	"v1c_sandbox_reservations", "v1c_submission_outbox",
+	"v1c_daily_cap_counters", "v1c_engine_commands", "v1c_canary_evidence",
 	"allocation_candidates", "allocation_reservations", "allocation_score_components",
 	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
@@ -48,6 +51,7 @@ var runtimeUpdateTables = []string{
 	"api_entity_revisions", "shadow_sessions", "stream_connections", "users", "virtual_balances",
 	"b8_replay_fault_schedule_states",
 	"v1c_sandbox_authorizations", "v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_arms",
+	"v1c_exchange_accounts", "v1c_daily_cap_counters", "v1c_engine_commands",
 }
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
@@ -56,6 +60,13 @@ var runtimeReadTables = []string{
 	"schema_migrations", "b4_claim_resources", "b4_claim_groups", "b4_claim_items",
 	"b5_claim_resources", "b5_claim_groups", "b5_claim_items",
 	"strategy_maturity_states", "strategy_maturity_commands", "strategy_maturity_events",
+	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
+	"v1c_authenticated_request_evidence",
+	"v1c_account_snapshots", "v1c_private_inbox", "v1c_exchange_fills",
+	"v1c_exchange_metadata", "v1c_reconciliation_differences",
+	"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
+	"v1c_risk_unlocks", "v1c_account_leases", "v1c_engine_startup_evidence",
+	"v1c_engine_observations",
 }
 
 var recorderReadTables = []string{
@@ -79,6 +90,20 @@ var v1cEngineReadWriteTables = []string{
 	"v1c_exchange_fills", "v1c_exchange_metadata", "v1c_reconciliation_differences",
 	"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
 	"v1c_risk_unlocks", "v1c_account_leases",
+	"v1c_engine_startup_evidence",
+	"v1c_engine_commands", "v1c_engine_observations",
+}
+
+var v1cEngineReadOnlyTables = []string{
+	"sessions", "users",
+}
+
+var v1cEngineAlertReadWriteTables = []string{
+	"alert_deliveries", "alerts",
+}
+
+var v1cEngineAlertAppendTables = []string{
+	"audit_events",
 }
 
 var readOnlyTables = []string{
@@ -109,7 +134,8 @@ var readOnlyTables = []string{
 }
 
 // ApplyV1CEngineRoleGrants keeps authenticated engines on distinct database
-// principals and restricts both to the V1C execution schema.
+// principals and restricts both to V1C execution plus the bounded operational
+// alert records emitted by every process role.
 func ApplyV1CEngineRoleGrants(
 	ctx context.Context,
 	pool *pgxpool.Pool,
@@ -127,9 +153,23 @@ func ApplyV1CEngineRoleGrants(
 	if err != nil {
 		return err
 	}
-	tables := filterTableGrants([]tableGrant{{
-		privileges: "SELECT, INSERT, UPDATE", tables: v1cEngineReadWriteTables,
-	}}, available)
+	tables := filterTableGrants([]tableGrant{
+		{
+			privileges: "SELECT, INSERT, UPDATE",
+			tables: append(
+				append([]string(nil), v1cEngineReadWriteTables...),
+				v1cEngineAlertReadWriteTables...,
+			),
+		},
+		{
+			privileges: "SELECT, INSERT",
+			tables:     v1cEngineAlertAppendTables,
+		},
+		{
+			privileges: "SELECT",
+			tables:     v1cEngineReadOnlyTables,
+		},
+	}, available)
 	for _, role := range []string{binanceRole, bybitRole} {
 		if err = applyTableGrants(ctx, tx, role, tables); err != nil {
 			return err

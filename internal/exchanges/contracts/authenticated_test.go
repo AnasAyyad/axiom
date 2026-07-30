@@ -78,3 +78,59 @@ func TestAuthenticatedEvidenceRejectsDestinationRouteFieldAndEnumerationDrift(t 
 		}
 	}
 }
+
+func TestAuthenticatedEvidenceBindsBinancePrivateStreamToTestnetHost(t *testing.T) {
+	record := AuthenticatedRequestEvidence{
+		Exchange:        "binance",
+		Host:            "ws-api.testnet.binance.vision",
+		Method:          "WS",
+		Path:            "/ws-api/v3/userDataStream.subscribe.signature",
+		FieldNames:      []string{"recvWindow", "timestamp"},
+		Enumerated:      map[string]string{},
+		RequestHash:     sha256.Sum256([]byte("stream subscription shape")),
+		ConfigurationID: "cfg",
+		RecordedAt:      time.Unix(1, 0).UTC(),
+	}
+	if err := ValidateAuthenticatedRequestEvidence(record); err != nil {
+		t.Fatalf("valid stream evidence rejected: %v", err)
+	}
+	for _, host := range []string{
+		"stream.binance.com",
+		"ws-api.binance.com",
+		"testnet.binance.vision",
+	} {
+		candidate := record
+		candidate.Host = host
+		if err := ValidateAuthenticatedRequestEvidence(candidate); err == nil {
+			t.Fatalf("unsafe stream host accepted: %s", host)
+		}
+	}
+}
+
+func TestAuthenticatedEvidenceBindsBybitPrivateStreamToDemoHost(t *testing.T) {
+	record := AuthenticatedRequestEvidence{
+		Exchange:        "bybit",
+		Host:            "stream-demo.bybit.com",
+		Method:          "WS",
+		Path:            "/v5/private/auth",
+		FieldNames:      []string{"timestamp"},
+		Enumerated:      map[string]string{},
+		RequestHash:     sha256.Sum256([]byte("demo private auth shape")),
+		ConfigurationID: "cfg",
+		RecordedAt:      time.Unix(1, 0).UTC(),
+	}
+	if err := ValidateAuthenticatedRequestEvidence(record); err != nil {
+		t.Fatalf("valid demo stream evidence rejected: %v", err)
+	}
+	for _, host := range []string{
+		"stream.bybit.com",
+		"stream-testnet.bybit.com",
+		"api-demo.bybit.com",
+	} {
+		candidate := record
+		candidate.Host = host
+		if err := ValidateAuthenticatedRequestEvidence(candidate); err == nil {
+			t.Fatalf("unsafe stream host accepted: %s", host)
+		}
+	}
+}

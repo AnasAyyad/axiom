@@ -221,15 +221,70 @@ type OrderBroker interface {
 	Query(context.Context, AccountID, uint64, string) ([]PrivateEvent, error)
 }
 
+// SubmissionLookup resolves the immutable durable request behind a
+// deterministic client order ID. Authenticated adapters use it for query,
+// cancel, stream normalization, and restart recovery without keeping a
+// process-local order registry.
+type SubmissionLookup interface {
+	SubmissionByClientOrderID(
+		context.Context,
+		AccountID,
+		uint64,
+		string,
+	) (Submission, bool, error)
+}
+
+// SubmissionRecoveryReader adds the bounded nonterminal set needed to
+// deterministically backfill after a private-stream reconnect.
+type SubmissionRecoveryReader interface {
+	SubmissionLookup
+	ActiveSubmissions(
+		context.Context,
+		AccountID,
+		uint64,
+	) ([]Submission, error)
+}
+
 // PrivateEventSource receives normalized account facts without exposing DTOs.
 type PrivateEventSource interface {
 	Receive(context.Context) (PrivateEvent, error)
+	Reconnect(context.Context) error
 	Close() error
 }
 
 // Reconciler loads authoritative account facts after uncertainty or restart.
 type Reconciler interface {
 	Reconcile(context.Context, AccountID, uint64) (ReconciliationResult, error)
+}
+
+// SnapshotReconciler compares one already loaded authoritative snapshot with
+// durable local state. Runtime recovery uses it to avoid fetching the same
+// high-weight account history twice in one reconciliation cycle.
+type SnapshotReconciler interface {
+	ReconcileSnapshot(
+		context.Context,
+		AccountID,
+		uint64,
+		AccountSnapshot,
+	) (ReconciliationResult, error)
+}
+
+// SnapshotExpectation is the durable local view against which one
+// exchange-authoritative account snapshot is reconciled.
+type SnapshotExpectation struct {
+	SnapshotHash string `json:"snapshot_hash"`
+	OrdersHash   string `json:"orders_hash"`
+	FillsHash    string `json:"fills_hash"`
+}
+
+// SnapshotExpectationReader loads the last durable local account expectation
+// for one fenced account epoch.
+type SnapshotExpectationReader interface {
+	SnapshotExpectation(
+		context.Context,
+		AccountID,
+		uint64,
+	) (SnapshotExpectation, bool, error)
 }
 
 // EligibilitySnapshot is the single public book-and-clock admission boundary.

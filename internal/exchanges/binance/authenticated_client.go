@@ -6,13 +6,13 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	exchangecontracts "axiom/internal/exchanges/contracts"
@@ -23,6 +23,11 @@ import (
 var (
 	ErrSandboxStartupIdentity = errors.New("binance_testnet_identity_rejected")
 	ErrSandboxRequest         = errors.New("binance_testnet_request_failed")
+	ErrSandboxAmbiguous       = errors.New("binance_testnet_request_ambiguous")
+	ErrSandboxRejected        = errors.New("binance_testnet_request_rejected")
+	ErrSandboxTimestamp       = errors.New("binance_testnet_timestamp_rejected")
+	ErrSandboxRateLimited     = errors.New("binance_testnet_rate_limited")
+	ErrSandboxOrderNotFound   = errors.New("binance_testnet_order_not_found")
 )
 
 const authenticatedResponseLimit = 1 << 20
@@ -34,12 +39,17 @@ type sandboxDoer interface {
 // SandboxClient is an authenticated Binance Spot Testnet client with no
 // configurable host, method, path, header, or generic request entrypoint.
 type SandboxClient struct {
-	doer            sandboxDoer
-	apiKey          string
-	apiSecret       string
-	evidence        exchangecontracts.AuthenticatedEvidenceSink
-	configurationID string
-	now             func() time.Time
+	doer             sandboxDoer
+	apiKey           string
+	apiSecret        string
+	evidence         exchangecontracts.AuthenticatedEvidenceSink
+	configurationID  string
+	now              func() time.Time
+	clock            *TimeSynchronizer
+	clockMutex       sync.Mutex
+	clockValidated   bool
+	rateMutex        sync.Mutex
+	rateBlockedUntil time.Time
 }
 
 // BinanceTestnetAttestation is supplied by the owner before a key is enabled.
@@ -80,7 +90,18 @@ func NewSandboxClient(
 			return errors.New("redirect_rejected")
 		},
 	}
-	return newSandboxClientForTest(client, credentials, evidence, configurationID, time.Now)
+	result, err := newSandboxClientForTest(
+		client,
+		credentials,
+		evidence,
+		configurationID,
+		time.Now,
+	)
+	if err != nil {
+		return nil, err
+	}
+	result.clockValidated = false
+	return result, nil
 }
 
 func newSandboxClientForTest(
@@ -94,9 +115,18 @@ func newSandboxClientForTest(
 		credentials.APIKey == "" || credentials.APISecret == "" {
 		return nil, ErrSandboxRequest
 	}
+	clock, err := NewTimeSynchronizer(250 * time.Millisecond)
+	if err != nil {
+		return nil, ErrSandboxRequest
+	}
+	current := now().UTC()
+	if err = clock.Observe(current, current, current, 0, 0); err != nil {
+		return nil, ErrSandboxRequest
+	}
 	return &SandboxClient{
 		doer: doer, apiKey: credentials.APIKey, apiSecret: credentials.APISecret,
 		evidence: evidence, configurationID: configurationID, now: now,
+		clock: clock, clockValidated: true,
 	}, nil
 }
 
@@ -114,14 +144,9 @@ func (client *SandboxClient) ValidateStartup(
 	if err != nil {
 		return sandbox.AccountIdentity{}, err
 	}
-	var response struct {
-		CanTrade    bool        `json:"canTrade"`
-		AccountType string      `json:"accountType"`
-		Permissions []string    `json:"permissions"`
-		UID         json.Number `json:"uid"`
-	}
-	if err := json.Unmarshal(body, &response); err != nil || !response.CanTrade ||
-		response.AccountType != "SPOT" || !containsExact(response.Permissions, "SPOT") ||
+	var response sandboxAccountPayload
+	if err := strictDecode(body, &response); err != nil || !response.CanTrade ||
+		response.AccountType != "SPOT" || !containsOnlyExact(response.Permissions, "SPOT") ||
 		response.UID.String() == "" || !attestation.TestnetOnly {
 		return sandbox.AccountIdentity{}, ErrSandboxStartupIdentity
 	}
@@ -157,11 +182,10 @@ func (client *SandboxClient) buildSignedRequest(
 		return signedRequest{}, err
 	}
 	canonical := fields.Encode()
-	mac := hmac.New(sha256.New, []byte(client.apiSecret))
-	if _, err := mac.Write([]byte(canonical)); err != nil {
+	signature, err := hmacSHA256Hex(client.apiSecret, canonical)
+	if err != nil {
 		return signedRequest{}, ErrSandboxRequest
 	}
-	signature := hex.EncodeToString(mac.Sum(nil))
 	requestHash := sha256.Sum256([]byte(policy.method + "\n" + policy.path + "\n" + canonical))
 	enumerated := make(map[string]string)
 	for name := range policy.enumerations {
@@ -181,10 +205,49 @@ func (client *SandboxClient) execute(
 	route authenticatedRoute,
 	fields url.Values,
 ) ([]byte, error) {
+	body, err := client.executeOnce(ctx, route, fields)
+	if !errors.Is(err, ErrSandboxTimestamp) || routeCanChangeOrder(route) {
+		return body, err
+	}
+	client.invalidateClock()
+	return client.executeOnce(ctx, route, fields)
+}
+
+func (client *SandboxClient) executeOnce(
+	ctx context.Context,
+	route authenticatedRoute,
+	fields url.Values,
+) ([]byte, error) {
+	if err := client.allowSandboxRequest(); err != nil {
+		return nil, fmt.Errorf("%w: request_gate", err)
+	}
+	if err := client.ensureClock(ctx); err != nil {
+		return nil, fmt.Errorf("%w: clock_sync", err)
+	}
+	client.addRequestTime(fields)
 	signed, err := client.buildSignedRequest(route, fields)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: request_policy", err)
 	}
+	request, err := client.newSandboxHTTPRequest(ctx, signed)
+	if err != nil {
+		return nil, fmt.Errorf("%w: request_evidence", err)
+	}
+	body, err := client.performSandboxHTTPRequest(request, route)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"%w: route_%s",
+			err,
+			authenticatedRouteName(route),
+		)
+	}
+	return body, nil
+}
+
+func (client *SandboxClient) newSandboxHTTPRequest(
+	ctx context.Context,
+	signed signedRequest,
+) (*http.Request, error) {
 	evidence := exchangecontracts.AuthenticatedRequestEvidence{
 		Exchange: "binance", Host: sandboxRESTHost, Method: signed.method, Path: signed.path,
 		FieldNames: signed.fields, Enumerated: signed.enums, RequestHash: signed.hash,
@@ -203,19 +266,69 @@ func (client *SandboxClient) execute(
 		return nil, ErrSandboxRequest
 	}
 	request.Header.Set("X-MBX-APIKEY", client.apiKey)
+	return request, nil
+}
+
+func (client *SandboxClient) performSandboxHTTPRequest(
+	request *http.Request,
+	route authenticatedRoute,
+) ([]byte, error) {
 	response, err := client.doer.Do(request)
 	if err != nil {
+		if routeCanChangeOrder(route) {
+			return nil, ErrSandboxAmbiguous
+		}
 		return nil, ErrSandboxRequest
 	}
 	defer response.Body.Close()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return nil, ErrSandboxRequest
-	}
+	client.observeSandboxRateLimit(response)
 	body, err := io.ReadAll(io.LimitReader(response.Body, authenticatedResponseLimit+1))
 	if err != nil || len(body) > authenticatedResponseLimit {
+		if routeCanChangeOrder(route) {
+			return nil, ErrSandboxAmbiguous
+		}
 		return nil, ErrSandboxRequest
 	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return nil, classifySandboxResponse(route, response.StatusCode, body)
+	}
 	return body, nil
+}
+
+func (client *SandboxClient) allowSandboxRequest() error {
+	now := client.now().UTC()
+	client.rateMutex.Lock()
+	defer client.rateMutex.Unlock()
+	if !client.rateBlockedUntil.IsZero() && now.Before(client.rateBlockedUntil) {
+		return ErrSandboxRateLimited
+	}
+	if !client.rateBlockedUntil.IsZero() {
+		client.rateBlockedUntil = time.Time{}
+	}
+	return nil
+}
+
+func (client *SandboxClient) observeSandboxRateLimit(response *http.Response) {
+	if response == nil ||
+		(response.StatusCode != http.StatusTooManyRequests &&
+			response.StatusCode != http.StatusTeapot) {
+		return
+	}
+	wait := 72 * time.Hour
+	if seconds, err := strconv.ParseUint(response.Header.Get("Retry-After"), 10, 32); err == nil &&
+		seconds > 0 {
+		wait = time.Duration(seconds) * time.Second
+	}
+	blockedUntil := client.now().UTC().Add(wait)
+	client.rateMutex.Lock()
+	if blockedUntil.After(client.rateBlockedUntil) {
+		client.rateBlockedUntil = blockedUntil
+	}
+	client.rateMutex.Unlock()
+}
+
+func routeCanChangeOrder(route authenticatedRoute) bool {
+	return route == authenticatedCreate || route == authenticatedCancel
 }
 
 func containsExact(values []string, wanted string) bool {
@@ -227,6 +340,10 @@ func containsExact(values []string, wanted string) bool {
 	return false
 }
 
+func containsOnlyExact(values []string, wanted string) bool {
+	return len(values) == 1 && values[0] == wanted
+}
+
 func hashString(value string) string {
 	hash := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(hash[:])
@@ -235,4 +352,12 @@ func hashString(value string) string {
 func fingerprintString(value string) string {
 	hash := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(hash[:16])
+}
+
+func hmacSHA256Hex(secret, payload string) (string, error) {
+	mac := hmac.New(sha256.New, []byte(secret))
+	if _, err := mac.Write([]byte(payload)); err != nil {
+		return "", ErrSandboxRequest
+	}
+	return hex.EncodeToString(mac.Sum(nil)), nil
 }

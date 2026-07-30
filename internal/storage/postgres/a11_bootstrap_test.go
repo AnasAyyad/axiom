@@ -15,17 +15,23 @@ func TestEnsureA11AssetScreeningIsRestartIdempotentAndFailClosed(t *testing.T) {
 	tests := []struct {
 		name      string
 		row       pgx.Row
+		configID  string
 		wantExec  int
 		wantError string
 	}{
-		{name: "first bootstrap inserts", row: a11BootstrapRow{err: pgx.ErrNoRows}, wantExec: 1},
-		{name: "restart reuses exact immutable row", row: a11BootstrapRow{exact: true}},
-		{name: "restart rejects conflicting immutable row", row: a11BootstrapRow{exact: false}, wantError: "a11_reference_bootstrap_conflict"},
+		{name: "first bootstrap inserts", row: a11BootstrapRow{err: pgx.ErrNoRows},
+			configID: "configuration-v1a", wantExec: 1},
+		{name: "restart reuses exact immutable row", row: a11BootstrapRow{exact: true},
+			configID: "configuration-v1a"},
+		{name: "later configuration reuses unchanged immutable screening", row: a11BootstrapRow{exact: true},
+			configID: "configuration-v1c"},
+		{name: "restart rejects conflicting immutable row", row: a11BootstrapRow{exact: false},
+			configID: "configuration-v1a", wantError: "a11_reference_bootstrap_conflict"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			executor := &a11BootstrapExecutor{row: test.row}
-			err := ensureA11AssetScreening(context.Background(), executor, "BTC", "approved", "configuration-v1a", now)
+			err := ensureA11AssetScreening(context.Background(), executor, "BTC", "approved", test.configID, now)
 			if test.wantError == "" && err != nil {
 				t.Fatalf("ensure screening failed: %v", err)
 			}
@@ -35,13 +41,17 @@ func TestEnsureA11AssetScreeningIsRestartIdempotentAndFailClosed(t *testing.T) {
 			if executor.execCalls != test.wantExec {
 				t.Fatalf("screening inserts = %d, want %d", executor.execCalls, test.wantExec)
 			}
+			if len(executor.queryArguments) != 3 {
+				t.Fatalf("screening lookup arguments = %d, want current-fact tuple only", len(executor.queryArguments))
+			}
 		})
 	}
 }
 
 type a11BootstrapExecutor struct {
-	row       pgx.Row
-	execCalls int
+	row            pgx.Row
+	execCalls      int
+	queryArguments []any
 }
 
 func (executor *a11BootstrapExecutor) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
@@ -49,7 +59,8 @@ func (executor *a11BootstrapExecutor) Exec(context.Context, string, ...any) (pgc
 	return pgconn.CommandTag{}, nil
 }
 
-func (executor *a11BootstrapExecutor) QueryRow(context.Context, string, ...any) pgx.Row {
+func (executor *a11BootstrapExecutor) QueryRow(_ context.Context, _ string, arguments ...any) pgx.Row {
+	executor.queryArguments = append([]any(nil), arguments...)
 	return executor.row
 }
 

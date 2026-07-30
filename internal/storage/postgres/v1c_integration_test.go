@@ -18,6 +18,7 @@ import (
 	"axiom/internal/execution"
 	"axiom/internal/sandbox"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -36,10 +37,13 @@ func TestV1CPostgresCleanInstallQualification(t *testing.T) {
 	}
 	assertV1CSchema(t, ctx, pool)
 	assertV1CAuthenticatedRequestEvidence(t, ctx, pool)
+	assertV1CCanaryEvidenceRuntimeReadGrant(t, ctx, pool)
 	assertV1CFailClosedConstraints(t, ctx, pool)
+	assertV1CEngineRuntimePersistence(t, ctx, pool)
 	assertV1CLeaseIsolation(t, ctx, pool)
 	assertV1CAuditChainSerialization(t, ctx, pool)
 	assertV1CAuthorizationSessionBinding(t, ctx, pool)
+	assertV1CCanarySessionPersistence(t, ctx, pool)
 	assertV1CDispatcherCrashRecovery(t, ctx, pool)
 	assertV1CControlRecoveryAndReset(t, ctx, pool)
 }
@@ -59,7 +63,7 @@ func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
 	}
 	defer connection.Release()
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 22 {
+	if err != nil || len(migrations) != 23 {
 		t.Fatalf("migration catalog=%d error=%v", len(migrations), err)
 	}
 	for _, migration := range migrations[20:] {
@@ -114,6 +118,8 @@ func assertV1CSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 		"v1c_exchange_metadata", "v1c_reconciliation_differences",
 		"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
 		"v1c_risk_unlocks", "v1c_account_leases",
+		"v1c_engine_startup_evidence",
+		"v1c_engine_commands", "v1c_engine_observations", "v1c_canary_evidence",
 	}
 	for _, table := range tables {
 		var count int
@@ -163,6 +169,99 @@ func v1CAuthenticatedRequestEvidence() exchangecontracts.AuthenticatedRequestEvi
 		RequestHash:     sha256.Sum256([]byte("v1c-redacted-request")),
 		ConfigurationID: "v1c-request-evidence-configuration",
 		RecordedAt:      time.Date(2026, 7, 27, 0, 15, 0, 0, time.UTC),
+	}
+}
+
+func assertV1CCanaryEvidenceRuntimeReadGrant(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	runtimeRole := testRole("AXIOM_V1C_RUNTIME_ROLE", "axiom_app")
+	recorderRole := testRole("AXIOM_V1C_RECORDER_ROLE", "axiom_recorder")
+	readOnlyRole := testRole("AXIOM_V1C_READONLY_ROLE", "axiom_readonly")
+	if err := ApplyRoleGrants(
+		ctx,
+		pool,
+		runtimeRole,
+		recorderRole,
+		readOnlyRole,
+	); err != nil {
+		t.Fatalf("V1C role grants failed: %v", err)
+	}
+	assertV1CCanaryEvidenceRuntimePrivileges(t, ctx, pool, runtimeRole)
+	assertV1CCanaryEvidenceRuntimeQuery(t, ctx, pool, runtimeRole)
+}
+
+func assertV1CCanaryEvidenceRuntimePrivileges(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runtimeRole string,
+) {
+	t.Helper()
+	for _, check := range []struct {
+		privilege string
+		want      bool
+	}{
+		{privilege: "SELECT", want: true},
+		{privilege: "INSERT", want: false},
+		{privilege: "UPDATE", want: false},
+		{privilege: "DELETE", want: false},
+	} {
+		var allowed bool
+		if err := pool.QueryRow(
+			ctx,
+			"SELECT has_table_privilege($1,$2,$3)",
+			runtimeRole,
+			"v1c_authenticated_request_evidence",
+			check.privilege,
+		).Scan(&allowed); err != nil || allowed != check.want {
+			t.Fatalf(
+				"runtime authenticated-evidence %s=%t want=%t error=%v",
+				check.privilege,
+				allowed,
+				check.want,
+				err,
+			)
+		}
+	}
+}
+
+func assertV1CCanaryEvidenceRuntimeQuery(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runtimeRole string,
+) {
+	t.Helper()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if _, err = tx.Exec(
+		ctx,
+		"SET LOCAL ROLE "+pgx.Identifier{runtimeRole}.Sanitize(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	recordedAt := v1CAuthenticatedRequestEvidence().RecordedAt
+	var count int64
+	if err = tx.QueryRow(
+		ctx,
+		countCanaryCreateEvidenceSQL,
+		sandbox.ExchangeBinance,
+		"/api/v3/order",
+		recordedAt,
+		recordedAt,
+	).Scan(&count); err != nil || count != 1 {
+		t.Fatalf(
+			"runtime canary create-evidence count=%d want=1 error=%v",
+			count,
+			err,
+		)
 	}
 }
 
@@ -809,6 +908,7 @@ func assertV1CDispatcherCrashRecovery(
 ) {
 	t.Helper()
 	fixture := newV1CDispatcherFixture(t, ctx, pool)
+	assertV1CPlanAccountLockUsesRuntimeRole(t, ctx, pool, fixture)
 	store, outboxID := approveV1CDispatcherFixture(t, ctx, pool, fixture)
 	acknowledgement := v1CAcknowledgementEvent(fixture)
 	assertV1CInboxCrashRecovery(t, ctx, pool, store, outboxID, acknowledgement)
@@ -816,6 +916,52 @@ func assertV1CDispatcherCrashRecovery(
 	fill := v1CFillEvent(fixture)
 	assertV1CFillCrashRecovery(t, ctx, pool, store, outboxID, fill)
 	assertV1CRecoveredState(t, ctx, pool, outboxID)
+	assertV1CUnsentAttemptRecovery(t, ctx, pool, store, fixture)
+}
+
+func assertV1CPlanAccountLockUsesRuntimeRole(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	fixture v1cDispatcherFixture,
+) {
+	t.Helper()
+	runtimeRole := testRole("AXIOM_V1C_RUNTIME_ROLE", "axiom_app")
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	role := pgx.Identifier{runtimeRole}.Sanitize()
+	for _, statement := range []string{
+		"GRANT SELECT, UPDATE ON v1c_exchange_accounts TO " + role,
+		"GRANT SELECT ON v1c_sandbox_session_accounts TO " + role,
+		"REVOKE UPDATE ON v1c_sandbox_session_accounts FROM " + role,
+	} {
+		if _, err = tx.Exec(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = tx.Exec(
+		ctx,
+		"SET LOCAL ROLE "+role,
+	); err != nil {
+		t.Fatal(err)
+	}
+	var exchange, state string
+	var epoch int64
+	if err = tx.QueryRow(
+		ctx,
+		validateV1CPlanAccountSQL,
+		fixture.accountID,
+		fixture.plan.SessionID,
+		fixture.submission.AccountEpoch,
+	).Scan(&exchange, &epoch, &state); err != nil {
+		t.Fatalf("runtime plan-account lock failed: %v", err)
+	}
+	if exchange != "binance" || epoch != 1 || state != "ARMED" {
+		t.Fatalf("runtime plan-account facts=%s/%d/%s", exchange, epoch, state)
+	}
 }
 
 func assertV1CCancelPendingBeforeFill(
@@ -1229,8 +1375,61 @@ SELECT reduced_at IS NULL FROM v1c_private_inbox WHERE id=$1`,
 		event.Identity).Scan(&unreduced); err != nil || !unreduced {
 		t.Fatalf("durable unreduced inbox=%t error=%v", unreduced, err)
 	}
-	if err = store.AppendPrivateEvent(ctx, outboxID, 1, event, sandbox.NoKillPoint{}); err != nil {
-		t.Fatalf("inbox recovery failed: %v", err)
+	recovered, err := store.RecoverPrivateInbox(
+		ctx,
+		event.AccountID,
+		event.AccountEpoch,
+		1,
+	)
+	if err != nil || recovered != 1 {
+		t.Fatalf("inbox recovery count=%d error=%v", recovered, err)
+	}
+	assertV1CInboxReplay(t, ctx, pool, store, outboxID, event)
+}
+
+func assertV1CInboxReplay(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	store *V1CDispatcherStore,
+	outboxID string,
+	event sandbox.PrivateEvent,
+) {
+	t.Helper()
+	replay := event
+	replay.ReceivedAt = event.ReceivedAt.Add(time.Second)
+	if err := store.AppendPrivateEvent(
+		ctx,
+		outboxID,
+		1,
+		replay,
+		sandbox.NoKillPoint{},
+	); err != nil {
+		t.Fatalf("recovered inbox replay with a later receive time failed: %v", err)
+	}
+	var retainedReceivedAt time.Time
+	if err := pool.QueryRow(ctx, `
+SELECT received_at FROM v1c_private_inbox WHERE id=$1`,
+		event.Identity,
+	).Scan(&retainedReceivedAt); err != nil ||
+		!retainedReceivedAt.Equal(event.ReceivedAt) {
+		t.Fatalf(
+			"first inbox receive time was not retained: time=%s error=%v",
+			retainedReceivedAt,
+			err,
+		)
+	}
+	conflict := replay
+	conflict.NativeOrderHash = strings.Repeat("9", 64)
+	err := store.AppendPrivateEvent(
+		ctx,
+		outboxID,
+		1,
+		conflict,
+		sandbox.NoKillPoint{},
+	)
+	if err == nil || err.Error() != "v1c_private_event_identity_conflict" {
+		t.Fatalf("conflicting inbox replay was accepted: %v", err)
 	}
 }
 
@@ -1282,6 +1481,26 @@ func assertV1CFillCrashRecovery(
 	if err = store.AppendPrivateEvent(ctx, outboxID, 1, event, sandbox.NoKillPoint{}); err != nil {
 		t.Fatalf("fill recovery failed: %v", err)
 	}
+	replay := event
+	replay.Identity += "-native-replay"
+	replay.NativeOrderHash = strings.Repeat("9", 64)
+	replay.ReceivedAt = event.ReceivedAt.Add(time.Second)
+	if err = store.AppendPrivateEvent(
+		ctx, outboxID, 1, replay, sandbox.NoKillPoint{},
+	); err != nil {
+		t.Fatalf("terminal canonical replay failed: %v", err)
+	}
+	var replayReduced bool
+	if err = pool.QueryRow(ctx, `
+SELECT reduced_at IS NOT NULL FROM v1c_private_inbox WHERE id=$1`,
+		replay.Identity,
+	).Scan(&replayReduced); err != nil || !replayReduced {
+		t.Fatalf("terminal canonical replay reduced=%t error=%v", replayReduced, err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM v1c_exchange_fills`).Scan(&fillCount); err != nil ||
+		fillCount != 1 {
+		t.Fatalf("terminal replay fill count=%d error=%v", fillCount, err)
+	}
 }
 
 func assertV1CRecoveredState(
@@ -1320,10 +1539,175 @@ FROM v1c_private_inbox`).Scan(&reducedCount, &inboxCount); err != nil {
 	}
 	if outboxState != "TERMINAL" || orderState != "FILLED" ||
 		reservationState != "CONSUMED" || planState != "COMPLETED" ||
-		reducedCount != 2 || inboxCount != 2 ||
+		reducedCount != 3 || inboxCount != 3 ||
 		persistedFills != 1 {
 		t.Fatalf("recovery state=%s/%s reservation=%s plan=%s inbox=%d/%d fills=%d",
 			outboxState, orderState, reservationState, planState,
 			reducedCount, inboxCount, persistedFills)
+	}
+}
+
+func assertV1CUnsentAttemptRecovery(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	store *V1CDispatcherStore,
+	fixture v1cDispatcherFixture,
+) {
+	t.Helper()
+	at, plan := v1CUnsentPlan(fixture)
+	if err := store.ApprovePlan(
+		ctx,
+		plan,
+		sandbox.SubmissionLimits{
+			MaximumOrderNotional: "10", MaximumDailyNotional: "50",
+			MaximumOpenPerAccount: 1, MaximumOpenGlobal: 2,
+		},
+		sandbox.NoKillPoint{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	outboxID := claimUnknownV1CUnsent(
+		t, ctx, store, fixture.accountID, at,
+	)
+	reconciliation := recordV1CUnsentReconciliation(
+		t, ctx, store, fixture.accountID, at,
+	)
+	resolved, err := store.ResolveReconciledTerminal(
+		ctx, outboxID, 1, reconciliation.ID,
+		reconciliation.ReconciledAt, sandbox.NoKillPoint{},
+	)
+	if err != nil || !resolved {
+		t.Fatalf("unsent resolution=%t error=%v", resolved, err)
+	}
+	assertV1CUnsentRecoveredState(t, ctx, pool, outboxID)
+}
+
+func v1CUnsentPlan(
+	fixture v1cDispatcherFixture,
+) (time.Time, sandbox.ApprovedSandboxPlan) {
+	at := fixture.now.Add(2 * time.Second)
+	planID, _ := domain.NewExecutionPlanID("v1c-plan-unsent")
+	orderID, _ := domain.NewVirtualOrderID("v1c-order-unsent")
+	submission := fixture.submission
+	submission.PlanID = planID
+	submission.OrderID = orderID
+	submission.ClientOrderID = "ax-v1c-unsent"
+	submission.RequestHash = strings.Repeat("6", 64)
+	submission.ApprovedAt = at
+	plan := fixture.plan
+	plan.ID = planID.String()
+	plan.Submissions = []sandbox.Submission{submission}
+	reservation := fixture.plan.Reservations[0]
+	reservation.ID = "v1c-reservation-unsent"
+	reservation.OrderID = orderID.String()
+	plan.Reservations = []sandbox.DurableReservation{reservation}
+	plan.Eligibility = map[sandbox.Exchange]sandbox.EligibilitySnapshot{
+		sandbox.ExchangeBinance: {
+			ObservedAt: at, Exchange: "binance", Instrument: "BTCUSDT",
+			BookHealthy: true, BookFresh: true, BookEligible: true,
+			ClockEligible: true, Eligible: true,
+		},
+	}
+	plan.EntrySafety = v1CQualificationEntrySafety(submission, at)
+	plan.Pipeline = v1CQualificationPipeline(at)
+	plan.ApprovedAt = at
+	plan.ApprovalHash = plan.Pipeline.HashFor(plan)
+	return at, plan
+}
+
+func claimUnknownV1CUnsent(
+	t *testing.T,
+	ctx context.Context,
+	store *V1CDispatcherStore,
+	accountID sandbox.AccountID,
+	at time.Time,
+) string {
+	t.Helper()
+	claimed, err := store.ClaimOutbox(
+		ctx,
+		accountID,
+		1,
+		"v1c-worker",
+		1,
+		at,
+		time.Minute,
+		1,
+		sandbox.NoKillPoint{},
+	)
+	if err != nil || len(claimed) != 1 {
+		t.Fatalf("unsent claim count=%d error=%v", len(claimed), err)
+	}
+	if err = store.MarkSubmitting(
+		ctx,
+		claimed[0].ID,
+		1,
+		at,
+		sandbox.NoKillPoint{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.MarkUnknown(
+		ctx,
+		claimed[0].ID,
+		1,
+		at,
+		sandbox.NoKillPoint{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	return claimed[0].ID
+}
+
+func recordV1CUnsentReconciliation(
+	t *testing.T,
+	ctx context.Context,
+	store *V1CDispatcherStore,
+	accountID sandbox.AccountID,
+	at time.Time,
+) sandbox.ReconciliationResult {
+	t.Helper()
+	reconciledAt := at.Add(time.Second)
+	result := sandbox.ReconciliationResult{
+		ID: "v1c-reconciliation-unsent", AccountID: accountID,
+		AccountEpoch: 1, State: "clean",
+		EvidenceHash: strings.Repeat("9", 64), ReconciledAt: reconciledAt,
+	}
+	if err := store.RecordReconciliation(ctx, result); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func assertV1CUnsentRecoveredState(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	outboxID string,
+) {
+	t.Helper()
+	var outboxState, orderState, reservationState, planState string
+	if err := pool.QueryRow(ctx, `
+SELECT outbox.state,outbox.order_state,reservation.state,plan.state
+FROM v1c_submission_outbox outbox
+JOIN v1c_sandbox_reservations reservation ON reservation.order_id=outbox.order_id
+JOIN v1c_submission_plans plan ON plan.id=outbox.plan_id
+WHERE outbox.id=$1`, outboxID).Scan(
+		&outboxState,
+		&orderState,
+		&reservationState,
+		&planState,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if outboxState != "TERMINAL" || orderState != "REJECTED" ||
+		reservationState != "RELEASED" || planState != "FAILED" {
+		t.Fatalf(
+			"unsent state=%s/%s reservation=%s plan=%s",
+			outboxState,
+			orderState,
+			reservationState,
+			planState,
+		)
 	}
 }

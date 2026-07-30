@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,28 @@ func (function authenticatedRoundTripFunc) Do(request *http.Request) (*http.Resp
 	return function(request)
 }
 
+type idleClosingDemoDoer struct {
+	requests int
+	closed   int
+}
+
+func (doer *idleClosingDemoDoer) Do(*http.Request) (*http.Response, error) {
+	doer.requests++
+	if doer.requests == 1 {
+		return nil, errors.New("stale idle connection")
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(strings.NewReader(
+			demoEnvelope(`{"list":[]}`),
+		)),
+	}, nil
+}
+
+func (doer *idleClosingDemoDoer) CloseIdleConnections() {
+	doer.closed++
+}
+
 func TestBybitSigningGoldenAndPermissionValidation(t *testing.T) {
 	now := time.UnixMilli(1_700_000_000_000).UTC()
 	evidence := &captureEvidence{}
@@ -45,7 +68,7 @@ func TestBybitSigningGoldenAndPermissionValidation(t *testing.T) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body: io.NopCloser(strings.NewReader(
-				`{"result":{"id":"demo-account","readOnly":0,"permissions":{"ContractTrade":[],"Spot":["SpotTrade"],"Wallet":[],"Options":[],"Derivatives":[]}}}`,
+				demoEnvelopeWithMessage("", `{"id":"demo-account","note":"","apiKey":"demo-key","readOnly":0,"secret":"","permissions":{"ContractTrade":[],"Spot":["SpotTrade"],"Wallet":[],"Options":[],"Derivatives":[]},"ips":[],"type":1,"deadlineDay":0,"expiredAt":"","createdAt":"","uta":1,"userID":12345,"inviterID":0,"vipLevel":"","mktMakerLevel":"","affiliateID":0,"rsaPublicKey":"","isMaster":true,"parentUid":"","kycLevel":"","kycRegion":"","unified":1}`),
 			)),
 		}, nil
 	})
@@ -56,7 +79,10 @@ func TestBybitSigningGoldenAndPermissionValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity, err := client.ValidateStartup(context.Background())
+	identity, err := client.ValidateStartup(
+		context.Background(),
+		demoAttestation("demo-key", 12345),
+	)
 	if err != nil {
 		t.Fatalf("startup validation failed: %v", err)
 	}
@@ -79,22 +105,247 @@ func TestBybitSigningGoldenAndPermissionValidation(t *testing.T) {
 	}
 }
 
+func TestBybitDemoClockWarmupRetriesHighUncertainty(t *testing.T) {
+	base := time.UnixMilli(1_700_000_000_000).UTC()
+	current := base
+	now := func() time.Time { return current }
+	requests := 0
+	client, err := newSandboxClientForTest(
+		authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			requests++
+			serverAt := base.Add(400 * time.Millisecond)
+			current = base.Add(800 * time.Millisecond)
+			if requests == 2 {
+				current = base.Add(1100 * time.Millisecond)
+				serverAt = base.Add(950 * time.Millisecond)
+			}
+			result := `{"timeSecond":"` +
+				strconv.FormatInt(serverAt.Unix(), 10) +
+				`","timeNano":"` +
+				strconv.FormatInt(serverAt.UnixNano(), 10) + `"}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(demoEnvelope(result))),
+			}, nil
+		}),
+		sandbox.CredentialPair{APIKey: "key", APISecret: "secret"},
+		&captureEvidence{},
+		"cfg",
+		now,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.clockValidated = false
+	if err = client.ensureDemoClock(context.Background()); err != nil {
+		t.Fatalf("clock warmup failed: %v", err)
+	}
+	if requests != 2 || !client.clockValidated ||
+		client.demoClockOffset() != 0 {
+		t.Fatalf(
+			"clock warmup requests=%d validated=%t offset=%s",
+			requests,
+			client.clockValidated,
+			client.demoClockOffset(),
+		)
+	}
+}
+
+func TestBybitDemoClockWarmupUsesBoundedSampleBudget(t *testing.T) {
+	base := time.UnixMilli(1_700_000_000_000).UTC()
+	current := base
+	requests := 0
+	client, err := newSandboxClientForTest(
+		authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			requests++
+			sentAt := current
+			roundTrip := 800 * time.Millisecond
+			if requests == demoClockWarmupAttempts {
+				roundTrip = 200 * time.Millisecond
+			}
+			current = sentAt.Add(roundTrip)
+			serverAt := sentAt.Add(roundTrip / 2)
+			result := `{"timeSecond":"` +
+				strconv.FormatInt(serverAt.Unix(), 10) +
+				`","timeNano":"` +
+				strconv.FormatInt(serverAt.UnixNano(), 10) + `"}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(demoEnvelope(result))),
+			}, nil
+		}),
+		sandbox.CredentialPair{APIKey: "key", APISecret: "secret"},
+		&captureEvidence{},
+		"cfg",
+		func() time.Time { return current },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.clockValidated = false
+	if err = client.ensureDemoClock(context.Background()); err != nil {
+		t.Fatalf("bounded clock warmup failed: %v", err)
+	}
+	if requests != demoClockWarmupAttempts ||
+		!client.clockValidated ||
+		client.demoClockOffset() != 0 {
+		t.Fatalf(
+			"clock warmup requests=%d validated=%t offset=%s",
+			requests,
+			client.clockValidated,
+			client.demoClockOffset(),
+		)
+	}
+}
+
+func TestBybitDemoClockWarmupRejectsUnsafeSampleBudget(t *testing.T) {
+	base := time.UnixMilli(1_700_000_000_000).UTC()
+	current := base
+	requests := 0
+	client, err := newSandboxClientForTest(
+		authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			requests++
+			sentAt := current
+			current = sentAt.Add(800 * time.Millisecond)
+			serverAt := sentAt.Add(400 * time.Millisecond)
+			result := `{"timeSecond":"` +
+				strconv.FormatInt(serverAt.Unix(), 10) +
+				`","timeNano":"` +
+				strconv.FormatInt(serverAt.UnixNano(), 10) + `"}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(demoEnvelope(result))),
+			}, nil
+		}),
+		sandbox.CredentialPair{APIKey: "key", APISecret: "secret"},
+		&captureEvidence{},
+		"cfg",
+		func() time.Time { return current },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.clockValidated = false
+	if err = client.ensureDemoClock(context.Background()); !errors.Is(
+		err,
+		ErrDemoRequest,
+	) {
+		t.Fatalf("unsafe clock warmup error=%v", err)
+	}
+	if requests != demoClockWarmupAttempts || client.clockValidated {
+		t.Fatalf(
+			"clock warmup requests=%d validated=%t",
+			requests,
+			client.clockValidated,
+		)
+	}
+}
+
+func TestBybitClockRejectionRefreshesAndRetriesOnce(t *testing.T) {
+	now := time.UnixMilli(1_700_000_000_000).UTC()
+	walletRequests := 0
+	timeRequests := 0
+	evidence := &captureEvidence{}
+	client, err := newSandboxClientForTest(
+		authenticatedRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+			var body string
+			switch request.URL.Path {
+			case "/v5/account/wallet-balance":
+				walletRequests++
+				if walletRequests == 1 {
+					body = `{"retCode":10002,"retMsg":"","result":{},"retExtInfo":{},"time":1700000000000}`
+				} else {
+					body = demoEnvelope(`{"list":[]}`)
+				}
+			case "/v5/market/time":
+				timeRequests++
+				body = demoEnvelope(
+					`{"timeSecond":"1700000000","timeNano":"1700000000000000000"}`,
+				)
+			default:
+				t.Fatalf("unexpected path %q", request.URL.Path)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}, nil
+		}),
+		sandbox.CredentialPair{APIKey: "key", APISecret: "secret"},
+		evidence,
+		"cfg",
+		func() time.Time { return now },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.walletBalance(context.Background()); err != nil {
+		t.Fatalf("clock rejection was not recovered: %v", err)
+	}
+	if walletRequests != 2 || timeRequests != 1 ||
+		len(evidence.records) != 2 {
+		t.Fatalf(
+			"wallet=%d time=%d evidence=%d",
+			walletRequests,
+			timeRequests,
+			len(evidence.records),
+		)
+	}
+}
+
+func TestBybitReadTransportFailureClosesIdlePoolAndRetriesOnce(t *testing.T) {
+	now := time.UnixMilli(1_700_000_000_000).UTC()
+	doer := &idleClosingDemoDoer{}
+	client, err := newSandboxClientForTest(
+		doer,
+		sandbox.CredentialPair{APIKey: "key", APISecret: "secret"},
+		&captureEvidence{},
+		"cfg",
+		func() time.Time { return now },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.walletBalance(context.Background()); err != nil {
+		t.Fatalf("stale read connection was not recovered: %v", err)
+	}
+	if doer.requests != 2 || doer.closed != 1 {
+		t.Fatalf("requests=%d closed=%d", doer.requests, doer.closed)
+	}
+}
+
+func TestBybitAcceptsExactDemoUIUnifiedTradingBundle(t *testing.T) {
+	permissions := map[string][]string{
+		"ContractTrade": {"Position", "Order"},
+		"Spot":          {"SpotTrade"},
+		"Wallet":        {},
+		"Options":       {"OptionsTrade"},
+		"Derivatives":   {"DerivativesTrade"},
+		"Exchange":      {},
+	}
+	if !validDemoKeyPermissions(permissions) {
+		t.Fatal("exact Bybit Demo UI Unified Trading bundle rejected")
+	}
+}
+
 func TestBybitRejectsForbiddenPermissions(t *testing.T) {
 	responses := []string{
-		`{"result":{"id":"demo-account","readOnly":1,"permissions":{"Spot":["SpotTrade"]}}}`,
-		`{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":[]}}}`,
-		`{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":["SpotTrade","MarginTrade"]}}}`,
-		`{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":["SpotTrade"],"Wallet":["AccountTransfer"]}}}`,
-		`{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":["SpotTrade"],"ContractTrade":["Order"]}}}`,
-		`{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":["SpotTrade"],"Options":["OptionsTrade"]}}}`,
-		`{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":["SpotTrade"],"Derivatives":["DerivativesTrade"]}}}`,
-		`{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":["SpotTrade"],"Earn":["Earn"]}}}`,
+		`{"id":"demo-account","readOnly":1,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":[]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade","MarginTrade"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"Wallet":["AccountTransfer"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"ContractTrade":["Order"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"Options":["OptionsTrade"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"Derivatives":["DerivativesTrade"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"ContractTrade":["Order","Position"],"Options":["OptionsTrade"],"Derivatives":[]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"ContractTrade":["Order","Position"],"Options":["OptionsTrade"],"Derivatives":["DerivativesTrade"],"Exchange":["ExchangeHistory"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"ContractTrade":["Order","Position"],"Options":["OptionsTrade"],"Derivatives":["DerivativesTrade"],"FutureProduct":["FutureTrade"]}}`,
+		`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"],"Earn":["Earn"]}}`,
 	}
 	for index, response := range responses {
 		doer := authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(response)),
+				Body:       io.NopCloser(strings.NewReader(demoEnvelope(response))),
 			}, nil
 		})
 		client, err := newSandboxClientForTest(
@@ -104,7 +355,10 @@ func TestBybitRejectsForbiddenPermissions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := client.ValidateStartup(context.Background()); !errors.Is(err, ErrDemoStartupPermission) {
+		if _, err := client.ValidateStartup(
+			context.Background(),
+			demoAttestation("key", 12345),
+		); !errors.Is(err, ErrDemoStartupPermission) {
 			t.Fatalf("forbidden permission response %d accepted: %v", index, err)
 		}
 	}
@@ -124,13 +378,16 @@ func TestBybitEvidenceFailurePreventsNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.ValidateStartup(context.Background()); err == nil || called {
+	if _, err := client.ValidateStartup(
+		context.Background(),
+		demoAttestation("key", 12345),
+	); err == nil || called {
 		t.Fatalf("fail-closed evidence: err=%v network=%t", err, called)
 	}
 }
 
 func TestBybitStartupRejectsOversizedResponse(t *testing.T) {
-	body := `{"result":{"id":"demo-account","readOnly":0,"permissions":{"Spot":["SpotTrade"]}}}` +
+	body := demoEnvelope(`{"id":"demo-account","readOnly":0,"secret":"","uta":1,"userID":12345,"permissions":{"Spot":["SpotTrade"]}}`) +
 		strings.Repeat(" ", authenticatedResponseLimit+1)
 	client, err := newSandboxClientForTest(
 		authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -147,8 +404,28 @@ func TestBybitStartupRejectsOversizedResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = client.ValidateStartup(context.Background()); !errors.Is(err, ErrDemoRequest) {
+	if _, err = client.ValidateStartup(
+		context.Background(),
+		demoAttestation("key", 12345),
+	); !errors.Is(err, ErrDemoRequest) {
 		t.Fatalf("oversized response error=%v want=%v", err, ErrDemoRequest)
+	}
+}
+
+func demoEnvelope(result string) string {
+	return demoEnvelopeWithMessage("OK", result)
+}
+
+func demoEnvelopeWithMessage(message, result string) string {
+	return `{"retCode":0,"retMsg":"` + message + `","result":` + result +
+		`,"retExtInfo":{},"time":1700000000000}`
+}
+
+func demoAttestation(apiKey string, userID uint64) BybitDemoAttestation {
+	return BybitDemoAttestation{
+		AccountIdentityHash: hashString(strconv.FormatUint(userID, 10) + "|UNIFIED"),
+		KeyFingerprint:      fingerprintString(apiKey),
+		DemoOnly:            true,
 	}
 }
 

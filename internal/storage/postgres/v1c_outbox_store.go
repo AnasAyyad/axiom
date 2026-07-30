@@ -206,7 +206,11 @@ WHERE id=$1`, id, owner, fence, now.Add(ttl), now); err != nil {
 	return result, nil
 }
 
-func readV1COutbox(ctx context.Context, tx pgx.Tx, id string) (sandbox.SubmissionOutbox, error) {
+type v1CQueryRower interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func readV1COutbox(ctx context.Context, tx v1CQueryRower, id string) (sandbox.SubmissionOutbox, error) {
 	var record sandbox.SubmissionOutbox
 	var planID, orderID, strategyID, instrument, side string
 	var quantity, price, notional string

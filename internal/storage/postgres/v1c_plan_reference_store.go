@@ -129,14 +129,10 @@ func validateV1CPlanAccount(
 ) (sandbox.Exchange, error) {
 	var exchange, accountState string
 	var epoch int64
-	if err := tx.QueryRow(ctx, `
-SELECT account.exchange,account.current_epoch,account.state
-FROM v1c_exchange_accounts account
-JOIN v1c_sandbox_session_accounts membership
-  ON membership.account_id=account.id AND membership.account_epoch=account.current_epoch
-WHERE account.id=$1 AND membership.session_id=$2 AND membership.account_epoch=$3
-FOR SHARE OF account,membership`,
-		submission.AccountID, plan.SessionID, submission.AccountEpoch,
+	if err := tx.QueryRow(ctx, validateV1CPlanAccountSQL,
+		submission.AccountID,
+		plan.SessionID,
+		submission.AccountEpoch,
 	).Scan(&exchange, &epoch, &accountState); err != nil ||
 		uint64(epoch) != submission.AccountEpoch ||
 		(entry && accountState != "ARMED") {
@@ -150,6 +146,15 @@ FOR SHARE OF account,membership`,
 	}
 	return exchangeName, nil
 }
+
+const validateV1CPlanAccountSQL = `
+SELECT account.exchange,account.current_epoch,account.state
+FROM v1c_exchange_accounts account
+JOIN v1c_sandbox_session_accounts membership
+  ON membership.account_id=account.id AND membership.account_epoch=account.current_epoch
+WHERE account.id=$1 AND membership.session_id=$2 AND membership.account_epoch=$3
+-- Session membership is immutable for runtime; lock only the mutable account.
+FOR SHARE OF account`
 
 func validateV1CAccountEntry(
 	ctx context.Context,

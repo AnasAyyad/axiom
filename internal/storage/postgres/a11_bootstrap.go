@@ -143,11 +143,21 @@ func ensureA11AssetScreening(ctx context.Context, executor a11ReferenceExecutor,
 	configurationID string, now time.Time) error {
 	id := "asset-screening-" + symbol + "-1"
 	var exact bool
-	err := executor.QueryRow(ctx, `SELECT id=$2 AND prior_status IS NULL AND status=$3
+	// The immutable version-one row keeps the configuration identity that first
+	// screened this asset. Unrelated later configuration revisions may reuse it
+	// only while every screening fact, including status and provenance, remains
+	// exact; a changed status still fails closed instead of rewriting history.
+	err := executor.QueryRow(ctx, `SELECT screening.id=$2 AND screening.prior_status IS NULL
+      AND screening.status=$3
       AND actor='admin_migrate' AND reason='V1A locked registry'
-      AND causation_id='reference-bootstrap' AND configuration_id=$4
-      FROM asset_screening_versions WHERE asset_symbol=$1 AND version=1`,
-		symbol, id, status, configurationID).Scan(&exact)
+      AND causation_id='reference-bootstrap'
+      AND EXISTS (
+        SELECT 1 FROM configuration_versions configuration
+        WHERE configuration.id=screening.configuration_id
+      )
+      FROM asset_screening_versions screening
+      WHERE screening.asset_symbol=$1 AND screening.version=1`,
+		symbol, id, status).Scan(&exact)
 	if err == nil {
 		if !exact {
 			return fmt.Errorf("a11_reference_bootstrap_conflict")

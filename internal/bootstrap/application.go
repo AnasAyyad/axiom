@@ -53,18 +53,48 @@ func Run(ctx context.Context, arguments []string, output, errorOutput io.Writer)
 	if command.Kind == commandEgressProxy {
 		return runEgressProxy(ctx, command.Exchange)
 	}
-	productConfiguration, source, err := config.LoadProductConfiguration(command.Mode)
+	productConfiguration, runtimeConfig, source, err :=
+		loadPlatformConfiguration(command)
 	if err != nil {
 		return err
+	}
+	return runCommandRole(
+		ctx,
+		command,
+		productConfiguration,
+		runtimeConfig,
+		source,
+		output,
+		errorOutput,
+	)
+}
+
+func loadPlatformConfiguration(
+	command Command,
+) (config.Configuration, config.Runtime, config.Source, error) {
+	productConfiguration, source, err := config.LoadProductConfiguration(command.Mode)
+	if err != nil {
+		return config.Configuration{}, config.Runtime{}, source, err
 	}
 	productClock := &domain.SystemClock{}
 	if _, err := config.NewSnapshot(productConfiguration, source, "process-startup", productClock); err != nil {
-		return err
+		return config.Configuration{}, config.Runtime{}, source, err
 	}
 	runtimeConfig, err := config.LoadRuntime()
 	if err != nil {
-		return err
+		return config.Configuration{}, config.Runtime{}, source, err
 	}
+	return productConfiguration, runtimeConfig, source, nil
+}
+
+func runCommandRole(
+	ctx context.Context,
+	command Command,
+	productConfiguration config.Configuration,
+	runtimeConfig config.Runtime,
+	source config.Source,
+	output, errorOutput io.Writer,
+) error {
 	switch command.Kind {
 	case commandAPI:
 		return runHTTPRole(ctx, runtimeConfig, productConfiguration, "api", true, observability.NewLogger(errorOutput, "api"))
@@ -76,6 +106,25 @@ func Run(ctx context.Context, arguments []string, output, errorOutput io.Writer)
 		return runHTTPRole(ctx, runtimeConfig, productConfiguration, "worker", false, observability.NewLogger(errorOutput, "worker"))
 	case commandMigrate:
 		return runMigrate(ctx, runtimeConfig, productConfiguration, output)
+	case commandSandboxEngine:
+		role := "engine-" + command.Exchange + "-sandbox"
+		return runHTTPRole(
+			ctx,
+			runtimeConfig,
+			productConfiguration,
+			role,
+			false,
+			observability.NewLogger(errorOutput, role),
+		)
+	case commandSandboxCanary:
+		return runSandboxCanary(
+			ctx,
+			runtimeConfig,
+			productConfiguration,
+			source,
+			command,
+			output,
+		)
 	default:
 		return errUsage
 	}

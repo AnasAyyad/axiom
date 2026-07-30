@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-readonly -a profiles=(app record workers observability edge backup restore sandbox-foundation)
+readonly -a profiles=(app record workers observability edge backup restore sandbox-foundation sandbox sandbox-canary)
 readonly combinations=$((1 << ${#profiles[@]}))
 
 for ((mask = 0; mask < combinations; mask++)); do
@@ -16,9 +16,9 @@ for ((mask = 0; mask < combinations; mask++)); do
 done
 
 actual="$(docker compose --env-file .env.example --profile '*' config --services | sort)"
-expected="$(printf '%s\n' api backup backtest-worker binance-testnet-egress bybit-demo-egress caddy engine-shadow grafana migrate postgres prometheus recorder restore | sort)"
+expected="$(printf '%s\n' api backup backtest-worker binance-sandbox-canary binance-sandbox-engine binance-testnet-egress bybit-demo-egress bybit-sandbox-canary bybit-sandbox-engine caddy engine-shadow grafana migrate postgres prometheus recorder restore | sort)"
 if [[ "${actual}" != "${expected}" ]]; then
-  printf 'ERROR [compose] rendered service set differs from the reviewed V1A/V1C PR1 set\n' >&2
+  printf 'ERROR [compose] rendered service set differs from the reviewed V1A/V1C PR2 set\n' >&2
   exit 1
 fi
 

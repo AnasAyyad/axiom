@@ -28,6 +28,8 @@ const (
 	FaultNone    Fault = ""
 	FaultTimeout Fault = "timeout"
 	FaultReject  Fault = "reject"
+	// FaultAmbiguousAfterCommit stores a create before simulating transport loss.
+	FaultAmbiguousAfterCommit Fault = "ambiguous_after_commit"
 )
 
 // Config fixes one emulator to an exchange credential pair and fault sequence.
@@ -51,11 +53,28 @@ type Capture struct {
 
 // Emulator validates signed requests and retains only redacted captures.
 type Emulator struct {
-	mutex      sync.Mutex
-	config     Config
-	captures   []Capture
-	requests   int
-	nativeByID map[string]string
+	mutex         sync.Mutex
+	config        Config
+	captures      []Capture
+	requests      int
+	nativeByID    map[string]string
+	orders        map[string]*emulatorOrder
+	nextOrderID   uint64
+	privateFrames [][]byte
+}
+
+type emulatorOrder struct {
+	ClientOrderID string
+	OrderID       uint64
+	Symbol        string
+	Price         string
+	Quantity      string
+	Side          string
+	Type          string
+	TimeInForce   string
+	Status        string
+	CreatedAt     int64
+	UpdatedAt     int64
 }
 
 // New constructs a deterministic authenticated emulator with no network I/O.
@@ -64,7 +83,12 @@ func New(config Config) (*Emulator, error) {
 		config.APIKey == "" || config.APISecret == "" {
 		return nil, errors.New("sandbox_emulator_configuration_invalid")
 	}
-	return &Emulator{config: config, nativeByID: map[string]string{}}, nil
+	return &Emulator{
+		config:      config,
+		nativeByID:  map[string]string{},
+		orders:      map[string]*emulatorOrder{},
+		nextOrderID: 1,
+	}, nil
 }
 
 // Do lets authenticated clients use the emulator as their closed test
@@ -80,6 +104,12 @@ func (emulator *Emulator) Do(request *http.Request) (*http.Response, error) {
 	if fault == FaultTimeout {
 		return nil, context.DeadlineExceeded
 	}
+	if response, ok := emulator.binancePublic(request); ok {
+		return response, nil
+	}
+	if response, ok := emulator.bybitPublic(request); ok {
+		return response, nil
+	}
 	fields, requestHash, clientID, err := emulator.validate(request)
 	if err != nil {
 		return response(http.StatusForbidden, `{"code":"policy_rejected"}`), nil
@@ -92,19 +122,40 @@ func (emulator *Emulator) Do(request *http.Request) (*http.Response, error) {
 	if fault == FaultReject {
 		return response(http.StatusTooManyRequests, `{"code":"rate_limited"}`), nil
 	}
-	if clientID != "" {
-		if _, exists := emulator.nativeByID[clientID]; !exists {
-			hash := sha256.Sum256([]byte(string(emulator.config.Exchange) + "|" + clientID))
-			emulator.nativeByID[clientID] = hex.EncodeToString(hash[:16])
-		}
-	}
+	return emulator.handleAuthenticatedRequest(request, clientID, fault)
+}
+
+func (emulator *Emulator) handleAuthenticatedRequest(
+	request *http.Request,
+	clientID string,
+	fault Fault,
+) (*http.Response, error) {
 	switch {
-	case emulator.config.Exchange == sandbox.ExchangeBinance && request.URL.Path == "/api/v3/account":
-		return response(http.StatusOK,
-			`{"canTrade":true,"accountType":"SPOT","permissions":["SPOT"],"uid":12345}`), nil
-	case emulator.config.Exchange == sandbox.ExchangeBybit && request.URL.Path == "/v5/user/query-api":
-		return response(http.StatusOK,
-			`{"result":{"id":"demo-account","readOnly":0,"permissions":{"SpotTrade":["Trade"]}}}`), nil
+	case emulator.config.Exchange == sandbox.ExchangeBinance:
+		result, handleErr := emulator.handleBinance(request, clientID)
+		if handleErr != nil {
+			return response(http.StatusBadRequest, `{"code":-2010}`), nil
+		}
+		if fault == FaultAmbiguousAfterCommit &&
+			request.Method == http.MethodPost &&
+			request.URL.Path == "/api/v3/order" {
+			return nil, context.DeadlineExceeded
+		}
+		return result, nil
+	case emulator.config.Exchange == sandbox.ExchangeBybit:
+		result, handleErr := emulator.handleBybit(request, clientID)
+		if handleErr != nil {
+			return response(
+				http.StatusOK,
+				bybitEnvelope(110001, "Order does not exist", map[string]any{}),
+			), nil
+		}
+		if fault == FaultAmbiguousAfterCommit &&
+			request.Method == http.MethodPost &&
+			request.URL.Path == "/v5/order/create" {
+			return nil, context.DeadlineExceeded
+		}
+		return result, nil
 	default:
 		return response(http.StatusOK, `{"accepted":true}`), nil
 	}
@@ -265,4 +316,15 @@ func (emulator *Emulator) NativeOrderCount() int {
 	emulator.mutex.Lock()
 	defer emulator.mutex.Unlock()
 	return len(emulator.nativeByID)
+}
+
+// PrivateFrames returns defensive official-shape user-data frames.
+func (emulator *Emulator) PrivateFrames() [][]byte {
+	emulator.mutex.Lock()
+	defer emulator.mutex.Unlock()
+	result := make([][]byte, len(emulator.privateFrames))
+	for index, frame := range emulator.privateFrames {
+		result[index] = append([]byte(nil), frame...)
+	}
+	return result
 }

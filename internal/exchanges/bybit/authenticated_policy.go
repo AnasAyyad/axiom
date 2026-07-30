@@ -77,7 +77,9 @@ var authenticatedRoutePolicies = map[authenticatedRoute]authenticatedRoutePolicy
 	authenticatedOrderHistory: {
 		method: http.MethodGet, path: "/v5/order/history",
 		required: []string{"category", "orderFilter"},
-		optional: []string{"cursor", "endTime", "limit", "startTime", "symbol"},
+		optional: []string{
+			"cursor", "endTime", "limit", "orderLinkId", "startTime", "symbol",
+		},
 		enumerations: map[string]map[string]struct{}{
 			"category": setOf("spot"), "orderFilter": setOf("Order"),
 		},
@@ -135,6 +137,10 @@ func validateAuthenticatedFields(route authenticatedRoute, fields url.Values) (a
 		}
 	}
 	if symbol := fields.Get("symbol"); symbol != "" && !validSymbol(symbol) {
+		return authenticatedRoutePolicy{}, errAuthenticatedPolicy
+	}
+	if clientOrderID := fields.Get("orderLinkId"); clientOrderID != "" &&
+		!validClientOrderID(clientOrderID) {
 		return authenticatedRoutePolicy{}, errAuthenticatedPolicy
 	}
 	return policy, nil

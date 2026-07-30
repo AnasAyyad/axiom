@@ -32,7 +32,7 @@ INSERT INTO v1c_account_snapshots(
  id,account_id,account_epoch,balances_payload,orders_hash,fills_hash,
  snapshot_hash,observed_at
 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-ON CONFLICT (id) DO NOTHING`,
+ON CONFLICT DO NOTHING`,
 		id,
 		snapshot.AccountID,
 		snapshot.Epoch,
@@ -72,7 +72,69 @@ FROM v1c_account_snapshots WHERE id=$1`,
 		snapshot.SnapshotHash,
 		snapshot.ObservedAt,
 	).Scan(&same)
+	if err == nil {
+		return same
+	}
+	if err != pgx.ErrNoRows {
+		return false
+	}
+	err = store.pool.QueryRow(ctx, `
+SELECT balances_payload=$3::jsonb AND orders_hash=$4 AND fills_hash=$5
+FROM v1c_account_snapshots
+WHERE account_id=$1 AND account_epoch=$2 AND snapshot_hash=$6`,
+		snapshot.AccountID,
+		snapshot.Epoch,
+		balances,
+		snapshot.OrdersHash,
+		snapshot.FillsHash,
+		snapshot.SnapshotHash,
+	).Scan(&same)
 	return err == nil && same
+}
+
+// LatestAccountSnapshot returns the newest immutable full account view for
+// coherent reset detection.
+func (store *V1CDispatcherStore) LatestAccountSnapshot(
+	ctx context.Context,
+	account sandbox.AccountID,
+	epoch uint64,
+) (sandbox.AccountSnapshot, bool, error) {
+	var snapshot sandbox.AccountSnapshot
+	var balances []byte
+	err := store.pool.QueryRow(ctx, `
+SELECT account_id,account_epoch,balances_payload::text,orders_hash,fills_hash,
+       snapshot_hash,observed_at
+FROM v1c_account_snapshots
+WHERE account_id=$1 AND account_epoch=$2
+ORDER BY observed_at DESC,id DESC
+LIMIT 1`,
+		account,
+		epoch,
+	).Scan(
+		&snapshot.AccountID,
+		&snapshot.Epoch,
+		&balances,
+		&snapshot.OrdersHash,
+		&snapshot.FillsHash,
+		&snapshot.SnapshotHash,
+		&snapshot.ObservedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return sandbox.AccountSnapshot{}, false, nil
+	}
+	if err != nil {
+		return sandbox.AccountSnapshot{}, false, fmt.Errorf(
+			"v1c_account_snapshot_read_failed",
+		)
+	}
+	snapshot.ObservedAt = snapshot.ObservedAt.UTC()
+	if json.Unmarshal(balances, &snapshot.Balances) != nil ||
+		snapshot.Validate() != nil {
+		return sandbox.AccountSnapshot{}, false, fmt.Errorf(
+			"v1c_account_snapshot_read_failed",
+		)
+	}
+	return snapshot, true, nil
 }
 
 // RecordAccountReset atomically opens a new account epoch, locks entry,
@@ -109,6 +171,8 @@ DELETE FROM v1c_account_leases WHERE account_id=$1`, incident.AccountID); err !=
 	}
 	return nil
 }
+
+var _ sandbox.AccountRecoveryStore = (*V1CDispatcherStore)(nil)
 
 func advanceV1CResetEpoch(
 	ctx context.Context,

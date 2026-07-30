@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"axiom/internal/authentication"
 	"axiom/internal/sandbox"
@@ -24,6 +25,7 @@ func (store *V1CDispatcherStore) CreateSandboxArm(
 	if err := command.Validate(); err != nil {
 		return sandbox.Arm{}, err
 	}
+	command.Arm = normalizeV1CArmForPersistence(command.Arm)
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return sandbox.Arm{}, fmt.Errorf("v1c_arm_begin_failed")
@@ -61,6 +63,12 @@ func (store *V1CDispatcherStore) CreateSandboxArm(
 		return sandbox.Arm{}, fmt.Errorf("v1c_arm_commit_failed")
 	}
 	return command.Arm, nil
+}
+
+func normalizeV1CArmForPersistence(arm sandbox.Arm) sandbox.Arm {
+	arm.CreatedAt = arm.CreatedAt.UTC().Truncate(time.Microsecond)
+	arm.ExpiresAt = arm.ExpiresAt.UTC().Truncate(time.Microsecond)
+	return arm
 }
 
 func lockV1CArmSession(

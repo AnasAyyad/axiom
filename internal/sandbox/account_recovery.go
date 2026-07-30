@@ -35,6 +35,24 @@ type AccountRecoveryRepository interface {
 	RecordAccountReset(context.Context, AccountResetIncident) error
 }
 
+// AccountSnapshotHistoryReader returns the newest exchange-authoritative view
+// needed to distinguish an ordinary account change from a coherent sandbox
+// reset.
+type AccountSnapshotHistoryReader interface {
+	LatestAccountSnapshot(
+		context.Context,
+		AccountID,
+		uint64,
+	) (AccountSnapshot, bool, error)
+}
+
+// AccountRecoveryStore owns both immutable snapshot history and atomic reset
+// persistence.
+type AccountRecoveryStore interface {
+	AccountRecoveryRepository
+	AccountSnapshotHistoryReader
+}
+
 // Validate checks the complete epoch-reset incident.
 func (incident AccountResetIncident) Validate() error {
 	if incident.ID == "" || incident.AccountID == "" || incident.PriorEpoch == 0 ||

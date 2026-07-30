@@ -238,6 +238,54 @@ is_b1_public_boundary_literal() {
   esac
 }
 
+# V1C's closed Testnet/Demo boundary is executable by design and is governed
+# by the stricter C1 scanner, fixed route contracts, and binary destination
+# scan. This allowlist is rule- and file-specific so production-private hosts,
+# live mode, and forbidden product families remain rejected everywhere.
+is_v1c_sandbox_boundary_literal() {
+  local rule_id="$1"
+  local file="${2#./}"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    private-endpoint:internal/exchanges/binance/private_stream.go | \
+    private-endpoint:internal/exchanges/binance/private_subscription.go | \
+    private-endpoint:internal/exchanges/bybit/private_stream.go | \
+    private-endpoint:internal/storage/postgres/migrations/000023_v1c_private_stream_runtime.sql)
+      return 0
+      ;;
+    later-release-sandbox:internal/exchanges/binance/private_stream.go | \
+    later-release-sandbox:internal/exchanges/binance/private_subscription.go | \
+    later-release-sandbox:internal/exchanges/binance/sandbox_recovery.go | \
+    later-release-sandbox:internal/exchanges/binance/sandbox_reset.go | \
+    later-release-sandbox:internal/exchanges/bybit/private_stream.go | \
+    later-release-sandbox:internal/exchanges/bybit/sandbox_adapter.go | \
+    later-release-sandbox:internal/bootstrap/sandbox_engine_attestation.go | \
+    later-release-sandbox:internal/storage/postgres/migrations/000023_v1c_private_stream_runtime.sql)
+      return 0
+      ;;
+    later-release-sandbox:Makefile)
+      [[ "${line_text}" == *"c4-binance-testnet-qualify"* ||
+         "${line_text}" == *"c5-bybit-demo-qualify"* ||
+         "${line_text}" == *"v1c-pr2-local-qualify"* ]]
+      ;;
+    later-release-sandbox:deploy/docker/Dockerfile)
+      [[ "${line_text}" == *"/out/platform-binance-testnet-v1c.json"* ||
+         "${line_text}" == *"/out/platform-bybit-demo-v1c.json"* ]]
+      ;;
+    prohibited-product:internal/exchanges/bybit/sandbox_filters.go)
+      [[ "${line_text}" == *'item.MarginTrading != "none"'* ]]
+      ;;
+    exchange-order-method:internal/exchanges/binance/private_stream.go | \
+    exchange-order-method:internal/exchanges/binance/private_subscription.go | \
+    exchange-order-method:internal/exchanges/binance/sandbox_adapter.go | \
+    exchange-order-method:internal/exchanges/bybit/private_stream.go | \
+    exchange-order-method:internal/exchanges/bybit/sandbox_adapter.go)
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 # run_rule ID DESCRIPTION REGEX ALLOW_POLICY GLOB_ARRAY TARGET...
 run_rule() {
   local rule_id="$1"
@@ -289,6 +337,10 @@ run_rule() {
     fi
 
     if is_b1_public_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
+    if is_v1c_sandbox_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 

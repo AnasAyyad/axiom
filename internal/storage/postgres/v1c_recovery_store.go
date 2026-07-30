@@ -170,27 +170,48 @@ func (store *V1CDispatcherStore) ResolveReconciledTerminal(
 	if err != nil {
 		return false, err
 	}
+	resolved, err := resolveV1CReconciledTerminal(
+		ctx, tx, outboxID, record, now, kill,
+	)
+	if err != nil || !resolved {
+		return resolved, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("v1c_reconciled_terminal_commit_failed")
+	}
+	return true, nil
+}
+
+func resolveV1CReconciledTerminal(
+	ctx context.Context,
+	tx pgx.Tx,
+	outboxID string,
+	record v1CReconciledTerminal,
+	now time.Time,
+	kill sandbox.KillPoint,
+) (bool, error) {
 	if record.outboxState == "TERMINAL" {
 		return false, nil
 	}
 	if record.outboxState != "UNKNOWN" {
 		return false, fmt.Errorf("v1c_reconciled_terminal_rejected")
 	}
-	if record.hasFill || !releasableV1CTerminalState(record.orderState) {
+	resolvedOrderState := reconciledV1CTerminalState(
+		record.orderState,
+		record.createAttempted,
+	)
+	if record.hasFill || resolvedOrderState == "" {
 		return false, nil
 	}
-	if err = releaseV1CReconciledReservation(
-		ctx, tx, record.orderID, record.orderState, now, kill,
+	if err := releaseV1CReconciledReservation(
+		ctx, tx, record.orderID, resolvedOrderState, now, kill,
 	); err != nil {
 		return false, err
 	}
-	if err = finalizeV1CReconciledTerminal(
-		ctx, tx, outboxID, record.planID, now, kill,
+	if err := finalizeV1CReconciledTerminal(
+		ctx, tx, outboxID, record.planID, resolvedOrderState, now, kill,
 	); err != nil {
 		return false, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("v1c_reconciled_terminal_commit_failed")
 	}
 	return true, nil
 }
@@ -203,6 +224,7 @@ type v1CReconciledTerminal struct {
 	leaseValid          bool
 	reconciliationClean bool
 	hasFill             bool
+	createAttempted     bool
 }
 
 const loadV1CReconciledTerminalSQL = `
@@ -225,8 +247,22 @@ SELECT outbox.plan_id,outbox.order_id,outbox.order_state,outbox.state,
          WHERE fill.account_id=outbox.account_id
            AND fill.account_epoch=outbox.account_epoch
            AND fill.order_id=outbox.order_id
+       ),
+       EXISTS(
+         SELECT 1 FROM v1c_authenticated_request_evidence evidence
+         WHERE evidence.exchange=account.exchange
+           AND evidence.method='POST'
+           AND evidence.path=CASE account.exchange
+             WHEN 'binance' THEN '/api/v3/order'
+             WHEN 'bybit' THEN '/v5/order/create'
+           END
+           AND evidence.configuration_id=plan.configuration_id
+           AND evidence.recorded_at>=plan.approved_at
+           AND evidence.recorded_at<=$4
        )
 FROM v1c_submission_outbox outbox
+JOIN v1c_submission_plans plan ON plan.id=outbox.plan_id
+JOIN v1c_exchange_accounts account ON account.id=outbox.account_id
 WHERE outbox.id=$1
 FOR UPDATE OF outbox`
 
@@ -252,6 +288,7 @@ func loadV1CReconciledTerminal(
 		&record.leaseValid,
 		&record.reconciliationClean,
 		&record.hasFill,
+		&record.createAttempted,
 	)
 	if err != nil || !record.leaseValid || !record.reconciliationClean {
 		return v1CReconciledTerminal{}, fmt.Errorf("v1c_reconciled_terminal_rejected")
@@ -261,6 +298,23 @@ func loadV1CReconciledTerminal(
 
 func releasableV1CTerminalState(state string) bool {
 	return state == "CANCELED" || state == "REJECTED" || state == "EXPIRED"
+}
+
+func reconciledV1CTerminalState(
+	orderState string,
+	createAttempted bool,
+) string {
+	if orderState == "UNKNOWN" && !createAttempted {
+		// Authenticated request evidence is committed before network I/O. Its
+		// absence proves that this locally claimed attempt never reached an
+		// exchange create route, so clean reconciliation may close it as a
+		// deterministic rejection rather than query it forever.
+		return "REJECTED"
+	}
+	if releasableV1CTerminalState(orderState) {
+		return orderState
+	}
+	return ""
 }
 
 func releaseV1CReconciledReservation(
@@ -289,7 +343,7 @@ WHERE order_id=$1 AND state='ACTIVE'`,
 func finalizeV1CReconciledTerminal(
 	ctx context.Context,
 	tx pgx.Tx,
-	outboxID, planID string,
+	outboxID, planID, orderState string,
 	now time.Time,
 	kill sandbox.KillPoint,
 ) error {
@@ -298,10 +352,9 @@ func finalizeV1CReconciledTerminal(
 	}
 	if _, err := tx.Exec(ctx, `
 UPDATE v1c_submission_outbox
-SET state='TERMINAL',updated_at=$2
+SET state='TERMINAL',order_state=$3,updated_at=$2
 WHERE id=$1 AND state='UNKNOWN'`,
-		outboxID,
-		now,
+		outboxID, now, orderState,
 	); err != nil {
 		return fmt.Errorf("v1c_reconciled_terminal_outbox_failed")
 	}

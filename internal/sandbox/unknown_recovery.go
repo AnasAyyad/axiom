@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"axiom/internal/execution"
 )
 
 // UnknownRecoveryRepository exposes only the durable facts needed to resolve
@@ -88,12 +90,13 @@ func (harness *UnknownRecoveryHarness) RecoverOnce(
 	}
 	recovered := 0
 	for _, record := range records {
-		queryErr := harness.queryAndAppend(ctx, record)
+		terminalResolution, queryErr := harness.queryAndAppend(ctx, record)
 		result, reconcileErr := harness.reconcile(ctx)
 		if reconcileErr == nil {
 			reconcileErr = harness.repository.RecordReconciliation(ctx, result)
 		}
-		if reconcileErr == nil && result.State == "clean" {
+		if reconcileErr == nil && result.State == "clean" &&
+			terminalResolution {
 			_, reconcileErr = harness.repository.ResolveReconciledTerminal(
 				ctx,
 				record.ID,
@@ -118,9 +121,9 @@ func (harness *UnknownRecoveryHarness) RecoverOnce(
 func (harness *UnknownRecoveryHarness) queryAndAppend(
 	ctx context.Context,
 	record SubmissionOutbox,
-) error {
+) (bool, error) {
 	if err := harness.kill.Hit(ctx, KillBeforeNetworkAttempt); err != nil {
-		return err
+		return false, err
 	}
 	events, err := harness.broker.Query(
 		ctx,
@@ -129,16 +132,25 @@ func (harness *UnknownRecoveryHarness) queryAndAppend(
 		record.Submission.ClientOrderID,
 	)
 	if killErr := harness.kill.Hit(ctx, KillAfterNetworkAttempt); killErr != nil {
-		return killErr
+		return false, killErr
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
+	terminalResolution := len(events) == 0
 	for _, event := range events {
 		if event.AccountID != harness.account || event.AccountEpoch != harness.epoch ||
 			event.ClientOrderID != record.Submission.ClientOrderID ||
 			(event.Kind != PrivateOrderEvent && event.Kind != PrivateFillEvent) {
-			return contractError("unknown_recovery_event_mismatch")
+			return false, contractError("unknown_recovery_event_mismatch")
+		}
+		if event.OrderEvent == nil {
+			return false, contractError("unknown_recovery_event_mismatch")
+		}
+		switch event.OrderEvent.State {
+		case execution.OrderFilled, execution.OrderCanceled,
+			execution.OrderRejected, execution.OrderExpired:
+			terminalResolution = true
 		}
 		if err = harness.repository.AppendPrivateEvent(
 			ctx,
@@ -147,10 +159,10 @@ func (harness *UnknownRecoveryHarness) queryAndAppend(
 			event,
 			harness.kill,
 		); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return terminalResolution, nil
 }
 
 func (harness *UnknownRecoveryHarness) reconcile(

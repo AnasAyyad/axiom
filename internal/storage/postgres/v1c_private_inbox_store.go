@@ -97,24 +97,24 @@ func verifyV1CDuplicateInbox(
 	var fillHash, balanceHash, orderID, clientOrderID *string
 	var kind string
 	var payloadMatches, alreadyReduced bool
-	var occurredAt, receivedAt time.Time
+	var occurredAt time.Time
 	err := tx.QueryRow(ctx, `
 SELECT native_order_hash,native_fill_hash,balance_hash,event_kind,
-       canonical_event=$4::jsonb,order_id,client_order_id,occurred_at,received_at,
+       canonical_event=$4::jsonb,order_id,client_order_id,occurred_at,
        reduced_at IS NOT NULL
 FROM v1c_private_inbox
 WHERE account_id=$1 AND account_epoch=$2 AND event_identity=$3`,
 		event.AccountID, event.AccountEpoch, event.Identity, string(payload),
 	).Scan(
 		&orderHash, &fillHash, &balanceHash, &kind, &payloadMatches,
-		&orderID, &clientOrderID, &occurredAt, &receivedAt, &alreadyReduced,
+		&orderID, &clientOrderID, &occurredAt, &alreadyReduced,
 	)
 	mismatch := err != nil || orderHash != event.NativeOrderHash ||
 		valueOrEmpty(fillHash) != event.NativeFillHash ||
 		valueOrEmpty(balanceHash) != event.BalanceHash || kind != string(event.Kind) ||
 		!payloadMatches || valueOrEmpty(orderID) != expectedOrderID ||
 		valueOrEmpty(clientOrderID) != event.ClientOrderID ||
-		!occurredAt.Equal(event.OccurredAt) || !receivedAt.Equal(event.ReceivedAt)
+		!occurredAt.Equal(event.OccurredAt)
 	if mismatch {
 		return false, fmt.Errorf("v1c_private_event_identity_conflict")
 	}
@@ -179,6 +179,11 @@ func reduceV1COrderEvent(
 	if err != nil {
 		return err
 	}
+	if replayed, replayErr := reduceV1CCanonicalReplay(
+		ctx, tx, event, payload, kill,
+	); replayErr != nil || replayed {
+		return replayErr
+	}
 	orderEvents, err := readV1COrderHistory(ctx, tx, event)
 	if err != nil {
 		return err
@@ -242,6 +247,45 @@ WHERE account_id=$1 AND fencing_token=$2 AND expires_at>$3)`,
 	}
 	record, err := readV1COutbox(ctx, tx, outboxID)
 	return outboxID, record, err
+}
+
+func reduceV1CCanonicalReplay(
+	ctx context.Context,
+	tx pgx.Tx,
+	event sandbox.PrivateEvent,
+	payload []byte,
+	kill sandbox.KillPoint,
+) (bool, error) {
+	replayed, err := canonicalV1CPrivateReplay(ctx, tx, event, payload)
+	if err != nil || !replayed {
+		return replayed, err
+	}
+	return true, kill.Hit(ctx, sandbox.KillAfterReducerUpdate)
+}
+
+func canonicalV1CPrivateReplay(
+	ctx context.Context,
+	tx pgx.Tx,
+	event sandbox.PrivateEvent,
+	payload []byte,
+) (bool, error) {
+	var replayed bool
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS(
+  SELECT 1 FROM v1c_private_inbox
+  WHERE account_id=$1 AND account_epoch=$2 AND order_id=$3
+    AND id<>$4 AND reduced_at IS NOT NULL
+    AND canonical_event=$5::jsonb
+)`,
+		event.AccountID,
+		event.AccountEpoch,
+		event.OrderID.String(),
+		event.Identity,
+		string(payload),
+	).Scan(&replayed); err != nil {
+		return false, fmt.Errorf("v1c_private_event_replay_check_failed")
+	}
+	return replayed, nil
 }
 
 func readV1COrderHistory(

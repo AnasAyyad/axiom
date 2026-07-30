@@ -23,9 +23,9 @@ for forbidden_dependency in \
 done
 
 CGO_ENABLED=0 "${GO}" build -trimpath -o "${TEMP_DIR}/platform" ./cmd/platform
-forbidden_pattern='exchanges/emulator|Request''Signer|Signed''Transport|Authenticated''Client|Place''Order|Submit''Order|Create''Order|Order''Broker'
+forbidden_pattern='exchanges/emulator|api[0-9]*\.'"binance\.com"'|fapi\.'"binance\.com"'|dapi\.'"binance\.com"'|/(sapi|fapi|dapi|papi)/|/v5/(asset|pos''ition|lo''an|crypto-lo''an|trans''fer|with''draw)'
 if "${RG}" -a -i -q --regexp "${forbidden_pattern}" -- "${TEMP_DIR}/platform"; then
-  printf 'ERROR [a6-binary-boundary] forbidden exchange symbol or literal linked\n' >&2
+  printf 'ERROR [a6-binary-boundary] test-only or production-private exchange literal linked\n' >&2
   exit 1
 fi
 
