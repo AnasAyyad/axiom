@@ -34,25 +34,24 @@ type AuthenticatedEvidenceSink interface {
 var ErrAuthenticatedEvidenceRejected = errors.New("authenticated_request_evidence_rejected")
 
 type authenticatedEvidencePolicy struct {
-	host       string
-	routes     map[string]struct{}
+	routeHosts map[string]string
 	fields     map[string]struct{}
 	enumerated map[string]map[string]struct{}
 }
 
 var authenticatedEvidencePolicies = map[string]authenticatedEvidencePolicy{
 	"binance": {
-		host: "testnet.binance.vision",
-		routes: stringSet(
-			"GET /api/v3/account",
-			"GET /api/v3/openOrders",
-			"GET /api/v3/allOrders",
-			"GET /api/v3/myTrades",
-			"POST /api/v3/order/test",
-			"POST /api/v3/order",
-			"GET /api/v3/order",
-			"DELETE /api/v3/order",
-		),
+		routeHosts: map[string]string{
+			"GET /api/v3/account":                              "testnet.binance.vision",
+			"GET /api/v3/openOrders":                           "testnet.binance.vision",
+			"GET /api/v3/allOrders":                            "testnet.binance.vision",
+			"GET /api/v3/myTrades":                             "testnet.binance.vision",
+			"POST /api/v3/order/test":                          "testnet.binance.vision",
+			"POST /api/v3/order":                               "testnet.binance.vision",
+			"GET /api/v3/order":                                "testnet.binance.vision",
+			"DELETE /api/v3/order":                             "testnet.binance.vision",
+			"WS /ws-api/v3/userDataStream.subscribe.signature": "ws-api.testnet.binance.vision",
+		},
 		fields: stringSet(
 			"endTime", "fromId", "limit", "newClientOrderId", "newOrderRespType",
 			"orderId", "origClientOrderId", "price", "quantity", "recvWindow",
@@ -66,15 +65,20 @@ var authenticatedEvidencePolicies = map[string]authenticatedEvidencePolicy{
 		},
 	},
 	"bybit": {
-		host: "api-demo.bybit.com",
-		routes: stringSet(
-			"GET /v5/user/query-api",
-			"GET /v5/account/wallet-balance",
-			"POST /v5/order/create",
-			"POST /v5/order/cancel",
-			"GET /v5/order/realtime",
-			"GET /v5/order/history",
-			"GET /v5/execution/list",
+		routeHosts: mergeRouteHosts(
+			routeHostSet(
+				"api-demo.bybit.com",
+				"GET /v5/user/query-api",
+				"GET /v5/account/wallet-balance",
+				"POST /v5/order/create",
+				"POST /v5/order/cancel",
+				"GET /v5/order/realtime",
+				"GET /v5/order/history",
+				"GET /v5/execution/list",
+			),
+			map[string]string{
+				"WS /v5/private/auth": "stream-demo.bybit.com",
+			},
 		),
 		fields: stringSet(
 			"accountType", "category", "cursor", "endTime", "isLeverage", "limit",
@@ -116,10 +120,11 @@ func authenticatedEvidencePolicyFor(
 		return authenticatedEvidencePolicy{}, ErrAuthenticatedEvidenceRejected
 	}
 	policy, ok := authenticatedEvidencePolicies[record.Exchange]
-	if !ok || record.Host != policy.host {
+	if !ok {
 		return authenticatedEvidencePolicy{}, ErrAuthenticatedEvidenceRejected
 	}
-	if _, ok = policy.routes[record.Method+" "+record.Path]; !ok {
+	host, ok := policy.routeHosts[record.Method+" "+record.Path]
+	if !ok || record.Host != host {
 		return authenticatedEvidencePolicy{}, ErrAuthenticatedEvidenceRejected
 	}
 	return policy, nil
@@ -179,6 +184,26 @@ func stringSet(values ...string) map[string]struct{} {
 	result := make(map[string]struct{}, len(values))
 	for _, value := range values {
 		result[value] = struct{}{}
+	}
+	return result
+}
+
+func routeHostSet(host string, routes ...string) map[string]string {
+	result := make(map[string]string, len(routes))
+	for _, route := range routes {
+		result[route] = host
+	}
+	return result
+}
+
+func mergeRouteHosts(
+	sets ...map[string]string,
+) map[string]string {
+	result := make(map[string]string)
+	for _, set := range sets {
+		for route, host := range set {
+			result[route] = host
+		}
 	}
 	return result
 }

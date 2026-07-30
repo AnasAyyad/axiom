@@ -112,6 +112,49 @@ func TestUnknownRecoveryCleanSnapshotWithoutOrderFactKeepsCapacity(t *testing.T)
 	}
 }
 
+func TestUnknownRecoveryActiveOrderDoesNotAttemptTerminalRelease(t *testing.T) {
+	at := time.Date(2026, 7, 27, 13, 15, 0, 0, time.UTC)
+	repository, plan, outboxID := unknownSandboxFixture(t, at)
+	acknowledged := privateOrderEvent(
+		plan.Submissions[0],
+		execution.OrderAcknowledged,
+		"NEW",
+		7,
+		at.Add(time.Second),
+	)
+	harness, err := NewUnknownRecoveryHarness(
+		"binance-testnet-a",
+		1,
+		"worker-a",
+		1,
+		repository,
+		&recoveryQueryBroker{events: []PrivateEvent{acknowledged}},
+		staticReconciler{result: cleanRecoveryResult(at.Add(2 * time.Second))},
+		NoKillPoint{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, recoverErr := harness.RecoverOnce(
+		context.Background(),
+		at.Add(3*time.Second),
+		1,
+	); recoverErr != nil || count != 1 {
+		t.Fatalf("recover count=%d error=%v", count, recoverErr)
+	}
+	reservation := repository.reservations["reservation-1-0"]
+	if repository.outbox[outboxID].State != OutboxAcknowledged ||
+		reservation.State != ReservationActive ||
+		repository.planStates[plan.ID] != "ACTIVE" {
+		t.Fatalf(
+			"active state=%s reservation=%s plan=%s",
+			repository.outbox[outboxID].State,
+			reservation.State,
+			repository.planStates[plan.ID],
+		)
+	}
+}
+
 func TestUnknownCanceledOrderReleasesOnlyAfterCleanReconciliation(t *testing.T) {
 	at := time.Date(2026, 7, 27, 13, 30, 0, 0, time.UTC)
 	repository, plan, outboxID := unknownSandboxFixture(t, at)

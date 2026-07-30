@@ -11,11 +11,12 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .DEFAULT_GOAL := help
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
-.PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify v1c-postgres-qualify v1c-pr1-local-qualify
+.PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify v1c-pr1-local-qualify v1c-pr2-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
 REBUILD_IMAGE ?= $(IMAGE)-rebuild
+VULNDB ?= https://vuln.go.dev
 VERSION ?= dev
 COMMIT ?= unknown
 BUILT_AT ?= unknown
@@ -147,6 +148,30 @@ c3-recovery-qualify: ## Exercise C3 atomic caps, durable dispatch, fencing, inbo
 		./internal/runtime ./internal/storage/postgres -count=1
 	@$(GO) test -race ./internal/sandbox ./internal/execution ./internal/reconciliation ./internal/runtime -count=1
 
+c4-binance-testnet-qualify: ## Prove the complete closed Binance Spot Testnet adapter and recovery behavior.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/exchanges/contracts ./internal/exchanges/binance \
+		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
+		./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/exchanges/binance ./internal/exchanges/sandboxemulator \
+		./internal/sandbox ./internal/execution -count=1
+	@$(GO) test ./internal/exchanges/binance -run '^$$' \
+		-fuzz '^FuzzBinancePrivateEventDecoder$$' -fuzztime 3s
+	@scripts/check-v1c-security-boundary.sh
+
+c5-bybit-demo-qualify: ## Prove the complete closed Bybit Demo Spot adapter and recovery behavior.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/config ./internal/bootstrap ./internal/egressproxy \
+		./internal/exchanges/contracts ./internal/exchanges/bybit \
+		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
+		./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/bootstrap ./internal/exchanges/bybit \
+		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
+		-count=1
+	@$(GO) test ./internal/exchanges/bybit -run '^$$' \
+		-fuzz '^FuzzBybitDemoPrivateDecoder$$' -fuzztime 3s
+	@scripts/check-v1c-security-boundary.sh
+
 v1c-postgres-qualify: ## Run V1C clean-install and exact B8-upgrade qualification on dedicated PostgreSQL 18 databases.
 	@test -n "$(AXIOM_V1C_TEST_DSN)" || { echo "AXIOM_V1C_TEST_DSN is required" >&2; exit 1; }
 	@test -n "$(AXIOM_V1C_UPGRADE_TEST_DSN)" || { echo "AXIOM_V1C_UPGRADE_TEST_DSN is required" >&2; exit 1; }
@@ -159,8 +184,12 @@ v1c-pr1-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify v
 	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
+v1c-pr2-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify ## Pass every C1-C5 PR2 phase gate plus cumulative repository verification.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
-	@$(GO) tool govulncheck ./...
+	@$(GO) tool govulncheck -db "$(VULNDB)" ./...
 
 verify: preflight format-check contracts-check docs-check lint test test-race fuzz-smoke build compose-validate security-static vulnerability ## Run the complete local A1 quality gate.
 

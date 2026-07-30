@@ -1,0 +1,2 @@
+# Binance's public HMAC documentation golden; this is not a credential.
+912892161d0b5f6c24fc8c1b035ffdb99847aaa5:internal/exchanges/binance/authenticated_client_test.go:generic-api-key:113

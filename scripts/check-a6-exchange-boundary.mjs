@@ -86,8 +86,13 @@ const forbiddenCallable = [
 ];
 const reviewedV1CAuthenticatedFiles = new Set([
   "internal/exchanges/binance/authenticated_client.go",
+  "internal/exchanges/binance/private_subscription.go",
+  "internal/exchanges/binance/private_stream.go",
   "internal/exchanges/bybit/authenticated_client.go",
+  "internal/exchanges/bybit/private_stream.go",
+  "internal/exchanges/bybit/sandbox_payloads.go",
   "internal/exchanges/sandboxemulator/emulator.go",
+  "internal/exchanges/sandboxemulator/bybit.go",
 ]);
 for (const file of goFiles("internal/exchanges")) {
   if (file.endsWith("_test.go") || reviewedV1CAuthenticatedFiles.has(file))

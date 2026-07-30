@@ -1,5 +1,22 @@
 # Axiom V1A implementation status
 
+## V1C PR2 C4-C5 adapters and engines
+
+The `v1c-c4-c5-adapters` branch extends the merged C1-C3 foundation with
+complete Binance Spot Testnet and Bybit Demo authenticated adapters, separate
+credential-owning engines, migration `000023`, and a controlled full-pipeline
+canary/restart evidence path.
+
+C4/C5 deterministic gates, clean PostgreSQL 18.4 install, exact B8 upgrade,
+the closed security boundary, all 1,024 Compose profile renders, the complete
+PR2 aggregate, and exact-source clean-image artifact gates pass. Both required
+operator-armed canaries passed on the same final dirty executable. The
+matching live proxy-cut tests also proved fail-closed `DEGRADED` recovery,
+private-stream backfill, fresh reconciliation, zero engine restarts, and clean
+exit-zero shutdown. PR2 is committed and pushed; formal owner/security
+acceptance remains pending, and PR3 has not started. See
+`docs/releases/v1c-pr2-readiness.md`.
+
 ## V1C PR1 C1-C3 foundation
 
 The `v1c-c1-c3-foundation` branch adds the default-off
@@ -7,10 +24,9 @@ The `v1c-c1-c3-foundation` branch adds the default-off
 signers and proxies, TOTP/one-use authorization and rotation foundations,
 durable sandbox dispatch/recovery models, and migrations `000021`/`000022`.
 
-C1-C3 and the aggregate PR1 local qualification pass. A frozen clean candidate,
-image-backed Compose smoke, and security/owner acceptance remain pending. C4,
-C5, C6, exchange canaries, and the V1C 72-hour soak are not implemented or
-claimed here. See `docs/releases/v1c-pr1-readiness.md`.
+C1-C3 and the aggregate PR1 local qualification passed and merged. C4/C5 are
+tracked above. C6 and the V1C 72-hour soak are not implemented or claimed here.
+See `docs/releases/v1c-pr1-readiness.md`.
 
 This tracker records implemented behavior and verified evidence. A phase is marked complete only after every acceptance criterion in the authoritative specification and the V1A implementation plan has current evidence.
 
@@ -63,10 +79,12 @@ product or fund-management capability remain rejected.
   not formal phase acceptance; A11 remains blocked by formal A8/A9/A10
   acceptance.
 - The clean backup/restore drill and A8-A11 formal acceptances remain open release evidence.
-- V1C PR1 C1-C3 local qualification passes. The current local image is
-  reproducible and scan-clean but truthfully marked dirty, so image-backed
-  startup remains fail-closed until a committed candidate is frozen and
-  rebuilt.
+- V1C PR2 C4/C5 deterministic, database, aggregate, and exact-source clean
+  artifact gates pass locally. Both operator-armed exchange canaries passed on
+  the same final dirty executable, and both engines passed live proxy-cut
+  degradation/recovery without restarting. The PR2 branch is committed and
+  pushed; formal owner/security acceptance remains open, and PR3 has not
+  started.
 
 V1B planning and implementation status is tracked separately in
 [V1B implementation status](releases/v1b-implementation-status.md). V1B work

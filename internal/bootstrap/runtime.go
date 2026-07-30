@@ -90,6 +90,22 @@ func workForRole(
 		return newA11WorkerRoleWork(pool, runtimeConfig)
 	case "engine-shadow":
 		return newA11LiveShadowRoleWork(pool, runtimeConfig)
+	case "engine-binance-sandbox":
+		return newSandboxEngineRoleWork(
+			ctx,
+			pool,
+			runtimeConfig,
+			product,
+			"binance",
+		)
+	case "engine-bybit-sandbox":
+		return newSandboxEngineRoleWork(
+			ctx,
+			pool,
+			runtimeConfig,
+			product,
+			"bybit",
+		)
 	default:
 		return nil, nil
 	}

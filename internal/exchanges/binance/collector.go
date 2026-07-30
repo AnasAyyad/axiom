@@ -147,6 +147,9 @@ func (collector *InstrumentCollector) pauseOutcome(
 	generation, sequence uint64,
 	reason reconnectReason,
 ) generationOutcome {
+	if ctx.Err() != nil {
+		return generationOutcome{}
+	}
 	lostHealthAt := collector.lifecycle.Now()
 	_ = collector.book.Invalidate(reason.String(), sequence)
 	if _, err := collector.recordFact(ctx, RecordLifecycle, connectionID, generation,

@@ -14,6 +14,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const (
+	v1cHighRiskAuditLockSQL = `
+SELECT pg_advisory_xact_lock(hashtext('axiom:v1c:high-risk-audit'))`
+	v1cPreviousHighRiskAuditHashSQL = `
+SELECT event_hash FROM v1c_high_risk_audit_events
+ORDER BY chain_sequence DESC LIMIT 1`
+)
+
 // AppendHighRiskAudit serializes and appends one hash-linked audit event.
 func (store *V1CAuthenticationStore) AppendHighRiskAudit(
 	ctx context.Context,
@@ -38,15 +46,11 @@ func appendHighRiskAudit(
 	tx pgx.Tx,
 	audit authentication.HighRiskAudit,
 ) error {
-	if _, err := tx.Exec(ctx,
-		`SELECT pg_advisory_xact_lock(hashtext('axiom:v1c:high-risk-audit'))`,
-	); err != nil {
+	if _, err := tx.Exec(ctx, v1cHighRiskAuditLockSQL); err != nil {
 		return fmt.Errorf("v1c_audit_chain_failed")
 	}
 	var previous *string
-	err := tx.QueryRow(ctx, `
-SELECT event_hash FROM v1c_high_risk_audit_events
-ORDER BY chain_sequence DESC LIMIT 1 FOR UPDATE`).Scan(&previous)
+	err := tx.QueryRow(ctx, v1cPreviousHighRiskAuditHashSQL).Scan(&previous)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("v1c_audit_chain_failed")
 	}

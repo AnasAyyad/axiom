@@ -53,6 +53,29 @@ func assertV1CArmFlow(
 	now time.Time,
 ) {
 	t.Helper()
+	seedV1CArmAuthorization(
+		t, ctx, pool, userID, actorSessionID, now,
+	)
+	arm := v1CControlArm(account, userID, actorSessionID, now)
+	persistedArm, err := store.CreateSandboxArm(ctx, sandbox.ArmCommand{
+		Arm: arm, AuthorizationID: "v1c-control-arm-auth",
+		SourceHash: strings.Repeat("a", 64), ExpectedSessionRevision: 1,
+	})
+	if err != nil {
+		t.Fatalf("authorized arm failed: %v", err)
+	}
+	assertV1CArmTimestamps(t, ctx, pool, persistedArm)
+	assertV1CArmState(t, ctx, pool, account)
+}
+
+func seedV1CArmAuthorization(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	userID, actorSessionID string,
+	now time.Time,
+) {
+	t.Helper()
 	seedV1CConsumedAuthorization(
 		t,
 		ctx,
@@ -66,23 +89,50 @@ func assertV1CArmFlow(
 		strings.Repeat("b", 64),
 		now,
 	)
-	arm := sandbox.Arm{
+}
+
+func v1CControlArm(
+	account sandbox.AccountID,
+	userID, actorSessionID string,
+	now time.Time,
+) sandbox.Arm {
+	createdAt := now.Add(time.Second + 721*time.Nanosecond)
+	return sandbox.Arm{
 		ID: "v1c-control-arm", SessionID: "v1c-control-session",
 		AccountIDs:        []sandbox.AccountID{account},
 		AuthorizationHash: strings.Repeat("c", 64),
 		ActorUserID:       userID, ActorSessionID: actorSessionID,
 		ReasonHash: strings.Repeat("b", 64),
-		CreatedAt:  now.Add(time.Second),
-		ExpiresAt:  now.Add(time.Second).Add(sandbox.ArmLifetime),
+		CreatedAt:  createdAt,
+		ExpiresAt:  createdAt.Add(sandbox.ArmLifetime),
 		Revision:   1,
 	}
-	if _, err := store.CreateSandboxArm(ctx, sandbox.ArmCommand{
-		Arm: arm, AuthorizationID: "v1c-control-arm-auth",
-		SourceHash: strings.Repeat("a", 64), ExpectedSessionRevision: 1,
-	}); err != nil {
-		t.Fatalf("authorized arm failed: %v", err)
+}
+
+func assertV1CArmTimestamps(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	arm sandbox.Arm,
+) {
+	t.Helper()
+	var storedCreatedAt, storedExpiresAt time.Time
+	if err := pool.QueryRow(ctx, `
+SELECT created_at,expires_at FROM v1c_sandbox_arms WHERE id=$1`,
+		arm.ID,
+	).Scan(&storedCreatedAt, &storedExpiresAt); err != nil {
+		t.Fatal(err)
 	}
-	assertV1CArmState(t, ctx, pool, account)
+	if !arm.CreatedAt.Equal(storedCreatedAt) ||
+		!arm.ExpiresAt.Equal(storedExpiresAt) {
+		t.Fatalf(
+			"returned arm timestamps differ from storage: returned=%s/%s stored=%s/%s",
+			arm.CreatedAt.Format(time.RFC3339Nano),
+			arm.ExpiresAt.Format(time.RFC3339Nano),
+			storedCreatedAt.Format(time.RFC3339Nano),
+			storedExpiresAt.Format(time.RFC3339Nano),
+		)
+	}
 }
 
 func assertV1CRiskUnlockFlow(
@@ -318,9 +368,28 @@ func recordV1CAccountSnapshot(
 	now time.Time,
 ) {
 	t.Helper()
+	snapshot := v1CControlSnapshot(t, account, now)
+	if err := store.RecordAccountSnapshot(
+		ctx,
+		"v1c-control-snapshot",
+		snapshot,
+	); err != nil {
+		t.Fatal(err)
+	}
+	recordRepeatedV1CAccountState(t, ctx, store, snapshot, now)
+	assertV1CAccountSnapshotRoundTrip(t, ctx, store, snapshot)
+	rejectConflictingV1CAccountSnapshot(t, ctx, store, snapshot, now)
+}
+
+func v1CControlSnapshot(
+	t *testing.T,
+	account sandbox.AccountID,
+	now time.Time,
+) sandbox.AccountSnapshot {
+	t.Helper()
 	available, _ := domain.ParseBalance("20")
 	reserved, _ := domain.ParseBalance("0")
-	if err := store.RecordAccountSnapshot(ctx, "v1c-control-snapshot", sandbox.AccountSnapshot{
+	return sandbox.AccountSnapshot{
 		AccountID: account, Epoch: 1,
 		Balances: []sandbox.Balance{{
 			Asset: "USDT", Available: available, Reserved: reserved,
@@ -329,8 +398,75 @@ func recordV1CAccountSnapshot(
 		FillsHash:    strings.Repeat("2", 64),
 		SnapshotHash: strings.Repeat("3", 64),
 		ObservedAt:   now,
-	}); err != nil {
-		t.Fatal(err)
+	}
+}
+
+func recordRepeatedV1CAccountState(
+	t *testing.T,
+	ctx context.Context,
+	store *V1CDispatcherStore,
+	snapshot sandbox.AccountSnapshot,
+	now time.Time,
+) {
+	t.Helper()
+	repeatedState := snapshot
+	repeatedState.ObservedAt = now.Add(time.Second)
+	if err := store.RecordAccountSnapshot(
+		ctx,
+		"v1c-control-snapshot-repeated-state",
+		repeatedState,
+	); err != nil {
+		t.Fatalf("repeated immutable account state was not idempotent: %v", err)
+	}
+	var snapshots int
+	if err := store.pool.QueryRow(ctx, `
+SELECT count(*) FROM v1c_account_snapshots
+WHERE account_id=$1 AND account_epoch=1`, snapshot.AccountID).Scan(&snapshots); err != nil ||
+		snapshots != 1 {
+		t.Fatalf("deduplicated account snapshots=%d error=%v", snapshots, err)
+	}
+}
+
+func assertV1CAccountSnapshotRoundTrip(
+	t *testing.T,
+	ctx context.Context,
+	store *V1CDispatcherStore,
+	snapshot sandbox.AccountSnapshot,
+) {
+	t.Helper()
+	loaded, found, err := store.LatestAccountSnapshot(
+		ctx,
+		snapshot.AccountID,
+		snapshot.Epoch,
+	)
+	if err != nil || !found || loaded.SnapshotHash != snapshot.SnapshotHash ||
+		loaded.ObservedAt.Location() != time.UTC {
+		t.Fatalf(
+			"account snapshot round trip found=%t snapshot=%#v error=%v",
+			found,
+			loaded,
+			err,
+		)
+	}
+}
+
+func rejectConflictingV1CAccountSnapshot(
+	t *testing.T,
+	ctx context.Context,
+	store *V1CDispatcherStore,
+	snapshot sandbox.AccountSnapshot,
+	now time.Time,
+) {
+	t.Helper()
+	conflict := snapshot
+	conflict.SnapshotHash = strings.Repeat("4", 64)
+	conflict.ObservedAt = now.Add(2 * time.Second)
+	if err := store.RecordAccountSnapshot(
+		ctx,
+		"v1c-control-snapshot",
+		conflict,
+	); err == nil {
+		t.Fatal("reused snapshot identity with a different state was accepted")
 	}
 }
 

@@ -6,7 +6,7 @@
 **Primary implementation agent:** Codex  
 **Primary owner:** Anas Abu-Sulik  
 **Program safety status:** Real-money trading must be impossible in every release defined here  
-**Last updated:** 12 July 2026
+**Last updated:** 28 July 2026
 
 This document defines one mature product delivered through four cumulative releases: **V1A**, **V1B**, **V1C**, and **V1D**. The release boundaries are evidence gates, not scope reductions. V1D includes the complete professional research, simulation, sandbox-execution, dashboard, reporting, security, and operational scope described here. None of these releases may submit real-money production orders.
 
@@ -785,6 +785,8 @@ Bybit demo notes:
 - Public market data comes from production public streams.
 - Demo private streams use demo endpoints.
 - WebSocket order entry is not supported in demo; use supported authenticated REST operations and private streams.
+- Virtual BTC, ETH, and USDT funding is a manual owner prerequisite. The V1
+  runtime must not expose or call a Demo-fund application endpoint.
 - REST submission acknowledgement is not final order state; private events and reconciliation are authoritative inputs to the idempotent order reducer.
 
 ## 7.4 Normalization rules
@@ -2760,6 +2762,16 @@ Support export to CSV and JSON. PDF export may be added later but is not require
 - Use environment injection, Docker secrets, or a secret manager.
 - Separate Binance testnet and Bybit demo credentials.
 - Validate permissions at startup.
+- Prefer a provider-enforced Spot-only key whenever the provider exposes
+  independently selectable permissions. Bybit Demo's API Transaction UI may
+  couple `SpotTrade` to the exact Unified Trading grant
+  `ContractTrade=[Order,Position]`, `Options=[OptionsTrade]`, and
+  `Derivatives=[DerivativesTrade]`. V1C may admit only that exact read-write,
+  UTA, Demo-account bundle or a stricter Spot-only key. This is a key-admission
+  exception, not an executable capability: Wallet, Exchange, Earn, transfer,
+  withdrawal, unknown nonempty permissions, and partial or expanded bundles
+  fail startup, while all non-Spot signed routes and fields remain absent and
+  rejected before signing.
 
 ## 26.2 Authentication
 
@@ -3109,6 +3121,10 @@ Test/demo order submission requires all of:
 - Credentials are scoped to exactly one exchange and environment. They are never shared with API, recorder, shadow, worker, Prometheus, Grafana, or edge containers.
 - Credential files must be regular files, not world/group readable, and must not contain placeholders. Startup validates permissions where the operating system supports it.
 - Bybit demo uses `category=spot`, `isLeverage=0`, an allowlisted request schema, REST order entry, and demo private streams. Binance uses only Spot Testnet authenticated endpoints.
+- Bybit Demo key inspection accepts a Spot-only permission profile or the exact
+  UI-coupled Unified Trading bundle defined in Section 26.1. The compiled
+  adapter still exposes no contract, position, options, derivatives, margin,
+  asset-transfer, withdrawal, or generic signed-request operation.
 
 ## 30.5 Storage, retention, backup, and disk pressure
 
@@ -3473,6 +3489,10 @@ Owner: security and exchange platform.
 
 Deliver separate public/authenticated transports, compiled allowlists, signer denial policy, least-privilege credential validation, serialized-field allowlists, and negative outbound-request tests.
 
+When a Demo provider UI couples non-Spot key grants to Spot trading, credential
+validation may use only the exact reviewed provider bundle in Section 26.1.
+Application capabilities and signed routes remain least-privilege and Spot-only.
+
 Acceptance: every signed request is proven to target only the exact permitted test/demo host, route, method, spot category, and non-leveraged field set.
 
 ### Phase C2: Authenticated control plane
@@ -3495,7 +3515,9 @@ Acceptance: termination at every submission boundary produces no duplicate order
 
 Owner: Binance adapter team.
 
-Deliver testnet signing, order place/cancel/query, user-data events, exact filters, unknown-order recovery, periodic-reset handling, and reconciliation.
+Deliver testnet signing, order place/cancel/query, user-data events, exact
+filters, weighted request accounting, bounded clock recovery, unknown-order
+recovery, periodic-reset handling, and single-snapshot reconciliation.
 
 Acceptance: canonical states and races pass; resets become explicit external adjustments; startup reconciliation and duplicate prevention pass.
 

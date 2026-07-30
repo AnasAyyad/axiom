@@ -21,10 +21,56 @@ command -v rg >/dev/null 2>&1 || fail "ripgrep is required"
 
 AUTHENTICATED_SOURCES=(
   internal/exchanges/binance/authenticated_client.go
+  internal/exchanges/binance/authenticated_operations.go
   internal/exchanges/binance/authenticated_policy.go
+  internal/exchanges/binance/authenticated_response.go
+  internal/exchanges/binance/private_decoder.go
+  internal/exchanges/binance/private_subscription.go
+  internal/exchanges/binance/private_stream.go
+  internal/exchanges/binance/private_transport.go
+  internal/exchanges/binance/sandbox_adapter.go
+  internal/exchanges/binance/sandbox_adapter_commands.go
+  internal/exchanges/binance/sandbox_clock.go
+  internal/exchanges/binance/sandbox_eligibility.go
+  internal/exchanges/binance/sandbox_snapshot.go
+  internal/exchanges/binance/sandbox_filters.go
+  internal/exchanges/binance/sandbox_filter_validation.go
+  internal/exchanges/binance/sandbox_normalize.go
+  internal/exchanges/binance/sandbox_normalize_fills.go
+  internal/exchanges/binance/sandbox_rate.go
+  internal/exchanges/binance/sandbox_recovery.go
+  internal/exchanges/binance/sandbox_reset.go
   internal/exchanges/bybit/authenticated_client.go
+  internal/exchanges/bybit/authenticated_operations.go
   internal/exchanges/bybit/authenticated_policy.go
+  internal/exchanges/bybit/authenticated_response.go
+  internal/exchanges/bybit/private_decoder.go
+  internal/exchanges/bybit/private_stream.go
+  internal/exchanges/bybit/private_transport.go
+  internal/exchanges/bybit/sandbox_adapter.go
+  internal/exchanges/bybit/sandbox_balances.go
+  internal/exchanges/bybit/sandbox_budget.go
+  internal/exchanges/bybit/sandbox_clock.go
+  internal/exchanges/bybit/sandbox_eligibility.go
+  internal/exchanges/bybit/sandbox_fills.go
+  internal/exchanges/bybit/sandbox_filter_helpers.go
+  internal/exchanges/bybit/sandbox_filters.go
+  internal/exchanges/bybit/sandbox_history.go
+  internal/exchanges/bybit/sandbox_normalize.go
+  internal/exchanges/bybit/sandbox_payloads.go
+  internal/exchanges/bybit/sandbox_rate.go
+  internal/exchanges/bybit/sandbox_snapshot.go
 )
+
+CREDENTIAL_FREE_PUBLIC_SOURCES=(
+  internal/exchanges/bybit/sandbox_public.go
+)
+
+if rg -q --pcre2 \
+  '(?i)(apiKey|apiSecret|signature|authorization|cookie|X-Bapi-(Api-Key|Sign|Timestamp|Recv-Window)|AuthenticatedEvidence)' \
+  -- "${CREDENTIAL_FREE_PUBLIC_SOURCES[@]}"; then
+  fail "a credential-free production-public path can access private material"
+fi
 
 if rg -q --pcre2 \
   '(?i)(api[0-9]*\.binance\.com|fapi\.binance\.com|dapi\.binance\.com|api\.bybit\.com|stream\.bybit\.com)' \
@@ -65,6 +111,16 @@ for required in \
     fail "required file-only secret reference is absent"
 done
 
+for source_variable in \
+  BINANCE_CANARY_REQUEST_SOURCE_FILE BYBIT_CANARY_REQUEST_SOURCE_FILE; do
+  rg -q --fixed-strings "${source_variable}:-./deploy/config/canary-request-unavailable" \
+    docker-compose.yml ||
+    fail "${source_variable} does not fail closed to the invalid placeholder"
+done
+rg -q --fixed-strings "intentionally invalid, non-secret" \
+  deploy/config/canary-request-unavailable ||
+  fail "canary request placeholder is missing or ambiguous"
+
 api_block="$(sed -n '/^  api:/,/^  [a-zA-Z0-9_-]*:/p' docker-compose.yml)"
 if [[ "${api_block}" == *"binance_testnet_api_"* || "${api_block}" == *"bybit_demo_api_"* ]]; then
   fail "API service receives exchange credentials"
@@ -74,9 +130,13 @@ for service in binance-testnet-egress bybit-demo-egress; do
   rg -q "^  ${service}:" docker-compose.yml ||
     fail "closed egress service is absent"
 done
+for service in binance-sandbox-engine bybit-sandbox-engine; do
+  rg -q "^  ${service}:" docker-compose.yml ||
+    fail "authenticated sandbox engine service is absent"
+done
 
 CGO_ENABLED=0 "${GO}" build -trimpath -o "${TEMP_DIR}/platform" ./cmd/platform
-if rg -a -i -q --pcre2 \
+if rg -a -i -q \
   '(api[0-9]*\.binance\.com|fapi\.binance\.com|dapi\.binance\.com|/(sapi|fapi|dapi|papi)/|/v5/(asset|position|loan|crypto-loan|transfer|withdraw))' \
   -- "${TEMP_DIR}/platform"; then
   fail "the platform binary contains a production-private or forbidden API destination"
