@@ -2,24 +2,25 @@
 
 ## Current decision
 
-**Implementation and both independent exchange canary qualifications are
-complete; exact-source clean-image artifact qualification remains pending.**
+**Implementation, both independent exchange canary qualifications, and the
+exact-source clean-image artifact qualification are complete.**
 C4 Binance Spot Testnet, C5 Bybit Demo, separate engine runtime wiring,
 migration `000023`, and the controlled canary/evidence path are implemented.
 The C4 and C5 phase gates, clean PostgreSQL 18.4 install, exact B8 upgrade,
 security boundary, 1,024-profile Compose isolation matrix, and complete
 repository `make verify` and `make v1c-pr2-local-qualify` aggregates pass.
-An earlier dirty candidate passed image reproducibility, minimal inspection,
-compiled boundary inspection, SPDX, and current-database Trivy gates, but that
-artifact predates the final adapter hardening and is retained as diagnostic
-history only. Exact-source artifact qualification remains pending the
-implementation freeze.
+The implementation source is frozen at
+`912892161d0b5f6c24fc8c1b035ffdb99847aaa5`. Its truthful `DIRTY=false`
+image passes reproducibility, minimal and compiled boundary inspection,
+image-backed Compose smoke, SPDX, and current-database Trivy gates. Earlier
+dirty artifacts remain diagnostic history only.
 
-PR2 is not accepted, committed, pushed, or ready to seed PR3. The independent
-Binance and Bybit operator-armed canaries are complete on the same final dirty
-candidate executable. The required file-backed credentials, database roles,
-TOTP input, and owner attestations are provisioned without being recorded in
-repository evidence. No sandbox result may be used as profitability evidence.
+PR2 is committed and pushed but is not formally accepted; owner/security
+acceptance remains open, and PR3 has not started. The independent Binance and
+Bybit operator-armed canaries are complete on the same final dirty candidate
+executable. The required file-backed credentials, database roles, TOTP input,
+and owner attestations are provisioned without being recorded in repository
+evidence. No sandbox result may be used as profitability evidence.
 
 Live default-off startup validated both exchange identity/key boundaries.
 Binance Testnet remained healthy in `READY_PAUSED` across repeated
@@ -220,7 +221,7 @@ record per exchange.
 |---|---|
 | Refreshed merged-main baseline | `fdeb923b61a83d5a5328a2b5c764def3a6393e8d` |
 | Branch | `v1c-c4-c5-adapters` |
-| Candidate commit | pending; exact pre-commit worktree |
+| Candidate implementation commit | `912892161d0b5f6c24fc8c1b035ffdb99847aaa5` |
 | Configuration schema | `axiom.config.v1c.1`, integrations/submission default off |
 | Migrations | merged `000021`/`000022` plus PR2 `000023` |
 | C4 deterministic gate | passed |
@@ -228,7 +229,7 @@ record per exchange.
 | Repository `make verify` | passed |
 | Final candidate PostgreSQL gate | passed |
 | Aggregate `v1c-pr2-local-qualify` | passed before final mechanical source split; final C1-C5, fresh clean/upgrade PostgreSQL, affected race stress, and complete `make verify` passed afterward |
-| Dirty-candidate image/SBOM/Trivy gates | retained earlier candidate only; exact-source rerun pending freeze |
+| Dirty-candidate image/SBOM/Trivy gates | retained diagnostic history only |
 | Prior funded default-off hold image | `sha256:9c11a3d65a98c00c472ce2dbdb73146551d40e968792c3f358b472c6d5d43c78` |
 | Strengthened-contract review image | `sha256:d4fef2335949ec8b977ee65810faeb89654542fc6366706e6077dd1bba9a95c5`; superseded by explicit abort safeguard |
 | Strengthened-contract executable | `50ea29717f636120ee949cc3fce1638fd71af84023c631dc48a6ee3081482cc6` |
@@ -248,14 +249,14 @@ record per exchange.
 | Current shared canary-qualified image | `sha256:e748058ebdf4cd1bd70d660977d34c3dbb7f2912cee7011ae207419163017940` |
 | Current shared canary-qualified executable | `e2837fde470fc8f7b89f180593b422e8ea8cf972ed18888b5f231735e3e170c9` |
 | Dirty-image Compose admission | rejected as required: `a11_startup_recovery_build_invalid` |
-| Clean-image artifact qualification | pending exact-source implementation freeze |
+| Clean-image artifact qualification | passed on `sha256:c8d561191d6967c0f25677b19460c43e137e453de474f256bd1a7fc0450c51a9`; executable `c9c0ab83bba960bd2ef60835f4ae26cf806335423218e6a7a8e9e9eb69fc8308`; reproducibility fingerprint `sha256:7d193a22bf59b3e6beb076b6ef1d7eeb273408113d968e264df1775d65d3309b` |
 | Binance default-off live proof | healthy `READY_PAUSED`, five-minute hold, zero restarts |
 | Bybit default-off live proof | healthy `READY_PAUSED`, six-minute hold, zero restarts |
 | Current Binance graph startup | exact shared image reached healthy `READY_PAUSED`; live proxy cut degraded and recovered without restart; clean exit zero |
 | Current Bybit graph startup | exact shared image reached healthy `READY_PAUSED`; live proxy cut degraded and recovered without restart; clean exit zero |
 | Binance canary | passed on shared executable; one authenticated create, terminal `FILLED`, five stages, sealed evidence `22072e94ccd24ee10094068ca74720479ba2362b374efac961751f23f4fc3473` |
 | Bybit canary | passed on shared executable; one authenticated create, terminal `FILLED`, five stages, sealed evidence `e39883d4f5e0650b3861b2c3cd753ba1fc832f0536902c9bcbf357568dfa765b` |
-| PR2 push | not performed |
+| PR2 push | completed with the final evidence update |
 
 Any subsequent code, configuration, migration, or evidence-contract change
 invalidates candidate-local results and requires the affected gates to repeat.

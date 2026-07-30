@@ -70,10 +70,10 @@
   restart count zero.
 - [x] Stop both final-image engines cleanly with exit code zero and no
   eligibility or private-stream startup failure.
-- [ ] Freeze the exact canary-qualified worktree, rebuild with truthful
+- [x] Freeze the exact canary-qualified worktree, rebuild with truthful
   `DIRTY=false`, and repeat image reproducibility, minimal/compiled boundary
   inspection, image-backed Compose smoke, SPDX, and Trivy.
-- [ ] Commit the final evidence update and push `v1c-c4-c5-adapters`.
+- [x] Commit the final evidence update and push `v1c-c4-c5-adapters`.
 - [ ] Record owner and security acceptance.
 
 PR3 must not branch from this work until both canaries pass unless the owner

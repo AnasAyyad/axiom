@@ -9,12 +9,12 @@ canary/restart evidence path.
 
 C4/C5 deterministic gates, clean PostgreSQL 18.4 install, exact B8 upgrade,
 the closed security boundary, all 1,024 Compose profile renders, the complete
-PR2 aggregate, and dirty-candidate artifact gates pass. Both required
+PR2 aggregate, and exact-source clean-image artifact gates pass. Both required
 operator-armed canaries passed on the same final dirty executable. The
 matching live proxy-cut tests also proved fail-closed `DEGRADED` recovery,
 private-stream backfill, fresh reconciliation, zero engine restarts, and clean
-exit-zero shutdown. The subsequent clean-image artifact qualification remains
-pending; PR2 is not committed/pushed or accepted, and PR3 has not started. See
+exit-zero shutdown. PR2 is committed and pushed; formal owner/security
+acceptance remains pending, and PR3 has not started. See
 `docs/releases/v1c-pr2-readiness.md`.
 
 ## V1C PR1 C1-C3 foundation
@@ -79,11 +79,12 @@ product or fund-management capability remain rejected.
   not formal phase acceptance; A11 remains blocked by formal A8/A9/A10
   acceptance.
 - The clean backup/restore drill and A8-A11 formal acceptances remain open release evidence.
-- V1C PR2 C4/C5 deterministic, database, aggregate, and dirty-candidate
+- V1C PR2 C4/C5 deterministic, database, aggregate, and exact-source clean
   artifact gates pass locally. Both operator-armed exchange canaries passed on
   the same final dirty executable, and both engines passed live proxy-cut
-  degradation/recovery without restarting. The post-freeze clean-image
-  artifact qualification remains open; no PR2 push or PR3 work has occurred.
+  degradation/recovery without restarting. The PR2 branch is committed and
+  pushed; formal owner/security acceptance remains open, and PR3 has not
+  started.
 
 V1B planning and implementation status is tracked separately in
 [V1B implementation status](releases/v1b-implementation-status.md). V1B work

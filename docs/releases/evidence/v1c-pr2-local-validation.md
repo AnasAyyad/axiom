@@ -7,11 +7,14 @@ the complete repository `make verify` gate pass across the final functional
 candidate. The final private-stream file split was followed by the affected
 targeted suites, exact source scanners, and another complete `make verify`.
 The Binance Spot Testnet and Bybit Demo canaries are complete with independent
-sealed evidence files from the same final dirty executable. Earlier dirty-image
-evidence below is retained diagnostic history, not exact-source artifact
-acceptance; a clean-image artifact qualification must follow the eventual
-implementation freeze. This file is an in-progress local record, not PR2
-acceptance, push evidence, or profitability evidence.
+sealed evidence files from the same final dirty executable. The exact
+implementation source was then frozen at
+`912892161d0b5f6c24fc8c1b035ffdb99847aaa5`; its truthful `DIRTY=false`
+runtime image passes reproducibility, minimal and compiled boundary
+inspection, image-backed Compose smoke, SPDX, and Trivy. Earlier dirty-image
+evidence below is retained diagnostic history only. This file is local
+qualification evidence, not owner/security acceptance or profitability
+evidence.
 
 ## Identity
 
@@ -19,11 +22,13 @@ acceptance, push evidence, or profitability evidence.
 |---|---|
 | Main baseline | `fdeb923b61a83d5a5328a2b5c764def3a6393e8d` |
 | Branch | `v1c-c4-c5-adapters` |
-| Candidate commit | pending; dirty pre-commit candidate |
+| Candidate implementation commit | `912892161d0b5f6c24fc8c1b035ffdb99847aaa5` |
 | Configuration schema | `axiom.config.v1c.1` |
 | Migration | `000023_v1c_private_stream_runtime.sql` |
 | Final dirty image | `sha256:e748058ebdf4cd1bd70d660977d34c3dbb7f2912cee7011ae207419163017940` |
 | Final executable | `e2837fde470fc8f7b89f180593b422e8ea8cf972ed18888b5f231735e3e170c9` |
+| Qualified clean image | `sha256:c8d561191d6967c0f25677b19460c43e137e453de474f256bd1a7fc0450c51a9` |
+| Qualified clean executable | `c9c0ab83bba960bd2ef60835f4ae26cf806335423218e6a7a8e9e9eb69fc8308` |
 | Evidence completed | Binance `22072e94ccd24ee10094068ca74720479ba2362b374efac961751f23f4fc3473`; Bybit `e39883d4f5e0650b3861b2c3cd753ba1fc832f0536902c9bcbf357568dfa765b` |
 
 ## Toolchains
@@ -76,6 +81,49 @@ acceptance, push evidence, or profitability evidence.
   `7f04fb463deb2e42d892e6f9165c6eaca2feb1b6` dated 2026-07-27, archive SHA-256
   `b3549500636ce4da8ac7b996638b4abe83709e27f0324a3b31f233e8fb8f6502`;
   no called vulnerabilities were found
+
+## Exact-source clean image and supply-chain evidence
+
+- Image `axiom:v1c-pr2-clean-20260730t094323z` resolves to
+  `sha256:c8d561191d6967c0f25677b19460c43e137e453de474f256bd1a7fc0450c51a9`,
+  is 11,218,360 bytes, and embeds version `v1c-pr2-clean`, commit
+  `912892161d0b5f6c24fc8c1b035ffdb99847aaa5`, build time
+  `2026-07-30T09:43:23Z`, and truthful `DIRTY=false`.
+- `make image-reproducibility` passed complete runtime
+  configuration/root-filesystem comparison with fingerprint
+  `sha256:7d193a22bf59b3e6beb076b6ef1d7eeb273408113d968e264df1775d65d3309b`.
+- `scripts/inspect-image.sh` passed scratch-shell absence, numeric non-root
+  user `10001:70`, fixed `/app/platform` entrypoint, read-only execution, and
+  credential-like environment-key checks.
+- The extracted runtime executable has SHA-256
+  `c9c0ab83bba960bd2ef60835f4ae26cf806335423218e6a7a8e9e9eb69fc8308`.
+  It contains the five required Testnet/Demo hosts and the exact build
+  identity, contains no production-private Binance or forbidden API-family
+  literal, and each embedded canary graph enables submission for exactly one
+  exchange.
+- `make compose-smoke` passed migration, hardened API/shadow/recorder/worker
+  startup, authenticated login/CSRF/logout, production-order disablement,
+  Prometheus target discovery, Grafana provisioning, and cleanup using only
+  generated temporary secrets.
+- The ignored image export is
+  `.local/v1c-pr2-image-evidence-clean-9128921-20260730t094323z/axiom-v1c-pr2-clean.tar`,
+  SHA-256
+  `c07844ff2f83ad861d60fd748274b78e46e183458cea79453128b78f93d00122`.
+- The retained ignored SPDX 2.3 SBOM is
+  `.local/v1c-pr2-image-evidence-clean-9128921-20260730t094323z/axiom-v1c-pr2-clean.spdx.json`,
+  contains 47 packages, and has SHA-256
+  `7d416040d7067c286efc521a8f3445c7d99bc7d76bebfaef2ce038fec3e784ce`.
+- Trivy 0.72.0 used vulnerability database update
+  `2026-07-30T07:43:55.655924266Z`, downloaded at
+  `2026-07-30T09:53:16.036734584Z`, to scan the read-only export with no
+  Docker socket or network. The offline gate enabled
+  `vuln,secret,misconfig,license`, severity `HIGH,CRITICAL`,
+  `ignore-unfixed=false`, and `exit-code=1`; it exited zero. The retained
+  ignored report is
+  `.local/v1c-pr2-image-evidence-clean-9128921-20260730t094323z/trivy-v1c-pr2-clean.json`,
+  SHA-256
+  `be322413f29c6420b6ce1ef8eba23979ed7ac041ada9ce4c58dcf0990a41b1b8`,
+  with zero qualifying findings in every scanner category.
 
 ## Final Binance evidence reseal
 
@@ -141,11 +189,7 @@ canceled.
 
 ## Pending gates
 
-- One manually armed Bybit Demo Spot canary at no more than 10 USDT
-- Exact-source implementation freeze and truthful `DIRTY=false` repetition of
-  image reproducibility, inspection, compiled boundary, Compose smoke, SPDX,
-  and Trivy after both canaries pass
-- Final evidence update and branch push
+- Formal owner and security acceptance
 
 ## Live pre-canary unblock
 
@@ -286,9 +330,9 @@ read failure had been conservatively marked `UNKNOWN`; the helper then accepted
 query, ambiguous cancel, and reconciliation command completion without proving
 terminal cancel-or-fill. The strengthened candidate rejected that evidence,
 closed the unsent attempt after clean reconciliation, released its virtual
-reservation, and removed the stale local identity pointer. No exchange order
-was submitted, no sealed canary evidence exists, PR2 was not committed or
-pushed, and PR3 was not created.
+reservation, and removed the stale local identity pointer. At that point, no
+exchange order had been submitted, no sealed canary evidence existed, PR2 was
+not committed or pushed, and PR3 had not been created.
 
 The next strengthened-candidate retry failed before session creation with
 `sandbox_canary_account_not_ready`. Read-only aggregate inspection proved the
