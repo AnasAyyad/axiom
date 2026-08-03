@@ -209,7 +209,17 @@ test("D3 labs preserve immutable identity and virtual execution", async ({
 
   await page.getByRole("link", { name: "Replay Lab" }).click();
   await fillRun(page);
+  const replayCreated = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/v1/replays",
+  );
   await page.getByRole("button", { name: "Create replay" }).click();
+  await replayCreated;
+  await page.goto("/replays/replay-a11");
+  await expect(
+    page.getByRole("heading", { name: "Replay controls" }),
+  ).toBeVisible();
   for (const [action, expectedState] of [
     ["pause", "PAUSED"],
     ["step", "PAUSED"],

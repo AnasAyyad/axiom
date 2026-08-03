@@ -76,6 +76,13 @@ could overwrite a prior field because callbacks captured an older form object.
 Every guided field now uses a functional state update. The corrected WebKit
 workflow passes; the finding was not waived.
 
+The first hosted D3 browser job also exposed a workflow timing dependency on
+the Chromium tablet project: the test attempted a replay control before it had
+explicitly reopened the accepted durable run. The workflow now waits for the
+creation response, reopens the recorded replay URL, and verifies the controls
+snapshot before mutation. The corrected tablet workflow passed three repeated
+runs, followed by the full four-project host matrix and pinned WebKit run.
+
 ## Tooling and cleanup
 
 The host lacks WebKit's native GTK/GStreamer dependencies. The pinned official
