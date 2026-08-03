@@ -46,6 +46,7 @@ func TestV1CPostgresCleanInstallQualification(t *testing.T) {
 	assertV1CCanarySessionPersistence(t, ctx, pool)
 	assertV1CDispatcherCrashRecovery(t, ctx, pool)
 	assertV1CControlRecoveryAndReset(t, ctx, pool)
+	assertV1CC6QualificationBoundary(t, ctx, pool)
 }
 
 func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
@@ -63,7 +64,7 @@ func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
 	}
 	defer connection.Release()
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 23 {
+	if err != nil || len(migrations) != 24 {
 		t.Fatalf("migration catalog=%d error=%v", len(migrations), err)
 	}
 	for _, migration := range migrations[20:] {
@@ -78,6 +79,7 @@ func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
 		t.Fatalf("upgrade sentinel=%d error=%v", sentinel, err)
 	}
 	assertV1CSchema(t, ctx, pool)
+	assertV1CC6QualificationBoundary(t, ctx, pool)
 }
 
 func openV1CTestDatabase(t *testing.T, environment string) (context.Context, *pgxpool.Pool) {
@@ -120,6 +122,10 @@ func assertV1CSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 		"v1c_risk_unlocks", "v1c_account_leases",
 		"v1c_engine_startup_evidence",
 		"v1c_engine_commands", "v1c_engine_observations", "v1c_canary_evidence",
+		"v1c_engine_runtime_events", "v1c_c6_order_observations",
+		"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
+		"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
+		"v1c_c6_chaos_events",
 	}
 	for _, table := range tables {
 		var count int
@@ -128,6 +134,132 @@ SELECT count(*) FROM information_schema.tables
 WHERE table_schema='public' AND table_name=$1`, table).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("V1C table %s count=%d error=%v", table, count, err)
 		}
+	}
+}
+
+func assertV1CC6QualificationBoundary(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	at := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
+	runID := fmt.Sprintf("c6-schema-%d", at.UnixNano())
+	assertV1CFormalC6ImageRequired(t, ctx, pool, runID, at)
+	insertV1CSmokeC6Run(t, ctx, pool, runID, at)
+	assertV1CSmokeCannotBecomeFormal(t, ctx, pool, runID, at)
+	assertV1CC6RunPending(t, ctx, pool, runID)
+}
+
+func assertV1CFormalC6ImageRequired(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runID string,
+	at time.Time,
+) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `
+INSERT INTO v1c_c6_qualification_runs(
+ id,mode,state,commit_sha,build_hash,executable_hash,
+ configuration_hash,source_dirty,required_duration_seconds,
+ observed_duration_seconds,profitability_evidence,qualified,revision,
+ created_at,updated_at
+) VALUES(
+ $1,'formal','PENDING',$2,$3,$4,$5,false,259200,0,false,false,1,$6,$6
+)`,
+		runID+"-formal-no-image",
+		strings.Repeat("a", 40),
+		strings.Repeat("b", 64),
+		strings.Repeat("c", 64),
+		strings.Repeat("d", 64),
+		at,
+	); err == nil {
+		t.Fatal("formal C6 run without image identity was accepted")
+	}
+}
+
+func insertV1CSmokeC6Run(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runID string,
+	at time.Time,
+) {
+	t.Helper()
+	_, err := pool.Exec(ctx, `
+INSERT INTO v1c_c6_qualification_runs(
+ id,mode,state,commit_sha,build_hash,executable_hash,
+ configuration_hash,source_dirty,
+ required_duration_seconds,observed_duration_seconds,
+ profitability_evidence,qualified,revision,created_at,updated_at
+) VALUES($1,'smoke','PENDING',$2,$3,$4,$5,false,2,0,false,false,1,$6,$6)`,
+		runID,
+		strings.Repeat("a", 40),
+		strings.Repeat("b", 64),
+		strings.Repeat("c", 64),
+		strings.Repeat("d", 64),
+		at,
+	)
+	if err != nil {
+		t.Fatalf("C6 pending run insert failed: %v", err)
+	}
+}
+
+func assertV1CSmokeCannotBecomeFormal(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runID string,
+	at time.Time,
+) {
+	t.Helper()
+	var orderObservations int
+	if err := pool.QueryRow(
+		ctx,
+		`SELECT count(*) FROM v1c_c6_order_observations`,
+	).Scan(&orderObservations); err != nil {
+		t.Fatalf("C6 redacted order observation view failed: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+UPDATE v1c_c6_qualification_runs
+SET state='PASSED',started_at=$2,ended_at=$2,evidence_hash=$3,
+    observed_duration_seconds=259200,qualified=true,revision=2,updated_at=$2
+WHERE id=$1`, runID, at, strings.Repeat("d", 64)); err == nil {
+		t.Fatal("smoke run fabricated a formal 72-hour pass")
+	}
+	if _, err := pool.Exec(
+		ctx,
+		`DELETE FROM v1c_c6_qualification_runs WHERE id=$1`,
+		runID,
+	); err == nil {
+		t.Fatal("C6 qualification run deletion was accepted")
+	}
+}
+
+func assertV1CC6RunPending(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runID string,
+) {
+	t.Helper()
+	var profitability, qualified bool
+	var state string
+	if err := pool.QueryRow(ctx, `
+SELECT state,profitability_evidence,qualified
+FROM v1c_c6_qualification_runs WHERE id=$1`, runID).Scan(
+		&state,
+		&profitability,
+		&qualified,
+	); err != nil || state != "PENDING" || profitability || qualified {
+		t.Fatalf(
+			"unsafe C6 qualification row state=%s profitability=%t qualified=%t err=%v",
+			state,
+			profitability,
+			qualified,
+			err,
+		)
 	}
 }
 

@@ -72,3 +72,31 @@ bundle does not add any route to this matrix. Wallet, Exchange, Earn, transfer,
 withdrawal, partial/expanded bundles, and unknown nonempty permissions are
 rejected. Demo-fund application is also absent and remains a manual owner
 action.
+
+## C6 credential-free control API
+
+These are same-origin Axiom API operations, not exchange endpoints. They never
+receive an exchange key, signature, signer input, raw private payload, or
+arbitrary destination. Read operations require `sandbox.read`. Mutations also
+pass the shared session, Origin/CSRF, permission, idempotency, revision, reason,
+and audit boundaries as applicable.
+
+| Method | Path | Exact purpose |
+|---|---|---|
+| GET | `/api/v1/sandbox/overview` | Redacted accounts, readiness, arms, caps, risk, and reset state |
+| GET / POST | `/api/v1/sandbox/orders` | Redacted orders/fills or durable test/demo buy admission |
+| GET | `/api/v1/sandbox/reconciliations` | Redacted reconciliation, difference, suspense, and quarantine state |
+| GET | `/api/v1/sandbox/qualification` | Smoke/formal status, SLOs, chaos summary, and terminal verdict |
+| POST | `/api/v1/sandbox/authorizations` | Recent password/TOTP one-use grant for arm or unlock |
+| POST | `/api/v1/sandbox/sessions/{id}/arms` | Create one audited 15-minute arm |
+| POST | `/api/v1/sandbox/arms/{id}/revoke` | Revoke an arm |
+| POST | `/api/v1/sandbox/accounts/{id}/unlock` | Unlock only against a completed reconciliation and one-use grant |
+| POST | `/api/v1/sandbox/orders/{id}/cancel` | Persist an audited durable cancel command |
+| POST | `/api/v1/sandbox/orders/{id}/query` | Persist an audited durable query command |
+| POST | `/api/v1/sandbox/accounts/{id}/reconcile` | Persist an audited durable reconciliation command |
+
+Order admission accepts only Binance Spot Testnet or Bybit Demo, BTCUSDT or
+ETHUSDT, buy side, and `LIMIT_GTC`, `LIMIT_IOC`, or `POST_ONLY`. The API
+traverses the existing allocator/risk/planner/dispatcher path and performs no
+network I/O. Only the matching credential-owning engine can consume the
+resulting outbox row.

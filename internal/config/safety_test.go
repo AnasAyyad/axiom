@@ -35,8 +35,18 @@ func TestValidateEnvironment(t *testing.T) {
 			t.Fatalf("reviewed file reference rejected for %q: %v", key, err)
 		}
 	}
-	if err := ValidateEnvironment([]string{"AXIOM_TOTP_SEED_FILE=relative"}); err == nil {
-		t.Fatal("relative TOTP seed file accepted")
+	if err := ValidateEnvironment([]string{
+		"AXIOM_TOTP_SEED_FILE=/tmp/axiom-platform-smoke/totp_seed",
+	}); err != nil {
+		t.Fatalf("local TOTP seed file reference rejected: %v", err)
+	}
+	for _, key := range []string{
+		"AXIOM_TOTP_SEED_FILE=relative",
+		"AXIOM_BINANCE_TESTNET_API_KEY_FILE=/tmp/axiom-platform-smoke/binance_key",
+	} {
+		if err := ValidateEnvironment([]string{key}); err == nil {
+			t.Fatalf("unsafe secret file reference accepted: %s", key)
+		}
 	}
 }
 

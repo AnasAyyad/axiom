@@ -62,6 +62,17 @@ func TestA10PostgresTrendResearchQualification(t *testing.T) {
 
 func seedA10References(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
+	seedA10ReferenceRows(t, ctx, pool, "public_market")
+	qualifyA10Dataset(t, ctx, pool)
+}
+
+func seedA10ReferenceRows(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	datasetKind string,
+) {
+	t.Helper()
 	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
 	hash := strings.Repeat("a", 64)
 	canonicalConfiguration, err := json.Marshal(config.DefaultConfiguration())
@@ -69,7 +80,7 @@ func seedA10References(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	configurationHash := a10PayloadHash(canonicalConfiguration)
-	datasetHash, recorderDatasetID, manifestPath, sourceCommit, datasetKind := hash, "", "", "", "public_market"
+	datasetHash, recorderDatasetID, manifestPath, sourceCommit := hash, "", "", ""
 	manifestRevision := any(nil)
 	if selected := os.Getenv("AXIOM_A11_E2E_DATASET_MANIFEST"); selected != "" {
 		manifest, manifestErr := recorder.ReadManifest(selected)
@@ -77,7 +88,7 @@ func seedA10References(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 		if manifestErr != nil || !manifest.Complete || len(manifest.Segments) < 2 || !a11BuildIdentityValid(sourceCommit) {
 			t.Fatalf("invalid A11 E2E dataset manifest: %#v %v", manifest, manifestErr)
 		}
-		datasetHash, recorderDatasetID, manifestPath, datasetKind = manifest.Hash, manifest.DatasetID, filepath.Base(selected), "decision_inputs"
+		datasetHash, recorderDatasetID, manifestPath = manifest.Hash, manifest.DatasetID, filepath.Base(selected)
 		manifestRevision = int64(manifest.Revision)
 	}
 	statements := []struct {
@@ -92,8 +103,6 @@ func seedA10References(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 		  VALUES ('dataset-a7-formal-pending',$1,'a7-normalized-v1',$2,$2,'building',$2,
 		          nullif($3,''),$4,nullif($5,''),nullif($6,''),$7)`,
 			[]any{datasetHash, now, recorderDatasetID, manifestRevision, manifestPath, sourceCommit, datasetKind}},
-		{"UPDATE dataset_manifests SET state='ready' WHERE id='dataset-a7-formal-pending'", nil},
-		{"UPDATE dataset_manifests SET state='qualified' WHERE id='dataset-a7-formal-pending'", nil},
 		{"INSERT INTO assets(symbol) VALUES ('USDT'),('BTC'),('ETH')", nil},
 		{"INSERT INTO exchanges VALUES ('exchange-a10','binance','production_public')", nil},
 		{"INSERT INTO instruments VALUES ('instrument-a10','BTC','USDT','spot'),('instrument-eth-a10','ETH','USDT','spot')", nil},
@@ -103,6 +112,19 @@ func seedA10References(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	for index, statement := range statements {
 		if _, err := pool.Exec(ctx, statement.sql, statement.args...); err != nil {
 			t.Fatalf("A10 seed %d failed: %v", index+1, err)
+		}
+	}
+}
+
+func qualifyA10Dataset(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	for _, state := range []string{"ready", "qualified"} {
+		if _, err := pool.Exec(
+			ctx,
+			"UPDATE dataset_manifests SET state=$1 WHERE id='dataset-a7-formal-pending'",
+			state,
+		); err != nil {
+			t.Fatalf("A10 dataset %s transition failed: %v", state, err)
 		}
 	}
 }

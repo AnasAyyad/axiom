@@ -8,7 +8,9 @@ The base Compose project starts PostgreSQL only. V1A application, recorder,
 worker, observability, and edge services are profile-gated. The encrypted
 backup service arrives in A4. V1C C4/C5 add two independent authenticated
 sandbox engines, two closed egress proxies, and inert-by-default one-shot
-canary coordinators. No service can target a production-private exchange host.
+canary coordinators. C6 adds the credential-free console/API and a separate
+least-privilege observer command; it does not add a Compose service or another
+credential owner. No service can target a production-private exchange host.
 
 ## 1. Prepare configuration
 
@@ -65,6 +67,7 @@ Required for PostgreSQL:
 - `.secrets/postgres_readonly_password`
 - `.secrets/postgres_binance_engine_password`
 - `.secrets/postgres_bybit_engine_password`
+- `.secrets/postgres_c6_qualification_password`
 
 The A11 `api` service exposes redacted public liveness/readiness/build data and
 uses the independent health-detail token for authenticated component status.
@@ -153,6 +156,7 @@ openssl rand -base64 32 > .secrets/backup_encryption_key
 openssl rand -base64 48 > .secrets/postgres_readonly_password
 openssl rand -base64 48 > .secrets/postgres_binance_engine_password
 openssl rand -base64 48 > .secrets/postgres_bybit_engine_password
+openssl rand -base64 48 > .secrets/postgres_c6_qualification_password
 openssl rand -base64 48 > .secrets/grafana_admin_password
 openssl rand -base64 48 > .secrets/health_detail_token
 sudo chgrp 70 .secrets/postgres_*_password
@@ -206,16 +210,18 @@ docker compose ps
 ```
 
 The PostgreSQL initialization script creates distinct owner, migrator, runtime,
-recorder, backup, read-only, Binance-engine, and Bybit-engine roles only on an
-empty data volume. Later changes belong in migrations. Authenticated engines
-share no database login.
+recorder, backup, read-only, Binance-engine, Bybit-engine, and C6 qualification
+roles only on an empty data volume. Later changes belong in migrations.
+Authenticated engines share no database login, and neither engine can append
+or update C6 qualification records.
 
-Before upgrading an existing database to migrations `000021` through `000023`, a
+Before upgrading an existing database to migrations `000021` through `000024`, a
 database administrator must provision the separate Binance-engine and
-Bybit-engine login roles and their password files. Empty-volume initialization
-does not run again on an existing volume, and migration startup fails closed if
-either role is absent. Do not reuse an existing application login for an
-authenticated engine.
+Bybit-engine login roles, the `axiom_c6_qualification` login role, and their
+password files. Empty-volume initialization does not run again on an existing
+volume, and migration startup fails closed if a required role is absent. Do
+not reuse an existing application or authenticated-engine login for the C6
+observer.
 
 The `sandbox-foundation` profile starts only the two CONNECT-only proxies:
 
@@ -392,6 +398,59 @@ Repeat the same sequence with
 `bybit-sandbox-engine`. Keep the two evidence files independent. A failed,
 missing, or unsealed file is not acceptance evidence. Never infer
 profitability from either sandbox result.
+
+### Manual C6 72-hour qualification
+
+Do not start this observer until the PR3 implementation commit is clean, all
+non-soak gates pass, both engines are healthy on the exact candidate, and the
+owner/security reviewers approve the run window. The observer is not a
+Compose service, owns no exchange credential, and cannot create, query, cancel,
+or reconcile an order. The matching engines remain the only
+credential-owning processes.
+
+For an existing database, provision the dedicated
+`POSTGRES_C6_QUALIFICATION_USER` before applying migration `000024`. Its
+password file is separate from the API and both engine roles. The migrator
+grants the observer only redacted operational reads, immutable qualification
+appends, and the constrained terminal run transition.
+
+Use a new run ID and a new absent absolute terminal path. Record the exact
+clean commit, build hash, running executable SHA-256, image digest, and
+immutable configuration SHA-256. Set `AXIOM_C6_SOURCE_DIRTY=false`; formal
+validation rejects a dirty source, a missing image identity, either missing
+approved account environment, a duration other than 259,200 seconds, or a
+sample interval outside 15 seconds through 5 minutes.
+
+```bash
+DB_HOST=127.0.0.1 \
+DB_USER=axiom_c6_qualification \
+DB_PASSWORD_FILE="$PWD/.secrets/postgres_c6_qualification_password" \
+AXIOM_C6_SOAK_ENABLED=1 \
+AXIOM_C6_SOAK_MODE=formal \
+AXIOM_C6_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
+AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
+AXIOM_C6_BUILD_HASH=REPLACE_WITH_64_HEX \
+AXIOM_C6_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+AXIOM_C6_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
+AXIOM_C6_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
+AXIOM_C6_SOURCE_DIRTY=false \
+AXIOM_C6_EVIDENCE_PATH=/absolute/new/c6-terminal.json \
+make c6-soak
+```
+
+The approved deterministic chaos controller must append exactly one run-bound
+result for every closed C6 scenario after the run starts. Missing, duplicate,
+unknown, or failed scenario evidence makes the terminal verdict fail closed.
+The runner also fails on duplicate create, lost/double-posted fill, unresolved
+unknown, mismatch/suspense, stale account, lease loss, persistence failure,
+unsafe recovery/restart, production target, cap breach, alert latency, or
+memory-leak evidence.
+
+The terminal file is create-once, mode `0440`, and directory/file-synced.
+Never delete or overwrite it. A smoke result always remains non-qualified. A
+passed formal file still requires evidence review and explicit V1C
+owner/security acceptance, and always carries
+`profitability_evidence=false`.
 
 The exact migration command is `/app/platform admin migrate`. A4 applies the
 embedded checksummed forward-only migrations under an advisory lock after

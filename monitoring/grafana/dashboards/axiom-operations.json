@@ -69,15 +69,92 @@
       ],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 14 }
+    },
+    {
+      "id": 9,
+      "title": "V1C engine readiness and arms",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "min by (exchange) (axiom_sandbox_engine_ready)", "legendFormat": "{{exchange}} ready" },
+        { "expr": "sum by (exchange, state) (axiom_sandbox_arms{measure=\"count\"})", "legendFormat": "{{exchange}} {{state}} arms" },
+        { "expr": "sum by (exchange, kind) (increase(axiom_sandbox_engine_events_total[5m]))", "legendFormat": "{{exchange}} {{kind}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 21 }
+    },
+    {
+      "id": 10,
+      "title": "Test/demo order states",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum by (exchange, state) (increase(axiom_sandbox_orders_total[5m]))", "legendFormat": "{{exchange}} {{state}}" },
+        { "expr": "sum by (exchange, kind) (increase(axiom_sandbox_order_anomalies_total[5m]))", "legendFormat": "{{exchange}} {{kind}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 21 }
+    },
+    {
+      "id": 11,
+      "title": "UNKNOWN order count and age",
+      "type": "timeseries",
+      "targets": [{ "expr": "max by (exchange, measure) (axiom_sandbox_unknown_orders)", "legendFormat": "{{exchange}} {{measure}}" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 28 }
+    },
+    {
+      "id": 12,
+      "title": "Reconciliation and suspense",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum by (exchange, kind) (axiom_sandbox_reconciliation_items)", "legendFormat": "{{exchange}} {{kind}}" },
+        { "expr": "sum by (exchange, state) (increase(axiom_sandbox_account_resets_total[5m]))", "legendFormat": "{{exchange}} reset {{state}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 28 }
+    },
+    {
+      "id": 13,
+      "title": "Sandbox cap usage and rejections",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "max by (scope, measure) (axiom_sandbox_cap)", "legendFormat": "{{scope}} {{measure}}" },
+        { "expr": "sum by (scope) (increase(axiom_sandbox_cap_rejections_total[5m]))", "legendFormat": "{{scope}} rejected" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 28 }
+    },
+    {
+      "id": 14,
+      "title": "C6 soak state, duration, and failures",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "max by (mode, state) (axiom_c6_soak_state)", "legendFormat": "{{mode}} {{state}}" },
+        { "expr": "max by (mode) (axiom_c6_soak_duration_seconds)", "legendFormat": "{{mode}} duration" },
+        { "expr": "sum by (reason) (increase(axiom_c6_soak_failures_total[5m]))", "legendFormat": "{{reason}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 35 }
+    },
+    {
+      "id": 15,
+      "title": "Recovery, alert latency, and memory trend",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, exchange, operation) (rate(axiom_sandbox_recovery_duration_seconds_bucket[5m])))", "legendFormat": "{{exchange}} {{operation}} p95" },
+        { "expr": "histogram_quantile(0.95, sum by (le, reason) (rate(axiom_critical_alert_latency_seconds_bucket[5m])))", "legendFormat": "{{reason}} alert p95" },
+        { "expr": "axiom_c6_memory_trend_bytes", "legendFormat": "memory {{window}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 35 }
     }
   ],
   "refresh": "15s",
   "schemaVersion": 41,
-  "tags": ["axiom", "operations", "v1a"],
+  "tags": ["axiom", "operations", "v1a", "v1c", "c6"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timezone": "utc",
-  "title": "Axiom V1A Operations",
+  "title": "Axiom Operations and V1C C6",
   "uid": "axiom-v1a-operations",
-  "version": 1
+  "version": 2
 }

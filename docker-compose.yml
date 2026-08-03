@@ -113,6 +113,7 @@ services:
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
+      POSTGRES_C6_QUALIFICATION_USER: ${POSTGRES_C6_QUALIFICATION_USER:-axiom_c6_qualification}
       TZ: UTC
     secrets:
       - postgres_owner_password
@@ -123,6 +124,7 @@ services:
       - postgres_readonly_password
       - postgres_binance_engine_password
       - postgres_bybit_engine_password
+      - postgres_c6_qualification_password
     volumes:
       # PostgreSQL official images 18+ use versioned PGDATA below this parent.
       - postgres_data:/var/lib/postgresql
@@ -160,6 +162,7 @@ services:
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
+      POSTGRES_C6_QUALIFICATION_USER: ${POSTGRES_C6_QUALIFICATION_USER:-axiom_c6_qualification}
     secrets:
       - postgres_migrator_password
     depends_on:
@@ -734,6 +737,8 @@ secrets:
     file: ${SECRETS_DIR:-./.secrets}/postgres_binance_engine_password
   postgres_bybit_engine_password:
     file: ${SECRETS_DIR:-./.secrets}/postgres_bybit_engine_password
+  postgres_c6_qualification_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_c6_qualification_password
   binance_testnet_api_key:
     file: ${SECRETS_DIR:-./.secrets}/binance_testnet_api_key
   binance_testnet_api_secret:

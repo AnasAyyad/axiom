@@ -44,6 +44,11 @@ const ReplayLab = lazy(() =>
 const ShadowCenter = lazy(() =>
   import("./LabPages").then((module) => ({ default: module.ShadowCenter })),
 );
+const SandboxOperationsPage = lazy(() =>
+  import("./SandboxOperationsPage").then((module) => ({
+    default: module.SandboxOperationsPage,
+  })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,6 +92,7 @@ export function App() {
               <Route path="replays/:id" element={<ReplayLab />} />
               <Route path="shadow" element={<ShadowCenter />} />
               <Route path="shadow/:id" element={<ShadowCenter />} />
+              <Route path="sandbox" element={<SandboxOperationsPage />} />
               <Route path="incidents" element={<IncidentPage />} />
               <Route path="incidents/:id" element={<IncidentDetailPage />} />
               <Route path="audit" element={<AuditPage />} />

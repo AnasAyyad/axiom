@@ -177,14 +177,97 @@ func TestV1CEngineGrantIncludesClosedExecutionAndAlertTables(t *testing.T) {
 	}
 	appendOnly := grantSQL(
 		"SELECT, INSERT",
-		v1cEngineAlertAppendTables,
+		append(
+			append([]string(nil), v1cEngineAlertAppendTables...),
+			v1cEngineRuntimeAppendTables...,
+		),
 		role,
 	)
 	if !strings.Contains(appendOnly, `"public"."audit_events"`) {
 		t.Fatal("V1C engine cannot append alert audit evidence")
 	}
+	if !strings.Contains(
+		appendOnly,
+		`"public"."v1c_engine_runtime_events"`,
+	) {
+		t.Fatal("V1C engine cannot append redacted runtime recovery evidence")
+	}
 	assertV1CEngineReadOnlyGrants(t, role)
 	assertV1CEngineExcludedGrants(t, role, statement)
+}
+
+func TestC6QualificationRoleIsDedicatedAndLeastPrivilege(t *testing.T) {
+	read := grantSQL(
+		"SELECT",
+		c6QualificationReadTables,
+		`"axiom_c6_qualification"`,
+	)
+	appendOnly := grantSQL(
+		"SELECT, INSERT",
+		c6QualificationAppendTables,
+		`"axiom_c6_qualification"`,
+	)
+	assertC6RoleAppendGrants(t, appendOnly)
+	assertC6RoleForbiddenGrants(t, read, appendOnly)
+	assertC6RoleReadGrants(t, read)
+	assertC6RoleIsolation(t)
+}
+
+func assertC6RoleAppendGrants(t *testing.T, appendOnly string) {
+	t.Helper()
+	for _, table := range []string{
+		"v1c_c6_qualification_runs",
+		"v1c_c6_qualification_accounts",
+		"v1c_c6_qualification_samples",
+		"v1c_c6_qualification_failures",
+		"v1c_c6_chaos_events",
+	} {
+		if !strings.Contains(
+			appendOnly,
+			`"public"."`+table+`"`,
+		) {
+			t.Fatalf("C6 qualification append grant omits %s", table)
+		}
+	}
+}
+
+func assertC6RoleForbiddenGrants(t *testing.T, read, appendOnly string) {
+	t.Helper()
+	for _, forbidden := range []string{
+		"users",
+		"sessions",
+		"v1c_sandbox_authorizations",
+		"v1c_credential_generations",
+		"v1c_private_inbox",
+		"v1c_exchange_fills",
+	} {
+		if strings.Contains(read, `"`+forbidden+`"`) ||
+			strings.Contains(appendOnly, `"`+forbidden+`"`) {
+			t.Fatalf("C6 qualification role exposes %s", forbidden)
+		}
+	}
+}
+
+func assertC6RoleReadGrants(t *testing.T, read string) {
+	t.Helper()
+	for _, required := range []string{
+		"v1c_engine_runtime_events",
+		"v1c_c6_order_observations",
+	} {
+		if !strings.Contains(read, `"public"."`+required+`"`) {
+			t.Fatalf("C6 qualification role omits redacted %s", required)
+		}
+	}
+}
+
+func assertC6RoleIsolation(t *testing.T) {
+	t.Helper()
+	for _, table := range c6QualificationAppendTables {
+		if containsGrantTable(runtimeReadInsertTables, table) ||
+			containsGrantTable(v1cEngineReadWriteTables, table) {
+			t.Fatalf("non-qualification role can append %s", table)
+		}
+	}
 }
 
 func assertV1CEngineReadOnlyGrants(t *testing.T, role string) {
@@ -237,6 +320,9 @@ func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 		"v1c engine read":             v1cEngineReadOnlyTables,
 		"v1c engine alert read/write": v1cEngineAlertReadWriteTables,
 		"v1c engine alert append":     v1cEngineAlertAppendTables,
+		"v1c engine runtime append":   v1cEngineRuntimeAppendTables,
+		"c6 qualification read":       c6QualificationReadTables,
+		"c6 qualification append":     c6QualificationAppendTables,
 	}
 	for name, tables := range groups {
 		seen := make(map[string]struct{}, len(tables))
@@ -247,7 +333,14 @@ func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 			seen[table] = struct{}{}
 			// The migration ledger is created transactionally by ApplyMigrations
 			// before the versioned migration files are executed.
-			if table != "schema_migrations" && !strings.Contains(schema.String(), "create table "+table+" (") {
+			tableDefined := strings.Contains(
+				schema.String(),
+				"create table "+table+" (",
+			) || strings.Contains(
+				schema.String(),
+				"create view "+table,
+			)
+			if table != "schema_migrations" && !tableDefined {
 				t.Fatalf("%s references absent table %s", name, table)
 			}
 		}

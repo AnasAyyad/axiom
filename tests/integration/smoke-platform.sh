@@ -20,6 +20,7 @@ bootstrap_email_file="${TEMP_DIR}/bootstrap-owner-email"
 bootstrap_password_hash_file="${TEMP_DIR}/bootstrap-owner-password-hash"
 csrf_key_file="${TEMP_DIR}/csrf-key"
 session_signing_key_file="${TEMP_DIR}/session-signing-key"
+totp_seed_file="${TEMP_DIR}/totp-seed"
 umask 077
 openssl rand -base64 32 >"${secret_file}"
 openssl rand -base64 32 >"${health_secret_file}"
@@ -28,6 +29,7 @@ printf '%s\n' 'platform-smoke-password-only' | \
   go run ./scripts/generate_bootstrap_hash.go >"${bootstrap_password_hash_file}"
 openssl rand -base64 48 >"${csrf_key_file}"
 openssl rand -base64 48 >"${session_signing_key_file}"
+openssl rand 32 | base32 | tr -d '=\n' >"${totp_seed_file}"
 printf 'header = "Authorization: Bearer %s"\n' "$(<"${health_secret_file}")" >"${TEMP_DIR}/health-curl.conf"
 source_commit="${GITHUB_SHA:-$(git rev-parse HEAD)}"
 go_sum_hash="$(sha256sum go.sum | cut -d' ' -f1)"
@@ -89,7 +91,8 @@ start_and_check() {
       "AUTH_BOOTSTRAP_OWNER_EMAIL_FILE=${bootstrap_email_file}"
       "AUTH_BOOTSTRAP_OWNER_PASSWORD_HASH_FILE=${bootstrap_password_hash_file}"
       "AUTH_CSRF_KEY_FILE=${csrf_key_file}"
-      "AUTH_SESSION_SIGNING_KEY_FILE=${session_signing_key_file}")
+      "AUTH_SESSION_SIGNING_KEY_FILE=${session_signing_key_file}"
+      "AXIOM_TOTP_SEED_FILE=${totp_seed_file}")
   fi
   HTTP_BIND_ADDRESS="127.0.0.1:${port}" \
     METRICS_BIND_ADDRESS="127.0.0.1:${metrics_port}" \

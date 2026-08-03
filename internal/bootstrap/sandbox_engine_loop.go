@@ -146,7 +146,7 @@ func (loop sandboxEngineLoop) run(
 	defer tickers.stop()
 	privateSignals := make(chan sandboxPrivateStreamSignal, 2)
 	go loop.work.consumePrivateEvents(
-		ctx, loop.store, loop.fence, source, privateSignals,
+		ctx, loop.store, loop.account, loop.fence, source, privateSignals,
 	)
 	health := newSandboxEngineHealth()
 	for {
@@ -246,7 +246,26 @@ func (loop sandboxEngineLoop) recover(
 	if !eligible {
 		return nil
 	}
-	_, err := loop.recovery.RecoverOnce(ctx, time.Now().UTC(), 2)
+	started := time.Now()
+	recovered, err := loop.recovery.RecoverOnce(ctx, started.UTC(), 2)
+	if recovered == 0 && err == nil {
+		return nil
+	}
+	occurredAt := time.Now().UTC()
+	recordErr := loop.store.RecordEngineRuntimeEvent(
+		ctx,
+		loop.account.AccountID,
+		loop.account.Epoch,
+		loop.work.exchange,
+		loop.fence,
+		"UNKNOWN_RECOVERY",
+		time.Since(started),
+		err == nil,
+		occurredAt,
+	)
+	if recordErr != nil {
+		return recordErr
+	}
 	return err
 }
 
@@ -257,9 +276,25 @@ func (loop sandboxEngineLoop) reconcile(
 	if !eligible {
 		return nil
 	}
+	started := time.Now()
 	result, err := loop.work.reconcile(
 		ctx, loop.store, loop.adapter, loop.account,
 	)
+	occurredAt := time.Now().UTC()
+	recordErr := loop.store.RecordEngineRuntimeEvent(
+		ctx,
+		loop.account.AccountID,
+		loop.account.Epoch,
+		loop.work.exchange,
+		loop.fence,
+		"RECONCILIATION",
+		time.Since(started),
+		err == nil && result.State == "clean",
+		occurredAt,
+	)
+	if recordErr != nil {
+		return recordErr
+	}
 	if err != nil {
 		return fmt.Errorf("sandbox_engine_reconciliation_failed: %w", err)
 	}

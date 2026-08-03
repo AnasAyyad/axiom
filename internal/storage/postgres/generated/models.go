@@ -1743,6 +1743,522 @@ type UserRole struct {
 	GrantedAt pgtype.Timestamptz `db:"granted_at" json:"granted_at"`
 }
 
+type V1cAccountEpoch struct {
+	AccountID string             `db:"account_id" json:"account_id"`
+	Epoch     int64              `db:"epoch" json:"epoch"`
+	Reason    string             `db:"reason" json:"reason"`
+	OpenedAt  pgtype.Timestamptz `db:"opened_at" json:"opened_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+}
+
+type V1cAccountLease struct {
+	AccountID    string             `db:"account_id" json:"account_id"`
+	Environment  string             `db:"environment" json:"environment"`
+	Owner        string             `db:"owner" json:"owner"`
+	FencingToken int64              `db:"fencing_token" json:"fencing_token"`
+	AcquiredAt   pgtype.Timestamptz `db:"acquired_at" json:"acquired_at"`
+	ExpiresAt    pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+}
+
+type V1cAccountSnapshot struct {
+	ID              string             `db:"id" json:"id"`
+	AccountID       string             `db:"account_id" json:"account_id"`
+	AccountEpoch    int64              `db:"account_epoch" json:"account_epoch"`
+	BalancesPayload []byte             `db:"balances_payload" json:"balances_payload"`
+	OrdersHash      interface{}        `db:"orders_hash" json:"orders_hash"`
+	FillsHash       interface{}        `db:"fills_hash" json:"fills_hash"`
+	SnapshotHash    interface{}        `db:"snapshot_hash" json:"snapshot_hash"`
+	ObservedAt      pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type V1cAuthenticatedRequestEvidence struct {
+	Exchange         string             `db:"exchange" json:"exchange"`
+	Host             string             `db:"host" json:"host"`
+	Method           string             `db:"method" json:"method"`
+	Path             string             `db:"path" json:"path"`
+	FieldNames       []string           `db:"field_names" json:"field_names"`
+	EnumeratedFields []byte             `db:"enumerated_fields" json:"enumerated_fields"`
+	RequestHash      interface{}        `db:"request_hash" json:"request_hash"`
+	ConfigurationID  string             `db:"configuration_id" json:"configuration_id"`
+	RecordedAt       pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type V1cC6ChaosEvent struct {
+	ID                    string             `db:"id" json:"id"`
+	RunID                 *string            `db:"run_id" json:"run_id"`
+	Scenario              string             `db:"scenario" json:"scenario"`
+	Outcome               string             `db:"outcome" json:"outcome"`
+	DeterministicSeedHash interface{}        `db:"deterministic_seed_hash" json:"deterministic_seed_hash"`
+	EvidenceHash          interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt            pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1cC6OrderObservation struct {
+	Exchange                   string             `db:"exchange" json:"exchange"`
+	ApprovedAt                 pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	State                      string             `db:"state" json:"state"`
+	OrderState                 string             `db:"order_state" json:"order_state"`
+	ReservedNotionalMicrounits int64              `db:"reserved_notional_microunits" json:"reserved_notional_microunits"`
+	PersistedFillCount         int64              `db:"persisted_fill_count" json:"persisted_fill_count"`
+	LostFill                   *bool              `db:"lost_fill" json:"lost_fill"`
+	DoublePostedFills          int64              `db:"double_posted_fills" json:"double_posted_fills"`
+}
+
+type V1cC6QualificationAccount struct {
+	RunID                string      `db:"run_id" json:"run_id"`
+	AccountID            string      `db:"account_id" json:"account_id"`
+	Exchange             string      `db:"exchange" json:"exchange"`
+	Environment          string      `db:"environment" json:"environment"`
+	AccountEpoch         int64       `db:"account_epoch" json:"account_epoch"`
+	CredentialGeneration int64       `db:"credential_generation" json:"credential_generation"`
+	ConfigurationHash    interface{} `db:"configuration_hash" json:"configuration_hash"`
+}
+
+type V1cC6QualificationFailure struct {
+	ID           string             `db:"id" json:"id"`
+	RunID        string             `db:"run_id" json:"run_id"`
+	Reason       string             `db:"reason" json:"reason"`
+	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1cC6QualificationRun struct {
+	ID                      string             `db:"id" json:"id"`
+	Mode                    string             `db:"mode" json:"mode"`
+	State                   string             `db:"state" json:"state"`
+	CommitSha               string             `db:"commit_sha" json:"commit_sha"`
+	BuildHash               interface{}        `db:"build_hash" json:"build_hash"`
+	ExecutableHash          interface{}        `db:"executable_hash" json:"executable_hash"`
+	ImageHash               *string            `db:"image_hash" json:"image_hash"`
+	ConfigurationHash       interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	SourceDirty             bool               `db:"source_dirty" json:"source_dirty"`
+	RequiredDurationSeconds int64              `db:"required_duration_seconds" json:"required_duration_seconds"`
+	ObservedDurationSeconds int64              `db:"observed_duration_seconds" json:"observed_duration_seconds"`
+	ProfitabilityEvidence   bool               `db:"profitability_evidence" json:"profitability_evidence"`
+	Qualified               bool               `db:"qualified" json:"qualified"`
+	StartedAt               pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	EndedAt                 pgtype.Timestamptz `db:"ended_at" json:"ended_at"`
+	EvidenceHash            interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	Revision                int64              `db:"revision" json:"revision"`
+	CreatedAt               pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1cC6QualificationSample struct {
+	RunID                    string             `db:"run_id" json:"run_id"`
+	SampleOrdinal            int64              `db:"sample_ordinal" json:"sample_ordinal"`
+	ObservedAt               pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+	OrdersAcknowledged       int64              `db:"orders_acknowledged" json:"orders_acknowledged"`
+	DuplicateCreates         int64              `db:"duplicate_creates" json:"duplicate_creates"`
+	LostFills                int64              `db:"lost_fills" json:"lost_fills"`
+	DoublePostedFills        int64              `db:"double_posted_fills" json:"double_posted_fills"`
+	UnknownOrders            int64              `db:"unknown_orders" json:"unknown_orders"`
+	OldestUnknownSeconds     int64              `db:"oldest_unknown_seconds" json:"oldest_unknown_seconds"`
+	ReconciliationMismatches int64              `db:"reconciliation_mismatches" json:"reconciliation_mismatches"`
+	SuspenseItems            int64              `db:"suspense_items" json:"suspense_items"`
+	Reconnects               int64              `db:"reconnects" json:"reconnects"`
+	Restarts                 int64              `db:"restarts" json:"restarts"`
+	RecoveryDurationMs       int64              `db:"recovery_duration_ms" json:"recovery_duration_ms"`
+	CriticalAlertLatencyMs   int64              `db:"critical_alert_latency_ms" json:"critical_alert_latency_ms"`
+	ResidentMemoryBytes      int64              `db:"resident_memory_bytes" json:"resident_memory_bytes"`
+	DailySubmittedMicrounits int64              `db:"daily_submitted_microunits" json:"daily_submitted_microunits"`
+	LargestOrderMicrounits   int64              `db:"largest_order_microunits" json:"largest_order_microunits"`
+	MaximumAccountOpen       int64              `db:"maximum_account_open" json:"maximum_account_open"`
+	GlobalOpen               int64              `db:"global_open" json:"global_open"`
+	AllAccountsFresh         bool               `db:"all_accounts_fresh" json:"all_accounts_fresh"`
+	AllLeasesHeld            bool               `db:"all_leases_held" json:"all_leases_held"`
+	PersistenceHealthy       bool               `db:"persistence_healthy" json:"persistence_healthy"`
+	RestartSafe              bool               `db:"restart_safe" json:"restart_safe"`
+	EntrySafe                bool               `db:"entry_safe" json:"entry_safe"`
+	ProductionTargetObserved bool               `db:"production_target_observed" json:"production_target_observed"`
+}
+
+type V1cCanaryEvidence struct {
+	ID               string             `db:"id" json:"id"`
+	CanaryID         string             `db:"canary_id" json:"canary_id"`
+	Exchange         string             `db:"exchange" json:"exchange"`
+	AccountID        string             `db:"account_id" json:"account_id"`
+	AccountEpoch     int64              `db:"account_epoch" json:"account_epoch"`
+	SandboxSessionID string             `db:"sandbox_session_id" json:"sandbox_session_id"`
+	PlanID           string             `db:"plan_id" json:"plan_id"`
+	Stage            string             `db:"stage" json:"stage"`
+	StartupCycle     int64              `db:"startup_cycle" json:"startup_cycle"`
+	EvidenceHash     interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	ObservedAt       pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type V1cCredentialGeneration struct {
+	AccountID           string             `db:"account_id" json:"account_id"`
+	Generation          int64              `db:"generation" json:"generation"`
+	KeyFingerprint      string             `db:"key_fingerprint" json:"key_fingerprint"`
+	AccountIdentityHash interface{}        `db:"account_identity_hash" json:"account_identity_hash"`
+	ValidatedAt         pgtype.Timestamptz `db:"validated_at" json:"validated_at"`
+	RetiredAt           pgtype.Timestamptz `db:"retired_at" json:"retired_at"`
+}
+
+type V1cCredentialRotation struct {
+	ID                     string             `db:"id" json:"id"`
+	AccountID              string             `db:"account_id" json:"account_id"`
+	AuthorizationID        string             `db:"authorization_id" json:"authorization_id"`
+	ActorUserID            string             `db:"actor_user_id" json:"actor_user_id"`
+	ActorSessionID         string             `db:"actor_session_id" json:"actor_session_id"`
+	SourceHash             interface{}        `db:"source_hash" json:"source_hash"`
+	ReasonHash             interface{}        `db:"reason_hash" json:"reason_hash"`
+	Stage                  string             `db:"stage" json:"stage"`
+	PriorGeneration        int64              `db:"prior_generation" json:"prior_generation"`
+	NewGeneration          *int64             `db:"new_generation" json:"new_generation"`
+	PriorFingerprint       string             `db:"prior_fingerprint" json:"prior_fingerprint"`
+	NewFingerprint         *string            `db:"new_fingerprint" json:"new_fingerprint"`
+	NonterminalQuarantined bool               `db:"nonterminal_quarantined" json:"nonterminal_quarantined"`
+	ReconciliationID       *string            `db:"reconciliation_id" json:"reconciliation_id"`
+	StartedAt              pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	UpdatedAt              pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	Revision               int64              `db:"revision" json:"revision"`
+}
+
+type V1cDailyCapCounter struct {
+	UtcDay           pgtype.Date        `db:"utc_day" json:"utc_day"`
+	ReservedNotional interface{}        `db:"reserved_notional" json:"reserved_notional"`
+	Revision         int64              `db:"revision" json:"revision"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1cEngineCommand struct {
+	ID             string             `db:"id" json:"id"`
+	AccountID      string             `db:"account_id" json:"account_id"`
+	AccountEpoch   int64              `db:"account_epoch" json:"account_epoch"`
+	Kind           string             `db:"kind" json:"kind"`
+	ClientOrderID  *string            `db:"client_order_id" json:"client_order_id"`
+	State          string             `db:"state" json:"state"`
+	ClaimOwner     *string            `db:"claim_owner" json:"claim_owner"`
+	FencingToken   *int64             `db:"fencing_token" json:"fencing_token"`
+	RequestedAt    pgtype.Timestamptz `db:"requested_at" json:"requested_at"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	ClaimExpiresAt pgtype.Timestamptz `db:"claim_expires_at" json:"claim_expires_at"`
+	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	EvidenceHash   interface{}        `db:"evidence_hash" json:"evidence_hash"`
+}
+
+type V1cEngineObservation struct {
+	AccountID            string             `db:"account_id" json:"account_id"`
+	AccountEpoch         int64              `db:"account_epoch" json:"account_epoch"`
+	Exchange             string             `db:"exchange" json:"exchange"`
+	StartupCycle         int64              `db:"startup_cycle" json:"startup_cycle"`
+	Eligibility          []byte             `db:"eligibility" json:"eligibility"`
+	PrivateStreamHealthy bool               `db:"private_stream_healthy" json:"private_stream_healthy"`
+	ReconciliationClean  bool               `db:"reconciliation_clean" json:"reconciliation_clean"`
+	EvidenceHealthy      bool               `db:"evidence_healthy" json:"evidence_healthy"`
+	ObservedAt           pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type V1cEngineRuntimeEvent struct {
+	ID           string             `db:"id" json:"id"`
+	AccountID    string             `db:"account_id" json:"account_id"`
+	AccountEpoch int64              `db:"account_epoch" json:"account_epoch"`
+	Exchange     string             `db:"exchange" json:"exchange"`
+	StartupCycle int64              `db:"startup_cycle" json:"startup_cycle"`
+	Kind         string             `db:"kind" json:"kind"`
+	DurationMs   int64              `db:"duration_ms" json:"duration_ms"`
+	Succeeded    bool               `db:"succeeded" json:"succeeded"`
+	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1cEngineStartupEvidence struct {
+	ID             string             `db:"id" json:"id"`
+	AccountID      string             `db:"account_id" json:"account_id"`
+	Exchange       string             `db:"exchange" json:"exchange"`
+	StartupCycle   int64              `db:"startup_cycle" json:"startup_cycle"`
+	Stage          string             `db:"stage" json:"stage"`
+	ReachedHealthy bool               `db:"reached_healthy" json:"reached_healthy"`
+	EvidenceHash   interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	ObservedAt     pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type V1cExchangeAccount struct {
+	ID                   string             `db:"id" json:"id"`
+	Exchange             string             `db:"exchange" json:"exchange"`
+	Environment          string             `db:"environment" json:"environment"`
+	NativeAccountHash    interface{}        `db:"native_account_hash" json:"native_account_hash"`
+	State                string             `db:"state" json:"state"`
+	CurrentEpoch         int64              `db:"current_epoch" json:"current_epoch"`
+	CredentialGeneration int64              `db:"credential_generation" json:"credential_generation"`
+	Revision             int64              `db:"revision" json:"revision"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1cExchangeFill struct {
+	AccountID        string             `db:"account_id" json:"account_id"`
+	AccountEpoch     int64              `db:"account_epoch" json:"account_epoch"`
+	NativeFillIDHash interface{}        `db:"native_fill_id_hash" json:"native_fill_id_hash"`
+	OrderID          string             `db:"order_id" json:"order_id"`
+	CanonicalFill    []byte             `db:"canonical_fill" json:"canonical_fill"`
+	OccurredAt       pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1cExchangeMetadatum struct {
+	Exchange         string             `db:"exchange" json:"exchange"`
+	Instrument       string             `db:"instrument" json:"instrument"`
+	MetadataHash     interface{}        `db:"metadata_hash" json:"metadata_hash"`
+	CanonicalFilters []byte             `db:"canonical_filters" json:"canonical_filters"`
+	ObservedAt       pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type V1cExternalAdjustment struct {
+	ID              string             `db:"id" json:"id"`
+	ResetIncidentID string             `db:"reset_incident_id" json:"reset_incident_id"`
+	AccountID       string             `db:"account_id" json:"account_id"`
+	AssetSymbol     string             `db:"asset_symbol" json:"asset_symbol"`
+	Quantity        interface{}        `db:"quantity" json:"quantity"`
+	AdjustmentHash  interface{}        `db:"adjustment_hash" json:"adjustment_hash"`
+	PnlEffect       bool               `db:"pnl_effect" json:"pnl_effect"`
+	RecordedAt      pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type V1cHighRiskAuditEvent struct {
+	ID            string             `db:"id" json:"id"`
+	ChainSequence *int64             `db:"chain_sequence" json:"chain_sequence"`
+	ActorUserID   string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID     string             `db:"session_id" json:"session_id"`
+	Purpose       string             `db:"purpose" json:"purpose"`
+	Outcome       string             `db:"outcome" json:"outcome"`
+	SourceHash    interface{}        `db:"source_hash" json:"source_hash"`
+	ReasonHash    interface{}        `db:"reason_hash" json:"reason_hash"`
+	Revision      int64              `db:"revision" json:"revision"`
+	BeforeHash    interface{}        `db:"before_hash" json:"before_hash"`
+	AfterHash     interface{}        `db:"after_hash" json:"after_hash"`
+	PreviousHash  interface{}        `db:"previous_hash" json:"previous_hash"`
+	EventHash     interface{}        `db:"event_hash" json:"event_hash"`
+	OccurredAt    pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1cPlanEligibility struct {
+	PlanID     string             `db:"plan_id" json:"plan_id"`
+	Exchange   string             `db:"exchange" json:"exchange"`
+	Snapshot   []byte             `db:"snapshot" json:"snapshot"`
+	ObservedAt pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type V1cPlanEntrySafety struct {
+	PlanID                     string             `db:"plan_id" json:"plan_id"`
+	AccountID                  string             `db:"account_id" json:"account_id"`
+	AccountEpoch               int64              `db:"account_epoch" json:"account_epoch"`
+	Exchange                   string             `db:"exchange" json:"exchange"`
+	State                      string             `db:"state" json:"state"`
+	ArmActive                  bool               `db:"arm_active" json:"arm_active"`
+	GlobalIntegrationEnabled   bool               `db:"global_integration_enabled" json:"global_integration_enabled"`
+	GlobalSubmissionEnabled    bool               `db:"global_submission_enabled" json:"global_submission_enabled"`
+	ExchangeIntegrationEnabled bool               `db:"exchange_integration_enabled" json:"exchange_integration_enabled"`
+	ExchangeSubmissionEnabled  bool               `db:"exchange_submission_enabled" json:"exchange_submission_enabled"`
+	PublicEligible             bool               `db:"public_eligible" json:"public_eligible"`
+	PrivateStreamHealthy       bool               `db:"private_stream_healthy" json:"private_stream_healthy"`
+	AccountStateFresh          bool               `db:"account_state_fresh" json:"account_state_fresh"`
+	ReconciliationClean        bool               `db:"reconciliation_clean" json:"reconciliation_clean"`
+	LeaseHeld                  bool               `db:"lease_held" json:"lease_held"`
+	EvidenceHealthy            bool               `db:"evidence_healthy" json:"evidence_healthy"`
+	OpenCapacityAvailable      bool               `db:"open_capacity_available" json:"open_capacity_available"`
+	DailyCapacityAvailable     bool               `db:"daily_capacity_available" json:"daily_capacity_available"`
+	ObservedAt                 pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type V1cPrivateInbox struct {
+	ID              string             `db:"id" json:"id"`
+	AccountID       string             `db:"account_id" json:"account_id"`
+	AccountEpoch    int64              `db:"account_epoch" json:"account_epoch"`
+	EventIdentity   string             `db:"event_identity" json:"event_identity"`
+	EventKind       string             `db:"event_kind" json:"event_kind"`
+	OrderID         *string            `db:"order_id" json:"order_id"`
+	ClientOrderID   *string            `db:"client_order_id" json:"client_order_id"`
+	NativeOrderHash interface{}        `db:"native_order_hash" json:"native_order_hash"`
+	NativeFillHash  interface{}        `db:"native_fill_hash" json:"native_fill_hash"`
+	BalanceHash     interface{}        `db:"balance_hash" json:"balance_hash"`
+	CanonicalEvent  []byte             `db:"canonical_event" json:"canonical_event"`
+	OccurredAt      pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	ReceivedAt      pgtype.Timestamptz `db:"received_at" json:"received_at"`
+	ReducedAt       pgtype.Timestamptz `db:"reduced_at" json:"reduced_at"`
+}
+
+type V1cReconciliation struct {
+	ID           string             `db:"id" json:"id"`
+	AccountID    string             `db:"account_id" json:"account_id"`
+	AccountEpoch int64              `db:"account_epoch" json:"account_epoch"`
+	State        string             `db:"state" json:"state"`
+	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	ReconciledAt pgtype.Timestamptz `db:"reconciled_at" json:"reconciled_at"`
+}
+
+type V1cReconciliationDifference struct {
+	ID               string             `db:"id" json:"id"`
+	ReconciliationID string             `db:"reconciliation_id" json:"reconciliation_id"`
+	AccountID        string             `db:"account_id" json:"account_id"`
+	AccountEpoch     int64              `db:"account_epoch" json:"account_epoch"`
+	Category         string             `db:"category" json:"category"`
+	Classification   string             `db:"classification" json:"classification"`
+	ExpectedHash     interface{}        `db:"expected_hash" json:"expected_hash"`
+	ActualHash       interface{}        `db:"actual_hash" json:"actual_hash"`
+	AssetSymbol      *string            `db:"asset_symbol" json:"asset_symbol"`
+	Quantity         interface{}        `db:"quantity" json:"quantity"`
+	Critical         bool               `db:"critical" json:"critical"`
+	State            string             `db:"state" json:"state"`
+	RecordedAt       pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type V1cResetIncident struct {
+	ID           string             `db:"id" json:"id"`
+	AccountID    string             `db:"account_id" json:"account_id"`
+	PriorEpoch   int64              `db:"prior_epoch" json:"prior_epoch"`
+	NewEpoch     int64              `db:"new_epoch" json:"new_epoch"`
+	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	State        string             `db:"state" json:"state"`
+	DetectedAt   pgtype.Timestamptz `db:"detected_at" json:"detected_at"`
+	ResolvedAt   pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+}
+
+type V1cRiskUnlock struct {
+	ID               string             `db:"id" json:"id"`
+	AccountID        string             `db:"account_id" json:"account_id"`
+	AccountEpoch     int64              `db:"account_epoch" json:"account_epoch"`
+	AuthorizationID  string             `db:"authorization_id" json:"authorization_id"`
+	ActorUserID      string             `db:"actor_user_id" json:"actor_user_id"`
+	ActorSessionID   string             `db:"actor_session_id" json:"actor_session_id"`
+	SourceHash       interface{}        `db:"source_hash" json:"source_hash"`
+	ReasonHash       interface{}        `db:"reason_hash" json:"reason_hash"`
+	ReconciliationID string             `db:"reconciliation_id" json:"reconciliation_id"`
+	PriorState       string             `db:"prior_state" json:"prior_state"`
+	ResultingState   string             `db:"resulting_state" json:"resulting_state"`
+	UnlockedAt       pgtype.Timestamptz `db:"unlocked_at" json:"unlocked_at"`
+	Revision         int64              `db:"revision" json:"revision"`
+}
+
+type V1cSandboxArm struct {
+	ID               string             `db:"id" json:"id"`
+	SandboxSessionID string             `db:"sandbox_session_id" json:"sandbox_session_id"`
+	AuthorizationID  string             `db:"authorization_id" json:"authorization_id"`
+	ActorUserID      string             `db:"actor_user_id" json:"actor_user_id"`
+	ActorSessionID   string             `db:"actor_session_id" json:"actor_session_id"`
+	SourceHash       interface{}        `db:"source_hash" json:"source_hash"`
+	ReasonHash       interface{}        `db:"reason_hash" json:"reason_hash"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ExpiresAt        pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	RevokedAt        pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	Revision         int64              `db:"revision" json:"revision"`
+}
+
+type V1cSandboxAuthorization struct {
+	ID              string             `db:"id" json:"id"`
+	TokenHash       interface{}        `db:"token_hash" json:"token_hash"`
+	UserID          string             `db:"user_id" json:"user_id"`
+	SessionID       string             `db:"session_id" json:"session_id"`
+	Purpose         string             `db:"purpose" json:"purpose"`
+	TotpCounter     int64              `db:"totp_counter" json:"totp_counter"`
+	SessionRevision int64              `db:"session_revision" json:"session_revision"`
+	SourceHash      interface{}        `db:"source_hash" json:"source_hash"`
+	ReasonHash      interface{}        `db:"reason_hash" json:"reason_hash"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ExpiresAt       pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	ConsumedAt      pgtype.Timestamptz `db:"consumed_at" json:"consumed_at"`
+}
+
+type V1cSandboxReservation struct {
+	ID            string             `db:"id" json:"id"`
+	PlanID        string             `db:"plan_id" json:"plan_id"`
+	AccountID     string             `db:"account_id" json:"account_id"`
+	AccountEpoch  int64              `db:"account_epoch" json:"account_epoch"`
+	OrderID       string             `db:"order_id" json:"order_id"`
+	AssetSymbol   string             `db:"asset_symbol" json:"asset_symbol"`
+	Quantity      interface{}        `db:"quantity" json:"quantity"`
+	State         string             `db:"state" json:"state"`
+	ReleasedAt    pgtype.Timestamptz `db:"released_at" json:"released_at"`
+	ReleaseReason *string            `db:"release_reason" json:"release_reason"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type V1cSandboxSession struct {
+	ID              string             `db:"id" json:"id"`
+	State           string             `db:"state" json:"state"`
+	ConfigurationID string             `db:"configuration_id" json:"configuration_id"`
+	StrategySetHash interface{}        `db:"strategy_set_hash" json:"strategy_set_hash"`
+	Revision        int64              `db:"revision" json:"revision"`
+	CreatedBy       string             `db:"created_by" json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1cSandboxSessionAccount struct {
+	SessionID    string `db:"session_id" json:"session_id"`
+	AccountID    string `db:"account_id" json:"account_id"`
+	AccountEpoch int64  `db:"account_epoch" json:"account_epoch"`
+}
+
+type V1cSessionControlEvent struct {
+	ID               string             `db:"id" json:"id"`
+	ActorUserID      string             `db:"actor_user_id" json:"actor_user_id"`
+	ActorSessionID   string             `db:"actor_session_id" json:"actor_session_id"`
+	AuthorizationID  *string            `db:"authorization_id" json:"authorization_id"`
+	ControlKind      string             `db:"control_kind" json:"control_kind"`
+	SourceHash       interface{}        `db:"source_hash" json:"source_hash"`
+	ReasonHash       interface{}        `db:"reason_hash" json:"reason_hash"`
+	AffectedSessions int64              `db:"affected_sessions" json:"affected_sessions"`
+	OccurredAt       pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1cSubmissionOutbox struct {
+	ID               string             `db:"id" json:"id"`
+	PlanID           string             `db:"plan_id" json:"plan_id"`
+	AccountID        string             `db:"account_id" json:"account_id"`
+	AccountEpoch     int64              `db:"account_epoch" json:"account_epoch"`
+	OrderID          string             `db:"order_id" json:"order_id"`
+	ClientOrderID    string             `db:"client_order_id" json:"client_order_id"`
+	StrategyID       string             `db:"strategy_id" json:"strategy_id"`
+	Instrument       string             `db:"instrument" json:"instrument"`
+	Side             string             `db:"side" json:"side"`
+	Quantity         interface{}        `db:"quantity" json:"quantity"`
+	LimitPrice       interface{}        `db:"limit_price" json:"limit_price"`
+	ReservedNotional interface{}        `db:"reserved_notional" json:"reserved_notional"`
+	OrderStyle       string             `db:"order_style" json:"order_style"`
+	IntentAction     string             `db:"intent_action" json:"intent_action"`
+	RequestHash      interface{}        `db:"request_hash" json:"request_hash"`
+	PolicyHash       interface{}        `db:"policy_hash" json:"policy_hash"`
+	State            string             `db:"state" json:"state"`
+	OrderState       string             `db:"order_state" json:"order_state"`
+	ClaimOwner       *string            `db:"claim_owner" json:"claim_owner"`
+	FencingToken     *int64             `db:"fencing_token" json:"fencing_token"`
+	ClaimExpiresAt   pgtype.Timestamptz `db:"claim_expires_at" json:"claim_expires_at"`
+	Attempt          int32              `db:"attempt" json:"attempt"`
+	ApprovedAt       pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1cSubmissionPlan struct {
+	ID                string             `db:"id" json:"id"`
+	SandboxSessionID  string             `db:"sandbox_session_id" json:"sandbox_session_id"`
+	ArmID             string             `db:"arm_id" json:"arm_id"`
+	ApprovalHash      interface{}        `db:"approval_hash" json:"approval_hash"`
+	IntentKind        string             `db:"intent_kind" json:"intent_kind"`
+	IntentHash        interface{}        `db:"intent_hash" json:"intent_hash"`
+	AllocatorHash     interface{}        `db:"allocator_hash" json:"allocator_hash"`
+	RiskHash          interface{}        `db:"risk_hash" json:"risk_hash"`
+	PlannerHash       interface{}        `db:"planner_hash" json:"planner_hash"`
+	AssetApprovalHash interface{}        `db:"asset_approval_hash" json:"asset_approval_hash"`
+	PolicyHash        interface{}        `db:"policy_hash" json:"policy_hash"`
+	ConfigurationID   string             `db:"configuration_id" json:"configuration_id"`
+	LegCount          int32              `db:"leg_count" json:"leg_count"`
+	DispatchPolicy    string             `db:"dispatch_policy" json:"dispatch_policy"`
+	State             string             `db:"state" json:"state"`
+	FinalDisposition  *string            `db:"final_disposition" json:"final_disposition"`
+	ApprovedAt        pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
+	SagaRevision      int64              `db:"saga_revision" json:"saga_revision"`
+	Revision          int64              `db:"revision" json:"revision"`
+}
+
+type V1cTotpReplayState struct {
+	UserID          string             `db:"user_id" json:"user_id"`
+	LastUsedCounter int64              `db:"last_used_counter" json:"last_used_counter"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type VirtualAccount struct {
 	ID          string             `db:"id" json:"id"`
 	PortfolioID string             `db:"portfolio_id" json:"portfolio_id"`

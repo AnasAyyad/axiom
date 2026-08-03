@@ -64,6 +64,22 @@ Prometheus `job` target label are bounded by the four deployed roles.
 | `axiom_alerts_open` | gauge / alerts | severity, reason, service | Durable open in-app alerts |
 | `axiom_dependency_ready` | gauge / boolean | dependency, service | PostgreSQL, disk, clock, fencing, book, and queue readiness |
 | `axiom_disk_free_bytes` | gauge / bytes | storage, service | Free space by configured storage class |
+| `axiom_sandbox_orders_total` | counter / transitions | exchange, state, service | Test/demo order acknowledgements and canonical states |
+| `axiom_sandbox_order_anomalies_total` | counter / failures | exchange, kind, service | Duplicate creates and lost/double-posted fills |
+| `axiom_sandbox_unknown_orders` | gauge / count or seconds | exchange, measure, service | Current unknown count and oldest unknown age |
+| `axiom_sandbox_reconciliation_items` | gauge / items | exchange, kind, service | Current mismatch and suspense counts |
+| `axiom_sandbox_arms` | gauge / count or seconds | exchange, state, measure, service | Active/expired/revoked arms and nearest expiry |
+| `axiom_sandbox_cap` | gauge / USDT or count | scope, measure, service | Exact fixed cap usage, remaining value, and limit |
+| `axiom_sandbox_cap_rejections_total` | counter / refusals | scope, service | Rejections at per-order, daily, account-open, or global-open cap |
+| `axiom_sandbox_account_resets_total` | counter / transitions | exchange, state, service | Account epoch reset incident states |
+| `axiom_sandbox_engine_ready` | gauge / boolean | exchange, service | Credential-owning test/demo engine readiness |
+| `axiom_sandbox_engine_events_total` | counter / events | exchange, kind, service | Reconnect, restart, and lease-loss events |
+| `axiom_sandbox_recovery_duration_seconds` | histogram / seconds | exchange, operation, service | Reconciliation, unknown recovery, and restart duration |
+| `axiom_critical_alert_latency_seconds` | histogram / seconds | reason, service | In-app critical alert creation latency |
+| `axiom_c6_soak_state` | gauge / boolean | mode, state, service | Single bounded smoke/formal qualification state |
+| `axiom_c6_soak_duration_seconds` | gauge / seconds | mode, service | Observed C6 run duration |
+| `axiom_c6_soak_failures_total` | counter / failures | reason, service | Closed terminal failure reason |
+| `axiom_c6_memory_trend_bytes` | gauge / bytes | window, service | Signed resident-memory change for bounded review windows |
 | `go_*`, `process_*` | runtime/process | collector-defined bounded runtime labels | Go runtime, CPU, resident memory, and file descriptors |
 
 Allowed queue values are `market`, `persistence`, `strategy`, `alerts`, and
@@ -86,6 +102,17 @@ and `queues`. Storage values are `market_data`, `postgres`, `backups`, and
 | `AxiomDiskCritical` | free bytes below 2 GiB for 1 minute | critical; finalize/quarantine and lock | [disk](incident-response.md#disk-pressure-or-recorderstorage-failure) |
 | `AxiomReconciliationMismatch` | any mismatch in 5 minutes | critical; synchronous `LOCKED` | [journal/reconciliation](incident-response.md#journal-reservation-or-reconciliation-mismatch) |
 | `AxiomJournalFailure` | any failure in 5 minutes | critical; synchronous `LOCKED` | [journal/reconciliation](incident-response.md#journal-reservation-or-reconciliation-mismatch) |
+| `AxiomSandboxUnknownOrder` | any unknown older than 30 seconds | critical; reject new entry and recover/query | [sandbox order recovery](incident-response.md#v1c-sandbox-order-recovery) |
+| `AxiomSandboxOrderIntegrityFailure` | any duplicate-create, lost-fill, or double-posted-fill event | critical; lock and preserve evidence | [sandbox order recovery](incident-response.md#v1c-sandbox-order-recovery) |
+| `AxiomSandboxReconciliationBlocked` | any mismatch or suspense item | critical; keep entry locked | [sandbox reconciliation](incident-response.md#v1c-sandbox-reconciliation-or-account-reset) |
+| `AxiomSandboxEngineNotReady` | readiness false for 30 seconds | critical; no new entry | [sandbox engine](incident-response.md#v1c-sandbox-engine-or-lease-failure) |
+| `AxiomSandboxEngineRestart` | any restart in 5 minutes | warning; review restart/reconciliation evidence | [sandbox engine](incident-response.md#v1c-sandbox-engine-or-lease-failure) |
+| `AxiomSandboxArmExpired` | any expired arm | warning; expired authorization stays unusable | [sandbox cap/arm](incident-response.md#v1c-sandbox-cap-or-arm-refusal) |
+| `AxiomSandboxCapRejected` | any fixed-cap refusal | warning; never loosen automatically | [sandbox cap/arm](incident-response.md#v1c-sandbox-cap-or-arm-refusal) |
+| `AxiomSandboxAccountReset` | reset enters open or quarantined state | critical; lock epoch and reconcile | [sandbox reconciliation/reset](incident-response.md#v1c-sandbox-reconciliation-or-account-reset) |
+| `AxiomC6QualificationFailed` | smoke/formal state becomes failed | critical; preserve terminal evidence | [C6 qualification](incident-response.md#v1c-c6-qualification-failure) |
+| `AxiomCriticalAlertLatencySLO` | critical alert p95 exceeds 5 seconds for 5 minutes | critical; qualification fails | [C6 qualification](incident-response.md#v1c-c6-qualification-failure) |
+| `AxiomC6MemoryTrend` | run-window increase exceeds 64 MiB for 15 minutes | warning; investigate and fail formal evidence if leak rule fires | [C6 qualification](incident-response.md#v1c-c6-qualification-failure) |
 
 Prometheus rule evaluation is supporting detection. The in-process alert
 service is authoritative for containment: every critical persistence, fencing,

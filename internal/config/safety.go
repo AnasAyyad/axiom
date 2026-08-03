@@ -31,12 +31,11 @@ var credentialTokens = []string{
 	"SIGNING_KEY",
 }
 
-var sandboxSecretFileKeys = map[string]struct{}{
+var sandboxCredentialFileKeys = map[string]struct{}{
 	binanceKeyFileEnvironment:    {},
 	binanceSecretFileEnvironment: {},
 	bybitKeyFileEnvironment:      {},
 	bybitSecretFileEnvironment:   {},
-	totpSeedFileEnvironment:      {},
 }
 
 // ValidateEnvironment rejects forbidden capability or exchange-credential keys.
@@ -48,7 +47,13 @@ func ValidateEnvironment(environ []string) error {
 			key = entry
 		}
 		upper := strings.ToUpper(key)
-		if _, allowed := sandboxSecretFileKeys[upper]; allowed {
+		if upper == totpSeedFileEnvironment {
+			if !found || !validAbsoluteSecretPath(value) {
+				rejected = append(rejected, key)
+			}
+			continue
+		}
+		if _, allowed := sandboxCredentialFileKeys[upper]; allowed {
 			if !found || !validSandboxSecretPath(value) {
 				rejected = append(rejected, key)
 			}
@@ -74,10 +79,14 @@ func ValidateEnvironment(environ []string) error {
 	return nil
 }
 
-func validSandboxSecretPath(value string) bool {
+func validAbsoluteSecretPath(value string) bool {
 	return filepath.IsAbs(value) && filepath.Clean(value) == value &&
-		strings.HasPrefix(value, "/run/secrets/") && filepath.Base(value) != "." &&
+		filepath.Dir(value) != value && filepath.Base(value) != "." &&
 		filepath.Base(value) != ".."
+}
+
+func validSandboxSecretPath(value string) bool {
+	return validAbsoluteSecretPath(value) && strings.HasPrefix(value, "/run/secrets/")
 }
 
 func hasExchangeScope(key string) bool {

@@ -38,6 +38,15 @@ func runMigrate(ctx context.Context, runtimeConfig config.Runtime, product confi
 	if err := postgresstore.ApplyV1CEngineRoleGrants(ctx, pool, binanceRole, bybitRole); err != nil {
 		return err
 	}
+	qualificationRole := environmentOr(
+		"POSTGRES_C6_QUALIFICATION_USER",
+		"axiom_c6_qualification",
+	)
+	if err := postgresstore.ApplyC6QualificationRoleGrants(
+		ctx, pool, qualificationRole,
+	); err != nil {
+		return err
+	}
 	if err := postgresstore.EnsureV1AReferenceData(ctx, pool, product, time.Now().UTC()); err != nil {
 		return err
 	}

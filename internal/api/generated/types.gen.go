@@ -116,6 +116,93 @@ func (e BinanceHealthWebsocketState) Valid() bool {
 	}
 }
 
+// Defines values for C6ChaosSummaryStatus.
+const (
+	C6ChaosSummaryStatusFailed C6ChaosSummaryStatus = "failed"
+	C6ChaosSummaryStatusNotRun C6ChaosSummaryStatus = "not_run"
+	C6ChaosSummaryStatusPassed C6ChaosSummaryStatus = "passed"
+)
+
+// Valid indicates whether the value is a known member of the C6ChaosSummaryStatus enum.
+func (e C6ChaosSummaryStatus) Valid() bool {
+	switch e {
+	case C6ChaosSummaryStatusFailed:
+		return true
+	case C6ChaosSummaryStatusNotRun:
+		return true
+	case C6ChaosSummaryStatusPassed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for C6QualificationStatusMode.
+const (
+	C6QualificationStatusModeFormal C6QualificationStatusMode = "formal"
+	C6QualificationStatusModeNone   C6QualificationStatusMode = "none"
+	C6QualificationStatusModeSmoke  C6QualificationStatusMode = "smoke"
+)
+
+// Valid indicates whether the value is a known member of the C6QualificationStatusMode enum.
+func (e C6QualificationStatusMode) Valid() bool {
+	switch e {
+	case C6QualificationStatusModeFormal:
+		return true
+	case C6QualificationStatusModeNone:
+		return true
+	case C6QualificationStatusModeSmoke:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for C6QualificationStatusProfitabilityEvidence.
+const (
+	C6QualificationStatusProfitabilityEvidenceFalse C6QualificationStatusProfitabilityEvidence = false
+)
+
+// Valid indicates whether the value is a known member of the C6QualificationStatusProfitabilityEvidence enum.
+func (e C6QualificationStatusProfitabilityEvidence) Valid() bool {
+	switch e {
+	case C6QualificationStatusProfitabilityEvidenceFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for C6QualificationStatusState.
+const (
+	C6QualificationStatusStateFailed      C6QualificationStatusState = "FAILED"
+	C6QualificationStatusStateNotStarted  C6QualificationStatusState = "not_started"
+	C6QualificationStatusStatePassed      C6QualificationStatusState = "PASSED"
+	C6QualificationStatusStatePending     C6QualificationStatusState = "PENDING"
+	C6QualificationStatusStateRunning     C6QualificationStatusState = "RUNNING"
+	C6QualificationStatusStateSmokePassed C6QualificationStatusState = "SMOKE_PASSED"
+)
+
+// Valid indicates whether the value is a known member of the C6QualificationStatusState enum.
+func (e C6QualificationStatusState) Valid() bool {
+	switch e {
+	case C6QualificationStatusStateFailed:
+		return true
+	case C6QualificationStatusStateNotStarted:
+		return true
+	case C6QualificationStatusStatePassed:
+		return true
+	case C6QualificationStatusStatePending:
+		return true
+	case C6QualificationStatusStateRunning:
+		return true
+	case C6QualificationStatusStateSmokePassed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CommandAcceptedState.
 const (
 	CommandAcceptedStateApplied  CommandAcceptedState = "applied"
@@ -1301,6 +1388,561 @@ func (e RiskStatusState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxAccountState.
+const (
+	SandboxAccountStateArmed       SandboxAccountState = "ARMED"
+	SandboxAccountStateDegraded    SandboxAccountState = "DEGRADED"
+	SandboxAccountStateLocked      SandboxAccountState = "LOCKED"
+	SandboxAccountStateQuarantined SandboxAccountState = "QUARANTINED"
+	SandboxAccountStateReadyPaused SandboxAccountState = "READY_PAUSED"
+)
+
+// Valid indicates whether the value is a known member of the SandboxAccountState enum.
+func (e SandboxAccountState) Valid() bool {
+	switch e {
+	case SandboxAccountStateArmed:
+		return true
+	case SandboxAccountStateDegraded:
+		return true
+	case SandboxAccountStateLocked:
+		return true
+	case SandboxAccountStateQuarantined:
+		return true
+	case SandboxAccountStateReadyPaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxArmState.
+const (
+	SandboxArmStateActive  SandboxArmState = "active"
+	SandboxArmStateExpired SandboxArmState = "expired"
+	SandboxArmStateRevoked SandboxArmState = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the SandboxArmState enum.
+func (e SandboxArmState) Valid() bool {
+	switch e {
+	case SandboxArmStateActive:
+		return true
+	case SandboxArmStateExpired:
+		return true
+	case SandboxArmStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxAuthorizationGrantPurpose.
+const (
+	SandboxAuthorizationGrantPurposeRiskUnlock SandboxAuthorizationGrantPurpose = "risk_unlock"
+	SandboxAuthorizationGrantPurposeSandboxArm SandboxAuthorizationGrantPurpose = "sandbox_arm"
+)
+
+// Valid indicates whether the value is a known member of the SandboxAuthorizationGrantPurpose enum.
+func (e SandboxAuthorizationGrantPurpose) Valid() bool {
+	switch e {
+	case SandboxAuthorizationGrantPurposeRiskUnlock:
+		return true
+	case SandboxAuthorizationGrantPurposeSandboxArm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxAuthorizationRequestPurpose.
+const (
+	SandboxAuthorizationRequestPurposeRiskUnlock SandboxAuthorizationRequestPurpose = "risk_unlock"
+	SandboxAuthorizationRequestPurposeSandboxArm SandboxAuthorizationRequestPurpose = "sandbox_arm"
+)
+
+// Valid indicates whether the value is a known member of the SandboxAuthorizationRequestPurpose enum.
+func (e SandboxAuthorizationRequestPurpose) Valid() bool {
+	switch e {
+	case SandboxAuthorizationRequestPurposeRiskUnlock:
+		return true
+	case SandboxAuthorizationRequestPurposeSandboxArm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxCapUsageAccountOpenLimit.
+const (
+	SandboxCapUsageAccountOpenLimitOne SandboxCapUsageAccountOpenLimit = 1
+)
+
+// Valid indicates whether the value is a known member of the SandboxCapUsageAccountOpenLimit enum.
+func (e SandboxCapUsageAccountOpenLimit) Valid() bool {
+	switch e {
+	case SandboxCapUsageAccountOpenLimitOne:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxCapUsageGlobalOpenLimit.
+const (
+	SandboxCapUsageGlobalOpenLimitTwo SandboxCapUsageGlobalOpenLimit = 2
+)
+
+// Valid indicates whether the value is a known member of the SandboxCapUsageGlobalOpenLimit enum.
+func (e SandboxCapUsageGlobalOpenLimit) Valid() bool {
+	switch e {
+	case SandboxCapUsageGlobalOpenLimitTwo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxDifferenceAsset.
+const (
+	SandboxDifferenceAssetBTC  SandboxDifferenceAsset = "BTC"
+	SandboxDifferenceAssetETH  SandboxDifferenceAsset = "ETH"
+	SandboxDifferenceAssetUSDT SandboxDifferenceAsset = "USDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxDifferenceAsset enum.
+func (e SandboxDifferenceAsset) Valid() bool {
+	switch e {
+	case SandboxDifferenceAssetBTC:
+		return true
+	case SandboxDifferenceAssetETH:
+		return true
+	case SandboxDifferenceAssetUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxDifferenceState.
+const (
+	SandboxDifferenceStateAdjusted    SandboxDifferenceState = "ADJUSTED"
+	SandboxDifferenceStateOpen        SandboxDifferenceState = "OPEN"
+	SandboxDifferenceStateQuarantined SandboxDifferenceState = "QUARANTINED"
+	SandboxDifferenceStateResolved    SandboxDifferenceState = "RESOLVED"
+)
+
+// Valid indicates whether the value is a known member of the SandboxDifferenceState enum.
+func (e SandboxDifferenceState) Valid() bool {
+	switch e {
+	case SandboxDifferenceStateAdjusted:
+		return true
+	case SandboxDifferenceStateOpen:
+		return true
+	case SandboxDifferenceStateQuarantined:
+		return true
+	case SandboxDifferenceStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxEnvironment.
+const (
+	SandboxEnvironmentDemo        SandboxEnvironment = "demo"
+	SandboxEnvironmentSpotTestnet SandboxEnvironment = "spot_testnet"
+)
+
+// Valid indicates whether the value is a known member of the SandboxEnvironment enum.
+func (e SandboxEnvironment) Valid() bool {
+	switch e {
+	case SandboxEnvironmentDemo:
+		return true
+	case SandboxEnvironmentSpotTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxExchange.
+const (
+	SandboxExchangeBinance SandboxExchange = "binance"
+	SandboxExchangeBybit   SandboxExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the SandboxExchange enum.
+func (e SandboxExchange) Valid() bool {
+	switch e {
+	case SandboxExchangeBinance:
+		return true
+	case SandboxExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxFillFeeAsset.
+const (
+	SandboxFillFeeAssetBTC  SandboxFillFeeAsset = "BTC"
+	SandboxFillFeeAssetETH  SandboxFillFeeAsset = "ETH"
+	SandboxFillFeeAssetUSDT SandboxFillFeeAsset = "USDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxFillFeeAsset enum.
+func (e SandboxFillFeeAsset) Valid() bool {
+	switch e {
+	case SandboxFillFeeAssetBTC:
+		return true
+	case SandboxFillFeeAssetETH:
+		return true
+	case SandboxFillFeeAssetUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOrderAction.
+const (
+	SandboxOrderActionCancel   SandboxOrderAction = "CANCEL"
+	SandboxOrderActionEntry    SandboxOrderAction = "ENTRY"
+	SandboxOrderActionExit     SandboxOrderAction = "EXIT"
+	SandboxOrderActionRecovery SandboxOrderAction = "RECOVERY"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOrderAction enum.
+func (e SandboxOrderAction) Valid() bool {
+	switch e {
+	case SandboxOrderActionCancel:
+		return true
+	case SandboxOrderActionEntry:
+		return true
+	case SandboxOrderActionExit:
+		return true
+	case SandboxOrderActionRecovery:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOrderInstrument.
+const (
+	SandboxOrderInstrumentBTCUSDT SandboxOrderInstrument = "BTCUSDT"
+	SandboxOrderInstrumentETHBTC  SandboxOrderInstrument = "ETHBTC"
+	SandboxOrderInstrumentETHUSDT SandboxOrderInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOrderInstrument enum.
+func (e SandboxOrderInstrument) Valid() bool {
+	switch e {
+	case SandboxOrderInstrumentBTCUSDT:
+		return true
+	case SandboxOrderInstrumentETHBTC:
+		return true
+	case SandboxOrderInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOrderRecoveryStatus.
+const (
+	SandboxOrderRecoveryStatusNotRequired SandboxOrderRecoveryStatus = "not_required"
+	SandboxOrderRecoveryStatusQuerying    SandboxOrderRecoveryStatus = "querying"
+	SandboxOrderRecoveryStatusReconciled  SandboxOrderRecoveryStatus = "reconciled"
+	SandboxOrderRecoveryStatusRequired    SandboxOrderRecoveryStatus = "required"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOrderRecoveryStatus enum.
+func (e SandboxOrderRecoveryStatus) Valid() bool {
+	switch e {
+	case SandboxOrderRecoveryStatusNotRequired:
+		return true
+	case SandboxOrderRecoveryStatusQuerying:
+		return true
+	case SandboxOrderRecoveryStatusReconciled:
+		return true
+	case SandboxOrderRecoveryStatusRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOrderSide.
+const (
+	SandboxOrderSideBuy  SandboxOrderSide = "buy"
+	SandboxOrderSideSell SandboxOrderSide = "sell"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOrderSide enum.
+func (e SandboxOrderSide) Valid() bool {
+	switch e {
+	case SandboxOrderSideBuy:
+		return true
+	case SandboxOrderSideSell:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOrderState.
+const (
+	SandboxOrderStateAcknowledged     SandboxOrderState = "ACKNOWLEDGED"
+	SandboxOrderStateApproved         SandboxOrderState = "APPROVED"
+	SandboxOrderStateCancelPending    SandboxOrderState = "CANCEL_PENDING"
+	SandboxOrderStateCanceled         SandboxOrderState = "CANCELED"
+	SandboxOrderStateExpired          SandboxOrderState = "EXPIRED"
+	SandboxOrderStateFilled           SandboxOrderState = "FILLED"
+	SandboxOrderStatePartiallyFilled  SandboxOrderState = "PARTIALLY_FILLED"
+	SandboxOrderStateRecoveryRequired SandboxOrderState = "RECOVERY_REQUIRED"
+	SandboxOrderStateRejected         SandboxOrderState = "REJECTED"
+	SandboxOrderStateSubmitting       SandboxOrderState = "SUBMITTING"
+	SandboxOrderStateUnknown          SandboxOrderState = "UNKNOWN"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOrderState enum.
+func (e SandboxOrderState) Valid() bool {
+	switch e {
+	case SandboxOrderStateAcknowledged:
+		return true
+	case SandboxOrderStateApproved:
+		return true
+	case SandboxOrderStateCancelPending:
+		return true
+	case SandboxOrderStateCanceled:
+		return true
+	case SandboxOrderStateExpired:
+		return true
+	case SandboxOrderStateFilled:
+		return true
+	case SandboxOrderStatePartiallyFilled:
+		return true
+	case SandboxOrderStateRecoveryRequired:
+		return true
+	case SandboxOrderStateRejected:
+		return true
+	case SandboxOrderStateSubmitting:
+		return true
+	case SandboxOrderStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOrderStyle.
+const (
+	SandboxOrderStyleLimitGTC SandboxOrderStyle = "LIMIT_GTC"
+	SandboxOrderStyleLimitIOC SandboxOrderStyle = "LIMIT_IOC"
+	SandboxOrderStylePostOnly SandboxOrderStyle = "POST_ONLY"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOrderStyle enum.
+func (e SandboxOrderStyle) Valid() bool {
+	switch e {
+	case SandboxOrderStyleLimitGTC:
+		return true
+	case SandboxOrderStyleLimitIOC:
+		return true
+	case SandboxOrderStylePostOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOverviewEnvironmentLabel.
+const (
+	SandboxOverviewEnvironmentLabelVirtualOnly SandboxOverviewEnvironmentLabel = "BINANCE SPOT TESTNET + BYBIT DEMO / VIRTUAL"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOverviewEnvironmentLabel enum.
+func (e SandboxOverviewEnvironmentLabel) Valid() bool {
+	switch e {
+	case SandboxOverviewEnvironmentLabelVirtualOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOverviewRealTradingEnabled.
+const (
+	SandboxOverviewRealTradingEnabledFalse SandboxOverviewRealTradingEnabled = false
+)
+
+// Valid indicates whether the value is a known member of the SandboxOverviewRealTradingEnabled enum.
+func (e SandboxOverviewRealTradingEnabled) Valid() bool {
+	switch e {
+	case SandboxOverviewRealTradingEnabledFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxOverviewRiskState.
+const (
+	SandboxOverviewRiskStateCautious SandboxOverviewRiskState = "CAUTIOUS"
+	SandboxOverviewRiskStateLocked   SandboxOverviewRiskState = "LOCKED"
+	SandboxOverviewRiskStateNormal   SandboxOverviewRiskState = "NORMAL"
+	SandboxOverviewRiskStatePaused   SandboxOverviewRiskState = "PAUSED"
+)
+
+// Valid indicates whether the value is a known member of the SandboxOverviewRiskState enum.
+func (e SandboxOverviewRiskState) Valid() bool {
+	switch e {
+	case SandboxOverviewRiskStateCautious:
+		return true
+	case SandboxOverviewRiskStateLocked:
+		return true
+	case SandboxOverviewRiskStateNormal:
+		return true
+	case SandboxOverviewRiskStatePaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxReconciliationState.
+const (
+	SandboxReconciliationStateClean       SandboxReconciliationState = "clean"
+	SandboxReconciliationStateQuarantined SandboxReconciliationState = "quarantined"
+)
+
+// Valid indicates whether the value is a known member of the SandboxReconciliationState enum.
+func (e SandboxReconciliationState) Valid() bool {
+	switch e {
+	case SandboxReconciliationStateClean:
+		return true
+	case SandboxReconciliationStateQuarantined:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxResetIncidentAdjustmentsAsset.
+const (
+	SandboxResetIncidentAdjustmentAssetBTC  SandboxResetIncidentAdjustmentsAsset = "BTC"
+	SandboxResetIncidentAdjustmentAssetETH  SandboxResetIncidentAdjustmentsAsset = "ETH"
+	SandboxResetIncidentAdjustmentAssetUSDT SandboxResetIncidentAdjustmentsAsset = "USDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxResetIncidentAdjustmentsAsset enum.
+func (e SandboxResetIncidentAdjustmentsAsset) Valid() bool {
+	switch e {
+	case SandboxResetIncidentAdjustmentAssetBTC:
+		return true
+	case SandboxResetIncidentAdjustmentAssetETH:
+		return true
+	case SandboxResetIncidentAdjustmentAssetUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxResetIncidentAdjustmentsPnlEffect.
+const (
+	SandboxResetIncidentAdjustmentsPnlEffectFalse SandboxResetIncidentAdjustmentsPnlEffect = false
+)
+
+// Valid indicates whether the value is a known member of the SandboxResetIncidentAdjustmentsPnlEffect enum.
+func (e SandboxResetIncidentAdjustmentsPnlEffect) Valid() bool {
+	switch e {
+	case SandboxResetIncidentAdjustmentsPnlEffectFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxResetIncidentState.
+const (
+	SandboxResetIncidentStateOpen        SandboxResetIncidentState = "OPEN"
+	SandboxResetIncidentStateQuarantined SandboxResetIncidentState = "QUARANTINED"
+	SandboxResetIncidentStateReconciling SandboxResetIncidentState = "RECONCILING"
+	SandboxResetIncidentStateResolved    SandboxResetIncidentState = "RESOLVED"
+)
+
+// Valid indicates whether the value is a known member of the SandboxResetIncidentState enum.
+func (e SandboxResetIncidentState) Valid() bool {
+	switch e {
+	case SandboxResetIncidentStateOpen:
+		return true
+	case SandboxResetIncidentStateQuarantined:
+		return true
+	case SandboxResetIncidentStateReconciling:
+		return true
+	case SandboxResetIncidentStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxTestOrderRequestInstrument.
+const (
+	SandboxTestOrderRequestInstrumentBTCUSDT SandboxTestOrderRequestInstrument = "BTCUSDT"
+	SandboxTestOrderRequestInstrumentETHUSDT SandboxTestOrderRequestInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxTestOrderRequestInstrument enum.
+func (e SandboxTestOrderRequestInstrument) Valid() bool {
+	switch e {
+	case SandboxTestOrderRequestInstrumentBTCUSDT:
+		return true
+	case SandboxTestOrderRequestInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxTestOrderRequestSide.
+const (
+	SandboxTestOrderRequestSideBuy SandboxTestOrderRequestSide = "buy"
+)
+
+// Valid indicates whether the value is a known member of the SandboxTestOrderRequestSide enum.
+func (e SandboxTestOrderRequestSide) Valid() bool {
+	switch e {
+	case SandboxTestOrderRequestSideBuy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxTestOrderRequestStyle.
+const (
+	SandboxTestOrderRequestStyleLimitGTC SandboxTestOrderRequestStyle = "LIMIT_GTC"
+	SandboxTestOrderRequestStyleLimitIOC SandboxTestOrderRequestStyle = "LIMIT_IOC"
+	SandboxTestOrderRequestStylePostOnly SandboxTestOrderRequestStyle = "POST_ONLY"
+)
+
+// Valid indicates whether the value is a known member of the SandboxTestOrderRequestStyle enum.
+func (e SandboxTestOrderRequestStyle) Valid() bool {
+	switch e {
+	case SandboxTestOrderRequestStyleLimitGTC:
+		return true
+	case SandboxTestOrderRequestStyleLimitIOC:
+		return true
+	case SandboxTestOrderRequestStylePostOnly:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ShadowSessionRequestStrategyVersion.
 const (
 	ShadowSessionRequestStrategyVersionTrendV1a1 ShadowSessionRequestStrategyVersion = "trend.v1a.1"
@@ -1588,6 +2230,7 @@ const (
 	StreamEventStreamRebalancing StreamEventStream = "rebalancing"
 	StreamEventStreamResearch    StreamEventStream = "research"
 	StreamEventStreamRisk        StreamEventStream = "risk"
+	StreamEventStreamSandbox     StreamEventStream = "sandbox"
 	StreamEventStreamShadow      StreamEventStream = "shadow"
 	StreamEventStreamStrategy    StreamEventStream = "strategy"
 	StreamEventStreamSystem      StreamEventStream = "system"
@@ -1620,6 +2263,8 @@ func (e StreamEventStream) Valid() bool {
 	case StreamEventStreamResearch:
 		return true
 	case StreamEventStreamRisk:
+		return true
+	case StreamEventStreamSandbox:
 		return true
 	case StreamEventStreamShadow:
 		return true
@@ -1708,13 +2353,13 @@ func (e SystemStatusPhase) Valid() bool {
 
 // Defines values for SystemStatusRealTradingEnabled.
 const (
-	False SystemStatusRealTradingEnabled = false
+	SystemStatusRealTradingEnabledFalse SystemStatusRealTradingEnabled = false
 )
 
 // Valid indicates whether the value is a known member of the SystemStatusRealTradingEnabled enum.
 func (e SystemStatusRealTradingEnabled) Valid() bool {
 	switch e {
-	case False:
+	case SystemStatusRealTradingEnabledFalse:
 		return true
 	default:
 		return false
@@ -2038,6 +2683,74 @@ type BuildInformation struct {
 	Dirty     bool   `json:"dirty"`
 	GoVersion string `json:"go_version"`
 	Version   string `json:"version"`
+}
+
+// C6ChaosSummary defines model for C6ChaosSummary.
+type C6ChaosSummary struct {
+	Failed int `json:"failed"`
+
+	// LastObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	LastObservedAt Timestamp            `json:"last_observed_at"`
+	Passed         int                  `json:"passed"`
+	Status         C6ChaosSummaryStatus `json:"status"`
+}
+
+// C6ChaosSummaryStatus defines model for C6ChaosSummary.Status.
+type C6ChaosSummaryStatus string
+
+// C6QualificationStatus defines model for C6QualificationStatus.
+type C6QualificationStatus struct {
+	AuditUrl          string         `json:"audit_url"`
+	BuildHash         *string        `json:"build_hash,omitempty"`
+	Chaos             C6ChaosSummary `json:"chaos"`
+	CommitSha         *string        `json:"commit_sha,omitempty"`
+	ConfigurationHash *string        `json:"configuration_hash,omitempty"`
+
+	// EndedAt RFC 3339 timestamp with an explicit UTC offset.
+	EndedAt                 *Timestamp                                 `json:"ended_at,omitempty"`
+	EvidenceHash            *string                                    `json:"evidence_hash,omitempty"`
+	ExecutableHash          *string                                    `json:"executable_hash,omitempty"`
+	Failures                []string                                   `json:"failures"`
+	FormalSoakPending       bool                                       `json:"formal_soak_pending"`
+	Id                      *string                                    `json:"id,omitempty"`
+	ImageHash               *string                                    `json:"image_hash,omitempty"`
+	Mode                    C6QualificationStatusMode                  `json:"mode"`
+	ObservedDurationSeconds int64                                      `json:"observed_duration_seconds"`
+	ProfitabilityEvidence   C6QualificationStatusProfitabilityEvidence `json:"profitability_evidence"`
+	Qualified               bool                                       `json:"qualified"`
+	RequiredDurationSeconds int64                                      `json:"required_duration_seconds"`
+	Slo                     C6SLOSummary                               `json:"slo"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt *Timestamp                 `json:"started_at,omitempty"`
+	State     C6QualificationStatusState `json:"state"`
+}
+
+// C6QualificationStatusMode defines model for C6QualificationStatus.Mode.
+type C6QualificationStatusMode string
+
+// C6QualificationStatusProfitabilityEvidence defines model for C6QualificationStatus.ProfitabilityEvidence.
+type C6QualificationStatusProfitabilityEvidence bool
+
+// C6QualificationStatusState defines model for C6QualificationStatus.State.
+type C6QualificationStatusState string
+
+// C6SLOSummary defines model for C6SLOSummary.
+type C6SLOSummary struct {
+	CriticalAlertLatencyMs   int64 `json:"critical_alert_latency_ms"`
+	DoublePostedFills        int64 `json:"double_posted_fills"`
+	DuplicateCreates         int64 `json:"duplicate_creates"`
+	LostFills                int64 `json:"lost_fills"`
+	Passing                  bool  `json:"passing"`
+	PositiveMemoryLeakTrend  bool  `json:"positive_memory_leak_trend"`
+	ReconciliationMismatches int64 `json:"reconciliation_mismatches"`
+	Reconnects               int64 `json:"reconnects"`
+	RecoveryDurationMs       int64 `json:"recovery_duration_ms"`
+	ResidentMemoryDeltaBytes int64 `json:"resident_memory_delta_bytes"`
+	Restarts                 int64 `json:"restarts"`
+	Samples                  int64 `json:"samples"`
+	SuspenseItems            int64 `json:"suspense_items"`
+	UnknownOrders            int64 `json:"unknown_orders"`
 }
 
 // ChampionChallengerPage defines model for ChampionChallengerPage.
@@ -2878,6 +3591,327 @@ type RiskStatus struct {
 // RiskStatusState defines model for RiskStatus.State.
 type RiskStatusState string
 
+// SandboxAccount defines model for SandboxAccount.
+type SandboxAccount struct {
+	AccountEpoch         int64              `json:"account_epoch"`
+	ActiveArm            *SandboxArm        `json:"active_arm,omitempty"`
+	AuditUrl             string             `json:"audit_url"`
+	CapUsage             SandboxCapUsage    `json:"cap_usage"`
+	CredentialGeneration int64              `json:"credential_generation"`
+	EngineReady          bool               `json:"engine_ready"`
+	Environment          SandboxEnvironment `json:"environment"`
+	EvidenceHealthy      bool               `json:"evidence_healthy"`
+	Exchange             SandboxExchange    `json:"exchange"`
+	Id                   string             `json:"id"`
+	LeaseHeld            bool               `json:"lease_held"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt           Timestamp           `json:"observed_at"`
+	PrivateStreamHealthy bool                `json:"private_stream_healthy"`
+	ReconciliationClean  bool                `json:"reconciliation_clean"`
+	Revision             Revision            `json:"revision"`
+	SessionId            *string             `json:"session_id,omitempty"`
+	SessionRevision      *Revision           `json:"session_revision,omitempty"`
+	Stale                bool                `json:"stale"`
+	StartupCycle         int64               `json:"startup_cycle"`
+	State                SandboxAccountState `json:"state"`
+}
+
+// SandboxAccountState defines model for SandboxAccount.State.
+type SandboxAccountState string
+
+// SandboxArm defines model for SandboxArm.
+type SandboxArm struct {
+	AccountIds []string `json:"account_ids"`
+	AuditUrl   string   `json:"audit_url"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt Timestamp `json:"created_at"`
+
+	// ExpiresAt RFC 3339 timestamp with an explicit UTC offset.
+	ExpiresAt Timestamp `json:"expires_at"`
+	Id        string    `json:"id"`
+	Revision  Revision  `json:"revision"`
+
+	// RevokedAt RFC 3339 timestamp with an explicit UTC offset.
+	RevokedAt *Timestamp      `json:"revoked_at,omitempty"`
+	SessionId string          `json:"session_id"`
+	State     SandboxArmState `json:"state"`
+}
+
+// SandboxArmState defines model for SandboxArm.State.
+type SandboxArmState string
+
+// SandboxArmRequest defines model for SandboxArmRequest.
+type SandboxArmRequest struct {
+	AccountIds         []string `json:"account_ids"`
+	AuthorizationToken string   `json:"authorization_token"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	Reason             string   `json:"reason"`
+}
+
+// SandboxAuthorizationGrant defines model for SandboxAuthorizationGrant.
+type SandboxAuthorizationGrant struct {
+	// ExpiresAt RFC 3339 timestamp with an explicit UTC offset.
+	ExpiresAt Timestamp                        `json:"expires_at"`
+	Purpose   SandboxAuthorizationGrantPurpose `json:"purpose"`
+	Token     string                           `json:"token"`
+}
+
+// SandboxAuthorizationGrantPurpose defines model for SandboxAuthorizationGrant.Purpose.
+type SandboxAuthorizationGrantPurpose string
+
+// SandboxAuthorizationRequest defines model for SandboxAuthorizationRequest.
+type SandboxAuthorizationRequest struct {
+	Password string                             `json:"password"`
+	Purpose  SandboxAuthorizationRequestPurpose `json:"purpose"`
+	Reason   string                             `json:"reason"`
+	Totp     string                             `json:"totp"`
+}
+
+// SandboxAuthorizationRequestPurpose defines model for SandboxAuthorizationRequest.Purpose.
+type SandboxAuthorizationRequestPurpose string
+
+// SandboxCapUsage defines model for SandboxCapUsage.
+type SandboxCapUsage struct {
+	AccountOpen      int                             `json:"account_open"`
+	AccountOpenLimit SandboxCapUsageAccountOpenLimit `json:"account_open_limit"`
+	DailyLimit       NonnegativeDecimal              `json:"daily_limit"`
+	DailyRemaining   NonnegativeDecimal              `json:"daily_remaining"`
+	DailyReserved    NonnegativeDecimal              `json:"daily_reserved"`
+	GlobalOpen       int                             `json:"global_open"`
+	GlobalOpenLimit  SandboxCapUsageGlobalOpenLimit  `json:"global_open_limit"`
+	PerOrderLimit    NonnegativeDecimal              `json:"per_order_limit"`
+	UtcDay           openapi_types.Date              `json:"utc_day"`
+}
+
+// SandboxCapUsageAccountOpenLimit defines model for SandboxCapUsage.AccountOpenLimit.
+type SandboxCapUsageAccountOpenLimit int
+
+// SandboxCapUsageGlobalOpenLimit defines model for SandboxCapUsage.GlobalOpenLimit.
+type SandboxCapUsageGlobalOpenLimit int
+
+// SandboxDifference defines model for SandboxDifference.
+type SandboxDifference struct {
+	Asset          *SandboxDifferenceAsset `json:"asset,omitempty"`
+	AuditUrl       string                  `json:"audit_url"`
+	Category       string                  `json:"category"`
+	Classification string                  `json:"classification"`
+	Critical       bool                    `json:"critical"`
+	Id             string                  `json:"id"`
+	Quantity       *Decimal                `json:"quantity,omitempty"`
+
+	// RecordedAt RFC 3339 timestamp with an explicit UTC offset.
+	RecordedAt Timestamp              `json:"recorded_at"`
+	State      SandboxDifferenceState `json:"state"`
+}
+
+// SandboxDifferenceAsset defines model for SandboxDifference.Asset.
+type SandboxDifferenceAsset string
+
+// SandboxDifferenceState defines model for SandboxDifference.State.
+type SandboxDifferenceState string
+
+// SandboxEnvironment defines model for SandboxEnvironment.
+type SandboxEnvironment string
+
+// SandboxExchange defines model for SandboxExchange.
+type SandboxExchange string
+
+// SandboxFill defines model for SandboxFill.
+type SandboxFill struct {
+	AuditUrl    string              `json:"audit_url"`
+	FeeAsset    SandboxFillFeeAsset `json:"fee_asset"`
+	FeeQuantity NonnegativeDecimal  `json:"fee_quantity"`
+	Id          string              `json:"id"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt Timestamp          `json:"occurred_at"`
+	OrderId    string             `json:"order_id"`
+	Price      NonnegativeDecimal `json:"price"`
+	Quantity   NonnegativeDecimal `json:"quantity"`
+}
+
+// SandboxFillFeeAsset defines model for SandboxFill.FeeAsset.
+type SandboxFillFeeAsset string
+
+// SandboxOrder defines model for SandboxOrder.
+type SandboxOrder struct {
+	AccountId string             `json:"account_id"`
+	Action    SandboxOrderAction `json:"action"`
+	Attempt   int                `json:"attempt"`
+	AuditUrl  string             `json:"audit_url"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt      Timestamp                  `json:"created_at"`
+	Environment    SandboxEnvironment         `json:"environment"`
+	Exchange       SandboxExchange            `json:"exchange"`
+	Fills          []SandboxFill              `json:"fills"`
+	Id             string                     `json:"id"`
+	Instrument     SandboxOrderInstrument     `json:"instrument"`
+	LimitPrice     NonnegativeDecimal         `json:"limit_price"`
+	Notional       NonnegativeDecimal         `json:"notional"`
+	Quantity       NonnegativeDecimal         `json:"quantity"`
+	RecoveryStatus SandboxOrderRecoveryStatus `json:"recovery_status"`
+	Revision       Revision                   `json:"revision"`
+	Side           SandboxOrderSide           `json:"side"`
+	State          SandboxOrderState          `json:"state"`
+	Style          SandboxOrderStyle          `json:"style"`
+
+	// UnknownSince RFC 3339 timestamp with an explicit UTC offset.
+	UnknownSince *Timestamp `json:"unknown_since,omitempty"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// SandboxOrderAction defines model for SandboxOrder.Action.
+type SandboxOrderAction string
+
+// SandboxOrderInstrument defines model for SandboxOrder.Instrument.
+type SandboxOrderInstrument string
+
+// SandboxOrderRecoveryStatus defines model for SandboxOrder.RecoveryStatus.
+type SandboxOrderRecoveryStatus string
+
+// SandboxOrderSide defines model for SandboxOrder.Side.
+type SandboxOrderSide string
+
+// SandboxOrderState defines model for SandboxOrder.State.
+type SandboxOrderState string
+
+// SandboxOrderStyle defines model for SandboxOrder.Style.
+type SandboxOrderStyle string
+
+// SandboxOrderPage defines model for SandboxOrderPage.
+type SandboxOrderPage struct {
+	HasMore    bool           `json:"has_more"`
+	Items      []SandboxOrder `json:"items"`
+	NextCursor *string        `json:"next_cursor,omitempty"`
+	Revision   Revision       `json:"revision"`
+}
+
+// SandboxOverview defines model for SandboxOverview.
+type SandboxOverview struct {
+	Accounts         []SandboxAccount                `json:"accounts"`
+	ActiveArms       []SandboxArm                    `json:"active_arms"`
+	AuditUrl         string                          `json:"audit_url"`
+	EnvironmentLabel SandboxOverviewEnvironmentLabel `json:"environment_label"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt         Timestamp                         `json:"observed_at"`
+	Orders             []SandboxOrder                    `json:"orders"`
+	Qualification      C6QualificationStatus             `json:"qualification"`
+	RealTradingEnabled SandboxOverviewRealTradingEnabled `json:"real_trading_enabled"`
+	Reconciliations    []SandboxReconciliation           `json:"reconciliations"`
+	ResetIncidents     []SandboxResetIncident            `json:"reset_incidents"`
+	RiskState          SandboxOverviewRiskState          `json:"risk_state"`
+	Stale              bool                              `json:"stale"`
+}
+
+// SandboxOverviewEnvironmentLabel defines model for SandboxOverview.EnvironmentLabel.
+type SandboxOverviewEnvironmentLabel string
+
+// SandboxOverviewRealTradingEnabled defines model for SandboxOverview.RealTradingEnabled.
+type SandboxOverviewRealTradingEnabled bool
+
+// SandboxOverviewRiskState defines model for SandboxOverview.RiskState.
+type SandboxOverviewRiskState string
+
+// SandboxReconciliation defines model for SandboxReconciliation.
+type SandboxReconciliation struct {
+	AccountEpoch    int64               `json:"account_epoch"`
+	AccountId       string              `json:"account_id"`
+	AuditUrl        string              `json:"audit_url"`
+	Differences     []SandboxDifference `json:"differences"`
+	Exchange        SandboxExchange     `json:"exchange"`
+	Id              string              `json:"id"`
+	QuarantineCount int                 `json:"quarantine_count"`
+
+	// ReconciledAt RFC 3339 timestamp with an explicit UTC offset.
+	ReconciledAt  Timestamp                  `json:"reconciled_at"`
+	State         SandboxReconciliationState `json:"state"`
+	SuspenseCount int                        `json:"suspense_count"`
+}
+
+// SandboxReconciliationState defines model for SandboxReconciliation.State.
+type SandboxReconciliationState string
+
+// SandboxReconciliationPage defines model for SandboxReconciliationPage.
+type SandboxReconciliationPage struct {
+	HasMore        bool                    `json:"has_more"`
+	Items          []SandboxReconciliation `json:"items"`
+	NextCursor     *string                 `json:"next_cursor,omitempty"`
+	ResetIncidents []SandboxResetIncident  `json:"reset_incidents"`
+	Revision       Revision                `json:"revision"`
+}
+
+// SandboxResetIncident defines model for SandboxResetIncident.
+type SandboxResetIncident struct {
+	AccountId   string `json:"account_id"`
+	Adjustments []struct {
+		Asset     SandboxResetIncidentAdjustmentsAsset     `json:"asset"`
+		PnlEffect SandboxResetIncidentAdjustmentsPnlEffect `json:"pnl_effect"`
+		Quantity  Decimal                                  `json:"quantity"`
+
+		// RecordedAt RFC 3339 timestamp with an explicit UTC offset.
+		RecordedAt Timestamp `json:"recorded_at"`
+	} `json:"adjustments"`
+	AuditUrl string `json:"audit_url"`
+
+	// DetectedAt RFC 3339 timestamp with an explicit UTC offset.
+	DetectedAt Timestamp       `json:"detected_at"`
+	Exchange   SandboxExchange `json:"exchange"`
+	Id         string          `json:"id"`
+	NewEpoch   int64           `json:"new_epoch"`
+	PriorEpoch int64           `json:"prior_epoch"`
+
+	// ResolvedAt RFC 3339 timestamp with an explicit UTC offset.
+	ResolvedAt *Timestamp                `json:"resolved_at,omitempty"`
+	State      SandboxResetIncidentState `json:"state"`
+}
+
+// SandboxResetIncidentAdjustmentsAsset defines model for SandboxResetIncident.Adjustments.Asset.
+type SandboxResetIncidentAdjustmentsAsset string
+
+// SandboxResetIncidentAdjustmentsPnlEffect defines model for SandboxResetIncident.Adjustments.PnlEffect.
+type SandboxResetIncidentAdjustmentsPnlEffect bool
+
+// SandboxResetIncidentState defines model for SandboxResetIncident.State.
+type SandboxResetIncidentState string
+
+// SandboxTestOrderRequest defines model for SandboxTestOrderRequest.
+type SandboxTestOrderRequest struct {
+	AccountId        string                            `json:"account_id"`
+	ArmId            string                            `json:"arm_id"`
+	Exchange         SandboxExchange                   `json:"exchange"`
+	ExpectedRevision Revision                          `json:"expected_revision"`
+	Instrument       SandboxTestOrderRequestInstrument `json:"instrument"`
+	LimitPrice       NonnegativeDecimal                `json:"limit_price"`
+	Quantity         NonnegativeDecimal                `json:"quantity"`
+	Reason           string                            `json:"reason"`
+	SessionId        string                            `json:"session_id"`
+	Side             SandboxTestOrderRequestSide       `json:"side"`
+	Style            SandboxTestOrderRequestStyle      `json:"style"`
+}
+
+// SandboxTestOrderRequestInstrument defines model for SandboxTestOrderRequest.Instrument.
+type SandboxTestOrderRequestInstrument string
+
+// SandboxTestOrderRequestSide defines model for SandboxTestOrderRequest.Side.
+type SandboxTestOrderRequestSide string
+
+// SandboxTestOrderRequestStyle defines model for SandboxTestOrderRequest.Style.
+type SandboxTestOrderRequestStyle string
+
+// SandboxUnlockRequest defines model for SandboxUnlockRequest.
+type SandboxUnlockRequest struct {
+	AuthorizationToken string   `json:"authorization_token"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	Reason             string   `json:"reason"`
+	ReconciliationId   string   `json:"reconciliation_id"`
+}
+
 // SessionMe defines model for SessionMe.
 type SessionMe struct {
 	// ReauthenticatedAt RFC 3339 timestamp with an explicit UTC offset.
@@ -3362,6 +4396,76 @@ type ResumeRiskParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// ReconcileSandboxAccountParams defines parameters for ReconcileSandboxAccount.
+type ReconcileSandboxAccountParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// UnlockSandboxAccountParams defines parameters for UnlockSandboxAccount.
+type UnlockSandboxAccountParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// RevokeSandboxArmParams defines parameters for RevokeSandboxArm.
+type RevokeSandboxArmParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CreateSandboxAuthorizationParams defines parameters for CreateSandboxAuthorization.
+type CreateSandboxAuthorizationParams struct {
+	Origin     Origin    `json:"Origin"`
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ListSandboxOrdersParams defines parameters for ListSandboxOrders.
+type ListSandboxOrdersParams struct {
+	Cursor   *Cursor          `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize        `form:"page_size,omitempty" json:"page_size,omitempty"`
+	Exchange *SandboxExchange `form:"exchange,omitempty" json:"exchange,omitempty"`
+	State    *string          `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateSandboxTestOrderParams defines parameters for CreateSandboxTestOrder.
+type CreateSandboxTestOrderParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CancelSandboxOrderParams defines parameters for CancelSandboxOrder.
+type CancelSandboxOrderParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// QuerySandboxOrderParams defines parameters for QuerySandboxOrder.
+type QuerySandboxOrderParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListSandboxReconciliationsParams defines parameters for ListSandboxReconciliations.
+type ListSandboxReconciliationsParams struct {
+	Cursor   *Cursor          `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize        `form:"page_size,omitempty" json:"page_size,omitempty"`
+	Exchange *SandboxExchange `form:"exchange,omitempty" json:"exchange,omitempty"`
+}
+
+// CreateSandboxArmParams defines parameters for CreateSandboxArm.
+type CreateSandboxArmParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // LoginSessionParams defines parameters for LoginSession.
 type LoginSessionParams struct {
 	Origin Origin `json:"Origin"`
@@ -3436,6 +4540,30 @@ type PauseRiskJSONRequestBody = RevisionCommandRequest
 
 // ResumeRiskJSONRequestBody defines body for ResumeRisk for application/json ContentType.
 type ResumeRiskJSONRequestBody = RevisionCommandRequest
+
+// ReconcileSandboxAccountJSONRequestBody defines body for ReconcileSandboxAccount for application/json ContentType.
+type ReconcileSandboxAccountJSONRequestBody = RevisionCommandRequest
+
+// UnlockSandboxAccountJSONRequestBody defines body for UnlockSandboxAccount for application/json ContentType.
+type UnlockSandboxAccountJSONRequestBody = SandboxUnlockRequest
+
+// RevokeSandboxArmJSONRequestBody defines body for RevokeSandboxArm for application/json ContentType.
+type RevokeSandboxArmJSONRequestBody = RevisionCommandRequest
+
+// CreateSandboxAuthorizationJSONRequestBody defines body for CreateSandboxAuthorization for application/json ContentType.
+type CreateSandboxAuthorizationJSONRequestBody = SandboxAuthorizationRequest
+
+// CreateSandboxTestOrderJSONRequestBody defines body for CreateSandboxTestOrder for application/json ContentType.
+type CreateSandboxTestOrderJSONRequestBody = SandboxTestOrderRequest
+
+// CancelSandboxOrderJSONRequestBody defines body for CancelSandboxOrder for application/json ContentType.
+type CancelSandboxOrderJSONRequestBody = RevisionCommandRequest
+
+// QuerySandboxOrderJSONRequestBody defines body for QuerySandboxOrder for application/json ContentType.
+type QuerySandboxOrderJSONRequestBody = RevisionCommandRequest
+
+// CreateSandboxArmJSONRequestBody defines body for CreateSandboxArm for application/json ContentType.
+type CreateSandboxArmJSONRequestBody = SandboxArmRequest
 
 // LoginSessionJSONRequestBody defines body for LoginSession for application/json ContentType.
 type LoginSessionJSONRequestBody = LoginRequest
