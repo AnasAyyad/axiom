@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"axiom/internal/authentication"
 )
 
 func TestA11StreamWriteDeadlineBoundsSlowConsumers(t *testing.T) {
@@ -25,6 +27,26 @@ func TestA11StreamWriteDeadlineBoundsSlowConsumers(t *testing.T) {
 	writer.err = want
 	if err := a11SetStreamWriteDeadline(writer); !errors.Is(err, want) {
 		t.Fatalf("slow-consumer deadline failure hidden: %v", err)
+	}
+}
+
+func TestD1StreamPermissionsAreFilteredByEventClass(t *testing.T) {
+	operator := authentication.Principal{Permissions: []string{
+		"operations.read", "activity.read", "qualification.monitor",
+	}}
+	for stream, want := range map[string]bool{
+		"activity": true, "qualification": true, "risk": true,
+		"configuration": false, "export": false, "sandbox": false, "unknown": false,
+	} {
+		if got := a11StreamAllowed(operator, stream); got != want {
+			t.Errorf("operator stream %s = %t, want %t", stream, got, want)
+		}
+	}
+	auditor := authentication.Principal{Permissions: []string{
+		"operations.read", "activity.read", "artifacts.read",
+	}}
+	if !a11StreamAllowed(auditor, "export") || a11StreamAllowed(auditor, "configuration") {
+		t.Fatal("auditor export/configuration stream boundary is open")
 	}
 }
 

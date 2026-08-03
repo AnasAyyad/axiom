@@ -3555,6 +3555,23 @@ Owner: API engineering.
 
 Deliver every Section 24 resource, generated OpenAPI/types, pagination/filtering, idempotency, revisions, resume cursors, quotas, exports, and administrative authorization.
 
+The D1 control plane uses the following normative contracts:
+
+- roles are `researcher`, `operator`, `auditor`, and `owner`; `viewer` remains a deprecated read-only compatibility role and grants no mutation permission
+- every collection has bounded cursor pagination, deterministic ordering, explicit time-range filters where time applies, and stable resource-specific filters
+- every mutation requires an idempotency key, an expected entity revision, and a human reason; it returns a durable command identity and lifecycle state
+- strategy configuration (`enabled` or `disabled`) is versioned separately from runtime state (`running`, `paused`, or `blocked`)
+- a strategy cannot enable or resume unless configuration, persistence, market-data, reconciliation, inventory, exchange-health, and risk prerequisites pass
+- high-risk configuration, qualification, unlock, and role changes require one `owner` to reauthenticate with password and TOTP, confirm the exact expected revision, and supply a reason
+- the activity read model is immutable and idempotently linked to authoritative decisions, risk evaluations, orders, fills, reconciliation, jobs, incidents, alerts, and audit evidence; existing rows receive a deterministic backfill
+- the versioned reason catalogue provides a stable code, plain summary, explanation, suggested action, severity, and correlation identity; unknown codes render a safe generic explanation
+- exports use durable jobs and support TXT, CSV, JSON, and JSONL; artifacts are redacted, hash-sealed, audited, retained for seven days, and deleted automatically unless an incident or reproducibility hold applies
+- live updates add permission-filtered activity, job, strategy, risk, qualification, incident, alert, and export events to the existing resumable stream; an expired cursor returns an explicit fresh-snapshot requirement
+
+No D1 read, command, activity, or export contract may expose a credential,
+request signature, authorization header, arbitrary log file, or private exchange
+payload. D1 adds no production-private exchange client or order capability.
+
 Acceptance: API contract, recovery, authorization, compatibility, load, and secret-leak tests pass.
 
 ### Phase D2: Complete React Command Center and monitoring

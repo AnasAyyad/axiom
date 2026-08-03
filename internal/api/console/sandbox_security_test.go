@@ -301,7 +301,7 @@ func (store *c6HTTPAuthorizationStore) ConsumeSandboxAuthorization(
 	return authentication.ConsumedAuthorization{
 		ID: value.ID, UserID: value.UserID, SessionID: value.SessionID,
 		Purpose: value.Purpose, SourceHash: value.SourceHash,
-		ReasonHash: value.ReasonHash, ConsumedAt: now,
+		ReasonHash: value.ReasonHash, TargetRevision: value.TargetRevision, ConsumedAt: now,
 	}, nil
 }
 

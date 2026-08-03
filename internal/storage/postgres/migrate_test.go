@@ -291,6 +291,31 @@ func TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
 	assertV1CC6Migration(t, v1cC6)
 }
 
+func TestV1DD1MigrationDefinesFailClosedControlPlane(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d1 := migrationForVersion(migrations, "000025")
+	if d1.SQL == "" {
+		t.Fatal("V1D D1 migration is missing")
+	}
+	assertMigrationContains(t, d1, "V1D D1", []string{
+		"create table v1d_reason_catalogue",
+		"create table v1d_activity_projection",
+		"create view v1d_activity_explanations",
+		"security definer set search_path = pg_catalog, public",
+		"revoke all on function project_v1d_activity(text,jsonb) from public",
+		"create table v1d_strategy_controls",
+		"create table v1d_risk_controls",
+		"create table v1d_export_artifacts",
+		"expires_at = created_at + interval '7 days'",
+		"create table v1d_qualification_runs",
+		"protect_v1d_qualification_run",
+		"v1d_authorization_target_revision_required",
+	})
+}
+
 func assertV1CBinanceStreamMigration(t *testing.T, migration Migration) {
 	t.Helper()
 	assertMigrationContains(t, migration, "V1C Binance stream", []string{

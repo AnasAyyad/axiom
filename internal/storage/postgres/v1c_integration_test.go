@@ -64,10 +64,10 @@ func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
 	}
 	defer connection.Release()
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 24 {
+	if err != nil || len(migrations) < 24 {
 		t.Fatalf("migration catalog=%d error=%v", len(migrations), err)
 	}
-	for _, migration := range migrations[20:] {
+	for _, migration := range migrations[20:24] {
 		changed, applyErr := applyMigration(ctx, connection, migration)
 		if applyErr != nil || !changed {
 			t.Fatalf("B8-to-V1C migration %s changed=%t error=%v", migration.Version, changed, applyErr)

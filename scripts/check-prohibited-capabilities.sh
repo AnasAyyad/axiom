@@ -86,11 +86,16 @@ readonly -a EXCLUDES=(
   --glob '!internal/exchanges/bybit/authenticated_*.go'
   --glob '!internal/exchanges/sandboxemulator/**'
   --glob '!internal/authentication/sandbox_authorization.go'
+  --glob '!internal/authentication/sandbox_authorization_purpose.go'
   --glob '!internal/authentication/totp.go'
   --glob '!internal/bootstrap/application.go'
   --glob '!internal/bootstrap/command.go'
   --glob '!internal/storage/postgres/migrations/000021_v1c_auth_control.sql'
   --glob '!internal/storage/postgres/migrations/000022_v1c_sandbox_execution.sql'
+  # V1D D1 exposes reviewed sandbox-mode labels only; its dedicated scanner
+  # proves that no exchange client or production-private capability is present.
+  --glob '!internal/api/console/d1.go'
+  --glob '!internal/storage/postgres/migrations/000025_v1d_d1_control_plane.sql'
   --glob '!internal/storage/postgres/v1c_*.go'
   --glob '!deploy/postgres/init/001-create-roles.sh'
   --glob '!docker-compose.yml'

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,7 +60,7 @@ func appendHighRiskAudit(
 		previousValue = *previous
 	}
 	eventHash := v1cAuditHash(previousValue, audit)
-	var before, after, prior any
+	var before, after, prior, targetRevision any
 	if audit.BeforeHash != "" {
 		before = audit.BeforeHash
 	}
@@ -69,13 +70,17 @@ func appendHighRiskAudit(
 	if previousValue != "" {
 		prior = previousValue
 	}
+	if audit.TargetRevision != nil {
+		targetRevision = *audit.TargetRevision
+	}
 	_, err = tx.Exec(ctx, `
 INSERT INTO v1c_high_risk_audit_events(
   id,actor_user_id,session_id,purpose,outcome,source_hash,reason_hash,revision,
-  before_hash,after_hash,previous_hash,event_hash,occurred_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+  target_revision,before_hash,after_hash,previous_hash,event_hash,occurred_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 		audit.ID, audit.ActorUserID, audit.SessionID, audit.Purpose, audit.Outcome,
-		audit.SourceHash, audit.ReasonHash, audit.Revision, before, after, prior, eventHash, audit.OccurredAt)
+		audit.SourceHash, audit.ReasonHash, audit.Revision, targetRevision,
+		before, after, prior, eventHash, audit.OccurredAt)
 	if err != nil {
 		return fmt.Errorf("v1c_audit_insert_failed")
 	}
@@ -83,9 +88,14 @@ INSERT INTO v1c_high_risk_audit_events(
 }
 
 func v1cAuditHash(previous string, audit authentication.HighRiskAudit) string {
+	targetRevision := ""
+	if audit.TargetRevision != nil {
+		targetRevision = strconv.FormatInt(*audit.TargetRevision, 10)
+	}
 	values := []string{
 		previous, audit.ID, audit.ActorUserID, audit.SessionID, string(audit.Purpose),
 		audit.Outcome, audit.SourceHash, audit.ReasonHash, fmt.Sprint(audit.Revision),
+		targetRevision,
 		audit.BeforeHash, audit.AfterHash, audit.OccurredAt.UTC().Format(time.RFC3339Nano),
 	}
 	hash := sha256.Sum256([]byte(strings.Join(values, "\x00")))

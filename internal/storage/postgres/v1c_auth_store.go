@@ -77,11 +77,11 @@ RETURNING last_used_counter`, write.UserID, write.TOTPCounter, write.CreatedAt).
 	if _, err = tx.Exec(ctx, `
 INSERT INTO v1c_sandbox_authorizations(
   id,token_hash,user_id,session_id,purpose,totp_counter,session_revision,
-  source_hash,reason_hash,created_at,expires_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+  source_hash,reason_hash,target_revision,created_at,expires_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		write.ID, write.TokenHash, write.UserID, write.SessionID, write.Purpose,
 		write.TOTPCounter, write.SessionRevision, write.SourceHash, write.ReasonHash,
-		write.CreatedAt, write.ExpiresAt); err != nil {
+		write.TargetRevision, write.CreatedAt, write.ExpiresAt); err != nil {
 		return fmt.Errorf("v1c_authorization_insert_failed")
 	}
 	if err = appendHighRiskAudit(ctx, tx, write.Audit); err != nil {
@@ -142,7 +142,7 @@ UPDATE v1c_sandbox_authorizations
 SET consumed_at=$4
 WHERE token_hash=$1 AND session_id=$2 AND purpose=$3
   AND consumed_at IS NULL AND expires_at>$4
-RETURNING id,user_id,session_id,purpose,source_hash,reason_hash,consumed_at`,
+RETURNING id,user_id,session_id,purpose,source_hash,reason_hash,target_revision,consumed_at`,
 		tokenHash, sessionID, purpose, now,
 	).Scan(
 		&consumed.ID,
@@ -151,6 +151,7 @@ RETURNING id,user_id,session_id,purpose,source_hash,reason_hash,consumed_at`,
 		&consumed.Purpose,
 		&consumed.SourceHash,
 		&consumed.ReasonHash,
+		&consumed.TargetRevision,
 		&consumed.ConsumedAt,
 	)
 	if err != nil {
@@ -198,10 +199,19 @@ func validateV1CAuthorizationWrite(write authentication.NewSandboxAuthorization)
 		audit.ID == "" || audit.ActorUserID != write.UserID || audit.SessionID != write.SessionID ||
 		audit.Purpose != write.Purpose || audit.Outcome != "authorization_issued" ||
 		audit.SourceHash != write.SourceHash || audit.ReasonHash != write.ReasonHash ||
+		!equalOptionalRevision(audit.TargetRevision, write.TargetRevision) ||
+		(authentication.RevisionBoundAuthorizationPurpose(write.Purpose) != (write.TargetRevision != nil)) ||
 		audit.Revision != write.SessionRevision || !audit.OccurredAt.Equal(write.CreatedAt) {
 		return fmt.Errorf("v1c_authorization_invalid")
 	}
 	return nil
+}
+
+func equalOptionalRevision(left, right *int64) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right && *left > 0
 }
 
 func appendConsumedAuthorizationAudit(
@@ -212,15 +222,16 @@ func appendConsumedAuthorizationAudit(
 	now time.Time,
 ) error {
 	return appendHighRiskAudit(ctx, tx, authentication.HighRiskAudit{
-		ID:          consumed.ID + "-consumed-audit",
-		ActorUserID: consumed.UserID,
-		SessionID:   consumed.SessionID,
-		Purpose:     consumed.Purpose,
-		Outcome:     "authorization_consumed",
-		SourceHash:  consumed.SourceHash,
-		ReasonHash:  consumed.ReasonHash,
-		Revision:    revision,
-		OccurredAt:  now,
+		ID:             consumed.ID + "-consumed-audit",
+		ActorUserID:    consumed.UserID,
+		SessionID:      consumed.SessionID,
+		Purpose:        consumed.Purpose,
+		Outcome:        "authorization_consumed",
+		SourceHash:     consumed.SourceHash,
+		ReasonHash:     consumed.ReasonHash,
+		Revision:       revision,
+		TargetRevision: consumed.TargetRevision,
+		OccurredAt:     now,
 	})
 }
 
@@ -338,61 +349,4 @@ FROM sessions WHERE user_id=$1 ORDER BY id`, userID)
 		return "", fmt.Errorf("v1c_session_state_hash_failed")
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
-}
-
-func lockV1CActorSession(
-	ctx context.Context,
-	tx pgx.Tx,
-	userID, actorSessionID string,
-	now time.Time,
-) (int64, error) {
-	var revision int64
-	if err := tx.QueryRow(ctx, `
-SELECT session.revision
-FROM sessions session
-JOIN users actor ON actor.id=session.user_id
-WHERE session.id=$1 AND session.user_id=$2
-  AND actor.status='active'
-  AND session.revoked_at IS NULL
-  AND session.expires_at>$3
-  AND session.idle_expires_at>$3
-FOR UPDATE OF session`, actorSessionID, userID, now).Scan(&revision); err != nil {
-		return 0, fmt.Errorf("v1c_revoke_all_actor_invalid")
-	}
-	return revision, nil
-}
-
-func revokeV1CSessions(
-	ctx context.Context,
-	tx pgx.Tx,
-	userID string,
-	now time.Time,
-) (int64, error) {
-	tag, err := tx.Exec(ctx, `
-UPDATE sessions
-SET revoked_at=$2,revoked_reason='owner_revoke_all',revision=revision+1
-WHERE user_id=$1 AND revoked_at IS NULL`, userID, now)
-	if err != nil {
-		return 0, fmt.Errorf("v1c_revoke_all_failed")
-	}
-	return tag.RowsAffected(), nil
-}
-
-func insertV1CSessionControl(
-	ctx context.Context,
-	tx pgx.Tx,
-	id, authorizationID, userID, actorSessionID, sourceHash, reasonHash string,
-	count int64,
-	now time.Time,
-) error {
-	if _, err := tx.Exec(ctx, `
-INSERT INTO v1c_session_control_events(
- id,actor_user_id,actor_session_id,authorization_id,control_kind,
- source_hash,reason_hash,affected_sessions,occurred_at
-) VALUES ($1,$2,$3,$4,'revoke_all',$5,$6,$7,$8)`,
-		id, userID, actorSessionID, authorizationID, sourceHash, reasonHash, count, now,
-	); err != nil {
-		return fmt.Errorf("v1c_revoke_all_control_failed")
-	}
-	return nil
 }

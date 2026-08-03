@@ -33,6 +33,8 @@ type Options struct {
 	Streams               StreamService
 	SandboxRead           SandboxReadService
 	SandboxCommands       SandboxCommandService
+	D1Read                D1ReadService
+	D1Commands            D1CommandService
 }
 
 // Register installs all authenticated A11 routes on one mux.
@@ -47,6 +49,7 @@ func Register(mux *http.ServeMux, options Options) {
 	handler.registerReads(mux)
 	handler.registerCommands(mux)
 	handler.registerSandbox(mux)
+	handler.registerD1(mux)
 	mux.HandleFunc("GET /api/v1/stream", handler.authorized(handler.stream, "operations.read"))
 }
 

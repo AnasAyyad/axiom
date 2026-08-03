@@ -57,6 +57,37 @@ func TestRuntimeMigrationLedgerGrantIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestD1RuntimeAndReportingGrantsRemainLeastPrivilege(t *testing.T) {
+	for _, table := range []string{
+		"v1d_export_artifacts", "v1d_artifact_holds", "v1d_artifact_access_events",
+		"v1d_qualification_runs", "v1d_role_change_events",
+	} {
+		if !containsGrantTable(runtimeReadInsertTables, table) {
+			t.Errorf("D1 runtime append grant omits %s", table)
+		}
+	}
+	for _, table := range []string{
+		"v1d_strategy_controls", "v1d_risk_controls", "v1d_export_artifacts",
+		"v1d_artifact_holds", "v1d_qualification_runs",
+	} {
+		if !containsGrantTable(runtimeUpdateTables, table) {
+			t.Errorf("D1 runtime update grant omits %s", table)
+		}
+	}
+	for _, immutable := range []string{
+		"v1d_activity_projection", "v1d_reason_catalogue", "v1d_artifact_access_events",
+		"v1d_role_change_events",
+	} {
+		if containsGrantTable(runtimeUpdateTables, immutable) ||
+			containsGrantTable(runtimeDeleteTables, immutable) {
+			t.Errorf("D1 immutable relation %s received mutation privilege", immutable)
+		}
+		if !containsGrantTable(readOnlyTables, immutable) {
+			t.Errorf("D1 reporting grant omits %s", immutable)
+		}
+	}
+}
+
 func TestRuntimeAuthenticatedEvidenceGrantIsReadOnly(t *testing.T) {
 	const table = `"public"."v1c_authenticated_request_evidence"`
 	read := grantSQL("SELECT", runtimeReadTables, `"axiom_runtime"`)

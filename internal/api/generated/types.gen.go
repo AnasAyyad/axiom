@@ -14,6 +14,90 @@ const (
 	SessionCookieScopes     sessionCookieContextKey     = "sessionCookie.Scopes"
 )
 
+// Defines values for ActivityResourceMode.
+const (
+	ActivityResourceModeBacktest ActivityResourceMode = "backtest"
+	ActivityResourceModeDemo     ActivityResourceMode = "demo"
+	ActivityResourceModePaper    ActivityResourceMode = "paper"
+	ActivityResourceModeReplay   ActivityResourceMode = "replay"
+	ActivityResourceModeShadow   ActivityResourceMode = "shadow"
+	ActivityResourceModeTestnet  ActivityResourceMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the ActivityResourceMode enum.
+func (e ActivityResourceMode) Valid() bool {
+	switch e {
+	case ActivityResourceModeBacktest:
+		return true
+	case ActivityResourceModeDemo:
+		return true
+	case ActivityResourceModePaper:
+		return true
+	case ActivityResourceModeReplay:
+		return true
+	case ActivityResourceModeShadow:
+		return true
+	case ActivityResourceModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivityResourceSide.
+const (
+	ActivityResourceSideBuy  ActivityResourceSide = "buy"
+	ActivityResourceSideSell ActivityResourceSide = "sell"
+)
+
+// Valid indicates whether the value is a known member of the ActivityResourceSide enum.
+func (e ActivityResourceSide) Valid() bool {
+	switch e {
+	case ActivityResourceSideBuy:
+		return true
+	case ActivityResourceSideSell:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivityResourceView.
+const (
+	ActivityResourceViewDecisionsOrders ActivityResourceView = "decisions_orders"
+	ActivityResourceViewSystemEvents    ActivityResourceView = "system_events"
+)
+
+// Valid indicates whether the value is a known member of the ActivityResourceView enum.
+func (e ActivityResourceView) Valid() bool {
+	switch e {
+	case ActivityResourceViewDecisionsOrders:
+		return true
+	case ActivityResourceViewSystemEvents:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ArtifactHoldRequestHoldType.
+const (
+	ArtifactHoldRequestHoldTypeIncident        ArtifactHoldRequestHoldType = "incident"
+	ArtifactHoldRequestHoldTypeReproducibility ArtifactHoldRequestHoldType = "reproducibility"
+)
+
+// Valid indicates whether the value is a known member of the ArtifactHoldRequestHoldType enum.
+func (e ArtifactHoldRequestHoldType) Valid() bool {
+	switch e {
+	case ArtifactHoldRequestHoldTypeIncident:
+		return true
+	case ArtifactHoldRequestHoldTypeReproducibility:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BinanceHealthBookState.
 const (
 	BinanceHealthBookStateGapped     BinanceHealthBookState = "gapped"
@@ -389,6 +473,84 @@ func (e ExchangeSummaryWebsocketState) Valid() bool {
 	}
 }
 
+// Defines values for ExportArtifactFormat.
+const (
+	ExportArtifactFormatCsv   ExportArtifactFormat = "csv"
+	ExportArtifactFormatJson  ExportArtifactFormat = "json"
+	ExportArtifactFormatJsonl ExportArtifactFormat = "jsonl"
+	ExportArtifactFormatTxt   ExportArtifactFormat = "txt"
+)
+
+// Valid indicates whether the value is a known member of the ExportArtifactFormat enum.
+func (e ExportArtifactFormat) Valid() bool {
+	switch e {
+	case ExportArtifactFormatCsv:
+		return true
+	case ExportArtifactFormatJson:
+		return true
+	case ExportArtifactFormatJsonl:
+		return true
+	case ExportArtifactFormatTxt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportRequestFormat.
+const (
+	ExportRequestFormatCsv   ExportRequestFormat = "csv"
+	ExportRequestFormatJson  ExportRequestFormat = "json"
+	ExportRequestFormatJsonl ExportRequestFormat = "jsonl"
+	ExportRequestFormatTxt   ExportRequestFormat = "txt"
+)
+
+// Valid indicates whether the value is a known member of the ExportRequestFormat enum.
+func (e ExportRequestFormat) Valid() bool {
+	switch e {
+	case ExportRequestFormatCsv:
+		return true
+	case ExportRequestFormatJson:
+		return true
+	case ExportRequestFormatJsonl:
+		return true
+	case ExportRequestFormatTxt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportRequestResourceType.
+const (
+	ExportRequestResourceTypeActivity      ExportRequestResourceType = "activity"
+	ExportRequestResourceTypeAudit         ExportRequestResourceType = "audit"
+	ExportRequestResourceTypeIncident      ExportRequestResourceType = "incident"
+	ExportRequestResourceTypeLabRun        ExportRequestResourceType = "lab_run"
+	ExportRequestResourceTypeQualification ExportRequestResourceType = "qualification"
+	ExportRequestResourceTypeReport        ExportRequestResourceType = "report"
+)
+
+// Valid indicates whether the value is a known member of the ExportRequestResourceType enum.
+func (e ExportRequestResourceType) Valid() bool {
+	switch e {
+	case ExportRequestResourceTypeActivity:
+		return true
+	case ExportRequestResourceTypeAudit:
+		return true
+	case ExportRequestResourceTypeIncident:
+		return true
+	case ExportRequestResourceTypeLabRun:
+		return true
+	case ExportRequestResourceTypeQualification:
+		return true
+	case ExportRequestResourceTypeReport:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthComponentName.
 const (
 	Authentication HealthComponentName = "authentication"
@@ -500,6 +662,66 @@ func (e HealthResponseStatus) Valid() bool {
 	}
 }
 
+// Defines values for HighRiskAuthorizationGrantPurpose.
+const (
+	HighRiskAuthorizationGrantPurposeArtifactHold            HighRiskAuthorizationGrantPurpose = "artifact_hold"
+	HighRiskAuthorizationGrantPurposeConfigurationActivation HighRiskAuthorizationGrantPurpose = "configuration_activation"
+	HighRiskAuthorizationGrantPurposeQualificationStart      HighRiskAuthorizationGrantPurpose = "qualification_start"
+	HighRiskAuthorizationGrantPurposeRiskControl             HighRiskAuthorizationGrantPurpose = "risk_control"
+	HighRiskAuthorizationGrantPurposeRoleChange              HighRiskAuthorizationGrantPurpose = "role_change"
+	HighRiskAuthorizationGrantPurposeStrategyConfiguration   HighRiskAuthorizationGrantPurpose = "strategy_configuration"
+)
+
+// Valid indicates whether the value is a known member of the HighRiskAuthorizationGrantPurpose enum.
+func (e HighRiskAuthorizationGrantPurpose) Valid() bool {
+	switch e {
+	case HighRiskAuthorizationGrantPurposeArtifactHold:
+		return true
+	case HighRiskAuthorizationGrantPurposeConfigurationActivation:
+		return true
+	case HighRiskAuthorizationGrantPurposeQualificationStart:
+		return true
+	case HighRiskAuthorizationGrantPurposeRiskControl:
+		return true
+	case HighRiskAuthorizationGrantPurposeRoleChange:
+		return true
+	case HighRiskAuthorizationGrantPurposeStrategyConfiguration:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HighRiskAuthorizationRequestPurpose.
+const (
+	HighRiskAuthorizationRequestPurposeArtifactHold            HighRiskAuthorizationRequestPurpose = "artifact_hold"
+	HighRiskAuthorizationRequestPurposeConfigurationActivation HighRiskAuthorizationRequestPurpose = "configuration_activation"
+	HighRiskAuthorizationRequestPurposeQualificationStart      HighRiskAuthorizationRequestPurpose = "qualification_start"
+	HighRiskAuthorizationRequestPurposeRiskControl             HighRiskAuthorizationRequestPurpose = "risk_control"
+	HighRiskAuthorizationRequestPurposeRoleChange              HighRiskAuthorizationRequestPurpose = "role_change"
+	HighRiskAuthorizationRequestPurposeStrategyConfiguration   HighRiskAuthorizationRequestPurpose = "strategy_configuration"
+)
+
+// Valid indicates whether the value is a known member of the HighRiskAuthorizationRequestPurpose enum.
+func (e HighRiskAuthorizationRequestPurpose) Valid() bool {
+	switch e {
+	case HighRiskAuthorizationRequestPurposeArtifactHold:
+		return true
+	case HighRiskAuthorizationRequestPurposeConfigurationActivation:
+		return true
+	case HighRiskAuthorizationRequestPurposeQualificationStart:
+		return true
+	case HighRiskAuthorizationRequestPurposeRiskControl:
+		return true
+	case HighRiskAuthorizationRequestPurposeRoleChange:
+		return true
+	case HighRiskAuthorizationRequestPurposeStrategyConfiguration:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IncidentDetailSeverity.
 const (
 	IncidentDetailSeverityCritical IncidentDetailSeverity = "critical"
@@ -578,6 +800,24 @@ func (e IncidentSummaryState) Valid() bool {
 	case IncidentSummaryStateOpen:
 		return true
 	case IncidentSummaryStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentTransitionRequestState.
+const (
+	IncidentTransitionRequestStateAcknowledged IncidentTransitionRequestState = "acknowledged"
+	IncidentTransitionRequestStateResolved     IncidentTransitionRequestState = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IncidentTransitionRequestState enum.
+func (e IncidentTransitionRequestState) Valid() bool {
+	switch e {
+	case IncidentTransitionRequestStateAcknowledged:
+		return true
+	case IncidentTransitionRequestStateResolved:
 		return true
 	default:
 		return false
@@ -1067,6 +1307,30 @@ func (e QualityEvidenceTier) Valid() bool {
 	}
 }
 
+// Defines values for ReasonPresentationSeverity.
+const (
+	ReasonPresentationSeverityCritical ReasonPresentationSeverity = "critical"
+	ReasonPresentationSeverityError    ReasonPresentationSeverity = "error"
+	ReasonPresentationSeverityInfo     ReasonPresentationSeverity = "info"
+	ReasonPresentationSeverityWarning  ReasonPresentationSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ReasonPresentationSeverity enum.
+func (e ReasonPresentationSeverity) Valid() bool {
+	switch e {
+	case ReasonPresentationSeverityCritical:
+		return true
+	case ReasonPresentationSeverityError:
+		return true
+	case ReasonPresentationSeverityInfo:
+		return true
+	case ReasonPresentationSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RebalancingDetailExecutionAvailable.
 const (
 	RebalancingDetailExecutionAvailableFalse RebalancingDetailExecutionAvailable = false
@@ -1364,6 +1628,66 @@ func (e ReportExportResourceSimulationOnly) Valid() bool {
 	}
 }
 
+// Defines values for ReportRequestReportType.
+const (
+	ReportRequestReportTypeDecisionsOrders       ReportRequestReportType = "decisions_orders"
+	ReportRequestReportTypeExchangeDataHealth    ReportRequestReportType = "exchange_data_health"
+	ReportRequestReportTypeInventoryPnl          ReportRequestReportType = "inventory_pnl"
+	ReportRequestReportTypeLabRuns               ReportRequestReportType = "lab_runs"
+	ReportRequestReportTypePlatformReadiness     ReportRequestReportType = "platform_readiness"
+	ReportRequestReportTypePortfolios            ReportRequestReportType = "portfolios"
+	ReportRequestReportTypeRisk                  ReportRequestReportType = "risk"
+	ReportRequestReportTypeSandboxQualifications ReportRequestReportType = "sandbox_qualifications"
+	ReportRequestReportTypeStrategyResults       ReportRequestReportType = "strategy_results"
+)
+
+// Valid indicates whether the value is a known member of the ReportRequestReportType enum.
+func (e ReportRequestReportType) Valid() bool {
+	switch e {
+	case ReportRequestReportTypeDecisionsOrders:
+		return true
+	case ReportRequestReportTypeExchangeDataHealth:
+		return true
+	case ReportRequestReportTypeInventoryPnl:
+		return true
+	case ReportRequestReportTypeLabRuns:
+		return true
+	case ReportRequestReportTypePlatformReadiness:
+		return true
+	case ReportRequestReportTypePortfolios:
+		return true
+	case ReportRequestReportTypeRisk:
+		return true
+	case ReportRequestReportTypeSandboxQualifications:
+		return true
+	case ReportRequestReportTypeStrategyResults:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RiskControlRequestState.
+const (
+	RiskControlRequestStateLocked RiskControlRequestState = "locked"
+	RiskControlRequestStateNormal RiskControlRequestState = "normal"
+	RiskControlRequestStatePaused RiskControlRequestState = "paused"
+)
+
+// Valid indicates whether the value is a known member of the RiskControlRequestState enum.
+func (e RiskControlRequestState) Valid() bool {
+	switch e {
+	case RiskControlRequestStateLocked:
+		return true
+	case RiskControlRequestStateNormal:
+		return true
+	case RiskControlRequestStatePaused:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RiskStatusState.
 const (
 	RiskStatusStateCAUTIOUS RiskStatusState = "CAUTIOUS"
@@ -1382,6 +1706,48 @@ func (e RiskStatusState) Valid() bool {
 	case RiskStatusStateNORMAL:
 		return true
 	case RiskStatusStatePAUSED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RoleChangeRequestRoles.
+const (
+	Auditor    RoleChangeRequestRoles = "auditor"
+	Operator   RoleChangeRequestRoles = "operator"
+	Owner      RoleChangeRequestRoles = "owner"
+	Researcher RoleChangeRequestRoles = "researcher"
+)
+
+// Valid indicates whether the value is a known member of the RoleChangeRequestRoles enum.
+func (e RoleChangeRequestRoles) Valid() bool {
+	switch e {
+	case Auditor:
+		return true
+	case Operator:
+		return true
+	case Owner:
+		return true
+	case Researcher:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeControlRequestState.
+const (
+	RuntimeControlRequestStatePaused  RuntimeControlRequestState = "paused"
+	RuntimeControlRequestStateRunning RuntimeControlRequestState = "running"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeControlRequestState enum.
+func (e RuntimeControlRequestState) Valid() bool {
+	switch e {
+	case RuntimeControlRequestStatePaused:
+		return true
+	case RuntimeControlRequestStateRunning:
 		return true
 	default:
 		return false
@@ -2087,6 +2453,24 @@ func (e SimulatedOrderSimulated) Valid() bool {
 	}
 }
 
+// Defines values for StrategyConfigurationRequestState.
+const (
+	Disabled StrategyConfigurationRequestState = "disabled"
+	Enabled  StrategyConfigurationRequestState = "enabled"
+)
+
+// Valid indicates whether the value is a known member of the StrategyConfigurationRequestState enum.
+func (e StrategyConfigurationRequestState) Valid() bool {
+	switch e {
+	case Disabled:
+		return true
+	case Enabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StrategySummaryConfidence.
 const (
 	StrategySummaryConfidenceFormalTierA  StrategySummaryConfidence = "formal_tier_a"
@@ -2218,31 +2602,41 @@ func (e StreamEventSchemaVersion) Valid() bool {
 
 // Defines values for StreamEventStream.
 const (
-	StreamEventStreamAlert       StreamEventStream = "alert"
-	StreamEventStreamExchange    StreamEventStream = "exchange"
-	StreamEventStreamFill        StreamEventStream = "fill"
-	StreamEventStreamIncident    StreamEventStream = "incident"
-	StreamEventStreamInventory   StreamEventStream = "inventory"
-	StreamEventStreamJob         StreamEventStream = "job"
-	StreamEventStreamOpportunity StreamEventStream = "opportunity"
-	StreamEventStreamOrder       StreamEventStream = "order"
-	StreamEventStreamPortfolio   StreamEventStream = "portfolio"
-	StreamEventStreamRebalancing StreamEventStream = "rebalancing"
-	StreamEventStreamResearch    StreamEventStream = "research"
-	StreamEventStreamRisk        StreamEventStream = "risk"
-	StreamEventStreamSandbox     StreamEventStream = "sandbox"
-	StreamEventStreamShadow      StreamEventStream = "shadow"
-	StreamEventStreamStrategy    StreamEventStream = "strategy"
-	StreamEventStreamSystem      StreamEventStream = "system"
-	StreamEventStreamTrend       StreamEventStream = "trend"
+	StreamEventStreamActivity      StreamEventStream = "activity"
+	StreamEventStreamAlert         StreamEventStream = "alert"
+	StreamEventStreamConfiguration StreamEventStream = "configuration"
+	StreamEventStreamExchange      StreamEventStream = "exchange"
+	StreamEventStreamExport        StreamEventStream = "export"
+	StreamEventStreamFill          StreamEventStream = "fill"
+	StreamEventStreamIncident      StreamEventStream = "incident"
+	StreamEventStreamInventory     StreamEventStream = "inventory"
+	StreamEventStreamJob           StreamEventStream = "job"
+	StreamEventStreamOpportunity   StreamEventStream = "opportunity"
+	StreamEventStreamOrder         StreamEventStream = "order"
+	StreamEventStreamPortfolio     StreamEventStream = "portfolio"
+	StreamEventStreamQualification StreamEventStream = "qualification"
+	StreamEventStreamRebalancing   StreamEventStream = "rebalancing"
+	StreamEventStreamResearch      StreamEventStream = "research"
+	StreamEventStreamRisk          StreamEventStream = "risk"
+	StreamEventStreamSandbox       StreamEventStream = "sandbox"
+	StreamEventStreamShadow        StreamEventStream = "shadow"
+	StreamEventStreamStrategy      StreamEventStream = "strategy"
+	StreamEventStreamSystem        StreamEventStream = "system"
+	StreamEventStreamTrend         StreamEventStream = "trend"
 )
 
 // Valid indicates whether the value is a known member of the StreamEventStream enum.
 func (e StreamEventStream) Valid() bool {
 	switch e {
+	case StreamEventStreamActivity:
+		return true
 	case StreamEventStreamAlert:
 		return true
+	case StreamEventStreamConfiguration:
+		return true
 	case StreamEventStreamExchange:
+		return true
+	case StreamEventStreamExport:
 		return true
 	case StreamEventStreamFill:
 		return true
@@ -2257,6 +2651,8 @@ func (e StreamEventStream) Valid() bool {
 	case StreamEventStreamOrder:
 		return true
 	case StreamEventStreamPortfolio:
+		return true
+	case StreamEventStreamQualification:
 		return true
 	case StreamEventStreamRebalancing:
 		return true
@@ -2558,21 +2954,111 @@ func (e TrendStatusViability) Valid() bool {
 	}
 }
 
+// Defines values for ListActivityParamsView.
+const (
+	DecisionsOrders ListActivityParamsView = "decisions_orders"
+	SystemEvents    ListActivityParamsView = "system_events"
+)
+
+// Valid indicates whether the value is a known member of the ListActivityParamsView enum.
+func (e ListActivityParamsView) Valid() bool {
+	switch e {
+	case DecisionsOrders:
+		return true
+	case SystemEvents:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListActivityParamsSide.
+const (
+	ListActivityParamsSideBuy  ListActivityParamsSide = "buy"
+	ListActivityParamsSideSell ListActivityParamsSide = "sell"
+)
+
+// Valid indicates whether the value is a known member of the ListActivityParamsSide enum.
+func (e ListActivityParamsSide) Valid() bool {
+	switch e {
+	case ListActivityParamsSideBuy:
+		return true
+	case ListActivityParamsSideSell:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListActivityParamsMode.
+const (
+	ListActivityParamsModeBacktest ListActivityParamsMode = "backtest"
+	ListActivityParamsModeDemo     ListActivityParamsMode = "demo"
+	ListActivityParamsModePaper    ListActivityParamsMode = "paper"
+	ListActivityParamsModeReplay   ListActivityParamsMode = "replay"
+	ListActivityParamsModeShadow   ListActivityParamsMode = "shadow"
+	ListActivityParamsModeTestnet  ListActivityParamsMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the ListActivityParamsMode enum.
+func (e ListActivityParamsMode) Valid() bool {
+	switch e {
+	case ListActivityParamsModeBacktest:
+		return true
+	case ListActivityParamsModeDemo:
+		return true
+	case ListActivityParamsModePaper:
+		return true
+	case ListActivityParamsModeReplay:
+		return true
+	case ListActivityParamsModeShadow:
+		return true
+	case ListActivityParamsModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListIncidentsParamsState.
 const (
-	Acknowledged ListIncidentsParamsState = "acknowledged"
-	Open         ListIncidentsParamsState = "open"
-	Resolved     ListIncidentsParamsState = "resolved"
+	ListIncidentsParamsStateAcknowledged ListIncidentsParamsState = "acknowledged"
+	ListIncidentsParamsStateOpen         ListIncidentsParamsState = "open"
+	ListIncidentsParamsStateResolved     ListIncidentsParamsState = "resolved"
 )
 
 // Valid indicates whether the value is a known member of the ListIncidentsParamsState enum.
 func (e ListIncidentsParamsState) Valid() bool {
 	switch e {
-	case Acknowledged:
+	case ListIncidentsParamsStateAcknowledged:
 		return true
-	case Open:
+	case ListIncidentsParamsStateOpen:
 		return true
-	case Resolved:
+	case ListIncidentsParamsStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ControlLabRunParamsAction.
+const (
+	Cancel    ControlLabRunParamsAction = "cancel"
+	Pause     ControlLabRunParamsAction = "pause"
+	Reproduce ControlLabRunParamsAction = "reproduce"
+	Resume    ControlLabRunParamsAction = "resume"
+)
+
+// Valid indicates whether the value is a known member of the ControlLabRunParamsAction enum.
+func (e ControlLabRunParamsAction) Valid() bool {
+	switch e {
+	case Cancel:
+		return true
+	case Pause:
+		return true
+	case Reproduce:
+		return true
+	case Resume:
 		return true
 	default:
 		return false
@@ -2597,6 +3083,33 @@ func (e ListOpportunitiesParamsKind) Valid() bool {
 	}
 }
 
+// Defines values for ControlRiskScopeParamsScope.
+const (
+	ControlRiskScopeParamsScopeExchange   ControlRiskScopeParamsScope = "exchange"
+	ControlRiskScopeParamsScopeGlobal     ControlRiskScopeParamsScope = "global"
+	ControlRiskScopeParamsScopeInstrument ControlRiskScopeParamsScope = "instrument"
+	ControlRiskScopeParamsScopeNewEntries ControlRiskScopeParamsScope = "new_entries"
+	ControlRiskScopeParamsScopeStrategy   ControlRiskScopeParamsScope = "strategy"
+)
+
+// Valid indicates whether the value is a known member of the ControlRiskScopeParamsScope enum.
+func (e ControlRiskScopeParamsScope) Valid() bool {
+	switch e {
+	case ControlRiskScopeParamsScopeExchange:
+		return true
+	case ControlRiskScopeParamsScopeGlobal:
+		return true
+	case ControlRiskScopeParamsScopeInstrument:
+		return true
+	case ControlRiskScopeParamsScopeNewEntries:
+		return true
+	case ControlRiskScopeParamsScopeStrategy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListTrendDecisionsParamsOutcome.
 const (
 	ListTrendDecisionsParamsOutcomeAccepted ListTrendDecisionsParamsOutcome = "accepted"
@@ -2614,6 +3127,60 @@ func (e ListTrendDecisionsParamsOutcome) Valid() bool {
 		return false
 	}
 }
+
+// ActivityPage defines model for ActivityPage.
+type ActivityPage struct {
+	HasMore          bool               `json:"has_more"`
+	Items            []ActivityResource `json:"items"`
+	NextCursor       *string            `json:"next_cursor,omitempty"`
+	Revision         Revision           `json:"revision"`
+	SnapshotRevision Revision           `json:"snapshot_revision"`
+}
+
+// ActivityResource defines model for ActivityResource.
+type ActivityResource struct {
+	ActivityRevision Revision               `json:"activity_revision"`
+	CausationId      *string                `json:"causation_id,omitempty"`
+	CorrelationId    string                 `json:"correlation_id"`
+	Details          map[string]interface{} `json:"details"`
+	ExchangeId       *string                `json:"exchange_id,omitempty"`
+	Id               string                 `json:"id"`
+	InstrumentId     *string                `json:"instrument_id,omitempty"`
+	Links            map[string]string      `json:"links"`
+	Mode             *ActivityResourceMode  `json:"mode,omitempty"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt     Timestamp             `json:"occurred_at"`
+	Outcome        string                `json:"outcome"`
+	Reason         ReasonPresentation    `json:"reason"`
+	Side           *ActivityResourceSide `json:"side,omitempty"`
+	SourceId       string                `json:"source_id"`
+	SourceRevision string                `json:"source_revision"`
+	SourceType     string                `json:"source_type"`
+	StrategyId     *string               `json:"strategy_id,omitempty"`
+	View           ActivityResourceView  `json:"view"`
+}
+
+// ActivityResourceMode defines model for ActivityResource.Mode.
+type ActivityResourceMode string
+
+// ActivityResourceSide defines model for ActivityResource.Side.
+type ActivityResourceSide string
+
+// ActivityResourceView defines model for ActivityResource.View.
+type ActivityResourceView string
+
+// ArtifactHoldRequest defines model for ArtifactHoldRequest.
+type ArtifactHoldRequest struct {
+	AuthorizationToken string                      `json:"authorization_token"`
+	ExpectedRevision   Revision                    `json:"expected_revision"`
+	HoldType           ArtifactHoldRequestHoldType `json:"hold_type"`
+	Reason             string                      `json:"reason"`
+	ReferenceId        string                      `json:"reference_id"`
+}
+
+// ArtifactHoldRequestHoldType defines model for ArtifactHoldRequest.HoldType.
+type ArtifactHoldRequestHoldType string
 
 // AuditEvent defines model for AuditEvent.
 type AuditEvent struct {
@@ -2795,6 +3362,38 @@ type CommandAccepted struct {
 // CommandAcceptedState defines model for CommandAccepted.State.
 type CommandAcceptedState string
 
+// ConfigurationActivationRequest defines model for ConfigurationActivationRequest.
+type ConfigurationActivationRequest struct {
+	AuthorizationToken string   `json:"authorization_token"`
+	ConfigurationId    string   `json:"configuration_id"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	Reason             string   `json:"reason"`
+}
+
+// D1Resource defines model for D1Resource.
+type D1Resource struct {
+	Attributes    map[string]interface{} `json:"attributes"`
+	CorrelationId string                 `json:"correlation_id"`
+	Id            string                 `json:"id"`
+	Kind          string                 `json:"kind"`
+	Links         map[string]string      `json:"links"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt *Timestamp          `json:"occurred_at,omitempty"`
+	Reason     *ReasonPresentation `json:"reason,omitempty"`
+	Revision   Revision            `json:"revision"`
+	State      string              `json:"state"`
+}
+
+// D1ResourcePage defines model for D1ResourcePage.
+type D1ResourcePage struct {
+	HasMore          bool         `json:"has_more"`
+	Items            []D1Resource `json:"items"`
+	NextCursor       *string      `json:"next_cursor,omitempty"`
+	Revision         Revision     `json:"revision"`
+	SnapshotRevision Revision     `json:"snapshot_revision"`
+}
+
 // Decimal defines model for Decimal.
 type Decimal = string
 
@@ -2878,6 +3477,48 @@ type ExchangeSummaryRecorderState string
 // ExchangeSummaryWebsocketState defines model for ExchangeSummary.WebsocketState.
 type ExchangeSummaryWebsocketState string
 
+// ExportArtifact defines model for ExportArtifact.
+type ExportArtifact struct {
+	CommandId   string  `json:"command_id"`
+	Content     *string `json:"content,omitempty"`
+	ContentHash string  `json:"content_hash"`
+	ContentType string  `json:"content_type"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt Timestamp `json:"created_at"`
+	Deleted   bool      `json:"deleted"`
+
+	// ExpiresAt RFC 3339 timestamp with an explicit UTC offset.
+	ExpiresAt        Timestamp            `json:"expires_at"`
+	Format           ExportArtifactFormat `json:"format"`
+	Held             bool                 `json:"held"`
+	Id               string               `json:"id"`
+	JobId            string               `json:"job_id"`
+	RedactionVersion string               `json:"redaction_version"`
+	ResourceId       string               `json:"resource_id"`
+	ResourceType     string               `json:"resource_type"`
+	Revision         Revision             `json:"revision"`
+	SizeBytes        Revision             `json:"size_bytes"`
+}
+
+// ExportArtifactFormat defines model for ExportArtifact.Format.
+type ExportArtifactFormat string
+
+// ExportRequest defines model for ExportRequest.
+type ExportRequest struct {
+	ExpectedRevision Revision                  `json:"expected_revision"`
+	Format           ExportRequestFormat       `json:"format"`
+	Reason           string                    `json:"reason"`
+	ResourceId       string                    `json:"resource_id"`
+	ResourceType     ExportRequestResourceType `json:"resource_type"`
+}
+
+// ExportRequestFormat defines model for ExportRequest.Format.
+type ExportRequestFormat string
+
+// ExportRequestResourceType defines model for ExportRequest.ResourceType.
+type ExportRequestResourceType string
+
 // HealthComponent defines model for HealthComponent.
 type HealthComponent struct {
 	Name       HealthComponentName        `json:"name"`
@@ -2907,6 +3548,30 @@ type HealthResponsePhase string
 
 // HealthResponseStatus defines model for HealthResponse.Status.
 type HealthResponseStatus string
+
+// HighRiskAuthorizationGrant defines model for HighRiskAuthorizationGrant.
+type HighRiskAuthorizationGrant struct {
+	// ExpiresAt RFC 3339 timestamp with an explicit UTC offset.
+	ExpiresAt      Timestamp                         `json:"expires_at"`
+	Purpose        HighRiskAuthorizationGrantPurpose `json:"purpose"`
+	TargetRevision Revision                          `json:"target_revision"`
+	Token          string                            `json:"token"`
+}
+
+// HighRiskAuthorizationGrantPurpose defines model for HighRiskAuthorizationGrant.Purpose.
+type HighRiskAuthorizationGrantPurpose string
+
+// HighRiskAuthorizationRequest defines model for HighRiskAuthorizationRequest.
+type HighRiskAuthorizationRequest struct {
+	ExpectedRevision Revision                            `json:"expected_revision"`
+	Password         string                              `json:"password"`
+	Purpose          HighRiskAuthorizationRequestPurpose `json:"purpose"`
+	Reason           string                              `json:"reason"`
+	Totp             string                              `json:"totp"`
+}
+
+// HighRiskAuthorizationRequestPurpose defines model for HighRiskAuthorizationRequest.Purpose.
+type HighRiskAuthorizationRequestPurpose string
 
 // IncidentDetail defines model for IncidentDetail.
 type IncidentDetail struct {
@@ -2957,6 +3622,16 @@ type IncidentSummarySeverity string
 
 // IncidentSummaryState defines model for IncidentSummary.State.
 type IncidentSummaryState string
+
+// IncidentTransitionRequest defines model for IncidentTransitionRequest.
+type IncidentTransitionRequest struct {
+	ExpectedRevision Revision                       `json:"expected_revision"`
+	Reason           string                         `json:"reason"`
+	State            IncidentTransitionRequestState `json:"state"`
+}
+
+// IncidentTransitionRequestState defines model for IncidentTransitionRequest.State.
+type IncidentTransitionRequestState string
 
 // Instrument defines model for Instrument.
 type Instrument struct {
@@ -3302,6 +3977,18 @@ type Position struct {
 	UnrealizedPnl Decimal            `json:"unrealized_pnl"`
 }
 
+// QualificationStartRequest defines model for QualificationStartRequest.
+type QualificationStartRequest struct {
+	AuthorizationToken string   `json:"authorization_token"`
+	ConfigurationHash  string   `json:"configuration_hash"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	ImageDigest        *string  `json:"image_digest,omitempty"`
+	QualificationId    string   `json:"qualification_id"`
+	Reason             string   `json:"reason"`
+	ServerIdentity     *string  `json:"server_identity,omitempty"`
+	SourceSha          string   `json:"source_sha"`
+}
+
 // QualityEvidence defines model for QualityEvidence.
 type QualityEvidence struct {
 	Confidence QualityEvidenceConfidence `json:"confidence"`
@@ -3327,6 +4014,20 @@ type QualityEvidenceFreshness string
 
 // QualityEvidenceTier defines model for QualityEvidence.Tier.
 type QualityEvidenceTier string
+
+// ReasonPresentation defines model for ReasonPresentation.
+type ReasonPresentation struct {
+	Code            string                     `json:"code"`
+	Explanation     string                     `json:"explanation"`
+	Severity        ReasonPresentationSeverity `json:"severity"`
+	SuggestedAction string                     `json:"suggested_action"`
+	Summary         string                     `json:"summary"`
+	Unknown         bool                       `json:"unknown"`
+	Version         Revision                   `json:"version"`
+}
+
+// ReasonPresentationSeverity defines model for ReasonPresentation.Severity.
+type ReasonPresentationSeverity string
 
 // RebalancingDetail defines model for RebalancingDetail.
 type RebalancingDetail struct {
@@ -3542,6 +4243,16 @@ type ReportExportResourceFormat string
 // ReportExportResourceSimulationOnly defines model for ReportExportResource.SimulationOnly.
 type ReportExportResourceSimulationOnly bool
 
+// ReportRequest defines model for ReportRequest.
+type ReportRequest struct {
+	ExpectedRevision Revision                `json:"expected_revision"`
+	Reason           string                  `json:"reason"`
+	ReportType       ReportRequestReportType `json:"report_type"`
+}
+
+// ReportRequestReportType defines model for ReportRequest.ReportType.
+type ReportRequestReportType string
+
 // ResearchCapacityPoint defines model for ResearchCapacityPoint.
 type ResearchCapacityPoint struct {
 	FillRate  NonnegativeDecimal `json:"fill_rate"`
@@ -3574,6 +4285,17 @@ type RiskContributor struct {
 	Usage      NonnegativeDecimal `json:"usage"`
 }
 
+// RiskControlRequest defines model for RiskControlRequest.
+type RiskControlRequest struct {
+	AuthorizationToken *string                 `json:"authorization_token,omitempty"`
+	ExpectedRevision   Revision                `json:"expected_revision"`
+	Reason             string                  `json:"reason"`
+	State              RiskControlRequestState `json:"state"`
+}
+
+// RiskControlRequestState defines model for RiskControlRequest.State.
+type RiskControlRequestState string
+
 // RiskStatus defines model for RiskStatus.
 type RiskStatus struct {
 	Contributors       []RiskContributor `json:"contributors"`
@@ -3590,6 +4312,27 @@ type RiskStatus struct {
 
 // RiskStatusState defines model for RiskStatus.State.
 type RiskStatusState string
+
+// RoleChangeRequest defines model for RoleChangeRequest.
+type RoleChangeRequest struct {
+	AuthorizationToken string                   `json:"authorization_token"`
+	ExpectedRevision   Revision                 `json:"expected_revision"`
+	Reason             string                   `json:"reason"`
+	Roles              []RoleChangeRequestRoles `json:"roles"`
+}
+
+// RoleChangeRequestRoles defines model for RoleChangeRequest.Roles.
+type RoleChangeRequestRoles string
+
+// RuntimeControlRequest defines model for RuntimeControlRequest.
+type RuntimeControlRequest struct {
+	ExpectedRevision Revision                   `json:"expected_revision"`
+	Reason           string                     `json:"reason"`
+	State            RuntimeControlRequestState `json:"state"`
+}
+
+// RuntimeControlRequestState defines model for RuntimeControlRequest.State.
+type RuntimeControlRequestState string
 
 // SandboxAccount defines model for SandboxAccount.
 type SandboxAccount struct {
@@ -4003,6 +4746,18 @@ type SimulatedOrderSide string
 // SimulatedOrderSimulated defines model for SimulatedOrder.Simulated.
 type SimulatedOrderSimulated bool
 
+// StrategyConfigurationRequest defines model for StrategyConfigurationRequest.
+type StrategyConfigurationRequest struct {
+	AuthorizationToken string                            `json:"authorization_token"`
+	ConfigurationId    string                            `json:"configuration_id"`
+	ExpectedRevision   Revision                          `json:"expected_revision"`
+	Reason             string                            `json:"reason"`
+	State              StrategyConfigurationRequestState `json:"state"`
+}
+
+// StrategyConfigurationRequestState defines model for StrategyConfigurationRequest.State.
+type StrategyConfigurationRequestState string
+
 // StrategyPage defines model for StrategyPage.
 type StrategyPage struct {
 	HasMore          bool              `json:"has_more"`
@@ -4200,6 +4955,9 @@ type CSRFToken = string
 // Cursor defines model for Cursor.
 type Cursor = string
 
+// FromTime RFC 3339 timestamp with an explicit UTC offset.
+type FromTime = Timestamp
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -4212,11 +4970,17 @@ type PageSize = int
 // ResourceID defines model for ResourceID.
 type ResourceID = string
 
+// ToTime RFC 3339 timestamp with an explicit UTC offset.
+type ToTime = Timestamp
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
 // Conflict defines model for Conflict.
 type Conflict = Error
+
+// CursorExpired defines model for CursorExpired.
+type CursorExpired = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
@@ -4248,6 +5012,57 @@ type operationalBearerContextKey string
 // sessionCookieContextKey is the context key for sessionCookie security scheme
 type sessionCookieContextKey string
 
+// ListActivityParams defines parameters for ListActivity.
+type ListActivityParams struct {
+	Cursor        *Cursor                 `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize      *PageSize               `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From          *FromTime               `form:"from,omitempty" json:"from,omitempty"`
+	To            *ToTime                 `form:"to,omitempty" json:"to,omitempty"`
+	View          *ListActivityParamsView `form:"view,omitempty" json:"view,omitempty"`
+	Strategy      *string                 `form:"strategy,omitempty" json:"strategy,omitempty"`
+	Instrument    *string                 `form:"instrument,omitempty" json:"instrument,omitempty"`
+	Exchange      *string                 `form:"exchange,omitempty" json:"exchange,omitempty"`
+	Side          *ListActivityParamsSide `form:"side,omitempty" json:"side,omitempty"`
+	Outcome       *string                 `form:"outcome,omitempty" json:"outcome,omitempty"`
+	Reason        *string                 `form:"reason,omitempty" json:"reason,omitempty"`
+	Mode          *ListActivityParamsMode `form:"mode,omitempty" json:"mode,omitempty"`
+	CorrelationId *string                 `form:"correlation_id,omitempty" json:"correlation_id,omitempty"`
+}
+
+// ListActivityParamsView defines parameters for ListActivity.
+type ListActivityParamsView string
+
+// ListActivityParamsSide defines parameters for ListActivity.
+type ListActivityParamsSide string
+
+// ListActivityParamsMode defines parameters for ListActivity.
+type ListActivityParamsMode string
+
+// ListAlertsParams defines parameters for ListAlerts.
+type ListAlertsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// AcknowledgeAlertParams defines parameters for AcknowledgeAlert.
+type AcknowledgeAlertParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListAssetsParams defines parameters for ListAssets.
+type ListAssetsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
 // ListAuditEventsParams defines parameters for ListAuditEvents.
 type ListAuditEventsParams struct {
 	Cursor        *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4256,8 +5071,30 @@ type ListAuditEventsParams struct {
 	IncludeDetail *bool     `form:"include_detail,omitempty" json:"include_detail,omitempty"`
 }
 
+// CreateHighRiskAuthorizationParams defines parameters for CreateHighRiskAuthorization.
+type CreateHighRiskAuthorizationParams struct {
+	Origin     Origin    `json:"Origin"`
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // CreateBacktestParams defines parameters for CreateBacktest.
 type CreateBacktestParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListConfigurationRevisionsParams defines parameters for ListConfigurationRevisions.
+type ListConfigurationRevisionsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ActivateConfigurationRevisionParams defines parameters for ActivateConfigurationRevision.
+type ActivateConfigurationRevisionParams struct {
 	Origin         Origin         `json:"Origin"`
 	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
@@ -4275,6 +5112,36 @@ type ListBinanceInstrumentsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// CreateExportParams defines parameters for CreateExport.
+type CreateExportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// DeleteExportParams defines parameters for DeleteExport.
+type DeleteExportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// HoldExportParams defines parameters for HoldExport.
+type HoldExportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListFillsParams defines parameters for ListFills.
+type ListFillsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
 // ListIncidentsParams defines parameters for ListIncidents.
 type ListIncidentsParams struct {
 	Cursor   *Cursor                   `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4290,6 +5157,13 @@ type GetIncidentParams struct {
 	IncludeRaw *bool `form:"include_raw,omitempty" json:"include_raw,omitempty"`
 }
 
+// TransitionIncidentParams defines parameters for TransitionIncident.
+type TransitionIncidentParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // ListInventoryParams defines parameters for ListInventory.
 type ListInventoryParams struct {
 	Cursor    *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4299,6 +5173,25 @@ type ListInventoryParams struct {
 	Strategy  *string   `form:"strategy,omitempty" json:"strategy,omitempty"`
 	Portfolio *string   `form:"portfolio,omitempty" json:"portfolio,omitempty"`
 }
+
+// ListLabRunsParams defines parameters for ListLabRuns.
+type ListLabRunsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ControlLabRunParams defines parameters for ControlLabRun.
+type ControlLabRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ControlLabRunParamsAction defines parameters for ControlLabRun.
+type ControlLabRunParamsAction string
 
 // ListOpportunitiesParams defines parameters for ListOpportunities.
 type ListOpportunitiesParams struct {
@@ -4310,6 +5203,15 @@ type ListOpportunitiesParams struct {
 // ListOpportunitiesParamsKind defines parameters for ListOpportunities.
 type ListOpportunitiesParamsKind string
 
+// ListOrdersParams defines parameters for ListOrders.
+type ListOrdersParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
 // ListPortfoliosParams defines parameters for ListPortfolios.
 type ListPortfoliosParams struct {
 	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4320,6 +5222,29 @@ type ListPortfoliosParams struct {
 type ListPortfolioJournalParams struct {
 	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListQualificationsParams defines parameters for ListQualifications.
+type ListQualificationsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// StartQualificationParams defines parameters for StartQualification.
+type StartQualificationParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// AbortQualificationParams defines parameters for AbortQualification.
+type AbortQualificationParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // ListRebalancingRecommendationsParams defines parameters for ListRebalancingRecommendations.
@@ -4369,6 +5294,22 @@ type StepReplayParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// ListReportsParams defines parameters for ListReports.
+type ListReportsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateReportParams defines parameters for CreateReport.
+type CreateReportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // ExportResearchReportParams defines parameters for ExportResearchReport.
 type ExportResearchReportParams struct {
 	Origin         Origin         `json:"Origin"`
@@ -4381,6 +5322,25 @@ type ListChampionChallengerReportsParams struct {
 	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
+
+// ListRiskControlsParams defines parameters for ListRiskControls.
+type ListRiskControlsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ControlRiskScopeParams defines parameters for ControlRiskScope.
+type ControlRiskScopeParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ControlRiskScopeParamsScope defines parameters for ControlRiskScope.
+type ControlRiskScopeParamsScope string
 
 // PauseRiskParams defines parameters for PauseRisk.
 type PauseRiskParams struct {
@@ -4507,6 +5467,26 @@ type ListTrendDecisionsParams struct {
 // ListTrendDecisionsParamsOutcome defines parameters for ListTrendDecisions.
 type ListTrendDecisionsParamsOutcome string
 
+// ConfigureStrategyParams defines parameters for ConfigureStrategy.
+type ConfigureStrategyParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ControlStrategyRuntimeParams defines parameters for ControlStrategyRuntime.
+type ControlStrategyRuntimeParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListStrategyVersionsParams defines parameters for ListStrategyVersions.
+type ListStrategyVersionsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
 // StreamEventsParams defines parameters for StreamEvents.
 type StreamEventsParams struct {
 	AfterRevision *Revision `form:"after_revision,omitempty" json:"after_revision,omitempty"`
@@ -4514,8 +5494,54 @@ type StreamEventsParams struct {
 	LastEventID   *Revision `json:"Last-Event-ID,omitempty"`
 }
 
+// ListUsersParams defines parameters for ListUsers.
+type ListUsersParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ChangeUserRolesParams defines parameters for ChangeUserRoles.
+type ChangeUserRolesParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// AcknowledgeAlertJSONRequestBody defines body for AcknowledgeAlert for application/json ContentType.
+type AcknowledgeAlertJSONRequestBody = RevisionCommandRequest
+
+// CreateHighRiskAuthorizationJSONRequestBody defines body for CreateHighRiskAuthorization for application/json ContentType.
+type CreateHighRiskAuthorizationJSONRequestBody = HighRiskAuthorizationRequest
+
 // CreateBacktestJSONRequestBody defines body for CreateBacktest for application/json ContentType.
 type CreateBacktestJSONRequestBody = OfflineJobRequest
+
+// ActivateConfigurationRevisionJSONRequestBody defines body for ActivateConfigurationRevision for application/json ContentType.
+type ActivateConfigurationRevisionJSONRequestBody = ConfigurationActivationRequest
+
+// CreateExportJSONRequestBody defines body for CreateExport for application/json ContentType.
+type CreateExportJSONRequestBody = ExportRequest
+
+// DeleteExportJSONRequestBody defines body for DeleteExport for application/json ContentType.
+type DeleteExportJSONRequestBody = RevisionCommandRequest
+
+// HoldExportJSONRequestBody defines body for HoldExport for application/json ContentType.
+type HoldExportJSONRequestBody = ArtifactHoldRequest
+
+// TransitionIncidentJSONRequestBody defines body for TransitionIncident for application/json ContentType.
+type TransitionIncidentJSONRequestBody = IncidentTransitionRequest
+
+// ControlLabRunJSONRequestBody defines body for ControlLabRun for application/json ContentType.
+type ControlLabRunJSONRequestBody = RevisionCommandRequest
+
+// StartQualificationJSONRequestBody defines body for StartQualification for application/json ContentType.
+type StartQualificationJSONRequestBody = QualificationStartRequest
+
+// AbortQualificationJSONRequestBody defines body for AbortQualification for application/json ContentType.
+type AbortQualificationJSONRequestBody = RevisionCommandRequest
 
 // CreateReplayJSONRequestBody defines body for CreateReplay for application/json ContentType.
 type CreateReplayJSONRequestBody = ReplayJobRequest
@@ -4532,8 +5558,14 @@ type ResumeReplayJSONRequestBody = RevisionCommandRequest
 // StepReplayJSONRequestBody defines body for StepReplay for application/json ContentType.
 type StepReplayJSONRequestBody = RevisionCommandRequest
 
+// CreateReportJSONRequestBody defines body for CreateReport for application/json ContentType.
+type CreateReportJSONRequestBody = ReportRequest
+
 // ExportResearchReportJSONRequestBody defines body for ExportResearchReport for application/json ContentType.
 type ExportResearchReportJSONRequestBody = ReportExportRequest
+
+// ControlRiskScopeJSONRequestBody defines body for ControlRiskScope for application/json ContentType.
+type ControlRiskScopeJSONRequestBody = RiskControlRequest
 
 // PauseRiskJSONRequestBody defines body for PauseRisk for application/json ContentType.
 type PauseRiskJSONRequestBody = RevisionCommandRequest
@@ -4573,3 +5605,12 @@ type CreateShadowSessionJSONRequestBody = ShadowSessionRequest
 
 // StopShadowSessionJSONRequestBody defines body for StopShadowSession for application/json ContentType.
 type StopShadowSessionJSONRequestBody = RevisionCommandRequest
+
+// ConfigureStrategyJSONRequestBody defines body for ConfigureStrategy for application/json ContentType.
+type ConfigureStrategyJSONRequestBody = StrategyConfigurationRequest
+
+// ControlStrategyRuntimeJSONRequestBody defines body for ControlStrategyRuntime for application/json ContentType.
+type ControlStrategyRuntimeJSONRequestBody = RuntimeControlRequest
+
+// ChangeUserRolesJSONRequestBody defines body for ChangeUserRoles for application/json ContentType.
+type ChangeUserRolesJSONRequestBody = RoleChangeRequest
