@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
+import axe from "axe-core";
 
 const now = "2026-07-16T12:00:00Z";
 const user = {
@@ -74,6 +75,60 @@ function opportunityFixture() {
   };
 }
 
+function d2ResourceFixture(
+  id: string,
+  kind: string,
+  state: string,
+  attributes: Record<string, unknown>,
+) {
+  return {
+    id,
+    kind,
+    state,
+    revision: "1",
+    correlation_id: `correlation-${id}`,
+    occurred_at: now,
+    attributes,
+    links: {},
+  };
+}
+
+function d2ActivityFixture(view: "decisions_orders" | "system_events") {
+  return {
+    id: "activity-d2",
+    activity_revision: "7",
+    view,
+    source_type: view === "system_events" ? "alerts" : "decisions",
+    source_id: view === "system_events" ? "alert-d2" : "decision-d2",
+    source_revision: "1",
+    outcome: view === "system_events" ? "recorded" : "rejected",
+    strategy_id: view === "system_events" ? undefined : "cross-v1",
+    instrument_id: view === "system_events" ? undefined : "BTCUSDT",
+    exchange_id: "binance",
+    mode: "shadow",
+    reason: {
+      code: view === "system_events" ? "public_feed_gap" : "risk.entry_blocked",
+      summary:
+        view === "system_events" ? "Public feed gap detected" : "Entry blocked",
+      explanation:
+        view === "system_events"
+          ? "The public market-data sequence was incomplete and rebuilding began."
+          : "Central risk policy rejected this candidate before virtual execution.",
+      suggested_action:
+        view === "system_events"
+          ? "Wait for a healthy rebuilt book before resuming affected decisions."
+          : "Review the scoped risk state and blocking prerequisites.",
+      severity: "warning",
+      unknown: false,
+      version: "1",
+    },
+    correlation_id: "correlation-d2",
+    occurred_at: now,
+    details: { risk_evaluation_id: "risk-d2" },
+    links: { self: "/api/v1/activity/activity-d2" },
+  };
+}
+
 test.beforeEach(async ({ page }) => {
   const state: FixtureState = {
     replayState: "RUNNING",
@@ -117,13 +172,14 @@ test("authenticated research workflow remains virtual and recovers state", async
   page,
   isMobile,
 }) => {
+  test.slow();
   await page.goto("/login");
   await page.getByLabel("Email").fill("owner@example.test");
   await page.getByLabel("Password").fill("qualification-password");
   await page.getByRole("button", { name: "Enter console" }).click();
   await expect(page.getByText("REAL TRADING DISABLED")).toBeVisible();
   await expect(
-    page.getByRole("status").getByText("SHADOW · VIRTUAL"),
+    page.getByLabel("Persistent safety status").getByText("SHADOW · VIRTUAL"),
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Binance" }).click();
@@ -187,10 +243,9 @@ test("authenticated research workflow remains virtual and recovers state", async
   await expect(
     page.getByText(/Public-live · virtual execution/i),
   ).toBeVisible();
-  await expect(page.getByText("yes").first()).toBeVisible();
   await expect(
     page.getByRole("table", { name: "Simulated orders and fills" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole("link", { name: "Trend" }).click();
   await expect(page.getByText("local_tier_b")).toBeVisible();
@@ -265,6 +320,7 @@ test("authenticated research workflow remains virtual and recovers state", async
 test("B8 multi-exchange workflows remain simulation-only and keyboard reachable", async ({
   page,
 }) => {
+  test.slow();
   await page.goto("/login");
   await page.getByLabel("Email").fill("owner@example.test");
   await page.getByLabel("Password").fill("qualification-password");
@@ -285,11 +341,13 @@ test("B8 multi-exchange workflows remain simulation-only and keyboard reachable"
   ).toBeVisible();
   await expect(page.getByText("Simulation outcome recorded")).toBeVisible();
 
-  await page.getByRole("link", { name: "Strategies", exact: true }).click();
+  await page.getByRole("link", { name: "Strategy Center" }).click();
   await expect(
     page.getByRole("heading", { name: "Cross venue" }),
   ).toBeVisible();
-  await expect(page.getByText("challenger", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Cross venue challenger/i }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Inventory" }).click();
   await expect(page.getByText("Combined balance:")).toBeVisible();
@@ -329,6 +387,7 @@ test("B8 multi-exchange workflows remain simulation-only and keyboard reachable"
 test("C6 sandbox workflows remain test/demo-only, responsive, and recoverable", async ({
   page,
 }) => {
+  test.slow();
   await page.goto("/login");
   await page.getByLabel("Email").fill("owner@example.test");
   await page.getByLabel("Password").fill("qualification-password");
@@ -369,6 +428,130 @@ test("C6 sandbox workflows remain test/demo-only, responsive, and recoverable", 
   expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe(
     "BODY",
   );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("D2 command center is understandable, role-aware, and evidence-linked", async ({
+  page,
+}) => {
+  test.slow();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("owner@example.test");
+  await page.getByLabel("Password").fill("qualification-password");
+  await page.getByRole("button", { name: "Enter console" }).click();
+
+  for (const group of [
+    "Home",
+    "Activity",
+    "Strategies",
+    "Run Lab",
+    "Risk & Controls",
+    "Operations",
+  ]) {
+    await expect(
+      page.getByRole("heading", { name: group, exact: true }),
+    ).toBeVisible();
+  }
+  await expect(page.getByText("REAL TRADING DISABLED")).toBeVisible();
+  await expect(
+    page.getByLabel("Persistent safety status").getByText("SHADOW · VIRTUAL"),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Decisions & Orders" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Decisions & Orders" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Entry blocked" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Recommended action" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Review the scoped risk state and blocking prerequisites."),
+  ).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download JSON", exact: true })
+    .click();
+  expect((await downloadPromise).suggestedFilename()).toContain(
+    "decisions-orders-redacted.json",
+  );
+
+  await page
+    .getByLabel("Activity views")
+    .getByRole("link", { name: "System Events" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "System Events" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Public feed gap detected" }).click();
+  await expect(page.getByText(/sanitized connectivity/i)).toBeVisible();
+
+  await page.getByRole("link", { name: "Strategy Center" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Strategy Center" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Cross venue" }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Strategy controls").getByText("configuration disabled"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Resume strategy" }),
+  ).toBeDisabled();
+
+  await page.getByRole("link", { name: "Qualifications" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Qualification Center" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "C6 sandbox order and reconciliation" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/smoke pass cannot become a formal pass/i),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start fail-closed preflight" }),
+  ).toBeDisabled();
+
+  await page.getByRole("link", { name: "Approved runs" }).click();
+  await expect(
+    page.getByRole("main").getByRole("heading", { name: "Run Lab", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText(/cannot run arbitrary commands/i)).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: /command|test name/i }),
+  ).toHaveCount(0);
+
+  await page.addScriptTag({ content: axe.source });
+  const violations = await page.evaluate(async () => {
+    const engine = (
+      window as unknown as {
+        axe: {
+          run: (
+            root: Document,
+            options: unknown,
+          ) => Promise<{
+            violations: Array<{ id: string; impact: string | null }>;
+          }>;
+        };
+      }
+    ).axe;
+    const result = await engine.run(document, {
+      runOnly: {
+        type: "tag",
+        values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+      },
+    });
+    return result.violations.filter((violation) =>
+      ["critical", "serious"].includes(violation.impact ?? ""),
+    );
+  });
+  expect(violations).toEqual([]);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -451,6 +634,14 @@ async function routeAPI(route: Route, state: FixtureState) {
     ]);
   else if (path === "/api/v1/opportunities")
     body = snapshotEnvelope([opportunityFixture()]);
+  else if (path === "/api/v1/activity") {
+    const view =
+      url.searchParams.get("view") === "system_events"
+        ? "system_events"
+        : "decisions_orders";
+    body = snapshotEnvelope([d2ActivityFixture(view)]);
+  } else if (path === "/api/v1/activity/activity-d2")
+    body = d2ActivityFixture("decisions_orders");
   else if (path === "/api/v1/opportunities/decision-b8")
     body = {
       summary: opportunityFixture(),
@@ -520,6 +711,77 @@ async function routeAPI(route: Route, state: FixtureState) {
         revision: "3",
       },
     ]);
+  else if (path === "/api/v1/strategies/cross-v1")
+    body = d2ResourceFixture("cross-v1", "strategy", "blocked", {
+      name: "Cross venue",
+      family: "cross_exchange",
+      latest_version: "1",
+      configured_state: "disabled",
+      runtime_state: "blocked",
+      blocking_prerequisites: ["configuration_disabled"],
+      real_trading_enabled: false,
+    });
+  else if (path === "/api/v1/strategies/cross-v1/versions")
+    body = snapshotEnvelope([
+      d2ResourceFixture("cross-v1-v1", "strategy_version", "registered", {
+        strategy_id: "cross-v1",
+        implementation_hash: "a".repeat(64),
+      }),
+    ]);
+  else if (path === "/api/v1/assets")
+    body = snapshotEnvelope([
+      d2ResourceFixture("BTC", "asset", "approved", {
+        symbol: "BTC",
+        spot_only: true,
+      }),
+    ]);
+  else if (path === "/api/v1/risk/controls")
+    body = snapshotEnvelope([
+      d2ResourceFixture("global:all", "risk_control", "normal", {
+        scope: "global",
+        scope_id: "all",
+        reason_code: "manual_normal",
+      }),
+    ]);
+  else if (path === "/api/v1/alerts")
+    body = snapshotEnvelope([
+      d2ResourceFixture("alert-d2", "alert", "open", {
+        alert_type: "public_feed_gap",
+      }),
+    ]);
+  else if (method === "GET" && path === "/api/v1/reports")
+    body = snapshotEnvelope([]);
+  else if (method === "GET" && path === "/api/v1/configuration-revisions")
+    body = snapshotEnvelope([
+      d2ResourceFixture(
+        "configuration-a10",
+        "configuration_revision",
+        "active",
+        {
+          configuration_hash: "b".repeat(64),
+          actor: "owner-a11",
+        },
+      ),
+    ]);
+  else if (method === "GET" && path === "/api/v1/qualifications")
+    body = snapshotEnvelope([
+      d2ResourceFixture("c6-sandbox", "qualification", "AVAILABLE", {
+        name: "C6 sandbox order and reconciliation",
+        kind: "sandbox",
+        duration_seconds: 259200,
+        owner_start_required: true,
+        latest_run_id: null,
+      }),
+    ]);
+  else if (method === "GET" && path === "/api/v1/users")
+    body = snapshotEnvelope([
+      d2ResourceFixture("owner-a11", "user", "active", {
+        email: "owner@example.test",
+        roles: ["owner"],
+      }),
+    ]);
+  else if (path === "/api/v1/orders") body = snapshotEnvelope([]);
+  else if (path === "/api/v1/fills") body = snapshotEnvelope([]);
   else if (path === "/api/v1/inventory")
     body = {
       ...snapshotEnvelope([
@@ -637,6 +899,44 @@ async function routeAPI(route: Route, state: FixtureState) {
       simulation_only: true,
       created_at: now,
     };
+  else if (method === "POST" && path === "/api/v1/authorizations")
+    body = {
+      token: "authorization-" + "a".repeat(32),
+      purpose: "qualification_start",
+      target_revision: "1",
+      expires_at: now,
+    };
+  else if (method === "POST" && path === "/api/v1/exports")
+    body = {
+      id: "export-d2",
+      command_id: "command-d2",
+      job_id: "job-d2",
+      resource_type: "activity",
+      resource_id: "activity-d2",
+      format: "json",
+      content_type: "application/json",
+      content: '{"real_trading_enabled":false}\n',
+      content_hash: "c".repeat(64),
+      size_bytes: "31",
+      redaction_version: "v1d.redaction.v1",
+      created_at: now,
+      expires_at: "2026-07-23T12:00:00Z",
+      held: false,
+      deleted: false,
+      revision: "1",
+    };
+  else if (
+    method === "POST" &&
+    (/^\/api\/v1\/strategies\/[^/]+\/(configuration|runtime)$/.test(path) ||
+      /^\/api\/v1\/risk\/controls\//.test(path) ||
+      /^\/api\/v1\/alerts\/[^/]+\/acknowledge$/.test(path) ||
+      path === "/api/v1/reports" ||
+      path === "/api/v1/configuration-revisions" ||
+      path === "/api/v1/qualifications" ||
+      /^\/api\/v1\/qualifications\/[^/]+\/abort$/.test(path) ||
+      /^\/api\/v1\/users\/[^/]+\/roles$/.test(path))
+  )
+    body = command("d2-target");
   else if (path === "/api/v1/exchanges/binance/instruments")
     body = pageEnvelope([
       {

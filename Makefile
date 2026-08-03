@@ -14,6 +14,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify v1c-pr1-local-qualify v1c-pr2-local-qualify
 .PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-soak v1c-pr3-local-qualify
 .PHONY: d1-contract-qualify d1-api-qualify d1-postgres-qualify d1-security-qualify v1d-d1-local-qualify
+.PHONY: d2-contract-qualify d2-frontend-qualify d2-browser-qualify d2-security-qualify v1d-d2-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -63,6 +64,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-a11-console-boundary.mjs
 	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
 	@$(NODE) scripts/check-v1d-d1-boundary.mjs
+	@$(NODE) scripts/check-v1d-d2-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -262,6 +264,27 @@ d1-security-qualify: ## Prove D1 redaction, secret, role, stream, and prohibited
 	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 v1d-d1-local-qualify: d1-contract-qualify d1-api-qualify d1-postgres-qualify d1-security-qualify ## Pass every D1 implementation gate; merge and formal cumulative acceptance remain separate.
+
+d2-contract-qualify: ## Prove the D2 browser consumes the compatible generated D1 contract.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-v1d-d1-boundary.mjs
+	@$(NODE) scripts/check-v1d-d2-boundary.mjs
+
+d2-frontend-qualify: ## Type-check, lint, test, build, and inspect the accessible D2 command center.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+	@$(NODE) scripts/check-v1d-d2-boundary.mjs
+
+d2-browser-qualify: ## Run D2 workflows in Chromium, Firefox, WebKit, tablet, and mobile fixtures.
+	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'D2 command center'
+
+d2-security-qualify: ## Prove D2 has no arbitrary execution surface or forbidden V1 capability.
+	@$(NODE) scripts/check-v1d-d2-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+v1d-d2-local-qualify: d2-contract-qualify d2-frontend-qualify d2-browser-qualify d2-security-qualify ## Pass every local D2 implementation gate; merge and cumulative acceptance remain separate.
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck -db "$(VULNDB)" ./...

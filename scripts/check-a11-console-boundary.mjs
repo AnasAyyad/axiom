@@ -67,14 +67,16 @@ for (const path of frontend) {
   }
 }
 
-const shell = readFileSync(join(root, "web/src/app/AppShell.tsx"), "utf8");
-for (const label of [
-  "REAL TRADING DISABLED",
-  "SHADOW · VIRTUAL",
-  "production_public",
-]) {
+const shell = ["AppShell.tsx", "SafetyHeader.tsx"]
+  .map((file) => readFileSync(join(root, "web/src/app", file), "utf8"))
+  .join("\n");
+for (const label of ["REAL TRADING DISABLED", "production_public"]) {
   if (!shell.includes(label))
     throw new Error(`persistent A11 safety label missing: ${label}`);
+}
+for (const token of ['?? "shadow"', "mode.toUpperCase()", "· VIRTUAL"]) {
+  if (!shell.includes(token))
+    throw new Error(`persistent A11 shadow/virtual label omits: ${token}`);
 }
 
 const compose = parse(readFileSync(join(root, "docker-compose.yml"), "utf8"));

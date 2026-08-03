@@ -307,6 +307,41 @@ is_v1c_sandbox_boundary_literal() {
   esac
 }
 
+# V1D D2 renders reviewed D1/V1C mode labels and explicit safety denials. The
+# allowlist is line-shaped: it cannot introduce an endpoint, credential,
+# configuration toggle, order method, or forbidden product capability.
+is_v1d_d2_ui_literal() {
+  local rule_id="$1"
+  local file="${2#./}"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    later-release-sandbox:web/src/api/d1Validation.ts)
+      [[ "${line_text}" == *'.enum(["backtest", "replay", "paper", "shadow", "testnet", "demo"])'* ]]
+      ;;
+    later-release-sandbox:web/src/app/App.tsx)
+      [[ "${line_text}" == *'Inspect virtual, testnet, and demo order state without exposing private exchange payloads.'* ]]
+      ;;
+    later-release-sandbox:web/src/features/activity/ActivityFilters.tsx)
+      [[ "${line_text}" == *'["backtest", "replay", "paper", "shadow", "testnet", "demo"]'* ]]
+      ;;
+    later-release-sandbox:web/src/features/operations/OperationsHubPage.tsx)
+      [[ "${line_text}" == *'Durable virtual, test, or demo order projections.'* ||
+         "${line_text}" == *'Capped Binance Spot Testnet and Bybit Demo controls.'* ]]
+      ;;
+    later-release-sandbox:web/src/features/run-lab/RunLabPage.tsx)
+      [[ "${line_text}" == *'Operate only capped Binance Spot Testnet and Bybit Demo workflows under C6 controls.'* ||
+         "${line_text}" == *'Historical, replay, shadow, demo, and testnet outcomes measure research'* ]]
+      ;;
+    later-release-sandbox:web/src/features/strategies/StrategyCenterPage.tsx)
+      [[ "${line_text}" == *'readiness, and no historical, shadow, demo, or testnet result'* ]]
+      ;;
+    prohibited-product:web/src/features/risk/RiskControlsPage.tsx)
+      [[ "${line_text}" == *'Risk controls cannot enable leverage, short selling, unowned-asset'* ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 # run_rule ID DESCRIPTION REGEX ALLOW_POLICY GLOB_ARRAY TARGET...
 run_rule() {
   local rule_id="$1"
@@ -362,6 +397,10 @@ run_rule() {
     fi
 
     if is_v1c_sandbox_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
+    if is_v1d_d2_ui_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 
