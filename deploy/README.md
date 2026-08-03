@@ -473,7 +473,7 @@ from the same exact clean checkout:
 
 ```bash
 docker run --rm --network axiom_core --read-only --user "$(id -u):70" \
-  --tmpfs /tmp:rw,noexec,nosuid,nodev,size=1g --workdir "$PWD" \
+  --tmpfs /tmp:rw,exec,nosuid,nodev,size=2g --workdir "$PWD" \
   --mount type=bind,src="$PWD",dst="$PWD",readonly \
   --mount type=bind,src="$PWD/.secrets/postgres_c6_qualification_password",dst=/run/secrets/postgres_c6_qualification_password,readonly \
   --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
