@@ -760,6 +760,213 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/sandbox/overview:
+    get:
+      operationId: getSandboxOverview
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Authoritative redacted Testnet and Demo operations snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SandboxOverview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/sandbox/orders:
+    get:
+      operationId: listSandboxOrders
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: exchange
+          schema: { $ref: "#/components/schemas/SandboxExchange" }
+        - in: query
+          name: state
+          schema: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: Redacted sandbox orders, attempts, and fills
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SandboxOrderPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createSandboxTestOrder
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SandboxTestOrderRequest" }
+      responses:
+        "202":
+          description: Test-only order plan durably approved for the matching engine
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/sandbox/reconciliations:
+    get:
+      operationId: listSandboxReconciliations
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: exchange
+          schema: { $ref: "#/components/schemas/SandboxExchange" }
+      responses:
+        "200":
+          description: Reconciliation, suspense, quarantine, and reset evidence
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SandboxReconciliationPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/sandbox/qualification:
+    get:
+      operationId: getC6QualificationStatus
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Current deterministic chaos and C6 soak state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/C6QualificationStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/sandbox/authorizations:
+    post:
+      operationId: createSandboxAuthorization
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SandboxAuthorizationRequest" }
+      responses:
+        "201":
+          description: One-use, session-bound high-risk authorization
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SandboxAuthorizationGrant" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/sandbox/sessions/{id}/arms:
+    post:
+      operationId: createSandboxArm
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SandboxArmRequest" }
+      responses:
+        "201":
+          description: Exact 15-minute audited arm
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SandboxArm" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /api/v1/sandbox/arms/{id}/revoke:
+    post:
+      operationId: revokeSandboxArm
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters: &sandboxCommandParameters
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: &sandboxCommandResponses
+        "202":
+          description: Audited durable sandbox command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/sandbox/accounts/{id}/unlock:
+    post:
+      operationId: unlockSandboxAccount
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters: *sandboxCommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SandboxUnlockRequest" }
+      responses: *sandboxCommandResponses
+  /api/v1/sandbox/orders/{id}/cancel:
+    post:
+      operationId: cancelSandboxOrder
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters: *sandboxCommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *sandboxCommandResponses
+  /api/v1/sandbox/orders/{id}/query:
+    post:
+      operationId: querySandboxOrder
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters: *sandboxCommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *sandboxCommandResponses
+  /api/v1/sandbox/accounts/{id}/reconcile:
+    post:
+      operationId: reconcileSandboxAccount
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters: *sandboxCommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *sandboxCommandResponses
   /api/v1/stream:
     get:
       operationId: streamEvents
@@ -2314,6 +2521,688 @@ components:
                 type: array,
                 items: { $ref: "#/components/schemas/AuditEvent" },
               }
+    SandboxExchange:
+      type: string
+      enum: [binance, bybit]
+      x-enum-varnames: [SandboxExchangeBinance, SandboxExchangeBybit]
+    SandboxEnvironment:
+      type: string
+      enum: [spot_testnet, demo]
+      x-enum-varnames: [SandboxEnvironmentSpotTestnet, SandboxEnvironmentDemo]
+    SandboxCapUsage:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          utc_day,
+          per_order_limit,
+          daily_limit,
+          daily_reserved,
+          daily_remaining,
+          account_open,
+          account_open_limit,
+          global_open,
+          global_open_limit,
+        ]
+      properties:
+        utc_day: { type: string, format: date }
+        per_order_limit: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        daily_limit: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        daily_reserved: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        daily_remaining: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        account_open: { type: integer, minimum: 0 }
+        account_open_limit:
+          type: integer
+          enum: [1]
+          x-enum-varnames: [SandboxCapUsageAccountOpenLimitOne]
+        global_open: { type: integer, minimum: 0 }
+        global_open_limit:
+          type: integer
+          enum: [2]
+          x-enum-varnames: [SandboxCapUsageGlobalOpenLimitTwo]
+    SandboxArm:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          session_id,
+          account_ids,
+          state,
+          created_at,
+          expires_at,
+          revision,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        session_id: { type: string, minLength: 1 }
+        account_ids:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: { type: string, minLength: 1 }
+        state:
+          type: string
+          enum: [active, expired, revoked]
+          x-enum-varnames:
+            [
+              SandboxArmStateActive,
+              SandboxArmStateExpired,
+              SandboxArmStateRevoked,
+            ]
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        revoked_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxAccount:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          exchange,
+          environment,
+          state,
+          engine_ready,
+          account_epoch,
+          credential_generation,
+          revision,
+          startup_cycle,
+          private_stream_healthy,
+          reconciliation_clean,
+          evidence_healthy,
+          lease_held,
+          observed_at,
+          stale,
+          cap_usage,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        exchange: { $ref: "#/components/schemas/SandboxExchange" }
+        environment: { $ref: "#/components/schemas/SandboxEnvironment" }
+        state:
+          type: string
+          enum: [LOCKED, READY_PAUSED, ARMED, DEGRADED, QUARANTINED]
+          x-enum-varnames:
+            [
+              SandboxAccountStateLocked,
+              SandboxAccountStateReadyPaused,
+              SandboxAccountStateArmed,
+              SandboxAccountStateDegraded,
+              SandboxAccountStateQuarantined,
+            ]
+        engine_ready: { type: boolean }
+        account_epoch: { type: integer, format: int64, minimum: 1 }
+        credential_generation: { type: integer, format: int64, minimum: 1 }
+        revision: { $ref: "#/components/schemas/Revision" }
+        startup_cycle: { type: integer, format: int64, minimum: 0 }
+        private_stream_healthy: { type: boolean }
+        reconciliation_clean: { type: boolean }
+        evidence_healthy: { type: boolean }
+        lease_held: { type: boolean }
+        observed_at: { $ref: "#/components/schemas/Timestamp" }
+        stale: { type: boolean }
+        session_id: { type: string, minLength: 1 }
+        session_revision: { $ref: "#/components/schemas/Revision" }
+        active_arm: { $ref: "#/components/schemas/SandboxArm" }
+        cap_usage: { $ref: "#/components/schemas/SandboxCapUsage" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxFill:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          order_id,
+          quantity,
+          price,
+          fee_quantity,
+          fee_asset,
+          occurred_at,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, pattern: "^[0-9a-f]{64}$" }
+        order_id: { type: string, minLength: 1 }
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        price: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        fee_quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        fee_asset:
+          type: string
+          enum: [USDT, BTC, ETH]
+          x-enum-varnames:
+            [
+              SandboxFillFeeAssetUSDT,
+              SandboxFillFeeAssetBTC,
+              SandboxFillFeeAssetETH,
+            ]
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxOrder:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          account_id,
+          exchange,
+          environment,
+          state,
+          action,
+          instrument,
+          side,
+          quantity,
+          limit_price,
+          notional,
+          style,
+          attempt,
+          recovery_status,
+          created_at,
+          updated_at,
+          revision,
+          fills,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        account_id: { type: string, minLength: 1 }
+        exchange: { $ref: "#/components/schemas/SandboxExchange" }
+        environment: { $ref: "#/components/schemas/SandboxEnvironment" }
+        state:
+          type: string
+          enum:
+            [
+              APPROVED,
+              SUBMITTING,
+              ACKNOWLEDGED,
+              PARTIALLY_FILLED,
+              FILLED,
+              CANCEL_PENDING,
+              CANCELED,
+              REJECTED,
+              EXPIRED,
+              UNKNOWN,
+              RECOVERY_REQUIRED,
+            ]
+          x-enum-varnames:
+            [
+              SandboxOrderStateApproved,
+              SandboxOrderStateSubmitting,
+              SandboxOrderStateAcknowledged,
+              SandboxOrderStatePartiallyFilled,
+              SandboxOrderStateFilled,
+              SandboxOrderStateCancelPending,
+              SandboxOrderStateCanceled,
+              SandboxOrderStateRejected,
+              SandboxOrderStateExpired,
+              SandboxOrderStateUnknown,
+              SandboxOrderStateRecoveryRequired,
+            ]
+        action:
+          type: string
+          enum: [ENTRY, EXIT, CANCEL, RECOVERY]
+          x-enum-varnames:
+            [
+              SandboxOrderActionEntry,
+              SandboxOrderActionExit,
+              SandboxOrderActionCancel,
+              SandboxOrderActionRecovery,
+            ]
+        instrument:
+          type: string
+          enum: [BTCUSDT, ETHUSDT, ETHBTC]
+          x-enum-varnames:
+            [
+              SandboxOrderInstrumentBTCUSDT,
+              SandboxOrderInstrumentETHUSDT,
+              SandboxOrderInstrumentETHBTC,
+            ]
+        side:
+          type: string
+          enum: [buy, sell]
+          x-enum-varnames: [SandboxOrderSideBuy, SandboxOrderSideSell]
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        limit_price: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        notional: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        style:
+          type: string
+          enum: [LIMIT_GTC, LIMIT_IOC, POST_ONLY]
+          x-enum-varnames:
+            [
+              SandboxOrderStyleLimitGTC,
+              SandboxOrderStyleLimitIOC,
+              SandboxOrderStylePostOnly,
+            ]
+        attempt: { type: integer, minimum: 0 }
+        recovery_status:
+          type: string
+          enum: [not_required, required, querying, reconciled]
+          x-enum-varnames:
+            [
+              SandboxOrderRecoveryStatusNotRequired,
+              SandboxOrderRecoveryStatusRequired,
+              SandboxOrderRecoveryStatusQuerying,
+              SandboxOrderRecoveryStatusReconciled,
+            ]
+        unknown_since: { $ref: "#/components/schemas/Timestamp" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        fills:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxFill" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxOrderPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/SandboxOrder" }
+    SandboxDifference:
+      type: object
+      additionalProperties: false
+      required:
+        [id, category, classification, critical, state, recorded_at, audit_url]
+      properties:
+        id: { type: string, minLength: 1 }
+        category: { type: string, minLength: 1 }
+        classification: { type: string, minLength: 1 }
+        asset:
+          type: string
+          enum: [USDT, BTC, ETH]
+          x-enum-varnames:
+            [
+              SandboxDifferenceAssetUSDT,
+              SandboxDifferenceAssetBTC,
+              SandboxDifferenceAssetETH,
+            ]
+        quantity: { $ref: "#/components/schemas/Decimal" }
+        critical: { type: boolean }
+        state:
+          type: string
+          enum: [OPEN, RESOLVED, QUARANTINED, ADJUSTED]
+          x-enum-varnames:
+            [
+              SandboxDifferenceStateOpen,
+              SandboxDifferenceStateResolved,
+              SandboxDifferenceStateQuarantined,
+              SandboxDifferenceStateAdjusted,
+            ]
+        recorded_at: { $ref: "#/components/schemas/Timestamp" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxReconciliation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          account_id,
+          exchange,
+          account_epoch,
+          state,
+          reconciled_at,
+          differences,
+          suspense_count,
+          quarantine_count,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        account_id: { type: string, minLength: 1 }
+        exchange: { $ref: "#/components/schemas/SandboxExchange" }
+        account_epoch: { type: integer, format: int64, minimum: 1 }
+        state:
+          type: string
+          enum: [clean, quarantined]
+          x-enum-varnames:
+            [
+              SandboxReconciliationStateClean,
+              SandboxReconciliationStateQuarantined,
+            ]
+        reconciled_at: { $ref: "#/components/schemas/Timestamp" }
+        differences:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxDifference" }
+        suspense_count: { type: integer, minimum: 0 }
+        quarantine_count: { type: integer, minimum: 0 }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxResetIncident:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          account_id,
+          exchange,
+          prior_epoch,
+          new_epoch,
+          state,
+          detected_at,
+          adjustments,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        account_id: { type: string, minLength: 1 }
+        exchange: { $ref: "#/components/schemas/SandboxExchange" }
+        prior_epoch: { type: integer, format: int64, minimum: 1 }
+        new_epoch: { type: integer, format: int64, minimum: 2 }
+        state:
+          type: string
+          enum: [OPEN, RECONCILING, RESOLVED, QUARANTINED]
+          x-enum-varnames:
+            [
+              SandboxResetIncidentStateOpen,
+              SandboxResetIncidentStateReconciling,
+              SandboxResetIncidentStateResolved,
+              SandboxResetIncidentStateQuarantined,
+            ]
+        detected_at: { $ref: "#/components/schemas/Timestamp" }
+        resolved_at: { $ref: "#/components/schemas/Timestamp" }
+        adjustments:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [asset, quantity, pnl_effect, recorded_at]
+            properties:
+              asset:
+                type: string
+                enum: [USDT, BTC, ETH]
+                x-enum-varnames:
+                  [
+                    SandboxResetIncidentAdjustmentAssetUSDT,
+                    SandboxResetIncidentAdjustmentAssetBTC,
+                    SandboxResetIncidentAdjustmentAssetETH,
+                  ]
+              quantity: { $ref: "#/components/schemas/Decimal" }
+              pnl_effect: { type: boolean, enum: [false] }
+              recorded_at: { $ref: "#/components/schemas/Timestamp" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxReconciliationPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items, reset_incidents]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/SandboxReconciliation" }
+            reset_incidents:
+              type: array
+              items: { $ref: "#/components/schemas/SandboxResetIncident" }
+    C6ChaosSummary:
+      type: object
+      additionalProperties: false
+      required: [status, passed, failed, last_observed_at]
+      properties:
+        status:
+          type: string
+          enum: [not_run, passed, failed]
+          x-enum-varnames:
+            [
+              C6ChaosSummaryStatusNotRun,
+              C6ChaosSummaryStatusPassed,
+              C6ChaosSummaryStatusFailed,
+            ]
+        passed: { type: integer, minimum: 0 }
+        failed: { type: integer, minimum: 0 }
+        last_observed_at: { $ref: "#/components/schemas/Timestamp" }
+    C6SLOSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          samples,
+          critical_alert_latency_ms,
+          recovery_duration_ms,
+          duplicate_creates,
+          lost_fills,
+          double_posted_fills,
+          unknown_orders,
+          reconciliation_mismatches,
+          suspense_items,
+          reconnects,
+          restarts,
+          resident_memory_delta_bytes,
+          positive_memory_leak_trend,
+          passing,
+        ]
+      properties:
+        samples: { type: integer, format: int64, minimum: 0 }
+        critical_alert_latency_ms: { type: integer, format: int64, minimum: 0 }
+        recovery_duration_ms: { type: integer, format: int64, minimum: 0 }
+        duplicate_creates: { type: integer, format: int64, minimum: 0 }
+        lost_fills: { type: integer, format: int64, minimum: 0 }
+        double_posted_fills: { type: integer, format: int64, minimum: 0 }
+        unknown_orders: { type: integer, format: int64, minimum: 0 }
+        reconciliation_mismatches: { type: integer, format: int64, minimum: 0 }
+        suspense_items: { type: integer, format: int64, minimum: 0 }
+        reconnects: { type: integer, format: int64, minimum: 0 }
+        restarts: { type: integer, format: int64, minimum: 0 }
+        resident_memory_delta_bytes: { type: integer, format: int64 }
+        positive_memory_leak_trend: { type: boolean }
+        passing: { type: boolean }
+    C6QualificationStatus:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          state,
+          mode,
+          required_duration_seconds,
+          observed_duration_seconds,
+          profitability_evidence,
+          qualified,
+          failures,
+          chaos,
+          slo,
+          formal_soak_pending,
+          audit_url,
+        ]
+      properties:
+        id: { type: string }
+        state:
+          type: string
+          enum: [not_started, PENDING, RUNNING, SMOKE_PASSED, PASSED, FAILED]
+          x-enum-varnames:
+            [
+              C6QualificationStatusStateNotStarted,
+              C6QualificationStatusStatePending,
+              C6QualificationStatusStateRunning,
+              C6QualificationStatusStateSmokePassed,
+              C6QualificationStatusStatePassed,
+              C6QualificationStatusStateFailed,
+            ]
+        mode:
+          type: string
+          enum: [none, smoke, formal]
+          x-enum-varnames:
+            [
+              C6QualificationStatusModeNone,
+              C6QualificationStatusModeSmoke,
+              C6QualificationStatusModeFormal,
+            ]
+        commit_sha: { type: string, pattern: "^[0-9a-f]{40}$" }
+        build_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        executable_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        image_hash: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
+        configuration_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        ended_at: { $ref: "#/components/schemas/Timestamp" }
+        required_duration_seconds: { type: integer, format: int64, minimum: 0 }
+        observed_duration_seconds: { type: integer, format: int64, minimum: 0 }
+        profitability_evidence: { type: boolean, enum: [false] }
+        qualified: { type: boolean }
+        evidence_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        failures:
+          type: array
+          items: { type: string, maxLength: 80 }
+        chaos: { $ref: "#/components/schemas/C6ChaosSummary" }
+        slo: { $ref: "#/components/schemas/C6SLOSummary" }
+        formal_soak_pending: { type: boolean }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxOverview:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          environment_label,
+          real_trading_enabled,
+          observed_at,
+          stale,
+          accounts,
+          active_arms,
+          orders,
+          reconciliations,
+          reset_incidents,
+          risk_state,
+          qualification,
+          audit_url,
+        ]
+      properties:
+        environment_label:
+          type: string
+          enum: [BINANCE SPOT TESTNET + BYBIT DEMO / VIRTUAL]
+          x-enum-varnames: [SandboxOverviewEnvironmentLabelVirtualOnly]
+        real_trading_enabled: { type: boolean, enum: [false] }
+        observed_at: { $ref: "#/components/schemas/Timestamp" }
+        stale: { type: boolean }
+        accounts:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxAccount" }
+        active_arms:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxArm" }
+        orders:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxOrder" }
+        reconciliations:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxReconciliation" }
+        reset_incidents:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxResetIncident" }
+        risk_state:
+          type: string
+          enum: [NORMAL, CAUTIOUS, PAUSED, LOCKED]
+          x-enum-varnames:
+            [
+              SandboxOverviewRiskStateNormal,
+              SandboxOverviewRiskStateCautious,
+              SandboxOverviewRiskStatePaused,
+              SandboxOverviewRiskStateLocked,
+            ]
+        qualification: { $ref: "#/components/schemas/C6QualificationStatus" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, password, totp, reason]
+      properties:
+        purpose:
+          type: string
+          enum: [sandbox_arm, risk_unlock]
+          x-enum-varnames:
+            [
+              SandboxAuthorizationRequestPurposeSandboxArm,
+              SandboxAuthorizationRequestPurposeRiskUnlock,
+            ]
+        password: { type: string, minLength: 12, maxLength: 1024 }
+        totp: { type: string, pattern: "^[0-9]{6}$" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    SandboxAuthorizationGrant:
+      type: object
+      additionalProperties: false
+      required: [token, purpose, expires_at]
+      properties:
+        token: { type: string, minLength: 32 }
+        purpose:
+          type: string
+          enum: [sandbox_arm, risk_unlock]
+          x-enum-varnames:
+            [
+              SandboxAuthorizationGrantPurposeSandboxArm,
+              SandboxAuthorizationGrantPurposeRiskUnlock,
+            ]
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+    SandboxArmRequest:
+      type: object
+      additionalProperties: false
+      required: [authorization_token, expected_revision, account_ids, reason]
+      properties:
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        account_ids:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    SandboxUnlockRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [authorization_token, expected_revision, reconciliation_id, reason]
+      properties:
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reconciliation_id: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    SandboxTestOrderRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          session_id,
+          arm_id,
+          account_id,
+          exchange,
+          instrument,
+          side,
+          quantity,
+          limit_price,
+          style,
+          expected_revision,
+          reason,
+        ]
+      properties:
+        session_id: { type: string, minLength: 1 }
+        arm_id: { type: string, minLength: 1 }
+        account_id: { type: string, minLength: 1 }
+        exchange: { $ref: "#/components/schemas/SandboxExchange" }
+        instrument:
+          type: string
+          enum: [BTCUSDT, ETHUSDT]
+          x-enum-varnames:
+            [
+              SandboxTestOrderRequestInstrumentBTCUSDT,
+              SandboxTestOrderRequestInstrumentETHUSDT,
+            ]
+        side:
+          type: string
+          enum: [buy]
+          x-enum-varnames: [SandboxTestOrderRequestSideBuy]
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        limit_price: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        style:
+          type: string
+          enum: [LIMIT_GTC, LIMIT_IOC, POST_ONLY]
+          x-enum-varnames:
+            [
+              SandboxTestOrderRequestStyleLimitGTC,
+              SandboxTestOrderRequestStyleLimitIOC,
+              SandboxTestOrderRequestStylePostOnly,
+            ]
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
     StreamEvent:
       type: object
       additionalProperties: false
@@ -2353,6 +3242,7 @@ components:
                 inventory,
                 rebalancing,
                 research,
+                sandbox,
               ],
           }
         schema_version: { type: string, enum: [axiom.stream.v1] }

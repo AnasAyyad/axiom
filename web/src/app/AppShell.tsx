@@ -27,6 +27,7 @@ const navigation = [
   ["/backtests", "Backtest Lab"],
   ["/replays", "Replay Lab"],
   ["/shadow", "Shadow Center"],
+  ["/sandbox", "Sandbox Operations"],
   ["/incidents", "Incidents"],
   ["/audit", "Audit"],
 ] as const;
@@ -67,6 +68,8 @@ export function AppShell({ children, user }: AppShellProps) {
     <div className={styles.application}>
       <div className={styles.safetyBanner} role="status">
         <strong>SHADOW · VIRTUAL</strong>
+        <span>BINANCE SPOT TESTNET</span>
+        <span>BYBIT DEMO</span>
         <span>REAL TRADING DISABLED</span>
       </div>
       <aside className={styles.sidebar}>

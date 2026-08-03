@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +14,11 @@ var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 var runtimeReadInsertTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "asset_screening_versions", "assets", "audit_events",
 	"api_entity_revisions", "authentication_failures", "authorization_permissions",
+	"v1c_high_risk_audit_events", "v1c_sandbox_authorizations", "v1c_session_control_events",
+	"v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
+	"v1c_submission_plans", "v1c_plan_eligibility", "v1c_plan_entry_safety",
+	"v1c_sandbox_reservations", "v1c_submission_outbox",
+	"v1c_daily_cap_counters", "v1c_engine_commands", "v1c_canary_evidence",
 	"allocation_candidates", "allocation_reservations", "allocation_score_components",
 	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
@@ -45,6 +49,8 @@ var runtimeUpdateTables = []string{
 	"liquidity_domains", "liquidity_reservations", "positions", "projection_revisions", "quarantined_scopes", "reconciliation_cases", "reservations", "runs", "sessions", "startup_recovery_attempts",
 	"api_entity_revisions", "shadow_sessions", "stream_connections", "users", "virtual_balances",
 	"b8_replay_fault_schedule_states",
+	"v1c_sandbox_authorizations", "v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_arms",
+	"v1c_exchange_accounts", "v1c_daily_cap_counters", "v1c_engine_commands",
 }
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
@@ -53,6 +59,17 @@ var runtimeReadTables = []string{
 	"schema_migrations", "b4_claim_resources", "b4_claim_groups", "b4_claim_items",
 	"b5_claim_resources", "b5_claim_groups", "b5_claim_items",
 	"strategy_maturity_states", "strategy_maturity_commands", "strategy_maturity_events",
+	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
+	"v1c_authenticated_request_evidence",
+	"v1c_account_snapshots", "v1c_private_inbox", "v1c_exchange_fills",
+	"v1c_exchange_metadata", "v1c_reconciliation_differences",
+	"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
+	"v1c_risk_unlocks", "v1c_account_leases", "v1c_engine_startup_evidence",
+	"v1c_engine_observations",
+	"v1c_engine_runtime_events", "v1c_c6_order_observations",
+	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
+	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
+	"v1c_c6_chaos_events",
 }
 
 var recorderReadTables = []string{
@@ -64,6 +81,51 @@ var recorderWriteTables = []string{
 }
 
 var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events"}
+
+var v1cEngineReadWriteTables = []string{
+	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
+	"v1c_credential_rotations",
+	"v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
+	"v1c_authenticated_request_evidence",
+	"v1c_account_snapshots", "v1c_daily_cap_counters", "v1c_submission_plans",
+	"v1c_plan_eligibility", "v1c_plan_entry_safety", "v1c_sandbox_reservations",
+	"v1c_submission_outbox", "v1c_private_inbox",
+	"v1c_exchange_fills", "v1c_exchange_metadata", "v1c_reconciliation_differences",
+	"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
+	"v1c_risk_unlocks", "v1c_account_leases",
+	"v1c_engine_startup_evidence",
+	"v1c_engine_commands", "v1c_engine_observations",
+}
+
+var v1cEngineReadOnlyTables = []string{
+	"sessions", "users",
+}
+
+var v1cEngineAlertReadWriteTables = []string{
+	"alert_deliveries", "alerts",
+}
+
+var v1cEngineAlertAppendTables = []string{
+	"audit_events",
+}
+
+var v1cEngineRuntimeAppendTables = []string{
+	"v1c_engine_runtime_events",
+}
+
+var c6QualificationReadTables = []string{
+	"alerts", "incidents", "v1c_authenticated_request_evidence",
+	"v1c_daily_cap_counters", "v1c_engine_observations",
+	"v1c_engine_runtime_events", "v1c_c6_order_observations",
+	"v1c_exchange_accounts", "v1c_account_leases",
+	"v1c_reconciliation_differences",
+}
+
+var c6QualificationAppendTables = []string{
+	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
+	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
+	"v1c_c6_chaos_events",
+}
 
 var readOnlyTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "allocation_candidates", "allocation_reservations", "allocation_score_components", "asset_screening_versions", "assets", "audit_events",
@@ -83,6 +145,18 @@ var readOnlyTables = []string{
 	"b7_experiment_preregistrations", "b7_validation_suites", "b7_champion_challenger_reports",
 	"b8_replay_fault_schedule_states", "b8_replay_fault_schedules", "b8_report_exports",
 	"strategy_maturity_states", "strategy_maturity_commands", "strategy_maturity_events",
+	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
+	"v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
+	"v1c_submission_plans", "v1c_plan_entry_safety",
+	"v1c_sandbox_reservations", "v1c_submission_outbox", "v1c_private_inbox",
+	"v1c_exchange_fills", "v1c_reconciliations",
+	"v1c_reconciliation_differences", "v1c_reset_incidents",
+	"v1c_external_adjustments", "v1c_engine_startup_evidence",
+	"v1c_engine_commands", "v1c_engine_observations",
+	"v1c_engine_runtime_events", "v1c_c6_order_observations",
+	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
+	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
+	"v1c_c6_chaos_events",
 	"circuit_breaker_events", "exchanges", "execution_plan_legs", "execution_plans", "fill_journal_postings", "fills", "incidents", "instrument_metadata_versions",
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
 	"public_clock_samples", "public_connection_events",
@@ -90,6 +164,96 @@ var readOnlyTables = []string{
 	"projection_revisions", "quarantined_scopes", "reconciliation_cases", "reconciliation_differences", "reconciliation_suspense", "reservations", "risk_evaluation_policies", "risk_evaluations", "risk_policies", "risk_policy_limits", "risk_state_events",
 	"experiment_final_test_consumptions", "research_generations", "research_reports", "run_canonical_outputs", "run_checkpoints", "run_manifests", "run_results", "runs", "shadow_sessions", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters", "strategy_portfolios",
 	"strategy_versions", "trend_decisions", "virtual_accounts", "virtual_balances",
+}
+
+// ApplyV1CEngineRoleGrants keeps authenticated engines on distinct database
+// principals and restricts both to V1C execution plus the bounded operational
+// alert records emitted by every process role.
+func ApplyV1CEngineRoleGrants(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	binanceRole, bybitRole string,
+) error {
+	if pool == nil || !validDistinctRoles([]string{binanceRole, bybitRole}) {
+		return fmt.Errorf("v1c_database_role_invalid")
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("v1c_role_grant_transaction_unavailable")
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	available, err := existingPublicTables(ctx, tx)
+	if err != nil {
+		return err
+	}
+	tables := filterTableGrants([]tableGrant{
+		{
+			privileges: "SELECT, INSERT, UPDATE",
+			tables: append(
+				append([]string(nil), v1cEngineReadWriteTables...),
+				v1cEngineAlertReadWriteTables...,
+			),
+		},
+		{
+			privileges: "SELECT, INSERT",
+			tables: append(
+				append([]string(nil), v1cEngineAlertAppendTables...),
+				v1cEngineRuntimeAppendTables...,
+			),
+		},
+		{
+			privileges: "SELECT",
+			tables:     v1cEngineReadOnlyTables,
+		},
+	}, available)
+	for _, role := range []string{binanceRole, bybitRole} {
+		if err = applyTableGrants(ctx, tx, role, tables); err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("v1c_role_grant_commit_failed")
+	}
+	return nil
+}
+
+// ApplyC6QualificationRoleGrants restricts the manual soak observer to
+// redacted operational reads and append-only qualification evidence.
+func ApplyC6QualificationRoleGrants(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	roleName string,
+) error {
+	if pool == nil || !roleNamePattern.MatchString(roleName) {
+		return fmt.Errorf("c6_qualification_role_invalid")
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("c6_qualification_role_transaction_unavailable")
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	available, err := existingPublicTables(ctx, tx)
+	if err != nil {
+		return err
+	}
+	grants := filterTableGrants([]tableGrant{
+		{privileges: "SELECT", tables: c6QualificationReadTables},
+		{
+			privileges: "SELECT, INSERT",
+			tables:     c6QualificationAppendTables,
+		},
+		{
+			privileges: "UPDATE",
+			tables:     []string{"v1c_c6_qualification_runs"},
+		},
+	}, available)
+	if err = applyTableGrants(ctx, tx, roleName, grants); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("c6_qualification_role_commit_failed")
+	}
+	return nil
 }
 
 // ApplyRoleGrants applies the closed runtime, recorder, and reporting matrices.
@@ -168,80 +332,4 @@ func applyStrategyFunctionGrants(ctx context.Context, tx pgx.Tx, runtimeRole str
 		}
 	}
 	return nil
-}
-
-type tableGrant struct {
-	privileges string
-	tables     []string
-}
-
-func existingPublicTables(ctx context.Context, tx pgx.Tx) (map[string]struct{}, error) {
-	rows, err := tx.Query(ctx, `SELECT relation.relname
-FROM pg_catalog.pg_class relation
-JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
-WHERE namespace.nspname = 'public' AND relation.relkind IN ('r','p','v','m','f')`)
-	if err != nil {
-		return nil, fmt.Errorf("role_table_lookup_failed")
-	}
-	defer rows.Close()
-	result := make(map[string]struct{})
-	for rows.Next() {
-		var table string
-		if err = rows.Scan(&table); err != nil {
-			return nil, fmt.Errorf("role_table_lookup_failed")
-		}
-		result[table] = struct{}{}
-	}
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("role_table_lookup_failed")
-	}
-	return result, nil
-}
-
-func filterTableGrants(grants []tableGrant, available map[string]struct{}) []tableGrant {
-	result := make([]tableGrant, 0, len(grants))
-	for _, grant := range grants {
-		tables := make([]string, 0, len(grant.tables))
-		for _, table := range grant.tables {
-			if _, exists := available[table]; exists {
-				tables = append(tables, table)
-			}
-		}
-		if len(tables) > 0 {
-			result = append(result, tableGrant{privileges: grant.privileges, tables: tables})
-		}
-	}
-	return result
-}
-
-func validDistinctRoles(roles []string) bool {
-	seen := make(map[string]struct{}, len(roles))
-	for _, role := range roles {
-		if !roleNamePattern.MatchString(role) {
-			return false
-		}
-		seen[role] = struct{}{}
-	}
-	return len(seen) == len(roles)
-}
-
-func applyTableGrants(ctx context.Context, tx pgx.Tx, roleName string, grants []tableGrant) error {
-	role := pgx.Identifier{roleName}.Sanitize()
-	if _, err := tx.Exec(ctx, "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM "+role); err != nil {
-		return fmt.Errorf("role_revoke_failed")
-	}
-	for _, grant := range grants {
-		if _, err := tx.Exec(ctx, grantSQL(grant.privileges, grant.tables, role)); err != nil {
-			return fmt.Errorf("role_grant_failed")
-		}
-	}
-	return nil
-}
-
-func grantSQL(privileges string, tables []string, role string) string {
-	quoted := make([]string, 0, len(tables))
-	for _, table := range tables {
-		quoted = append(quoted, pgx.Identifier{"public", table}.Sanitize())
-	}
-	return "GRANT " + privileges + " ON " + strings.Join(quoted, ", ") + " TO " + role
 }

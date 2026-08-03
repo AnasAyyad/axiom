@@ -27,19 +27,24 @@ func runMigrate(ctx context.Context, runtimeConfig config.Runtime, product confi
 	if err != nil {
 		return err
 	}
-	runtimeRole := os.Getenv("POSTGRES_RUNTIME_USER")
-	if runtimeRole == "" {
-		runtimeRole = "axiom_app"
-	}
-	recorderRole := os.Getenv("POSTGRES_RECORDER_USER")
-	if recorderRole == "" {
-		recorderRole = "axiom_recorder"
-	}
-	readOnlyRole := os.Getenv("POSTGRES_READONLY_USER")
-	if readOnlyRole == "" {
-		readOnlyRole = "axiom_readonly"
-	}
+	runtimeRole := environmentOr("POSTGRES_RUNTIME_USER", "axiom_app")
+	recorderRole := environmentOr("POSTGRES_RECORDER_USER", "axiom_recorder")
+	readOnlyRole := environmentOr("POSTGRES_READONLY_USER", "axiom_readonly")
 	if err := postgresstore.ApplyRoleGrants(ctx, pool, runtimeRole, recorderRole, readOnlyRole); err != nil {
+		return err
+	}
+	binanceRole := environmentOr("POSTGRES_BINANCE_ENGINE_USER", "axiom_binance_engine")
+	bybitRole := environmentOr("POSTGRES_BYBIT_ENGINE_USER", "axiom_bybit_engine")
+	if err := postgresstore.ApplyV1CEngineRoleGrants(ctx, pool, binanceRole, bybitRole); err != nil {
+		return err
+	}
+	qualificationRole := environmentOr(
+		"POSTGRES_C6_QUALIFICATION_USER",
+		"axiom_c6_qualification",
+	)
+	if err := postgresstore.ApplyC6QualificationRoleGrants(
+		ctx, pool, qualificationRole,
+	); err != nil {
 		return err
 	}
 	if err := postgresstore.EnsureV1AReferenceData(ctx, pool, product, time.Now().UTC()); err != nil {
@@ -51,4 +56,11 @@ func runMigrate(ctx context.Context, runtimeConfig config.Runtime, product confi
 		"applied":    applied,
 		"checked_at": time.Now().UTC().Format(time.RFC3339),
 	})
+}
+
+func environmentOr(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
 }

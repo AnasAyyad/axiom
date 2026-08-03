@@ -1,5 +1,57 @@
 # Axiom V1A implementation status
 
+## V1C PR3 C6 console and non-soak qualification
+
+The `v1c-c6-console-soak` branch implements the C6 redacted sandbox
+operations API and React console, purpose-bound administrative controls,
+bounded observability, deterministic chaos coverage, and the default-off
+72-hour qualification runner/evidence contract. The implementation extends the
+existing V1C account, arm, allocator/risk/planner/dispatcher, order reducer,
+reconciliation, reset-incident, and audit state. It does not add an API-side
+exchange client or a parallel order state machine.
+
+Focused API, authentication, storage, React/axe, desktop/mobile C6 Playwright,
+and the complete unmocked A11 browser workflow pass. The cumulative C1-C6
+non-soak aggregate, PostgreSQL 18.4 clean-install and exact B8-upgrade gates,
+all 1,024 Compose renders, security boundaries, and complete `make verify`
+pass. The exact-source reproducible image, non-root/read-only and compiled
+absence checks, image-backed Compose smoke, SPDX SBOM, and current Trivy gates
+also pass for implementation commit
+`b5ac868ec38d9204afc6f9fd4db6673aee10e852`. Implementation and non-soak
+qualification are complete. The formal 72-hour C6 soak and owner/security
+acceptance are explicitly pending and are not run as part of PR3
+implementation qualification. No additional authenticated exchange order was
+placed or required for this branch.
+
+## V1C PR2 C4-C5 adapters and engines
+
+The `v1c-c4-c5-adapters` branch extends the merged C1-C3 foundation with
+complete Binance Spot Testnet and Bybit Demo authenticated adapters, separate
+credential-owning engines, migration `000023`, and a controlled full-pipeline
+canary/restart evidence path.
+
+C4/C5 deterministic gates, clean PostgreSQL 18.4 install, exact B8 upgrade,
+the closed security boundary, all 1,024 Compose profile renders, the complete
+PR2 aggregate, and exact-source clean-image artifact gates pass. Both required
+operator-armed canaries passed on the same final dirty executable. The
+matching live proxy-cut tests also proved fail-closed `DEGRADED` recovery,
+private-stream backfill, fresh reconciliation, zero engine restarts, and clean
+exit-zero shutdown. PR2 is merged into `main` at
+`8902b3b794ed344a131822b34fa8bb81cedaa35e`; formal owner/security acceptance
+remains pending. See
+`docs/releases/v1c-pr2-readiness.md`.
+
+## V1C PR1 C1-C3 foundation
+
+The `v1c-c1-c3-foundation` branch adds the default-off
+`axiom.config.v1c.1` policy, neutral sandbox contracts, closed authenticated
+signers and proxies, TOTP/one-use authorization and rotation foundations,
+durable sandbox dispatch/recovery models, and migrations `000021`/`000022`.
+
+C1-C3 and the aggregate PR1 local qualification passed and merged. C4/C5 are
+tracked above. C6 and the V1C 72-hour soak are not implemented or claimed here.
+See `docs/releases/v1c-pr1-readiness.md`.
+
 This tracker records implemented behavior and verified evidence. A phase is marked complete only after every acceptance criterion in the authoritative specification and the V1A implementation plan has current evidence.
 
 | Phase | Status                                                                                              | Current slice                                                                                                                           | Evidence                                                                                                                                                                        |
@@ -19,7 +71,11 @@ This tracker records implemented behavior and verified evidence. A phase is mark
 
 ## Absolute V1A boundary
 
-V1A is public-data research and simulation software only. It contains no authenticated exchange transport, signing implementation, private endpoint, production broker, withdrawal or transfer operation, or execution mode capable of external order side effects. The only V1A execution modes are `backtest`, `replay`, `paper`, and `shadow`; `testnet`, `demo`, and `live` are rejected.
+V1A application roles remain public-data research and simulation software
+only. They receive no exchange credentials and expose no external order side
+effects. The repository now also contains separately gated, default-off V1C
+Testnet/Demo foundations. Production `live` execution and every prohibited
+product or fund-management capability remain rejected.
 
 ## Current limitations
 
@@ -47,6 +103,18 @@ V1A is public-data research and simulation software only. It contains no authent
   not formal phase acceptance; A11 remains blocked by formal A8/A9/A10
   acceptance.
 - The clean backup/restore drill and A8-A11 formal acceptances remain open release evidence.
+- V1C PR2 C4/C5 deterministic, database, aggregate, and exact-source clean
+  artifact gates pass locally. Both operator-armed exchange canaries passed on
+  the same final dirty executable, and both engines passed live proxy-cut
+  degradation/recovery without restarting. The PR2 branch is committed and
+  merged into `main`; formal owner/security acceptance remains open. PR3 C6
+  implementation is tracked above, while its 72-hour qualification remains
+  pending.
+- V1C PR3 C6 implementation and non-soak qualification pass on exact
+  implementation commit
+  `b5ac868ec38d9204afc6f9fd4db6673aee10e852`, including the clean artifact
+  record. The formal 72-hour soak, sealed evidence review, and owner/security
+  acceptance remain open.
 
 V1B planning and implementation status is tracked separately in
 [V1B implementation status](releases/v1b-implementation-status.md). V1B work

@@ -272,6 +272,115 @@ func TestB8MigrationDefinesImmutableSimulationOnlyConsoleEvidence(t *testing.T) 
 	}
 }
 
+func TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v1cAuth := migrationForVersion(migrations, "000021")
+	v1cExecution := migrationForVersion(migrations, "000022")
+	v1cBinanceStream := migrationForVersion(migrations, "000023")
+	v1cC6 := migrationForVersion(migrations, "000024")
+	if v1cAuth.SQL == "" || v1cExecution.SQL == "" ||
+		v1cBinanceStream.SQL == "" || v1cC6.SQL == "" {
+		t.Fatal("V1C migrations are missing")
+	}
+	assertV1CBinanceStreamMigration(t, v1cBinanceStream)
+	assertV1CAuthMigration(t, v1cAuth)
+	assertV1CExecutionMigration(t, v1cExecution)
+	assertV1CC6Migration(t, v1cC6)
+}
+
+func assertV1CBinanceStreamMigration(t *testing.T, migration Migration) {
+	t.Helper()
+	assertMigrationContains(t, migration, "V1C Binance stream", []string{
+		"ws-api.testnet.binance.vision",
+		"/ws-api/v3/userdatastream.subscribe.signature",
+		"stream-demo.bybit.com",
+		"/v5/private/auth",
+		"create table v1c_engine_startup_evidence",
+		"v1c_engine_startup_evidence_immutable",
+		"create table v1c_engine_commands",
+		"v1c_engine_commands_claim_idx",
+		"create table v1c_engine_observations",
+		"create table v1c_canary_evidence",
+		"v1c_canary_evidence_immutable",
+		"v1c_authenticated_request_route_closed",
+	})
+}
+
+func assertV1CAuthMigration(t *testing.T, migration Migration) {
+	t.Helper()
+	assertMigrationContains(t, migration, "V1C auth", []string{
+		"create table v1c_totp_replay_state",
+		"create table v1c_sandbox_authorizations",
+		"create table v1c_high_risk_audit_events",
+		"create table v1c_session_control_events",
+		"session_revision bigint not null",
+		"v1c_authorization_session_active",
+		"v1c_revoke_all_authorized",
+		"v1c_high_risk_audit_immutable",
+	})
+}
+
+func assertV1CExecutionMigration(t *testing.T, migration Migration) {
+	t.Helper()
+	assertMigrationContains(t, migration, "V1C execution", []string{
+		"create table v1c_authenticated_request_evidence",
+		"create table v1c_plan_entry_safety",
+		"v1c_authenticated_evidence_fields_valid",
+		"v1c_authenticated_evidence_enumerations_valid",
+		"v1c_authenticated_request_evidence_immutable",
+		"v1c_plan_entry_safety_immutable",
+		"v1c_credential_rotation_protected",
+		"primary key (exchange,request_hash)",
+		"host='testnet.binance.vision'",
+		"host='api-demo.bybit.com'",
+	})
+}
+
+func assertV1CC6Migration(t *testing.T, migration Migration) {
+	t.Helper()
+	assertMigrationContains(t, migration, "V1C C6 qualification", []string{
+		"create table v1c_engine_runtime_events",
+		"create view v1c_c6_order_observations",
+		"create table v1c_c6_qualification_runs",
+		"required_duration_seconds=259200",
+		"profitability_evidence boolean not null check (not profitability_evidence)",
+		"create table v1c_c6_qualification_accounts",
+		"create table v1c_c6_qualification_samples",
+		"create table v1c_c6_qualification_failures",
+		"create table v1c_c6_chaos_events",
+		"protect_v1c_c6_qualification_run",
+		"v1c_engine_runtime_events_immutable",
+		"v1c_c6_chaos_events_immutable",
+	})
+}
+
+func migrationForVersion(migrations []Migration, version string) Migration {
+	for _, migration := range migrations {
+		if migration.Version == version {
+			return migration
+		}
+	}
+	return Migration{}
+}
+
+func assertMigrationContains(
+	t *testing.T,
+	migration Migration,
+	label string,
+	requiredValues []string,
+) {
+	t.Helper()
+	source := strings.ToLower(migration.SQL)
+	for _, required := range requiredValues {
+		if !strings.Contains(source, required) {
+			t.Fatalf("%s migration missing %q", label, required)
+		}
+	}
+}
+
 func TestMigrationsContainA4HistoryAndOwnershipGuards(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {

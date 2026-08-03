@@ -36,15 +36,9 @@ func setupA11Console(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	readiness := &a11Readiness{pool: pool}
 	options := &console.Options{AllowedOrigins: append([]string(nil), runtimeConfig.Authentication.AllowedOrigins...),
 		SecureCookies: runtimeConfig.Authentication.SecureCookies}
-	store, err := postgresstore.NewA11AuthenticationStore(pool)
-	if err != nil {
-		return a11ConsoleSetup{options: options, dependency: readiness}
-	}
-	count, err := store.UserCount(ctx)
-	if err != nil {
-		return a11ConsoleSetup{options: options, dependency: readiness}
-	}
-	csrfKey, err := security.ReadSecretFile(runtimeConfig.Authentication.CSRFKeyFile)
+	store, authenticationService, clock, err := setupA11Authentication(
+		ctx, pool, runtimeConfig,
+	)
 	if err != nil {
 		return a11ConsoleSetup{options: options, dependency: readiness}
 	}
@@ -52,30 +46,75 @@ func setupA11Console(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	if err != nil {
 		return a11ConsoleSetup{options: options, dependency: readiness}
 	}
-	clock := &domain.SystemClock{}
-	authenticationService, err := authentication.NewService(store, clock, []byte(csrfKey))
+	consoleStore, err := postgresstore.NewA11ConsoleStore(pool, []byte(cursorKey), clock)
 	if err != nil {
 		return a11ConsoleSetup{options: options, dependency: readiness}
 	}
-	if count == 0 {
-		email, emailErr := security.ReadSecretFile(runtimeConfig.Authentication.BootstrapOwnerEmailFile)
-		hash, hashErr := security.ReadSecretFile(runtimeConfig.Authentication.BootstrapOwnerPasswordHashFile)
-		if emailErr != nil || hashErr != nil {
-			return a11ConsoleSetup{options: options, dependency: readiness}
-		}
-		created, bootstrapErr := authenticationService.Bootstrap(ctx, email, hash)
-		if bootstrapErr != nil || !created {
-			return a11ConsoleSetup{options: options, dependency: readiness}
-		}
+	v1cAuthenticationStore, err := postgresstore.NewV1CAuthenticationStore(pool)
+	if err != nil {
+		return a11ConsoleSetup{options: options, dependency: readiness}
 	}
-	consoleStore, err := postgresstore.NewA11ConsoleStore(pool, []byte(cursorKey), clock)
+	sandboxAuthorizations, err := authentication.NewSandboxAuthorizationService(
+		store,
+		v1cAuthenticationStore,
+		clock,
+		runtimeConfig.Authentication.TOTPSeedFile,
+	)
 	if err != nil {
 		return a11ConsoleSetup{options: options, dependency: readiness}
 	}
 	readiness.authenticationReady = true
 	options.Authentication = authenticationService
+	options.SandboxAuthorizations = sandboxAuthorizations
 	options.Read = consoleStore
 	options.Commands = consoleStore
 	options.Streams = consoleStore
+	options.SandboxRead = consoleStore
+	options.SandboxCommands = consoleStore
 	return a11ConsoleSetup{options: options, dependency: readiness}
+}
+
+func setupA11Authentication(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	runtimeConfig config.Runtime,
+) (*postgresstore.A11AuthenticationStore, *authentication.Service, *domain.SystemClock, error) {
+	store, err := postgresstore.NewA11AuthenticationStore(pool)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	count, err := store.UserCount(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	csrfKey, err := security.ReadSecretFile(runtimeConfig.Authentication.CSRFKeyFile)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	clock := &domain.SystemClock{}
+	service, err := authentication.NewService(store, clock, []byte(csrfKey))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if count == 0 && bootstrapA11Owner(ctx, service, runtimeConfig) != nil {
+		return nil, nil, nil, errors.New("a11_owner_bootstrap_failed")
+	}
+	return store, service, clock, nil
+}
+
+func bootstrapA11Owner(
+	ctx context.Context,
+	service *authentication.Service,
+	runtimeConfig config.Runtime,
+) error {
+	email, emailErr := security.ReadSecretFile(runtimeConfig.Authentication.BootstrapOwnerEmailFile)
+	hash, hashErr := security.ReadSecretFile(runtimeConfig.Authentication.BootstrapOwnerPasswordHashFile)
+	if emailErr != nil || hashErr != nil {
+		return errors.New("a11_owner_secret_unavailable")
+	}
+	created, err := service.Bootstrap(ctx, email, hash)
+	if err != nil || !created {
+		return errors.New("a11_owner_bootstrap_rejected")
+	}
+	return nil
 }

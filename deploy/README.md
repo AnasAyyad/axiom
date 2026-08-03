@@ -6,16 +6,22 @@ an explicit image reference and never pretends an unpublished image exists.
 
 The base Compose project starts PostgreSQL only. V1A application, recorder,
 worker, observability, and edge services are profile-gated. The encrypted
-backup service arrives in A4; authenticated exchange services are absent.
+backup service arrives in A4. V1C C4/C5 add two independent authenticated
+sandbox engines, two closed egress proxies, and inert-by-default one-shot
+canary coordinators. C6 adds the credential-free console/API and a separate
+least-privilege observer command; it does not add a Compose service or another
+credential owner. No service can target a production-private exchange host.
 
 ## 1. Prepare configuration
 
 ```bash
 cp .env.example .env
-mkdir -p .secrets .local/market-data
+mkdir -p .secrets .local/market-data .local/v1c-pr2-canaries
 chmod 700 .secrets
 # On Linux, ensure bind-mounted writable paths match APP_UID/APP_GID.
 sudo chown -R 10001:10001 .local/market-data
+sudo chown 10001:70 .local/v1c-pr2-canaries
+chmod 750 .local/v1c-pr2-canaries
 ```
 
 Review every `CHANGE_ME` value in `.env`. Keep public ports bound to `127.0.0.1` unless Caddy or another authenticated TLS proxy is active.
@@ -59,6 +65,9 @@ Required for PostgreSQL:
 - `.secrets/postgres_backup_password`
 - `.secrets/backup_encryption_key`
 - `.secrets/postgres_readonly_password`
+- `.secrets/postgres_binance_engine_password`
+- `.secrets/postgres_bybit_engine_password`
+- `.secrets/postgres_c6_qualification_password`
 
 The A11 `api` service exposes redacted public liveness/readiness/build data and
 uses the independent health-detail token for authenticated component status.
@@ -71,6 +80,37 @@ Required for A11 API startup:
 - `.secrets/bootstrap_owner_password_hash`
 - `.secrets/csrf_key`
 - `.secrets/session_signing_key`
+- `.secrets/totp_seed` when the V1C high-risk authorization service is enabled
+
+The TOTP seed is provisioned only to the API and the two inert one-shot canary
+coordinators. It never reaches an exchange engine, proxy, browser, recorder,
+shadow engine, or ordinary worker. There is no browser enrollment,
+secret-return endpoint, recovery-code bypass, or raw seed variable.
+
+V1C exchange credentials are operator-provisioned files:
+
+- `.secrets/binance_testnet_api_key`
+- `.secrets/binance_testnet_api_secret`
+- `.secrets/bybit_demo_api_key`
+- `.secrets/bybit_demo_api_secret`
+
+Only the matching engine receives each pair. The API, public collectors,
+recorders, workers, proxies, browser, and canary coordinators receive none.
+Raw credential variables and endpoint/proxy overrides are startup errors.
+
+Each manually prepared canary also needs one short-lived, exchange-specific
+request file:
+
+- `.secrets/binance_canary_request`
+- `.secrets/bybit_canary_request`
+
+The matching coordinator is the only service that receives that file. It
+contains the owner email, current plaintext password, current six-digit TOTP
+code, operator reason, and exact canary instrument/side/quantity/limit/style.
+Create it immediately before `prepare`, use mode `0640` with group `70`, never
+pass those values in arguments or environment variables, and remove the file
+as soon as prepare succeeds. Canaries are buy-only, quote in USDT, and the
+calculated exact notional must be no more than 10 USDT.
 
 The bootstrap password file must contain a precomputed Argon2id PHC hash using
 64 MiB, three iterations, parallelism one, a 16-byte random salt, and 32-byte
@@ -114,6 +154,9 @@ openssl rand -base64 48 > .secrets/postgres_recorder_password
 openssl rand -base64 48 > .secrets/postgres_backup_password
 openssl rand -base64 32 > .secrets/backup_encryption_key
 openssl rand -base64 48 > .secrets/postgres_readonly_password
+openssl rand -base64 48 > .secrets/postgres_binance_engine_password
+openssl rand -base64 48 > .secrets/postgres_bybit_engine_password
+openssl rand -base64 48 > .secrets/postgres_c6_qualification_password
 openssl rand -base64 48 > .secrets/grafana_admin_password
 openssl rand -base64 48 > .secrets/health_detail_token
 sudo chgrp 70 .secrets/postgres_*_password
@@ -134,6 +177,11 @@ changing an image. File-backed Compose secrets use bind mounts and cannot remap
 UID/GID/mode, so an owner-only `0600` file shared by the PostgreSQL initializer
 and non-root application would be unreadable. The reviewed `0640` delivery uses
 only the service-specific group and grants each secret to explicit services.
+On a user-namespaced Docker Desktop/WSL host, the same container GID can appear
+as a remapped host GID, and an unprivileged host-side `chgrp` can be rejected.
+Provision the short-lived canary request through a locked-down local container
+running the application group or through the protected host provisioning
+mechanism, then verify container-side readability. Do not weaken mode `0640`.
 
 Compose file secrets are mounted files; they are not encrypted secret storage. On a mature server, integrate an external secret manager or protected host provisioning mechanism.
 
@@ -162,8 +210,247 @@ docker compose ps
 ```
 
 The PostgreSQL initialization script creates distinct owner, migrator, runtime,
-recorder, backup, and read-only roles only on an empty data volume. Later changes belong
-in migrations.
+recorder, backup, read-only, Binance-engine, Bybit-engine, and C6 qualification
+roles only on an empty data volume. Later changes belong in migrations.
+Authenticated engines share no database login, and neither engine can append
+or update C6 qualification records.
+
+Before upgrading an existing database to migrations `000021` through `000024`, a
+database administrator must provision the separate Binance-engine and
+Bybit-engine login roles, the `axiom_c6_qualification` login role, and their
+password files. Empty-volume initialization does not run again on an existing
+volume, and migration startup fails closed if a required role is absent. Do
+not reuse an existing application or authenticated-engine login for the C6
+observer.
+
+The `sandbox-foundation` profile starts only the two CONNECT-only proxies:
+
+```bash
+APP_IMAGE=axiom:local APP_PULL_POLICY=never \
+  docker compose --profile sandbox-foundation up -d
+```
+
+Each proxy has one internal engine network and one independent external
+egress network. It accepts port-443 CONNECT for its compiled host set, resolves
+each tunnel, rejects any private/link-local/loopback/multicast/mixed answer,
+and dials the validated address. Proxies receive no credentials. This profile
+alone performs no exchange order operation.
+
+The `sandbox` profile adds distinct Binance Testnet and Bybit Demo engine
+processes. Each engine receives only its own credential pair, database role,
+lease, internal network, and proxy. It has no direct external network. Startup
+enters `LOCKED`, validates the live account/key generation, recovers durable
+inbox/outbox state, loads exchange-authoritative balances/history, reconciles,
+starts the private stream, and only then reaches `READY_PAUSED`.
+
+An empty `BINANCE_SANDBOX_CONFIG_FILE` or `BYBIT_SANDBOX_CONFIG_FILE` selects
+the complete built-in V1C graph with all four integration/submission switches
+off. The image also contains two complete, reviewed, single-exchange canary
+graphs:
+
+- `/etc/axiom/platform-binance-testnet-v1c.json`
+- `/etc/axiom/platform-bybit-demo-v1c.json`
+
+Selecting one is an explicit order-enablement action. Pass the matching
+`*_SANDBOX_CONFIG_FILE` path to every engine and coordinator command in the
+canary window, or set that exact value in `.env` for the complete window. A
+coordinator started with the default-off graph must reject an existing canary
+as the wrong configuration. The other exchange remains disabled in the
+selected graph. Revert the path to empty and restart the engine after
+qualification.
+
+Owner attestation values are non-secret hashes derived out of band:
+
+- Binance account identity: lowercase SHA-256 of `<testnet uid>|SPOT`
+- Bybit account identity: lowercase SHA-256 of `<demo user id>|UNIFIED`
+- key fingerprint: first 32 lowercase hex characters of SHA-256 of that
+  exchange's API key
+
+Set the matching `*_OWNER_ATTESTED=true` only after verifying the account is
+the intended virtual Testnet/Demo account and its key has read plus Spot-order
+permission. Binance must have no prohibited capability. Bybit must be either
+Spot-only or the exact Demo UI-coupled Unified Trading permission bundle in
+ADR-0022, with Wallet, Exchange, Earn, transfers, withdrawals, partial or
+expanded bundles, and unknown nonempty permissions absent. The engine
+independently compares the live authenticated response to the attestation.
+
+Before starting the Bybit engine, use Bybit's Demo Trading account to request
+virtual BTC, ETH, and USDT funds. The authoritative Demo wallet response must
+contain all three approved assets, even when one currently has a zero balance.
+Axiom intentionally has no `/v5/account/demo-apply-money` operation: requesting
+or reducing Demo funds remains a manual owner action outside the credentialed
+runtime boundary.
+
+### Manually armed PR2 canaries
+
+Build the exact pre-commit candidate with a truthful embedded base commit and
+dirty flag. Verification seals both that build identity and the SHA-256 of the
+running executable, so the later PR2 commit must contain exactly the qualified
+working tree without additional code changes. Make sure the API has already
+bootstrapped the owner, the current TOTP seed matches that owner, both
+engine/database credential files exist, and the selected engine is healthy in
+`READY_PAUSED`. Then create the protected request JSON with exactly these
+string fields: `email`, `password`, `totp`, `reason`, `instrument`, `side`,
+`quantity`, `limit_price`, and `style`. `side` must be `buy`; `instrument` must
+be an approved USDT pair; style must be `LIMIT_GTC`, `LIMIT_IOC`, or
+`POST_ONLY`.
+
+Before the first verification, provision the bind-mounted evidence directory
+for the image's numeric application identity. It must be a real directory,
+must not be world-writable, and must be writable by `10001:70`. On a
+user-namespaced Docker Desktop/WSL host, provision it from the container
+namespace:
+
+```bash
+mkdir -p .local/v1c-pr2-canaries
+docker run --rm --user 0:0 \
+  --volume "$PWD/.local/v1c-pr2-canaries:/evidence:rw" \
+  postgres:18.4-alpine \
+  sh -c 'chown 10001:70 /evidence && chmod 0750 /evidence'
+```
+
+If a sealed diagnostic file is later superseded by an exact candidate rebuild,
+do not delete, chmod, or overwrite it. Provision a separate evidence root with
+the same ownership and mode, pass that root through
+`V1C_CANARY_EVIDENCE_ROOT`, and record both identities with the older one
+explicitly marked superseded. Re-verification is permitted only for the same
+already-terminal, exactly-once canary and remains query/reconciliation-only.
+
+Prepare Binance without putting any factor or order value on the command line:
+
+```bash
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+  BINANCE_CANARY_REQUEST_SOURCE_FILE=./.secrets/binance_canary_request \
+  docker compose --env-file .env --profile sandbox-canary run --rm \
+  binance-sandbox-canary \
+  sandbox-canary --exchange binance --phase prepare \
+  --input-file /run/secrets/binance_canary_request
+```
+
+The command logs no password, TOTP, price, quantity, signature, or private
+payload. It logs in as the owner, consumes one password/TOTP authorization,
+creates the exact 15-minute arm, persists one typed canary through
+intent → allocator → central risk → planner → durable dispatcher, then queries,
+cancels or observes a fill, and reconciles. Save only the printed `canary_id`.
+Remove `.secrets/binance_canary_request`, restart only the credential-owning
+engine, and run verification:
+
+The committed Compose default mounts an intentionally invalid, non-secret
+placeholder at the request-secret target. Only the prepare command overrides
+that source with the protected short-lived file. Verification and abort
+therefore cannot receive request contents and do not recreate a missing host
+request path as a directory.
+
+If prepare is interrupted only after exactly one authenticated create request
+has already reached a terminal `CANCELED` or `FILLED` state, complete its
+read-only query and reconciliation evidence without creating or canceling an
+order:
+
+```bash
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+  docker compose --env-file .env --profile sandbox-canary run --rm \
+  binance-sandbox-canary \
+  sandbox-canary --exchange binance --phase recover \
+  --canary-id 'execution_plan:REPLACE_WITH_EXISTING_ID'
+```
+
+Recovery refuses rejected, ambiguous, nonterminal, duplicate-attempt,
+wrong-configuration, missing-create, duplicate-create, non-prefix evidence,
+and already-restarted canaries. It receives no exchange credential or prepare
+request and cannot submit an exchange mutation.
+
+```bash
+docker compose --env-file .env restart binance-sandbox-engine
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+  docker compose --env-file .env --profile sandbox-canary run --rm \
+  binance-sandbox-canary \
+  sandbox-canary --exchange binance --phase verify \
+  --canary-id 'execution_plan:REPLACE_WITH_PRINTED_ID' \
+  --evidence-dir /var/lib/axiom/canary-evidence
+```
+
+Verification requires a newer startup cycle to reach `READY_PAUSED`, issues a
+post-restart query and reconciliation, proves the durable outbox attempt count
+is one, and proves exactly one authenticated create-request evidence record
+exists in the canary interval. It then stops the canary session and creates one
+new `0440` evidence file with `qualified=true` and
+`profitability_evidence=false`. Existing files are never overwritten.
+
+If a prepared canary cannot qualify after its order has reached one proven
+terminal `CANCELED`, `FILLED`, or `REJECTED` state, explicitly revoke its arm
+and stop its session:
+
+```bash
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+  docker compose --env-file .env --profile sandbox-canary run --rm \
+  binance-sandbox-canary \
+  sandbox-canary --exchange binance --phase abort \
+  --canary-id 'execution_plan:REPLACE_WITH_PRINTED_ID'
+```
+
+Abort writes no qualification evidence and refuses ambiguous, nonterminal, or
+multi-attempt orders. Use the matching Bybit service and exchange value for a
+Bybit canary. Do not clear canary sessions through direct database edits.
+
+Repeat the same sequence with
+`BYBIT_SANDBOX_CONFIG_FILE=/etc/axiom/platform-bybit-demo-v1c.json`,
+`bybit-sandbox-canary`, `bybit_canary_request`, `--exchange bybit`, and
+`bybit-sandbox-engine`. Keep the two evidence files independent. A failed,
+missing, or unsealed file is not acceptance evidence. Never infer
+profitability from either sandbox result.
+
+### Manual C6 72-hour qualification
+
+Do not start this observer until the PR3 implementation commit is clean, all
+non-soak gates pass, both engines are healthy on the exact candidate, and the
+owner/security reviewers approve the run window. The observer is not a
+Compose service, owns no exchange credential, and cannot create, query, cancel,
+or reconcile an order. The matching engines remain the only
+credential-owning processes.
+
+For an existing database, provision the dedicated
+`POSTGRES_C6_QUALIFICATION_USER` before applying migration `000024`. Its
+password file is separate from the API and both engine roles. The migrator
+grants the observer only redacted operational reads, immutable qualification
+appends, and the constrained terminal run transition.
+
+Use a new run ID and a new absent absolute terminal path. Record the exact
+clean commit, build hash, running executable SHA-256, image digest, and
+immutable configuration SHA-256. Set `AXIOM_C6_SOURCE_DIRTY=false`; formal
+validation rejects a dirty source, a missing image identity, either missing
+approved account environment, a duration other than 259,200 seconds, or a
+sample interval outside 15 seconds through 5 minutes.
+
+```bash
+DB_HOST=127.0.0.1 \
+DB_USER=axiom_c6_qualification \
+DB_PASSWORD_FILE="$PWD/.secrets/postgres_c6_qualification_password" \
+AXIOM_C6_SOAK_ENABLED=1 \
+AXIOM_C6_SOAK_MODE=formal \
+AXIOM_C6_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
+AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
+AXIOM_C6_BUILD_HASH=REPLACE_WITH_64_HEX \
+AXIOM_C6_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+AXIOM_C6_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
+AXIOM_C6_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
+AXIOM_C6_SOURCE_DIRTY=false \
+AXIOM_C6_EVIDENCE_PATH=/absolute/new/c6-terminal.json \
+make c6-soak
+```
+
+The approved deterministic chaos controller must append exactly one run-bound
+result for every closed C6 scenario after the run starts. Missing, duplicate,
+unknown, or failed scenario evidence makes the terminal verdict fail closed.
+The runner also fails on duplicate create, lost/double-posted fill, unresolved
+unknown, mismatch/suspense, stale account, lease loss, persistence failure,
+unsafe recovery/restart, production target, cap breach, alert latency, or
+memory-leak evidence.
+
+The terminal file is create-once, mode `0440`, and directory/file-synced.
+Never delete or overwrite it. A smoke result always remains non-qualified. A
+passed formal file still requires evidence review and explicit V1C
+owner/security acceptance, and always carries
+`profitability_evidence=false`.
 
 The exact migration command is `/app/platform admin migrate`. A4 applies the
 embedded checksummed forward-only migrations under an advisory lock after
@@ -293,13 +580,12 @@ Never point this command at the active primary. A successful command is still
 not release evidence until journal/projection, manifest/file, replay-hash, role,
 RPO, and timed-RTO checks pass on the clean instance.
 
-## 6. Reserved unavailable profile placeholders
+## 6. Unavailable production trading
 
-The reserved `testnet` and `demo` profile names are documentation-only
-placeholders in A1: no Compose service belongs to either profile. The V1A binary
-also rejects both modes. `live` is rejected in every V1 release. Later V1C work
-requires its own gated implementation after V1A passes; do not pre-provision
-exchange credentials for this stack.
+The `testnet` and `demo` execution modes are reachable only through the two
+closed `sandbox-engine` commands and their compiled endpoint policies. There
+is no production-private engine, profile, credential name, endpoint editor, or
+order route. `live` remains rejected in every V1 release.
 
 ## Operational notes
 

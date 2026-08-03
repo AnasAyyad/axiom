@@ -144,6 +144,15 @@ func cloneConfiguration(configuration Configuration) Configuration {
 			[]string(nil), configuration.Rebalancing.Parameters[index].ModelDependencies...,
 		)
 	}
+	cloned.Sandbox.OrderStyles = append([]string(nil), configuration.Sandbox.OrderStyles...)
+	cloned.Sandbox.EligibleStrategies = append([]string(nil), configuration.Sandbox.EligibleStrategies...)
+	cloned.Sandbox.Exchanges = append(
+		[]SandboxExchangeConfiguration(nil), configuration.Sandbox.Exchanges...,
+	)
+	return cloneConfigurationTail(cloned, configuration)
+}
+
+func cloneConfigurationTail(cloned, configuration Configuration) Configuration {
 	cloned.Capabilities = append([]CapabilityDisposition(nil), configuration.Capabilities...)
 	cloned.Secrets = append([]SecretReference(nil), configuration.Secrets...)
 	return cloned

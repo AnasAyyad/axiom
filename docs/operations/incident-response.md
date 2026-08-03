@@ -126,6 +126,55 @@ outbound capture, rotate exposed control-plane credentials, and invalidate
 signatures/digests as required. Vulnerability suppression cannot waive a
 production-order, secret, or integrity finding.
 
+### V1C sandbox order recovery
+
+For a duplicate create, lost/double-posted fill, or an `UNKNOWN` older than 30
+seconds, block new entry on the affected account and retain its arm, cap,
+outbox, authenticated-request, inbox, fill, lease, and account-epoch evidence.
+Do not retry create. Use only the durable query command by deterministic client
+ID, then cancel where policy permits and run authoritative reconciliation.
+Keep the reservation capacity-bearing until terminal state and clean
+reconciliation prove release. Escalate any production target immediately as
+`SEV-0`.
+
+### V1C sandbox reconciliation or account reset
+
+Keep the account `LOCKED` or `QUARANTINED`, preserve mismatch/suspense hashes,
+and complete a new authoritative reconciliation under the current fence.
+For a provider reset, retain the prior epoch, open the next epoch through the
+normal reset coordinator, classify external adjustments with
+`pnl_effect=false`, and require a fresh arm. Never rewrite history, attribute
+the adjustment to strategy P&L, or unlock against a stale reconciliation.
+
+### V1C sandbox engine or lease failure
+
+Stop entry while leaving bounded query/cancel/reconciliation recovery
+available. Preserve startup cycle, lease/fence, reconnect, recovery duration,
+private-stream health, and reconciliation evidence. A replacement process must
+acquire a higher fence and complete every locked startup stage before
+`READY_PAUSED`; it must not reuse an old arm after an epoch or session change.
+Review any restart during a formal run even when recovery succeeds.
+
+### V1C sandbox cap or arm refusal
+
+Treat the refusal as a safety decision, not an availability defect. Confirm the
+fixed 10 USDT per-order, 50 USDT per-UTC-day, one-per-account, and two-global
+limits, plus current account epoch and 15-minute expiry. Do not edit counters,
+extend expiry, reuse an authorization, or loosen policy to make a request pass.
+If a new arm is appropriate, require a fresh reason and password/TOTP one-use
+authorization through the normal API.
+
+### V1C C6 qualification failure
+
+Stop the run without deleting or replacing any existing terminal file. Preserve
+the exact commit, executable/image/configuration hashes, account epochs and
+credential generations, samples, chaos outcomes, failures, and evidence hash.
+Do not relabel smoke as formal, shorten the 259,200-second requirement, reuse a
+dirty candidate, or treat test/demo results as profitability evidence. A later
+rerun uses a new run ID and new empty absolute evidence path after the defect is
+fixed and all non-soak gates pass again. Formal completion still requires
+evidence review and explicit owner/security acceptance.
+
 ## Recovery checklist
 
 Recovery requires evidence that:

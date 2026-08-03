@@ -11,6 +11,9 @@ import (
 )
 
 func TestCrossExchangeEvaluatorP99Within25Milliseconds(t *testing.T) {
+	if raceInstrumentation {
+		t.Skip("latency qualification is invalid under race instrumentation")
+	}
 	input := evaluationFixture(t, "BTC", false)
 	samples := make([]time.Duration, 400)
 	for index := range samples {

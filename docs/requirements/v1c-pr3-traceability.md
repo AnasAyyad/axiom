@@ -1,0 +1,22 @@
+# V1C PR3 C6 traceability
+
+Status distinguishes implementation/non-soak qualification from the deferred
+formal 72-hour run and owner/security acceptance.
+
+| ID | Requirement | Implementation | Verification |
+|---|---|---|---|
+| AX-V1C-C06-001 | Redacted account, engine, arm, cap, order, fill, unknown, reconciliation, suspense, reset, and qualification projections cover both approved environments | `internal/storage/postgres/v1c_console_*.go`, `internal/api/console/sandbox*.go`, and OpenAPI C6 schemas | API/storage unit tests, PostgreSQL qualification, contract generation |
+| AX-V1C-C06-002 | Every control preserves session, exact RBAC, Origin/CSRF, idempotency, revision, reason, and audit boundaries | sandbox handlers, A11 middleware, and V1C command store | unauthorized, permission, Origin/CSRF, idempotency, revision, and audit tests |
+| AX-V1C-C06-003 | Arm and unlock require recent password/TOTP and a one-use purpose-, session-, source-, and reason-bound grant | `internal/authentication/sandbox_authorization.go` and sandbox handlers | password/TOTP failure, tamper, consume, and replay tests |
+| AX-V1C-C06-004 | API/browser receive no exchange secret/private payload and the API has no exchange client | redacted generated contracts, console services, C6 boundary checker | secret, endpoint, source, binary, and image scans |
+| AX-V1C-C06-005 | Entry uses existing intent → allocator → central risk → planner → durable dispatcher and independently enforces environment, arm, epoch, switches, assets, styles, side, and caps | `internal/storage/postgres/v1c_console_order_admission.go` and existing sandbox dispatcher | admission, cap, concurrency, tampering, and database tests |
+| AX-V1C-C06-006 | Cancel, query, reconciliation, and recovery remain available while entry is blocked | sandbox recovery handlers, durable engine commands, and matching engine loop | paused/locked/unknown recovery tests and browser workflow |
+| AX-V1C-C06-007 | Reset incidents preserve account epochs and external adjustments never become strategy P&L | V1C reset/reconciliation projections and migration `000022` invariants | reset, epoch, adjustment, and UI tests |
+| AX-V1C-C06-008 | Console persistently distinguishes Binance Spot Testnet, Bybit Demo, and real trading disabled while covering all operational states accessibly | `web/src/app/Sandbox*.tsx`, strict validation, and `/sandbox` route | Vitest/axe, desktop/mobile Playwright, keyboard, overflow, and tamper checks |
+| AX-V1C-C06-009 | Bounded metrics, alerts, and Grafana panels cover order/fill integrity, unknowns, reconciliation, arms, caps, resets, engine events, recovery, alert latency, soak, and memory | `internal/observability/c6_metrics.go`, `monitoring/alerts.yml`, and operations dashboard | metric vocabulary tests, Prometheus/dashboard validation, source gate |
+| AX-V1C-C06-010 | The dedicated observer records exact identity, caps, SLO samples, failures, concurrent account identity, chaos, duration, terminal verdict, and false profitability without credentials | `internal/qualification/c6`, `cmd/c6-soak`, V1C C6 PostgreSQL store | deterministic runner/evidence tests and PostgreSQL clean/upgrade gates |
+| AX-V1C-C06-011 | Formal qualification is default-off, exact 72 hours, clean-source only, immutable/no-overwrite, and cannot be fabricated by smoke | C6 configuration, runner, evidence writer, migration `000024`, and Make targets | duration/default-off/dirty/smoke/no-replace tests and source gate |
+| AX-V1C-C06-012 | Every required deterministic failure scenario is exercised fail closed without an exchange network | C6 chaos contract plus sandbox emulator, reducer, recovery, reconciliation, and kill/fencing suites | `c6-chaos-qualify`, race tests, and fuzz smoke |
+| AX-V1C-PR3-001 | Migration `000024` and role changes preserve least privilege on clean install and exact B8 upgrade | migration, redacted integrity view, immutable engine events, and role grant code | PostgreSQL 18.4 clean-install/B8-upgrade and role tests |
+| AX-V1C-PR3-002 | PR3 reruns cumulative C1-C5, all 1,024 Compose renders, complete repository verification, and exact-source artifact/scanner gates | Make aggregates, Compose/security scripts, and release evidence | final local-validation record |
+| AX-V1C-PR3-003 | Formal C6 evidence review and V1C owner/security acceptance remain separate later decisions | checklist, readiness, implementation status, and deployment runbook | documentation/source consistency gate; formal items remain unchecked |

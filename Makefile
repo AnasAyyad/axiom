@@ -11,11 +11,13 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .DEFAULT_GOAL := help
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
-.PHONY: a7-soak-smoke b1-soak-smoke b2-soak-smoke b2-soak-qualify
+.PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify v1c-pr1-local-qualify v1c-pr2-local-qualify
+.PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-soak v1c-pr3-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
 REBUILD_IMAGE ?= $(IMAGE)-rebuild
+VULNDB ?= https://vuln.go.dev
 VERSION ?= dev
 COMMIT ?= unknown
 BUILT_AT ?= unknown
@@ -58,6 +60,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-b7-research-boundary.mjs
 	@$(NODE) scripts/check-a10-strategy-boundary.mjs
 	@$(NODE) scripts/check-a11-console-boundary.mjs
+	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -90,6 +93,9 @@ fuzz-smoke: ## Run required execution-mode and financial parsing fuzz targets br
 	@$(GO) test ./internal/domain -run '^$$' -fuzz '^FuzzParseFinancial$$' -fuzztime 3s
 	@$(GO) test ./internal/runtime -run '^$$' -fuzz '^FuzzReplayOrdering$$' -fuzztime 3s
 	@$(GO) test ./internal/exchanges/binance -run '^$$' -fuzz '^FuzzNormalizePublicPayload$$' -fuzztime 3s
+	@$(GO) test ./internal/exchanges/binance -run '^$$' -fuzz '^FuzzBinanceAuthenticatedCreatePolicy$$' -fuzztime 3s
+	@$(GO) test ./internal/exchanges/bybit -run '^$$' -fuzz '^FuzzBybitAuthenticatedCreatePolicy$$' -fuzztime 3s
+	@$(GO) test ./internal/sandbox -run '^$$' -fuzz '^FuzzPrivateEventContract$$' -fuzztime 3s
 
 benchmark-a2: ## Measure exact decimal arithmetic with allocation reporting.
 	@$(GO) test ./internal/domain -run '^$$' -bench '^BenchmarkFinancialArithmetic$$' -benchmem -count 5
@@ -121,9 +127,117 @@ security-static: ## Run secret and prohibited-capability scans with negative tes
 	@scripts/test-check-prohibited-capabilities.sh
 	@GO="$(GO)" scripts/check-a6-binary-boundary.sh
 	@GO="$(GO)" scripts/check-a7-binary-boundary.sh
+	@scripts/check-v1c-security-boundary.sh
+
+c1-security-qualify: ## Prove the closed C1 credential, signer, endpoint, proxy, evidence, and emulator boundary.
+	@$(GO) test ./internal/config ./internal/security ./internal/egressproxy \
+		./internal/exchanges/contracts ./internal/exchanges/binance \
+		./internal/exchanges/bybit ./internal/exchanges/sandboxemulator ./internal/sandbox -count=1
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/storage/postgres \
+		-run '^(TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence|TestV1CEngineGrantIncludesOnlyClosedExecutionTables)$$' \
+		-count=1
+	@scripts/check-v1c-security-boundary.sh
+
+c2-auth-qualify: ## Exercise C2 password/TOTP, replay, one-use authorization, RBAC, audit, session, and rotation models.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/authentication ./internal/sandbox ./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/authentication ./internal/sandbox -count=1
+
+c3-recovery-qualify: ## Exercise C3 atomic caps, durable dispatch, fencing, inbox/reducer, startup, and crash recovery.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/sandbox ./internal/execution ./internal/reconciliation \
+		./internal/runtime ./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/sandbox ./internal/execution ./internal/reconciliation ./internal/runtime -count=1
+
+c4-binance-testnet-qualify: ## Prove the complete closed Binance Spot Testnet adapter and recovery behavior.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/exchanges/contracts ./internal/exchanges/binance \
+		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
+		./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/exchanges/binance ./internal/exchanges/sandboxemulator \
+		./internal/sandbox ./internal/execution -count=1
+	@$(GO) test ./internal/exchanges/binance -run '^$$' \
+		-fuzz '^FuzzBinancePrivateEventDecoder$$' -fuzztime 3s
+	@scripts/check-v1c-security-boundary.sh
+
+c5-bybit-demo-qualify: ## Prove the complete closed Bybit Demo Spot adapter and recovery behavior.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/config ./internal/bootstrap ./internal/egressproxy \
+		./internal/exchanges/contracts ./internal/exchanges/bybit \
+		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
+		./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/bootstrap ./internal/exchanges/bybit \
+		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
+		-count=1
+	@$(GO) test ./internal/exchanges/bybit -run '^$$' \
+		-fuzz '^FuzzBybitDemoPrivateDecoder$$' -fuzztime 3s
+	@scripts/check-v1c-security-boundary.sh
+
+v1c-postgres-qualify: ## Run V1C clean-install and exact B8-upgrade qualification on dedicated PostgreSQL 18 databases.
+	@test -n "$(AXIOM_V1C_TEST_DSN)" || { echo "AXIOM_V1C_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_V1C_UPGRADE_TEST_DSN)" || { echo "AXIOM_V1C_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_V1C_TEST_DSN="$(AXIOM_V1C_TEST_DSN)" \
+		AXIOM_V1C_UPGRADE_TEST_DSN="$(AXIOM_V1C_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestV1CPostgres(CleanInstall|B8ToV1CUpgrade)Qualification$$' -count=1 -v
+
+v1c-pr1-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify v1c-postgres-qualify ## Pass every C1-C3 PR1 phase gate plus cumulative repository verification.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+v1c-pr2-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify ## Pass every C1-C5 PR2 phase gate plus cumulative repository verification.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+c6-api-qualify: ## Prove C6 contracts, redacted projections, durable controls, RBAC, and storage boundaries.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/api/... ./internal/authentication \
+			./internal/bootstrap ./internal/storage/postgres -count=1
+
+c6-frontend-qualify: ## Type-check, lint, test, build, and inspect the C6 sandbox console fixtures.
+	@$(MAKE) a11-frontend-qualify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'C6 sandbox'
+
+c6-security-qualify: ## Prove C6 endpoint, secret, production-target, and prohibited-capability denial.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/authentication ./internal/qualification/c6 \
+			./internal/storage/postgres -count=1
+	@scripts/check-v1c-security-boundary.sh
+	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)"
+
+c6-chaos-qualify: ## Exercise deterministic C6 fault, race, reset, reconnect, and recovery scenarios.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/qualification/c6 ./internal/sandbox \
+			./internal/exchanges/sandboxemulator ./internal/exchanges/binance \
+			./internal/exchanges/bybit ./internal/execution \
+			./internal/reconciliation ./internal/bootstrap \
+			./internal/storage/postgres -count=1
+
+c6-soak-smoke: ## Run only the short deterministic C6 smoke runner; never grants formal qualification.
+	@$(GO) test ./cmd/c6-soak ./internal/qualification/c6 \
+		-run '^TestC6' -count=1 -timeout=2m -v
+
+c6-soak: ## MANUAL: run the default-off exact 72-hour observer; requires explicit identity and evidence variables.
+	@test "$(AXIOM_C6_SOAK_ENABLED)" = "1" || { echo "AXIOM_C6_SOAK_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_C6_SOAK_MODE)" = "formal" || { echo "AXIOM_C6_SOAK_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_RUN_ID)" || { echo "AXIOM_C6_RUN_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_COMMIT_SHA)" || { echo "AXIOM_C6_COMMIT_SHA is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_BUILD_HASH)" || { echo "AXIOM_C6_BUILD_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_EXECUTABLE_HASH)" || { echo "AXIOM_C6_EXECUTABLE_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_IMAGE_HASH)" || { echo "AXIOM_C6_IMAGE_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_CONFIGURATION_HASH)" || { echo "AXIOM_C6_CONFIGURATION_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_C6_EVIDENCE_PATH)" || { echo "AXIOM_C6_EVIDENCE_PATH is required" >&2; exit 1; }
+	@$(GO) run ./cmd/c6-soak
+
+v1c-pr3-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke v1c-postgres-qualify ## Pass every V1C non-soak gate; formal C6 soak remains separate and pending.
+	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
-	@$(GO) tool govulncheck ./...
+	@$(GO) tool govulncheck -db "$(VULNDB)" ./...
 
 verify: preflight format-check contracts-check docs-check lint test test-race fuzz-smoke build compose-validate security-static vulnerability ## Run the complete local A1 quality gate.
 

@@ -190,9 +190,14 @@ func a11E2ELinkIncident(t *testing.T, ctx context.Context, pool *pgxpool.Pool, s
 	if err := pool.QueryRow(ctx, `SELECT command_id FROM shadow_sessions WHERE id=$1`, shadowID).Scan(&commandID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO dataset_segments(dataset_id,segment_id,ordinal)
-	  VALUES('dataset-a7-formal-pending','segment-a11-e2e-window',1)`); err != nil {
-		t.Fatal(err)
+	var windowLinked bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS(
+	  SELECT 1 FROM dataset_segments
+	  WHERE dataset_id='dataset-a7-formal-pending'
+	    AND segment_id='segment-a11-e2e-window'
+	    AND ordinal=1
+	)`).Scan(&windowLinked); err != nil || !windowLinked {
+		t.Fatalf("A11 immutable incident window is not cataloged: %t %v", windowLinked, err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO incidents(id,severity,state,reason_code,opened_at)
 	  VALUES($1,'warning','resolved','a11_integrated_reproduction',$2)`, commandID, now); err != nil {
@@ -218,10 +223,15 @@ func a11E2ESeedMarketWindow(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 		windowHash, now.Add(-time.Second), now.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	return now
+	var incidentAt time.Time
+	if err = pool.QueryRow(ctx, `SELECT started_at+(ended_at-started_at)/2
+	  FROM market_data_segments WHERE id='segment-a11-e2e-window'`).Scan(&incidentAt); err != nil {
+		t.Fatal(err)
+	}
+	return incidentAt.UTC()
 }
 
-const a11E2EReplayEventCount = 3072
+const a11E2EReplayEventCount = 1024
 
 func a11E2EDataset(t *testing.T, root string, input trend.Input) recorder.DatasetManifest {
 	t.Helper()
@@ -237,10 +247,21 @@ func a11E2EDataset(t *testing.T, root string, input trend.Input) recorder.Datase
 	for index := 0; index < a11E2EReplayEventCount; index++ {
 		eventInput := input
 		eventInput.Candles = append([]exchangecontracts.Candle(nil), input.Candles...)
-		// Three accepted entries consume the qualification portfolio's usable
-		// virtual cash. Later events remain canonical replay inputs but become
-		// explicit risk rejections instead of advertising a stale cash snapshot.
-		eventInput.Sizing.CentralRiskEligible = index < 3
+		// Alternate accepted entries and protective-stop exits so the immutable
+		// fixture stays consistent with the portfolio's owned-position boundary.
+		// The small position also keeps all 512 round trips above the
+		// conservative reserve floor after simulated fees.
+		if index%2 == 1 {
+			eventInput.Position = trend.PositionState{
+				Open:                  true,
+				Quantity:              a11E2EQuantity(t, "0.0563"),
+				ActualEntryPrice:      a11E2EPrice(t, "300.3"),
+				SignalATR:             a11E2EPrice(t, "3.071428571428571429"),
+				InitialStop:           a11E2EPrice(t, "300"),
+				TrailingStop:          a11E2EPrice(t, "300"),
+				HighestFavorableClose: a11E2EPrice(t, "301"),
+			}
+		}
 		eventInput.LogicalTime += uint64(time.Duration(index) * 5 * time.Second)
 		eventInput.Candles[len(eventInput.Candles)-1].RawPayloadHash = fmt.Sprintf("a11-e2e-replay-%d", index+1)
 		eventInput.Evidence.CausationID = fmt.Sprintf("a11-e2e-candle-%d", index+1)
@@ -289,7 +310,7 @@ func a11E2ETrendInput(t *testing.T, configuration config.Configuration, now time
 		MinimumQuantity: a11E2EQuantity(t, "0.0001"), MinimumNotional: a11E2ENotional(t, "10")}
 	return trend.Input{Ordinal: 1, LogicalTime: uint64(100 * time.Second), Now: lastClose.Add(3 * time.Second),
 		Instrument: instrument, Candles: candles, MarketHealthy: true, BookAge: time.Millisecond,
-		Sizing: trend.SizingState{Equity: a11E2EMoney(t, "500"), AvailableCash: a11E2EMoney(t, "500"),
+		Sizing: trend.SizingState{Equity: a11E2EMoney(t, "100"), AvailableCash: a11E2EMoney(t, "500"),
 			MinimumReserve: a11E2EMoney(t, "75"), NotionalLimits: []domain.Money{a11E2EMoney(t, "150")},
 			EntryReference: a11E2EPrice(t, "300"), FirstExecutablePrice: a11E2EPrice(t, "300"),
 			GapAllowance: a11E2EPrice(t, "0.5"), LatencyDeterioration: a11E2EPrice(t, "0.1"),

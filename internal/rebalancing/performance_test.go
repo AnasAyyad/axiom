@@ -8,6 +8,9 @@ import (
 )
 
 func TestAdvisoryOptimizerP99Within25Milliseconds(t *testing.T) {
+	if raceInstrumentation {
+		t.Skip("latency qualification is invalid under race instrumentation")
+	}
 	graph, request := performanceFixture(t)
 	samples := make([]time.Duration, 400)
 	for index := range samples {

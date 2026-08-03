@@ -41,8 +41,32 @@ for (const forbidden of [
     fail(`legacy single-strategy/exchange constraint ${forbidden}`);
 }
 
+const v1cPrivateFiles = new Set(
+  [
+    "authenticated_client.go",
+    "authenticated_operations.go",
+    "authenticated_policy.go",
+    "authenticated_response.go",
+    "private_decoder.go",
+    "private_stream.go",
+    "private_transport.go",
+    "sandbox_adapter.go",
+    "sandbox_balances.go",
+    "sandbox_budget.go",
+    "sandbox_clock.go",
+    "sandbox_eligibility.go",
+    "sandbox_fills.go",
+    "sandbox_filter_helpers.go",
+    "sandbox_filters.go",
+    "sandbox_history.go",
+    "sandbox_normalize.go",
+    "sandbox_payloads.go",
+    "sandbox_rate.go",
+    "sandbox_snapshot.go",
+  ].map((file) => `internal/exchanges/bybit/${file}`),
+);
 const production = goFiles("internal/exchanges/bybit")
-  .filter((file) => !file.endsWith("_test.go"))
+  .filter((file) => !file.endsWith("_test.go") && !v1cPrivateFiles.has(file))
   .map((file) => fs.readFileSync(file, "utf8"))
   .join("\n");
 

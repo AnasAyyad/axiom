@@ -84,11 +84,19 @@ const secretNames = [
   "csrf_key",
   "session_signing_key",
 ];
+const allowedSecretConsumers = {
+  bootstrap_owner_email: ["api"],
+  bootstrap_owner_password_hash: ["api"],
+  csrf_key: ["api", "binance-sandbox-canary", "bybit-sandbox-canary"],
+  session_signing_key: ["api"],
+};
 for (const name of secretNames) {
   const consumers = Object.entries(compose.services ?? {})
     .filter(([, service]) => (service.secrets ?? []).includes(name))
-    .map(([service]) => service);
-  if (consumers.length !== 1 || consumers[0] !== "api")
+    .map(([service]) => service)
+    .sort();
+  const allowed = [...allowedSecretConsumers[name]].sort();
+  if (JSON.stringify(consumers) !== JSON.stringify(allowed))
     throw new Error(`A11 secret ${name} consumers = ${consumers.join(",")}`);
 }
 for (const service of ["engine-shadow", "recorder", "backtest-worker"]) {

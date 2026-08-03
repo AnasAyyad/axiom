@@ -58,6 +58,6 @@ var allowedTransitions = map[OrderState][]OrderState{
 	OrderCanceled:         {OrderPartiallyFilled, OrderFilled, OrderRecoveryRequired},
 	OrderExpired:          {OrderPartiallyFilled, OrderFilled, OrderRecoveryRequired},
 	OrderRejected:         {OrderRecoveryRequired},
-	OrderUnknown:          {OrderAcknowledged, OrderPartiallyFilled, OrderFilled, OrderCanceled, OrderRejected, OrderExpired, OrderRecoveryRequired},
-	OrderRecoveryRequired: {OrderRecovered},
+	OrderUnknown:          {OrderAcknowledged, OrderPartiallyFilled, OrderFilled, OrderCancelPending, OrderCanceled, OrderRejected, OrderExpired, OrderRecoveryRequired},
+	OrderRecoveryRequired: {OrderCancelPending, OrderRecovered},
 }

@@ -84,6 +84,23 @@ type Metrics struct {
 	diskFreeBytes      *prometheus.GaugeVec
 	alerts             *prometheus.GaugeVec
 	ready              *prometheus.GaugeVec
+
+	sandboxOrders         *prometheus.CounterVec
+	sandboxAnomalies      *prometheus.CounterVec
+	sandboxUnknown        *prometheus.GaugeVec
+	sandboxReconciliation *prometheus.GaugeVec
+	sandboxArms           *prometheus.GaugeVec
+	sandboxCapUsage       *prometheus.GaugeVec
+	sandboxCapRejections  *prometheus.CounterVec
+	sandboxResets         *prometheus.CounterVec
+	sandboxEngineReady    *prometheus.GaugeVec
+	sandboxEngineEvents   *prometheus.CounterVec
+	sandboxRecovery       *prometheus.HistogramVec
+	criticalAlertLatency  *prometheus.HistogramVec
+	c6SoakState           *prometheus.GaugeVec
+	c6SoakDuration        *prometheus.GaugeVec
+	c6SoakFailures        *prometheus.CounterVec
+	c6MemoryTrend         *prometheus.GaugeVec
 }
 
 // NewMetrics builds an isolated registry with process collectors and the
@@ -93,16 +110,30 @@ func NewMetrics(service string, catalog MetricCatalog) (*Metrics, error) {
 		return nil, fmt.Errorf("metrics_service_rejected")
 	}
 	catalog = cloneCatalog(catalog)
+	if err := validateMetricCatalog(catalog); err != nil {
+		return nil, err
+	}
+	labels := prometheus.Labels{"service": service}
+	metrics := &Metrics{registry: prometheus.NewRegistry(), catalog: catalog}
+	initializeA5Metrics(metrics, labels)
+	initializeC6Metrics(metrics, labels)
+	metrics.register()
+	return metrics, nil
+}
+
+func validateMetricCatalog(catalog MetricCatalog) error {
 	for name, values := range map[string][]string{
 		"exchange": catalog.Exchanges, "instrument": catalog.Instruments,
 		"strategy": catalog.Strategies, "mode": catalog.Modes,
 	} {
 		if err := validateCatalog(name, values); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	labels := prometheus.Labels{"service": service}
-	metrics := &Metrics{registry: prometheus.NewRegistry(), catalog: catalog}
+	return nil
+}
+
+func initializeA5Metrics(metrics *Metrics, labels prometheus.Labels) {
 	metrics.wsMessages = counter("axiom_websocket_messages_total", "Validated WebSocket messages.", []string{"exchange", "instrument"}, labels)
 	metrics.wsFailures = counter("axiom_websocket_events_total", "WebSocket health events by bounded reason.", []string{"exchange", "instrument", "reason"}, labels)
 	metrics.bookAge = gauge("axiom_order_book_age_seconds", "Age of the active order-book generation.", []string{"exchange", "instrument"}, labels)
@@ -126,9 +157,25 @@ func NewMetrics(service string, catalog MetricCatalog) (*Metrics, error) {
 	metrics.diskFreeBytes = gauge("axiom_disk_free_bytes", "Free bytes on a configured storage class.", []string{"storage"}, labels)
 	metrics.alerts = gauge("axiom_alerts_open", "Open in-app alerts.", []string{"severity", "reason"}, labels)
 	metrics.ready = gauge("axiom_dependency_ready", "Dependency readiness state (1 ready, 0 unavailable).", []string{"dependency"}, labels)
+}
 
-	metrics.register()
-	return metrics, nil
+func initializeC6Metrics(metrics *Metrics, labels prometheus.Labels) {
+	metrics.sandboxOrders = counter("axiom_sandbox_orders_total", "Test/demo order state observations.", []string{"exchange", "state"}, labels)
+	metrics.sandboxAnomalies = counter("axiom_sandbox_order_anomalies_total", "Safety-critical test/demo order anomalies.", []string{"exchange", "kind"}, labels)
+	metrics.sandboxUnknown = gauge("axiom_sandbox_unknown_orders", "Unknown order count and oldest age.", []string{"exchange", "measure"}, labels)
+	metrics.sandboxReconciliation = gauge("axiom_sandbox_reconciliation_items", "Current reconciliation mismatch and suspense items.", []string{"exchange", "kind"}, labels)
+	metrics.sandboxArms = gauge("axiom_sandbox_arms", "Current arm count and nearest expiry.", []string{"exchange", "state", "measure"}, labels)
+	metrics.sandboxCapUsage = gauge("axiom_sandbox_cap", "Exact sandbox cap values at the presentation boundary.", []string{"scope", "measure"}, labels)
+	metrics.sandboxCapRejections = counter("axiom_sandbox_cap_rejections_total", "Sandbox admission rejections by fixed cap.", []string{"scope"}, labels)
+	metrics.sandboxResets = counter("axiom_sandbox_account_resets_total", "Account epoch reset incidents.", []string{"exchange", "state"}, labels)
+	metrics.sandboxEngineReady = gauge("axiom_sandbox_engine_ready", "Credential-owning engine readiness.", []string{"exchange"}, labels)
+	metrics.sandboxEngineEvents = counter("axiom_sandbox_engine_events_total", "Engine reconnect and restart observations.", []string{"exchange", "kind"}, labels)
+	metrics.sandboxRecovery = histogram("axiom_sandbox_recovery_duration_seconds", "Sandbox reconciliation and recovery duration.", []string{"exchange", "operation"}, labels)
+	metrics.criticalAlertLatency = histogram("axiom_critical_alert_latency_seconds", "Critical in-app alert creation latency.", []string{"reason"}, labels)
+	metrics.c6SoakState = gauge("axiom_c6_soak_state", "C6 soak state and terminal verdict.", []string{"mode", "state"}, labels)
+	metrics.c6SoakDuration = gauge("axiom_c6_soak_duration_seconds", "Observed C6 qualification duration.", []string{"mode"}, labels)
+	metrics.c6SoakFailures = counter("axiom_c6_soak_failures_total", "C6 qualification failures by closed reason.", []string{"reason"}, labels)
+	metrics.c6MemoryTrend = gauge("axiom_c6_memory_trend_bytes", "Bounded resident-memory trend after warm-up.", []string{"window"}, labels)
 }
 
 func (metrics *Metrics) register() {
@@ -141,6 +188,13 @@ func (metrics *Metrics) register() {
 		metrics.journalFailures, metrics.virtualPnL, metrics.virtualDrawdown,
 		metrics.databaseDuration, metrics.databaseFailures, metrics.alerts, metrics.ready,
 		metrics.diskFreeBytes,
+		metrics.sandboxOrders, metrics.sandboxAnomalies, metrics.sandboxUnknown,
+		metrics.sandboxReconciliation, metrics.sandboxArms,
+		metrics.sandboxCapUsage, metrics.sandboxCapRejections,
+		metrics.sandboxResets, metrics.sandboxEngineReady,
+		metrics.sandboxEngineEvents, metrics.sandboxRecovery,
+		metrics.criticalAlertLatency, metrics.c6SoakState,
+		metrics.c6SoakDuration, metrics.c6SoakFailures, metrics.c6MemoryTrend,
 	)
 }
 
@@ -338,59 +392,4 @@ func (metrics *Metrics) SetOpenAlerts(severity string, reason Reason, count int)
 	}
 	metrics.alerts.WithLabelValues(severity, string(reason)).Set(float64(count))
 	return nil
-}
-
-func (metrics *Metrics) validateDimensions(d Dimensions, strategy, market bool) error {
-	if strategy && (!slices.Contains(metrics.catalog.Strategies, d.Strategy) || !slices.Contains(metrics.catalog.Modes, d.Mode)) {
-		return fmt.Errorf("metric_label_rejected:strategy")
-	}
-	if market && (!slices.Contains(metrics.catalog.Exchanges, d.Exchange) || !slices.Contains(metrics.catalog.Instruments, d.Instrument)) {
-		return fmt.Errorf("metric_label_rejected:market")
-	}
-	return nil
-}
-
-func validateReason(reason Reason) error {
-	if !slices.Contains(boundedReasons, reason) {
-		return fmt.Errorf("metric_label_rejected:reason")
-	}
-	return nil
-}
-
-func validateCatalog(name string, values []string) error {
-	if len(values) == 0 || len(values) > 256 {
-		return fmt.Errorf("metric_catalog_rejected:%s", name)
-	}
-	seen := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		if value == "" || len(value) > 64 {
-			return fmt.Errorf("metric_catalog_rejected:%s", name)
-		}
-		for _, character := range value {
-			if !(character >= 'a' && character <= 'z') && !(character >= 'A' && character <= 'Z') && !(character >= '0' && character <= '9') && character != '_' && character != '-' {
-				return fmt.Errorf("metric_catalog_rejected:%s", name)
-			}
-		}
-		if _, duplicate := seen[value]; duplicate {
-			return fmt.Errorf("metric_catalog_rejected:%s", name)
-		}
-		seen[value] = struct{}{}
-	}
-	return nil
-}
-
-func cloneCatalog(source MetricCatalog) MetricCatalog {
-	return MetricCatalog{Exchanges: slices.Clone(source.Exchanges), Instruments: slices.Clone(source.Instruments), Strategies: slices.Clone(source.Strategies), Modes: slices.Clone(source.Modes)}
-}
-
-func counter(name, help string, variable []string, labels prometheus.Labels) *prometheus.CounterVec {
-	return prometheus.NewCounterVec(prometheus.CounterOpts{Name: name, Help: help, ConstLabels: labels}, variable)
-}
-
-func gauge(name, help string, variable []string, labels prometheus.Labels) *prometheus.GaugeVec {
-	return prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: name, Help: help, ConstLabels: labels}, variable)
-}
-
-func histogram(name, help string, variable []string, labels prometheus.Labels) *prometheus.HistogramVec {
-	return prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: name, Help: help, ConstLabels: labels, Buckets: prometheus.DefBuckets}, variable)
 }

@@ -73,6 +73,32 @@ readonly -a EXCLUDES=(
   --glob '!scripts/check-b6-rebalancing-boundary.mjs'
   --glob '!scripts/check-b8-console-boundary.mjs'
   --glob '!scripts/check-b8-binary-boundary.sh'
+  # V1C authenticated sandbox inputs are governed by the narrower C1 scanner.
+  --glob '!internal/config/v1c*.go'
+  --glob '!internal/config/schema.go'
+  --glob '!internal/config/mode.go'
+  --glob '!internal/config/capabilities.go'
+  --glob '!internal/config/validation.go'
+  --glob '!internal/sandbox/**'
+  --glob '!internal/egressproxy/**'
+  --glob '!internal/exchanges/contracts/authenticated.go'
+  --glob '!internal/exchanges/binance/authenticated_*.go'
+  --glob '!internal/exchanges/bybit/authenticated_*.go'
+  --glob '!internal/exchanges/sandboxemulator/**'
+  --glob '!internal/authentication/sandbox_authorization.go'
+  --glob '!internal/authentication/totp.go'
+  --glob '!internal/bootstrap/application.go'
+  --glob '!internal/bootstrap/command.go'
+  --glob '!internal/storage/postgres/migrations/000021_v1c_auth_control.sql'
+  --glob '!internal/storage/postgres/migrations/000022_v1c_sandbox_execution.sql'
+  --glob '!internal/storage/postgres/v1c_*.go'
+  --glob '!deploy/postgres/init/001-create-roles.sh'
+  --glob '!docker-compose.yml'
+  --glob '!.env.example'
+  --glob '!scripts/check-compose-command-contract.mjs'
+  --glob '!scripts/check-compose.sh'
+  --glob '!scripts/check-v1c-security-boundary.sh'
+  --glob '!scripts/check-v1c-pr3-boundary.mjs'
 )
 
 readonly -a ALL_INPUT_GLOBS=(
@@ -213,6 +239,69 @@ is_b1_public_boundary_literal() {
   esac
 }
 
+# V1C's closed Testnet/Demo boundary is executable by design and is governed
+# by the stricter C1 scanner, fixed route contracts, and binary destination
+# scan. This allowlist is rule- and file-specific so production-private hosts,
+# live mode, and forbidden product families remain rejected everywhere.
+is_v1c_sandbox_boundary_literal() {
+  local rule_id="$1"
+  local file="${2#./}"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    private-endpoint:internal/exchanges/binance/private_stream.go | \
+    private-endpoint:internal/exchanges/binance/private_subscription.go | \
+    private-endpoint:internal/exchanges/bybit/private_stream.go | \
+    private-endpoint:internal/storage/postgres/migrations/000023_v1c_private_stream_runtime.sql)
+      return 0
+      ;;
+    later-release-sandbox:internal/exchanges/binance/private_stream.go | \
+    later-release-sandbox:internal/exchanges/binance/private_subscription.go | \
+    later-release-sandbox:internal/exchanges/binance/sandbox_recovery.go | \
+    later-release-sandbox:internal/exchanges/binance/sandbox_reset.go | \
+    later-release-sandbox:internal/exchanges/bybit/private_stream.go | \
+    later-release-sandbox:internal/exchanges/bybit/sandbox_adapter.go | \
+    later-release-sandbox:internal/bootstrap/sandbox_engine_attestation.go | \
+    later-release-sandbox:internal/storage/postgres/migrations/000023_v1c_private_stream_runtime.sql)
+      return 0
+      ;;
+    later-release-sandbox:api/openapi.yaml | \
+    later-release-sandbox:internal/api/generated/types.gen.go | \
+    later-release-sandbox:internal/bootstrap/runtime.go | \
+    later-release-sandbox:internal/observability/metrics.go | \
+    later-release-sandbox:internal/qualification/c6/model.go | \
+    later-release-sandbox:internal/storage/postgres/migrations/000024_v1c_c6_console_qualification.sql | \
+    later-release-sandbox:monitoring/alerts.yml | \
+    later-release-sandbox:monitoring/grafana/dashboards/axiom-operations.json | \
+    later-release-sandbox:web/src/api/c6Validation.ts | \
+    later-release-sandbox:web/src/api/generated/schema.ts | \
+    later-release-sandbox:web/src/app/AppShell.tsx | \
+    later-release-sandbox:web/src/app/Sandbox*.tsx | \
+    later-release-sandbox:web/src/app/sandboxPresentation.ts)
+      return 0
+      ;;
+    later-release-sandbox:Makefile)
+      [[ "${line_text}" == *"c4-binance-testnet-qualify"* ||
+         "${line_text}" == *"c5-bybit-demo-qualify"* ||
+         "${line_text}" == *"v1c-pr2-local-qualify"* ]]
+      ;;
+    later-release-sandbox:deploy/docker/Dockerfile)
+      [[ "${line_text}" == *"/out/platform-binance-testnet-v1c.json"* ||
+         "${line_text}" == *"/out/platform-bybit-demo-v1c.json"* ]]
+      ;;
+    prohibited-product:internal/exchanges/bybit/sandbox_filters.go)
+      [[ "${line_text}" == *'item.MarginTrading != "none"'* ]]
+      ;;
+    exchange-order-method:internal/exchanges/binance/private_stream.go | \
+    exchange-order-method:internal/exchanges/binance/private_subscription.go | \
+    exchange-order-method:internal/exchanges/binance/sandbox_adapter.go | \
+    exchange-order-method:internal/exchanges/bybit/private_stream.go | \
+    exchange-order-method:internal/exchanges/bybit/sandbox_adapter.go)
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 # run_rule ID DESCRIPTION REGEX ALLOW_POLICY GLOB_ARRAY TARGET...
 run_rule() {
   local rule_id="$1"
@@ -267,6 +356,10 @@ run_rule() {
       continue
     fi
 
+    if is_v1c_sandbox_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
     printf 'ERROR [%s] %s:%s: %s\n' \
       "${rule_id}" "${file}" "${line_number}" "${description}" >&2
     VIOLATIONS=$((VIOLATIONS + 1))
@@ -292,7 +385,7 @@ run_rule 'private-endpoint' \
   'private, account, order, or later-release exchange endpoint is forbidden in V1A' \
   "${PRIVATE_ENDPOINT_RE}" 'b1-public' ALL_INPUT_GLOBS .
 run_rule 'later-release-sandbox' \
-  'testnet/demo executable input is forbidden before V1C' \
+  'testnet/demo executable input is outside the reviewed V1C boundary' \
   "${LATER_SANDBOX_RE}" 'typed-unsupported' ALL_INPUT_GLOBS .
 run_rule 'external-live-mode' \
   'live external execution mode/service is forbidden in every V1 release' \

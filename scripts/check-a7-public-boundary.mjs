@@ -20,8 +20,30 @@ for (const file of [
   if (!fs.existsSync(file)) fail(`missing A7 artifact ${file}`);
 }
 
+const v1cPrivateFiles = new Set(
+  [
+    "authenticated_client.go",
+    "authenticated_operations.go",
+    "authenticated_policy.go",
+    "authenticated_response.go",
+    "private_decoder.go",
+    "private_subscription.go",
+    "private_stream.go",
+    "private_transport.go",
+    "sandbox_adapter.go",
+    "sandbox_clock.go",
+    "sandbox_eligibility.go",
+    "sandbox_filter_validation.go",
+    "sandbox_filters.go",
+    "sandbox_normalize.go",
+    "sandbox_rate.go",
+    "sandbox_recovery.go",
+    "sandbox_reset.go",
+    "sandbox_snapshot.go",
+  ].map((file) => `internal/exchanges/binance/${file}`),
+);
 const production = goFiles("internal/exchanges/binance")
-  .filter((file) => !file.endsWith("_test.go"))
+  .filter((file) => !file.endsWith("_test.go") && !v1cPrivateFiles.has(file))
   .map((file) => fs.readFileSync(file, "utf8"))
   .join("\n");
 
