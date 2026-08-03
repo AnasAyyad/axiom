@@ -39,7 +39,7 @@
 
 ## Delivery and cumulative decision
 
-- [ ] Commit and push `v1d-d3-labs`.
+- [x] Commit and push `v1d-d3-labs`.
 - [ ] Pass hosted CI, including the pinned five-project D3 browser job.
 - [ ] Merge the D3 pull request into `main` before starting D4.
 - [ ] Preserve separate accepted B2, C6, and D5 evidence for final D6 review.
