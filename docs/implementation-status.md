@@ -1,4 +1,30 @@
-# Axiom V1A implementation status
+# Axiom implementation status
+
+## V1D D2 React command center
+
+The `v1d-d2-command-center` branch implements the six-group role-aware product
+navigation, persistent safety header, Decisions & Orders and restricted System
+Events, Strategy Center, Qualification Center, approved Run Lab, scoped risk
+controls, and the required operational resource screens over the merged D1
+control-plane API. High-risk actions retain exact-revision password/TOTP
+reauthorization, and the UI adds no arbitrary command or production-private
+execution surface.
+
+Strict TypeScript, lint, unit/axe, production build, generated-contract parity,
+D2 boundary, file policy, secret, and prohibited-capability gates pass locally.
+The D2 workflow passes Chromium desktop/tablet/mobile, Firefox desktop, and
+WebKit desktop; the existing A11-C6 regression suite passes all 16 non-WebKit
+matrix cases. Merge, hosted CI, formal earlier-gate acceptance, C6's separate
+72-hour qualification, and later D3-D6 work remain pending. See
+`docs/releases/v1d-d2-readiness.md`.
+
+## V1D D1 control plane
+
+D1 is merged into `main` at merge commit `4cf0b14`. It provides the compatible
+OpenAPI contracts, durable commands, read projections, reason catalogue,
+exports, qualifications, roles, and permission-filtered stream extensions
+consumed by D2. D1 merge is implementation state, not cumulative V1D safety
+acceptance.
 
 ## V1C PR3 C6 console and non-soak qualification
 

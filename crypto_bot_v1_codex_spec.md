@@ -3580,6 +3580,24 @@ Owner: frontend engineering.
 
 Deliver the complete Section 25 navigation and operational pages except the specialized labs completed in D3, using accessible responsive components and explicit confidence/state labels.
 
+The D2 console uses the following normative interaction contract:
+
+- navigation is grouped into `Home`, `Activity`, `Strategies`, `Run Lab`, `Risk & Controls`, and `Operations`; links and mutations are filtered by explicit session permission while `owner` retains administrative access
+- a persistent safety header shows environment, execution mode, exchange health, engine state, risk state, data freshness, live-update state, and `REAL TRADING DISABLED` on every authenticated route
+- pages lead with plain-language status, reason, impact, and recommended action; correlation IDs, revisions, source identities, and redacted technical evidence remain available through progressive disclosure
+- activity is split into linked `Decisions & Orders` and restricted `System Events` views with stable time, strategy, instrument, exchange, side, outcome, reason, mode, and correlation filters
+- the Strategy Center keeps versioned configured state separate from runtime state, displays every fail-closed blocking prerequisite, and exposes configuration or runtime controls only to authorized users
+- the Qualification Center lists approved qualifications and drills, preflight state, progress, evidence identity, abort state, and terminal verdict; only an `owner` may start a formal qualification and an `operator` may monitor or abort one
+- `Run Lab` launches only approved backtest, replay, shadow, sandbox, qualification, or operational-drill workflows; it cannot execute arbitrary shell commands or unit-test names
+- every page provides explicit loading, empty, stale, reconnecting, partial-data, permission-denied, validation-error, and server-error presentation where the state can occur
+- desktop, tablet, and mobile layouts preserve keyboard reachability, visible focus, screen-reader names, and bounded overflow; UTC and local-time controls remain available
+- all downloads use server-created redacted, hash-sealed, audited artifacts; the browser never exposes arbitrary logs, private exchange payloads, request headers, signatures, or credentials
+
+D2 does not add a production-private exchange route, production order control,
+short sale, unowned-asset sale, or any other prohibited V1 capability. Demo,
+testnet, shadow, replay, and historical results remain explicitly non-profitability
+evidence.
+
 Acceptance: WCAG 2.2 AA critical workflows, browser matrix, responsive layout, stale/error/loading/reconnect states, and end-to-end workflows pass.
 
 ### Phase D3: Complete Backtest, Replay, and Shadow Labs

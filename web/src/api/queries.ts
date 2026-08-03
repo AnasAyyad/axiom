@@ -154,3 +154,88 @@ export function auditQueryForType(eventType: string, includeDetail = false) {
       ),
   });
 }
+
+export type ActivityFilters = {
+  readonly from: string;
+  readonly to: string;
+  readonly strategy: string;
+  readonly instrument: string;
+  readonly exchange: string;
+  readonly side: string;
+  readonly outcome: string;
+  readonly reason: string;
+  readonly mode: string;
+  readonly correlation_id: string;
+};
+
+function filteredPath(
+  path: string,
+  filters: Readonly<Record<string, string>> = {},
+) {
+  const parameters = new URLSearchParams({ page_size: "50" });
+  for (const [key, value] of Object.entries(filters)) {
+    if (value.trim() !== "") parameters.set(key, value.trim());
+  }
+  return `${path}?${parameters.toString()}`;
+}
+
+export function activityQuery(
+  view: "decisions_orders" | "system_events",
+  filters: ActivityFilters,
+) {
+  const path = filteredPath("/api/v1/activity", { ...filters, view });
+  return queryOptions({
+    queryKey: ["activity", view, filters],
+    queryFn: () => getAPI<"ActivityPage">(path),
+  });
+}
+
+export function activityDetailQuery(id: string) {
+  return queryOptions({
+    queryKey: ["activity", "detail", id],
+    queryFn: () =>
+      getAPI<"ActivityResource">(`/api/v1/activity/${encodeURIComponent(id)}`),
+    enabled: id !== "",
+  });
+}
+
+export function strategyDetailQuery(id: string) {
+  return queryOptions({
+    queryKey: ["strategy", id],
+    queryFn: () =>
+      getAPI<"D1Resource">(`/api/v1/strategies/${encodeURIComponent(id)}`),
+    enabled: id !== "",
+  });
+}
+
+export function strategyVersionsQuery(id: string) {
+  return queryOptions({
+    queryKey: ["strategy", id, "versions"],
+    queryFn: () =>
+      getAPI<"D1ResourcePage">(
+        `/api/v1/strategies/${encodeURIComponent(id)}/versions?page_size=50`,
+      ),
+    enabled: id !== "",
+  });
+}
+
+export function d1CollectionQuery(
+  resource:
+    | "assets"
+    | "risk/controls"
+    | "orders"
+    | "fills"
+    | "alerts"
+    | "reports"
+    | "configuration-revisions"
+    | "lab-runs"
+    | "qualifications"
+    | "users",
+  filters: Readonly<Record<string, string>> = {},
+) {
+  const path = filteredPath(`/api/v1/${resource}`, filters);
+  return queryOptions({
+    queryKey: ["d1", resource, filters],
+    queryFn: () => getAPI<"D1ResourcePage">(path),
+  });
+}

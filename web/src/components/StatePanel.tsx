@@ -10,8 +10,10 @@ interface StatePanelProps {
     | "locked"
     | "reconnecting"
     | "forbidden"
+    | "validation"
+    | "partial"
     | "error";
-  readonly detail?: string;
+  readonly detail?: string | undefined;
 }
 
 /** StatePanel makes non-happy operational states explicit and screen-reader visible. */
@@ -25,6 +27,8 @@ export function StatePanel({ state, detail }: StatePanelProps) {
     locked: "Safety lock is active",
     reconnecting: "Reconnecting to live updates…",
     forbidden: "You do not have permission to view this evidence",
+    validation: "Review the highlighted values",
+    partial: "Some authoritative data is unavailable",
     error: "Authoritative state is unavailable",
   };
   return (

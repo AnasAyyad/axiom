@@ -18,6 +18,8 @@ const states = [
   "locked",
   "reconnecting",
   "forbidden",
+  "validation",
+  "partial",
   "error",
 ] as const;
 
@@ -50,6 +52,12 @@ describe("A11 console states", () => {
     expect(
       screen.getByText("You do not have permission to view this evidence"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("Review the highlighted values"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Some authoritative data is unavailable"),
+    ).toBeInTheDocument();
     const result = await axe.run(view.container);
     expect(result.violations).toHaveLength(0);
   });
@@ -78,7 +86,7 @@ describe("A11 console states", () => {
     );
     expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
     expect(screen.getByText("SHADOW · VIRTUAL")).toBeInTheDocument();
-    expect(screen.getByText("production_public · shadow")).toBeInTheDocument();
+    expect(screen.getByText("production_public")).toBeInTheDocument();
     await screen.findByText("PAUSED");
     const result = await axe.run(view.container);
     expect(result.violations).toHaveLength(0);

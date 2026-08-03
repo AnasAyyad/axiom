@@ -32,8 +32,18 @@ import {
   OpportunityScanner,
   RebalancingCenter,
   ResearchReports,
-  StrategyCenter,
 } from "./MultiExchangePages";
+import { ActivityPage } from "../features/activity/ActivityPage";
+import { AlertCenterPage } from "../features/operations/AlertCenterPage";
+import { ConfigurationCenterPage } from "../features/operations/ConfigurationCenterPage";
+import { OperationsHubPage } from "../features/operations/OperationsHubPage";
+import { ReportCenterPage } from "../features/operations/ReportCenterPage";
+import { ResourceCollectionPage } from "../features/operations/ResourceCollectionPage";
+import { UserAccessPage } from "../features/operations/UserAccessPage";
+import { QualificationCenterPage } from "../features/qualifications/QualificationCenterPage";
+import { RiskControlsPage } from "../features/risk/RiskControlsPage";
+import { RunLabPage } from "../features/run-lab/RunLabPage";
+import { StrategyCenterPage } from "../features/strategies/StrategyCenterPage";
 
 const BacktestLab = lazy(() =>
   import("./LabPages").then((module) => ({ default: module.BacktestLab })),
@@ -74,18 +84,39 @@ export function App() {
               <Route index element={<CommandCenter />} />
               <Route path="exchanges" element={<ExchangesPage />} />
               <Route path="exchanges/binance" element={<BinancePage />} />
+              <Route
+                path="assets"
+                element={
+                  <ResourceCollectionPage
+                    resource="assets"
+                    title="Asset Universe"
+                    eyebrow="Approved spot assets"
+                    description="Review screening state and spot-only eligibility. Unsupported or unsafe assets remain excluded."
+                  />
+                }
+              />
               <Route path="opportunities" element={<OpportunityScanner />} />
               <Route path="portfolios" element={<PortfolioPage />} />
               <Route path="portfolios/:id" element={<PortfolioPage />} />
               <Route path="risk" element={<RiskPage />} />
+              <Route path="risk/controls" element={<RiskControlsPage />} />
               <Route path="strategies/trend" element={<TrendPage />} />
-              <Route path="strategies" element={<StrategyCenter />} />
+              <Route path="strategies" element={<StrategyCenterPage />} />
               <Route
                 path="inventory"
                 element={<MultiExchangeInventoryPage />}
               />
               <Route path="rebalancing" element={<RebalancingCenter />} />
               <Route path="research/reports" element={<ResearchReports />} />
+              <Route
+                path="activity/decisions-orders"
+                element={<ActivityPage view="decisions_orders" />}
+              />
+              <Route
+                path="activity/system-events"
+                element={<ActivityPage view="system_events" />}
+              />
+              <Route path="run-lab" element={<RunLabPage />} />
               <Route path="backtests" element={<BacktestLab />} />
               <Route path="backtests/:id" element={<BacktestLab />} />
               <Route path="replays" element={<ReplayLab />} />
@@ -93,6 +124,44 @@ export function App() {
               <Route path="shadow" element={<ShadowCenter />} />
               <Route path="shadow/:id" element={<ShadowCenter />} />
               <Route path="sandbox" element={<SandboxOperationsPage />} />
+              <Route
+                path="operations/sandbox"
+                element={<SandboxOperationsPage />}
+              />
+              <Route path="operations" element={<OperationsHubPage />} />
+              <Route
+                path="operations/qualifications"
+                element={<QualificationCenterPage />}
+              />
+              <Route path="operations/alerts" element={<AlertCenterPage />} />
+              <Route path="operations/reports" element={<ReportCenterPage />} />
+              <Route
+                path="operations/configuration"
+                element={<ConfigurationCenterPage />}
+              />
+              <Route path="operations/users" element={<UserAccessPage />} />
+              <Route
+                path="operations/orders"
+                element={
+                  <ResourceCollectionPage
+                    resource="orders"
+                    title="Orders"
+                    eyebrow="Durable order lifecycle"
+                    description="Inspect virtual, testnet, and demo order state without exposing private exchange payloads."
+                  />
+                }
+              />
+              <Route
+                path="operations/fills"
+                element={
+                  <ResourceCollectionPage
+                    resource="fills"
+                    title="Fills"
+                    eyebrow="Reconciled fill evidence"
+                    description="Review quantity, price, fee, order linkage, accounting state, and correlation evidence."
+                  />
+                }
+              />
               <Route path="incidents" element={<IncidentPage />} />
               <Route path="incidents/:id" element={<IncidentDetailPage />} />
               <Route path="audit" element={<AuditPage />} />

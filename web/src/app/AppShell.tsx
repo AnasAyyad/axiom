@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { postAPI, setCSRFToken, type APIModel } from "../api/client";
 import {
@@ -9,28 +9,11 @@ import {
   riskQuery,
   systemQuery,
 } from "../api/queries";
+import { roleLabel } from "../features/shared/access";
+import { SafetyHeader } from "./SafetyHeader";
+import { SidebarNavigation } from "./SidebarNavigation";
 import styles from "./Shell.module.css";
 import { useLiveStream } from "./useLiveStream";
-
-const navigation = [
-  ["/", "Command Center"],
-  ["/exchanges", "Exchanges"],
-  ["/exchanges/binance", "Binance"],
-  ["/opportunities", "Opportunities"],
-  ["/strategies", "Strategies"],
-  ["/strategies/trend", "Trend"],
-  ["/inventory", "Inventory"],
-  ["/rebalancing", "Rebalancing"],
-  ["/research/reports", "Reports"],
-  ["/portfolios", "Portfolio"],
-  ["/risk", "Risk Center"],
-  ["/backtests", "Backtest Lab"],
-  ["/replays", "Replay Lab"],
-  ["/shadow", "Shadow Center"],
-  ["/sandbox", "Sandbox Operations"],
-  ["/incidents", "Incidents"],
-  ["/audit", "Audit"],
-] as const;
 
 interface AppShellProps {
   readonly children: ReactNode;
@@ -64,79 +47,59 @@ export function AppShell({ children, user }: AppShellProps) {
       : timeMode === "UTC"
         ? system.data.server_time
         : new Date(system.data.server_time).toLocaleString();
+  const criticalIncidents =
+    system.data?.critical_incidents ??
+    incidents.data?.items.filter(
+      (item) => item.severity === "critical" && item.state !== "resolved",
+    ).length ??
+    0;
   return (
     <div className={styles.application}>
-      <div className={styles.safetyBanner} role="status">
-        <strong>SHADOW · VIRTUAL</strong>
-        <span>BINANCE SPOT TESTNET</span>
-        <span>BYBIT DEMO</span>
-        <span>REAL TRADING DISABLED</span>
-      </div>
+      <SafetyHeader
+        system={system.data}
+        binance={binance.data}
+        risk={risk.data}
+        streamState={streamState}
+      />
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <span>A</span>
-          <strong>AXIOM</strong>
+          <span aria-hidden="true">A</span>
+          <div>
+            <strong>AXIOM</strong>
+            <small>Research operations</small>
+          </div>
         </div>
-        <nav aria-label="Research console">
-          {navigation.map(([to, label]) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              className={({ isActive }) =>
-                isActive ? styles.active : undefined
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className={styles.identity}>
+        <SidebarNavigation user={user} />
+        <section
+          className={styles.identity}
+          aria-label="User and display preferences"
+        >
           <dl className={styles.statusFacts}>
             <div>
-              <dt>Environment</dt>
-              <dd>production_public · shadow</dd>
+              <dt>Role</dt>
+              <dd>{roleLabel(user)}</dd>
             </div>
             <div>
-              <dt>Engine</dt>
-              <dd>
-                {system.data?.engine_state ??
-                  system.data?.lifecycle_state ??
-                  "Unavailable"}
-              </dd>
-            </div>
-            <div>
-              <dt>Binance</dt>
-              <dd>{binance.data?.websocket_state ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Risk</dt>
-              <dd>{risk.data?.state ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Active</dt>
+              <dt>Active run</dt>
               <dd>{system.data?.active_resource_id ?? "None"}</dd>
             </div>
             <div>
-              <dt>Critical</dt>
-              <dd>
-                {String(
-                  system.data?.critical_incidents ??
-                    incidents.data?.items.filter(
-                      (item) =>
-                        item.severity === "critical" &&
-                        item.state !== "resolved",
-                    ).length ??
-                    0,
-                )}
-              </dd>
+              <dt>Critical alerts</dt>
+              <dd>{String(criticalIncidents)}</dd>
             </div>
             <div>
-              <dt>Clock</dt>
+              <dt>Server time</dt>
               <dd>{serverTime}</dd>
             </div>
+            <div>
+              <dt>Clock drift</dt>
+              <dd>
+                {system.data?.clock_drift_ms ??
+                  binance.data?.clock_drift_ms ??
+                  "Unavailable"}
+              </dd>
+            </div>
           </dl>
-          <span data-live={streamState === "live"}>{streamState}</span>
           <small>{user.email}</small>
           <div className={styles.preferences}>
             <button
@@ -159,7 +122,7 @@ export function AppShell({ children, user }: AppShellProps) {
               Log out
             </button>
           </div>
-        </div>
+        </section>
       </aside>
       <main className={styles.content}>{children}</main>
     </div>
