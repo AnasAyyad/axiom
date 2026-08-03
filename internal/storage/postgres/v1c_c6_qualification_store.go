@@ -237,7 +237,7 @@ func (store *V1CC6QualificationStore) observeC6Accounts(
 	var total, fresh, leases int
 	var cycles int64
 	err := store.pool.QueryRow(ctx, c6ObserveAccountsSQL,
-		started, now,
+		now,
 	).Scan(&total, &fresh, &leases, &cycles)
 	if err != nil {
 		return err

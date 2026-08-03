@@ -86,12 +86,20 @@ FROM (
 const c6ObserveAccountsSQL = `
 SELECT count(*)::integer,
  count(*) FILTER (
-   WHERE observation.observed_at >= $2-interval '5 seconds'
+   WHERE account.state='READY_PAUSED'
      AND observation.private_stream_healthy
      AND observation.reconciliation_clean
      AND observation.evidence_healthy
+     AND EXISTS(
+       SELECT 1 FROM v1c_engine_runtime_events runtime
+       WHERE runtime.account_id=account.id
+         AND runtime.account_epoch=account.current_epoch
+         AND runtime.kind='RECONCILIATION' AND runtime.succeeded
+         AND runtime.occurred_at >=
+           $1::timestamptz-interval '2 minutes'
+     )
  )::integer,
- count(*) FILTER (WHERE lease.expires_at>$2)::integer,
+ count(*) FILTER (WHERE lease.expires_at>$1::timestamptz)::integer,
  coalesce(sum(greatest(observation.startup_cycle-1,0)),0)
 FROM v1c_exchange_accounts account
 LEFT JOIN v1c_engine_observations observation

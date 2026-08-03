@@ -47,6 +47,7 @@ func TestV1CPostgresCleanInstallQualification(t *testing.T) {
 	assertV1CDispatcherCrashRecovery(t, ctx, pool)
 	assertV1CControlRecoveryAndReset(t, ctx, pool)
 	assertV1CC6QualificationBoundary(t, ctx, pool)
+	assertV1CC6ObserverQueryParameters(t, ctx, pool)
 }
 
 func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
@@ -80,6 +81,7 @@ func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
 	}
 	assertV1CSchema(t, ctx, pool)
 	assertV1CC6QualificationBoundary(t, ctx, pool)
+	assertV1CC6ObserverQueryParameters(t, ctx, pool)
 }
 
 func openV1CTestDatabase(t *testing.T, environment string) (context.Context, *pgxpool.Pool) {
@@ -149,6 +151,24 @@ func assertV1CC6QualificationBoundary(
 	insertV1CSmokeC6Run(t, ctx, pool, runID, at)
 	assertV1CSmokeCannotBecomeFormal(t, ctx, pool, runID, at)
 	assertV1CC6RunPending(t, ctx, pool, runID)
+}
+
+func assertV1CC6ObserverQueryParameters(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	var total, fresh, leases int
+	var cycles int64
+	err := pool.QueryRow(
+		ctx,
+		c6ObserveAccountsSQL,
+		time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC),
+	).Scan(&total, &fresh, &leases, &cycles)
+	if err != nil {
+		t.Fatalf("C6 account observer query parameters rejected: %v", err)
+	}
 }
 
 func assertV1CFormalC6ImageRequired(
