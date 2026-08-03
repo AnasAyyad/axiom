@@ -35,7 +35,7 @@
 
 ## Delivery and cumulative decision
 
-- [ ] Commit and push `v1d-d2-command-center`.
+- [x] Commit and push `v1d-d2-command-center`.
 - [ ] Pass hosted CI, including the pinned five-project D2 browser job.
 - [ ] Merge the D2 pull request into `main` before starting D3.
 - [ ] Preserve separate accepted B2, C6, and D5 evidence for final D6 review.
