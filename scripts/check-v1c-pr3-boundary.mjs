@@ -11,6 +11,7 @@ const requiredFiles = [
   "internal/api/console/sandbox.go",
   "internal/api/console/sandbox_commands.go",
   "internal/qualification/c6/runner.go",
+  "cmd/c6-chaos/main.go",
   "internal/storage/postgres/migrations/000024_v1c_c6_console_qualification.sql",
   "web/src/app/SandboxOperationsPage.tsx",
 ];
@@ -99,6 +100,7 @@ const apiSources = [
   "internal/api/console/sandbox_commands.go",
   "internal/storage/postgres/v1c_console_order_admission.go",
   "cmd/c6-soak/main.go",
+  "cmd/c6-chaos/main.go",
 ]
   .map(read)
   .join("\n");
@@ -152,6 +154,7 @@ requireText(
     "c6-frontend-qualify:",
     "c6-security-qualify:",
     "c6-chaos-qualify:",
+    "c6-chaos-record:",
     "c6-soak-smoke:",
     "c6-soak:",
     "v1c-pr3-local-qualify:",

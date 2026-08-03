@@ -1,0 +1,4 @@
+services:
+  postgres:
+    ports:
+      - "${AXIOM_C6_DB_BIND_ADDRESS:-127.0.0.1}:${AXIOM_C6_DB_BIND_PORT:-55432}:5432"

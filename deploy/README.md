@@ -421,8 +421,38 @@ validation rejects a dirty source, a missing image identity, either missing
 approved account environment, a duration other than 259,200 seconds, or a
 sample interval outside 15 seconds through 5 minutes.
 
+The observer is a standalone committed-source binary, not `go run`. Build it
+and the deterministic controller into a new retained qualification directory,
+then record both SHA-256 values before launch:
+
+```bash
+install -d -m 0750 /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin
+AXIOM_C6_OBSERVER_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-soak \
+  make c6-observer-build
+AXIOM_C6_CHAOS_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-chaos \
+  make c6-chaos-build
+sha256sum /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-soak \
+  /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-chaos
+```
+
+The base deployment intentionally publishes no PostgreSQL port. Apply
+`deploy/c6-qualification.compose.yml` only for the approved run window. It
+binds PostgreSQL to loopback `127.0.0.1:55432` by default and does not expose
+it publicly:
+
+```bash
+APP_IMAGE=REPLACE_WITH_EXACT_IMAGE docker compose --env-file .env \
+  -f docker-compose.yml -f deploy/c6-qualification.compose.yml \
+  --profile app --profile sandbox up -d --wait
+```
+
+Run the observer under a no-restart supervisor so any exit is terminal. The
+following is the exact process environment; the supervisor definition must
+preserve these values without copying secret contents:
+
 ```bash
 DB_HOST=127.0.0.1 \
+DB_PORT=55432 \
 DB_USER=axiom_c6_qualification \
 DB_PASSWORD_FILE="$PWD/.secrets/postgres_c6_qualification_password" \
 AXIOM_C6_SOAK_ENABLED=1 \
@@ -435,12 +465,35 @@ AXIOM_C6_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
 AXIOM_C6_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
 AXIOM_C6_SOURCE_DIRTY=false \
 AXIOM_C6_EVIDENCE_PATH=/absolute/new/c6-terminal.json \
+AXIOM_C6_OBSERVER_BIN=/absolute/retained/bin/c6-soak \
 make c6-soak
 ```
 
 The approved deterministic chaos controller must append exactly one run-bound
 result for every closed C6 scenario after the run starts. Missing, duplicate,
 unknown, or failed scenario evidence makes the terminal verdict fail closed.
+After the run row is confirmed `RUNNING`, invoke the retained controller once
+from the same exact clean checkout:
+
+```bash
+DB_HOST=127.0.0.1 \
+DB_PORT=55432 \
+DB_USER=axiom_c6_qualification \
+DB_PASSWORD_FILE="$PWD/.secrets/postgres_c6_qualification_password" \
+AXIOM_C6_CHAOS_ENABLED=1 \
+AXIOM_C6_CHAOS_MODE=formal \
+AXIOM_C6_RUN_ID=REPLACE_WITH_RUN_ID \
+AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
+AXIOM_C6_SOURCE_ROOT="$PWD" \
+AXIOM_C6_CHAOS_BIN=/absolute/retained/bin/c6-chaos \
+AXIOM_C6_CHAOS_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+make c6-chaos-record
+```
+
+The controller verifies its own hash, the exact clean Git commit, and the
+active run identity. It runs `make c6-chaos-qualify` with a strict child
+environment that contains no database or exchange credentials, hashes the
+transcript, and appends the complete fourteen-scenario result atomically.
 The runner also fails on duplicate create, lost/double-posted fill, unresolved
 unknown, mismatch/suspense, stale account, lease loss, persistence failure,
 unsafe recovery/restart, production target, cap breach, alert latency, or
