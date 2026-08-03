@@ -435,38 +435,32 @@ sha256sum /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-soak \
   /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-chaos
 ```
 
-The base deployment intentionally publishes no PostgreSQL port. Apply
-`deploy/c6-qualification.compose.yml` only for the approved run window. It
-binds PostgreSQL to loopback `127.0.0.1:55432` by default and does not expose
-it publicly:
+The base deployment intentionally publishes no PostgreSQL port. Keep it that
+way during qualification. Run the observer as a separate, no-restart container
+on the existing internal `axiom_core` network, with only the C6 database
+password file and evidence directory mounted. Wrap this exact `docker run`
+command in a persistent system supervisor so any exit is terminal:
 
 ```bash
-APP_IMAGE=REPLACE_WITH_EXACT_IMAGE docker compose --env-file .env \
-  -f docker-compose.yml -f deploy/c6-qualification.compose.yml \
-  --profile app --profile sandbox up -d --wait
-```
-
-Run the observer under a no-restart supervisor so any exit is terminal. The
-following is the exact process environment; the supervisor definition must
-preserve these values without copying secret contents:
-
-```bash
-DB_HOST=127.0.0.1 \
-DB_PORT=55432 \
-DB_USER=axiom_c6_qualification \
-DB_PASSWORD_FILE="$PWD/.secrets/postgres_c6_qualification_password" \
-AXIOM_C6_SOAK_ENABLED=1 \
-AXIOM_C6_SOAK_MODE=formal \
-AXIOM_C6_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
-AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
-AXIOM_C6_BUILD_HASH=REPLACE_WITH_64_HEX \
-AXIOM_C6_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
-AXIOM_C6_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
-AXIOM_C6_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
-AXIOM_C6_SOURCE_DIRTY=false \
-AXIOM_C6_EVIDENCE_PATH=/absolute/new/c6-terminal.json \
-AXIOM_C6_OBSERVER_BIN=/absolute/retained/bin/c6-soak \
-make c6-soak
+docker run --name REPLACE_WITH_RUN_ID-observer \
+  --network axiom_core --read-only --restart=no --user "$(id -u):70" \
+  --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+  --mount type=bind,src=/absolute/retained/bin/c6-soak,dst=/qualification/c6-soak,readonly \
+  --mount type=bind,src="$PWD/.secrets/postgres_c6_qualification_password",dst=/run/secrets/postgres_c6_qualification_password,readonly \
+  --mount type=bind,src=/absolute/retained/evidence,dst=/qualification/evidence \
+  --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
+  --env DB_USER=axiom_c6_qualification \
+  --env DB_PASSWORD_FILE=/run/secrets/postgres_c6_qualification_password \
+  --env AXIOM_C6_SOAK_ENABLED=1 --env AXIOM_C6_SOAK_MODE=formal \
+  --env AXIOM_C6_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
+  --env AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
+  --env AXIOM_C6_BUILD_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_C6_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_C6_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
+  --env AXIOM_C6_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_C6_SOURCE_DIRTY=false \
+  --env AXIOM_C6_EVIDENCE_PATH=/qualification/evidence/c6-terminal.json \
+  --entrypoint /qualification/c6-soak REPLACE_WITH_EXACT_IMAGE
 ```
 
 The approved deterministic chaos controller must append exactly one run-bound
@@ -476,18 +470,24 @@ After the run row is confirmed `RUNNING`, invoke the retained controller once
 from the same exact clean checkout:
 
 ```bash
-DB_HOST=127.0.0.1 \
-DB_PORT=55432 \
-DB_USER=axiom_c6_qualification \
-DB_PASSWORD_FILE="$PWD/.secrets/postgres_c6_qualification_password" \
-AXIOM_C6_CHAOS_ENABLED=1 \
-AXIOM_C6_CHAOS_MODE=formal \
-AXIOM_C6_RUN_ID=REPLACE_WITH_RUN_ID \
-AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
-AXIOM_C6_SOURCE_ROOT="$PWD" \
-AXIOM_C6_CHAOS_BIN=/absolute/retained/bin/c6-chaos \
-AXIOM_C6_CHAOS_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
-make c6-chaos-record
+docker run --rm --network axiom_core --read-only --user "$(id -u):70" \
+  --tmpfs /tmp:rw,noexec,nosuid,nodev,size=1g --workdir "$PWD" \
+  --mount type=bind,src="$PWD",dst="$PWD",readonly \
+  --mount type=bind,src=/absolute/retained/bin/c6-chaos,dst=/qualification/c6-chaos,readonly \
+  --mount type=bind,src="$PWD/.secrets/postgres_c6_qualification_password",dst=/run/secrets/postgres_c6_qualification_password,readonly \
+  --mount type=bind,src="$(go env GOMODCACHE)",dst="$(go env GOMODCACHE)",readonly \
+  --mount type=bind,src="$(go env GOCACHE)",dst="$(go env GOCACHE)" \
+  --env HOME=/tmp --env GOTOOLCHAIN=local \
+  --env GOMODCACHE="$(go env GOMODCACHE)" --env GOCACHE="$(go env GOCACHE)" \
+  --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
+  --env DB_USER=axiom_c6_qualification \
+  --env DB_PASSWORD_FILE=/run/secrets/postgres_c6_qualification_password \
+  --env AXIOM_C6_CHAOS_ENABLED=1 --env AXIOM_C6_CHAOS_MODE=formal \
+  --env AXIOM_C6_RUN_ID=REPLACE_WITH_RUN_ID \
+  --env AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
+  --env AXIOM_C6_SOURCE_ROOT="$PWD" \
+  --env AXIOM_C6_CHAOS_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+  --entrypoint /qualification/c6-chaos golang:1.26.5-bookworm
 ```
 
 The controller verifies its own hash, the exact clean Git commit, and the
