@@ -12,7 +12,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
 .PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify v1c-pr1-local-qualify v1c-pr2-local-qualify
-.PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-observer-build c6-chaos-build c6-chaos-record c6-soak v1c-pr3-local-qualify
+.PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-observer-build c6-chaos-build c6-controller-image c6-chaos-record c6-soak v1c-pr3-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -229,6 +229,14 @@ c6-chaos-build: ## Build the standalone exact-hash C6 chaos controller at AXIOM_
 	@case "$(AXIOM_C6_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_C6_CHAOS_BIN must be absolute" >&2; exit 1;; esac
 	@test -d "$$(dirname "$(AXIOM_C6_CHAOS_BIN)")" || { echo "controller output directory is absent" >&2; exit 1; }
 	@CGO_ENABLED=0 $(GO) build -trimpath -ldflags='-buildid=' -o "$(AXIOM_C6_CHAOS_BIN)" ./cmd/c6-chaos
+
+c6-controller-image: ## Build the exact-source, internal-network C6 controller image.
+	@test -n "$(C6_CONTROLLER_IMAGE)" || { echo "C6_CONTROLLER_IMAGE is required" >&2; exit 1; }
+	@test "$(COMMIT)" = "$$(git rev-parse HEAD)" || { echo "COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "C6 controller image requires clean committed source" >&2; exit 1; }
+	@docker build --file deploy/docker/C6Controller.Dockerfile \
+		--tag "$(C6_CONTROLLER_IMAGE)" \
+		--build-arg "COMMIT=$(COMMIT)" .
 
 c6-chaos-record: ## MANUAL: append the credential-free deterministic gate to one active formal run.
 	@test "$(AXIOM_C6_CHAOS_ENABLED)" = "1" || { echo "AXIOM_C6_CHAOS_ENABLED=1 is required" >&2; exit 1; }

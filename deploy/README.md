@@ -431,6 +431,8 @@ AXIOM_C6_OBSERVER_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-s
   make c6-observer-build
 AXIOM_C6_CHAOS_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-chaos \
   make c6-chaos-build
+C6_CONTROLLER_IMAGE=axiom-c6-controller:REPLACE_WITH_COMMIT \
+COMMIT=REPLACE_WITH_40_HEX make c6-controller-image
 sha256sum /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-soak \
   /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-chaos
 ```
@@ -473,12 +475,7 @@ from the same exact clean checkout:
 docker run --rm --network axiom_core --read-only --user "$(id -u):70" \
   --tmpfs /tmp:rw,noexec,nosuid,nodev,size=1g --workdir "$PWD" \
   --mount type=bind,src="$PWD",dst="$PWD",readonly \
-  --mount type=bind,src=/absolute/retained/bin/c6-chaos,dst=/qualification/c6-chaos,readonly \
   --mount type=bind,src="$PWD/.secrets/postgres_c6_qualification_password",dst=/run/secrets/postgres_c6_qualification_password,readonly \
-  --mount type=bind,src="$(go env GOMODCACHE)",dst="$(go env GOMODCACHE)",readonly \
-  --mount type=bind,src="$(go env GOCACHE)",dst="$(go env GOCACHE)" \
-  --env HOME=/tmp --env GOTOOLCHAIN=local \
-  --env GOMODCACHE="$(go env GOMODCACHE)" --env GOCACHE="$(go env GOCACHE)" \
   --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
   --env DB_USER=axiom_c6_qualification \
   --env DB_PASSWORD_FILE=/run/secrets/postgres_c6_qualification_password \
@@ -487,13 +484,16 @@ docker run --rm --network axiom_core --read-only --user "$(id -u):70" \
   --env AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
   --env AXIOM_C6_SOURCE_ROOT="$PWD" \
   --env AXIOM_C6_CHAOS_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
-  --entrypoint /qualification/c6-chaos golang:1.26.5-bookworm
+  REPLACE_WITH_EXACT_CONTROLLER_IMAGE
 ```
 
 The controller verifies its own hash, the exact clean Git commit, and the
 active run identity. It runs `make c6-chaos-qualify` with a strict child
 environment that contains no database or exchange credentials, hashes the
 transcript, and appends the complete fourteen-scenario result atomically.
+The controller image is built from the exact clean commit, preloads the pinned
+Go module graph, and runs without external egress on `axiom_core`; never use
+a generic toolchain image with the live C6 database secret.
 The runner also fails on duplicate create, lost/double-posted fill, unresolved
 unknown, mismatch/suspense, stale account, lease loss, persistence failure,
 unsafe recovery/restart, production target, cap breach, alert latency, or
