@@ -19,6 +19,8 @@ var runtimeReadInsertTables = []string{
 	"v1c_submission_plans", "v1c_plan_eligibility", "v1c_plan_entry_safety",
 	"v1c_sandbox_reservations", "v1c_submission_outbox",
 	"v1c_daily_cap_counters", "v1c_engine_commands", "v1c_canary_evidence",
+	"v1d_export_artifacts", "v1d_artifact_holds", "v1d_artifact_access_events",
+	"v1d_qualification_runs", "v1d_role_change_events",
 	"allocation_candidates", "allocation_reservations", "allocation_score_components",
 	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
@@ -51,6 +53,8 @@ var runtimeUpdateTables = []string{
 	"b8_replay_fault_schedule_states",
 	"v1c_sandbox_authorizations", "v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_arms",
 	"v1c_exchange_accounts", "v1c_daily_cap_counters", "v1c_engine_commands",
+	"v1d_strategy_controls", "v1d_risk_controls", "v1d_export_artifacts",
+	"v1d_artifact_holds", "v1d_qualification_runs",
 }
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
@@ -70,6 +74,8 @@ var runtimeReadTables = []string{
 	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
 	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
 	"v1c_c6_chaos_events",
+	"v1d_reason_catalogue", "v1d_activity_projection", "v1d_activity_explanations",
+	"v1d_strategy_controls", "v1d_risk_controls", "v1d_qualification_catalogue",
 }
 
 var recorderReadTables = []string{
@@ -164,6 +170,10 @@ var readOnlyTables = []string{
 	"projection_revisions", "quarantined_scopes", "reconciliation_cases", "reconciliation_differences", "reconciliation_suspense", "reservations", "risk_evaluation_policies", "risk_evaluations", "risk_policies", "risk_policy_limits", "risk_state_events",
 	"experiment_final_test_consumptions", "research_generations", "research_reports", "run_canonical_outputs", "run_checkpoints", "run_manifests", "run_results", "runs", "shadow_sessions", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters", "strategy_portfolios",
 	"strategy_versions", "trend_decisions", "virtual_accounts", "virtual_balances",
+	"v1d_reason_catalogue", "v1d_activity_projection", "v1d_activity_explanations",
+	"v1d_strategy_controls", "v1d_risk_controls", "v1d_export_artifacts",
+	"v1d_artifact_holds", "v1d_artifact_access_events", "v1d_qualification_catalogue",
+	"v1d_qualification_runs", "v1d_role_change_events",
 }
 
 // ApplyV1CEngineRoleGrants keeps authenticated engines on distinct database

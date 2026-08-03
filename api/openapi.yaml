@@ -1,11 +1,11 @@
 openapi: 3.0.3
 info:
-  title: Axiom V1B API
-  version: 1.1.0
+  title: Axiom V1D API
+  version: 1.2.0
   description: >-
-    Authenticated multi-exchange research, replay, and production-public shadow
-    operations. Axiom V1B is simulation software and cannot place external
-    orders or move external assets.
+    Authenticated research, operations, audit, sandbox, and qualification
+    control plane. Axiom V1 is Spot-only research software. Real trading,
+    production-private order submission, and external asset movement are absent.
 servers:
   - url: /
 tags:
@@ -28,6 +28,13 @@ tags:
   - name: Shadow
   - name: Incident
   - name: Audit
+  - name: Activity
+  - name: Assets
+  - name: Alerts
+  - name: Configuration
+  - name: Exports
+  - name: Qualification
+  - name: Roles
   - name: Stream
 paths:
   /health/live:
@@ -967,6 +974,459 @@ paths:
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
       responses: *sandboxCommandResponses
+  /api/v1/authorizations:
+    post:
+      operationId: createHighRiskAuthorization
+      tags: [Session]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              { $ref: "#/components/schemas/HighRiskAuthorizationRequest" }
+      responses:
+        "201":
+          description: One-use revision-bound authorization created
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/HighRiskAuthorizationGrant" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/assets:
+    get:
+      operationId: listAssets
+      tags: [Assets]
+      security: [{ sessionCookie: [] }]
+      parameters: &d1ListParameters
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/FromTime"
+        - $ref: "#/components/parameters/ToTime"
+        - in: query
+          name: state
+          schema: { type: string, maxLength: 80 }
+      responses: &d1PageResponses
+        "200":
+          description: Deterministically ordered redacted resources
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/D1ResourcePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "410": { $ref: "#/components/responses/CursorExpired" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/strategies/{id}:
+    get:
+      operationId: getStrategyDetail
+      tags: [Strategies]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses: &d1ResourceResponses
+        "200":
+          description: Redacted resource
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/D1Resource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/strategies/{id}/versions:
+    get:
+      operationId: listStrategyVersions
+      tags: [Strategies]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses: *d1PageResponses
+  /api/v1/strategies/{id}/configuration:
+    post:
+      operationId: configureStrategy
+      tags: [Strategies]
+      security: [{ sessionCookie: [] }]
+      parameters: &d1CommandParameters
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              { $ref: "#/components/schemas/StrategyConfigurationRequest" }
+      responses: &d1CommandResponses
+        "202":
+          description: Durable command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/strategies/{id}/runtime:
+    post:
+      operationId: controlStrategyRuntime
+      tags: [Strategies]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RuntimeControlRequest" }
+      responses: *d1CommandResponses
+  /api/v1/risk/controls:
+    get:
+      operationId: listRiskControls
+      tags: [Risk]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+  /api/v1/risk/controls/{scope}/{id}:
+    post:
+      operationId: controlRiskScope
+      tags: [Risk]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: scope
+          required: true
+          schema:
+            type: string
+            enum: [global, strategy, instrument, exchange, new_entries]
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RiskControlRequest" }
+      responses: *d1CommandResponses
+  /api/v1/activity:
+    get:
+      operationId: listActivity
+      tags: [Activity]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/FromTime"
+        - $ref: "#/components/parameters/ToTime"
+        - in: query
+          name: view
+          schema: { type: string, enum: [decisions_orders, system_events] }
+        - in: query
+          name: strategy
+          schema: { type: string, maxLength: 128 }
+        - in: query
+          name: instrument
+          schema: { type: string, maxLength: 128 }
+        - in: query
+          name: exchange
+          schema: { type: string, maxLength: 128 }
+        - in: query
+          name: side
+          schema: { type: string, enum: [buy, sell] }
+        - in: query
+          name: outcome
+          schema: { type: string, maxLength: 80 }
+        - in: query
+          name: reason
+          schema: { type: string, maxLength: 160 }
+        - in: query
+          name: mode
+          schema:
+            {
+              type: string,
+              enum: [backtest, replay, paper, shadow, testnet, demo],
+            }
+        - in: query
+          name: correlation_id
+          schema: { type: string, maxLength: 128 }
+      responses:
+        "200":
+          description: Immutable activity page with safe reason presentation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActivityPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "410": { $ref: "#/components/responses/CursorExpired" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/activity/{id}:
+    get:
+      operationId: getActivity
+      tags: [Activity]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Immutable activity detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActivityResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/orders:
+    get:
+      operationId: listOrders
+      tags: [Activity]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+  /api/v1/orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [Activity]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses: *d1ResourceResponses
+  /api/v1/fills:
+    get:
+      operationId: listFills
+      tags: [Activity]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+  /api/v1/alerts:
+    get:
+      operationId: listAlerts
+      tags: [Alerts]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+  /api/v1/alerts/{id}/acknowledge:
+    post:
+      operationId: acknowledgeAlert
+      tags: [Alerts]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *d1CommandResponses
+  /api/v1/reports:
+    get:
+      operationId: listReports
+      tags: [Reports]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+    post:
+      operationId: createReport
+      tags: [Reports]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportRequest" }
+      responses: *d1CommandResponses
+  /api/v1/exports:
+    post:
+      operationId: createExport
+      tags: [Exports]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "201":
+          description: Redacted hash-sealed artifact created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportArtifact" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/exports/{id}:
+    get:
+      operationId: getExport
+      tags: [Exports]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Authorized redacted artifact content and metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportArtifact" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "410": { $ref: "#/components/responses/CursorExpired" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      operationId: deleteExport
+      tags: [Exports]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *d1CommandResponses
+  /api/v1/exports/{id}/holds:
+    post:
+      operationId: holdExport
+      tags: [Exports]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArtifactHoldRequest" }
+      responses: *d1CommandResponses
+  /api/v1/incidents/{id}/transitions:
+    post:
+      operationId: transitionIncident
+      tags: [Incident]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IncidentTransitionRequest" }
+      responses: *d1CommandResponses
+  /api/v1/configuration-revisions:
+    get:
+      operationId: listConfigurationRevisions
+      tags: [Configuration]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+    post:
+      operationId: activateConfigurationRevision
+      tags: [Configuration]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              { $ref: "#/components/schemas/ConfigurationActivationRequest" }
+      responses: *d1CommandResponses
+  /api/v1/lab-runs:
+    get:
+      operationId: listLabRuns
+      tags: [Research]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+  /api/v1/lab-runs/{id}/{action}:
+    post:
+      operationId: controlLabRun
+      tags: [Research]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - in: path
+          name: action
+          required: true
+          schema: { type: string, enum: [pause, resume, cancel, reproduce] }
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *d1CommandResponses
+  /api/v1/qualifications:
+    get:
+      operationId: listQualifications
+      tags: [Qualification]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+    post:
+      operationId: startQualification
+      tags: [Qualification]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QualificationStartRequest" }
+      responses: *d1CommandResponses
+  /api/v1/qualifications/{id}/abort:
+    post:
+      operationId: abortQualification
+      tags: [Qualification]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *d1CommandResponses
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      tags: [Roles]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses: *d1PageResponses
+  /api/v1/users/{id}/roles:
+    post:
+      operationId: changeUserRoles
+      tags: [Roles]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleChangeRequest" }
+      responses: *d1CommandResponses
+  /api/v1/commands/{id}:
+    get:
+      operationId: getCommand
+      tags: [System]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses: *d1ResourceResponses
   /api/v1/stream:
     get:
       operationId: streamEvents
@@ -1043,6 +1503,14 @@ components:
       in: query
       name: page_size
       schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    FromTime:
+      in: query
+      name: from
+      schema: { $ref: "#/components/schemas/Timestamp" }
+    ToTime:
+      in: query
+      name: to
+      schema: { $ref: "#/components/schemas/Timestamp" }
   requestBodies:
     RevisionCommand:
       required: true
@@ -1080,6 +1548,10 @@ components:
         { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     Unavailable:
       description: A required fail-closed prerequisite is unavailable
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    CursorExpired:
+      description: Cursor expired; fetch a fresh authoritative snapshot
       content:
         { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     HealthUnavailable:
@@ -3203,6 +3675,322 @@ components:
             ]
         expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }
+    HighRiskAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, expected_revision, password, totp, reason]
+      properties:
+        purpose:
+          type: string
+          enum:
+            [
+              strategy_configuration,
+              risk_control,
+              qualification_start,
+              configuration_activation,
+              role_change,
+              artifact_hold,
+            ]
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        password: { type: string, minLength: 12, maxLength: 1024 }
+        totp: { type: string, pattern: "^[0-9]{6}$" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    HighRiskAuthorizationGrant:
+      type: object
+      additionalProperties: false
+      required: [token, purpose, target_revision, expires_at]
+      properties:
+        token: { type: string, minLength: 32 }
+        purpose:
+          type: string
+          enum:
+            [
+              strategy_configuration,
+              risk_control,
+              qualification_start,
+              configuration_activation,
+              role_change,
+              artifact_hold,
+            ]
+        target_revision: { $ref: "#/components/schemas/Revision" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+    ReasonPresentation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          code,
+          version,
+          summary,
+          explanation,
+          suggested_action,
+          severity,
+          unknown,
+        ]
+      properties:
+        code: { type: string }
+        version: { $ref: "#/components/schemas/Revision" }
+        summary: { type: string }
+        explanation: { type: string }
+        suggested_action: { type: string }
+        severity: { type: string, enum: [info, warning, error, critical] }
+        unknown: { type: boolean }
+    D1Resource:
+      type: object
+      additionalProperties: false
+      required: [id, kind, revision, state, correlation_id, attributes, links]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        revision: { $ref: "#/components/schemas/Revision" }
+        state: { type: string }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        correlation_id: { type: string }
+        reason: { $ref: "#/components/schemas/ReasonPresentation" }
+        attributes: { type: object, additionalProperties: true }
+        links:
+          type: object
+          additionalProperties: { type: string }
+    D1ResourcePage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [snapshot_revision, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/D1Resource" }
+    ActivityResource:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          activity_revision,
+          view,
+          source_type,
+          source_id,
+          source_revision,
+          outcome,
+          reason,
+          correlation_id,
+          occurred_at,
+          details,
+          links,
+        ]
+      properties:
+        id: { type: string }
+        activity_revision: { $ref: "#/components/schemas/Revision" }
+        view: { type: string, enum: [decisions_orders, system_events] }
+        source_type: { type: string }
+        source_id: { type: string }
+        source_revision: { type: string }
+        outcome: { type: string }
+        strategy_id: { type: string }
+        instrument_id: { type: string }
+        exchange_id: { type: string }
+        side: { type: string, enum: [buy, sell] }
+        mode:
+          {
+            type: string,
+            enum: [backtest, replay, paper, shadow, testnet, demo],
+          }
+        reason: { $ref: "#/components/schemas/ReasonPresentation" }
+        correlation_id: { type: string }
+        causation_id: { type: string }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+        details: { type: object, additionalProperties: true }
+        links:
+          type: object
+          additionalProperties: { type: string }
+    ActivityPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [snapshot_revision, items]
+          properties:
+            snapshot_revision: { $ref: "#/components/schemas/Revision" }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/ActivityResource" }
+    StrategyConfigurationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          state,
+          configuration_id,
+          authorization_token,
+          expected_revision,
+          reason,
+        ]
+      properties:
+        state: { type: string, enum: [enabled, disabled] }
+        configuration_id: { type: string, minLength: 1 }
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    RuntimeControlRequest:
+      type: object
+      additionalProperties: false
+      required: [state, expected_revision, reason]
+      properties:
+        state: { type: string, enum: [running, paused] }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    RiskControlRequest:
+      type: object
+      additionalProperties: false
+      required: [state, expected_revision, reason]
+      properties:
+        state: { type: string, enum: [normal, paused, locked] }
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    ReportRequest:
+      type: object
+      additionalProperties: false
+      required: [report_type, expected_revision, reason]
+      properties:
+        report_type:
+          type: string
+          enum:
+            [
+              strategy_results,
+              decisions_orders,
+              portfolios,
+              inventory_pnl,
+              risk,
+              exchange_data_health,
+              lab_runs,
+              sandbox_qualifications,
+              platform_readiness,
+            ]
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    ExportRequest:
+      type: object
+      additionalProperties: false
+      required: [resource_type, resource_id, format, expected_revision, reason]
+      properties:
+        resource_type:
+          type: string
+          enum: [activity, report, incident, audit, qualification, lab_run]
+        resource_id: { type: string, minLength: 1, maxLength: 160 }
+        format: { type: string, enum: [txt, csv, json, jsonl] }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    ExportArtifact:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          command_id,
+          job_id,
+          resource_type,
+          resource_id,
+          format,
+          content_type,
+          content_hash,
+          size_bytes,
+          redaction_version,
+          created_at,
+          expires_at,
+          held,
+          deleted,
+          revision,
+        ]
+      properties:
+        id: { type: string }
+        command_id: { type: string }
+        job_id: { type: string }
+        resource_type: { type: string }
+        resource_id: { type: string }
+        format: { type: string, enum: [txt, csv, json, jsonl] }
+        content_type: { type: string }
+        content: { type: string, maxLength: 10485760 }
+        content_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        size_bytes: { $ref: "#/components/schemas/Revision" }
+        redaction_version: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        held: { type: boolean }
+        deleted: { type: boolean }
+        revision: { $ref: "#/components/schemas/Revision" }
+    ArtifactHoldRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          hold_type,
+          reference_id,
+          authorization_token,
+          expected_revision,
+          reason,
+        ]
+      properties:
+        hold_type: { type: string, enum: [incident, reproducibility] }
+        reference_id: { type: string, minLength: 1, maxLength: 160 }
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    IncidentTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [state, expected_revision, reason]
+      properties:
+        state: { type: string, enum: [acknowledged, resolved] }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    ConfigurationActivationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [configuration_id, authorization_token, expected_revision, reason]
+      properties:
+        configuration_id: { type: string, minLength: 1 }
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    QualificationStartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          qualification_id,
+          source_sha,
+          configuration_hash,
+          authorization_token,
+          expected_revision,
+          reason,
+        ]
+      properties:
+        qualification_id: { type: string, minLength: 1 }
+        source_sha: { type: string, pattern: "^[0-9a-f]{40}$" }
+        configuration_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        image_digest: { type: string, maxLength: 200 }
+        server_identity: { type: string, maxLength: 200 }
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    RoleChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [roles, authorization_token, expected_revision, reason]
+      properties:
+        roles:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items:
+            type: string
+            enum: [researcher, operator, auditor, owner]
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
     StreamEvent:
       type: object
       additionalProperties: false
@@ -3243,6 +4031,10 @@ components:
                 rebalancing,
                 research,
                 sandbox,
+                activity,
+                qualification,
+                export,
+                configuration,
               ],
           }
         schema_version: { type: string, enum: [axiom.stream.v1] }

@@ -47,7 +47,7 @@ func (store *A11ConsoleStore) Serve(writer http.ResponseWriter, request *http.Re
 	}
 	writer.WriteHeader(http.StatusOK)
 	flusher.Flush()
-	return store.runA11Stream(request.Context(), writer, flusher, connectionID, after)
+	return store.runA11Stream(request.Context(), writer, flusher, connectionID, principal, after)
 }
 
 func (store *A11ConsoleStore) openA11Stream(ctx context.Context, principal authentication.Principal, after int64) (string, error) {
@@ -87,20 +87,29 @@ func (store *A11ConsoleStore) closeA11Stream(connectionID string) {
 	_, _ = store.pool.Exec(context.Background(), `UPDATE stream_connections SET closed_at=$2 WHERE id=$1 AND closed_at IS NULL`, connectionID, store.clock.Now().UTC)
 }
 
-func (store *A11ConsoleStore) runA11Stream(ctx context.Context, writer http.ResponseWriter, flusher http.Flusher, connectionID string, after int64) error {
+func (store *A11ConsoleStore) runA11Stream(
+	ctx context.Context,
+	writer http.ResponseWriter,
+	flusher http.Flusher,
+	connectionID string,
+	principal authentication.Principal,
+	after int64,
+) error {
 	poll := time.NewTicker(time.Second)
 	heartbeat := time.NewTicker(a11StreamHeartbeat)
 	defer poll.Stop()
 	defer heartbeat.Stop()
 	revision := after
 	for {
-		sent, next, sendErr := store.writeA11Events(ctx, writer, revision)
+		sent, next, sendErr := store.writeA11Events(ctx, writer, principal, revision)
 		if sendErr != nil {
 			return nil
 		}
-		if sent {
+		if next > revision {
 			revision = next
-			flusher.Flush()
+			if sent {
+				flusher.Flush()
+			}
 			continue
 		}
 		select {
@@ -120,7 +129,12 @@ func (store *A11ConsoleStore) runA11Stream(ctx context.Context, writer http.Resp
 	}
 }
 
-func (store *A11ConsoleStore) writeA11Events(ctx context.Context, writer http.ResponseWriter, after int64) (bool, int64, error) {
+func (store *A11ConsoleStore) writeA11Events(
+	ctx context.Context,
+	writer http.ResponseWriter,
+	principal authentication.Principal,
+	after int64,
+) (bool, int64, error) {
 	rows, err := store.pool.Query(ctx, `SELECT revision,id,topic,stream,schema_version,entity_revision,event_time,correlation_id,causation_id,payload FROM outbox_events WHERE revision>$1 ORDER BY revision LIMIT $2`, after, a11StreamBatch)
 	if err != nil {
 		return false, after, err
@@ -137,6 +151,10 @@ func (store *A11ConsoleStore) writeA11Events(ctx context.Context, writer http.Re
 		}
 		event.Revision = strconv.FormatInt(rawRevision, 10)
 		event.EntityRevision = strconv.FormatInt(entityRevision, 10)
+		revision = rawRevision
+		if !a11StreamAllowed(principal, string(event.Stream)) {
+			continue
+		}
 		if err = json.Unmarshal(payload, &event.Payload); err != nil {
 			event.Payload = map[string]any{"redacted": true}
 		}
@@ -148,9 +166,39 @@ func (store *A11ConsoleStore) writeA11Events(ctx context.Context, writer http.Re
 			return false, after, err
 		}
 		sent = true
-		revision = rawRevision
 	}
 	return sent, revision, rows.Err()
+}
+
+func a11StreamAllowed(principal authentication.Principal, stream string) bool {
+	permissions := map[string]struct{}{}
+	for _, permission := range principal.Permissions {
+		permissions[permission] = struct{}{}
+	}
+	has := func(permission string) bool {
+		_, ok := permissions[permission]
+		return ok
+	}
+	switch stream {
+	case "activity":
+		return has("activity.read")
+	case "configuration":
+		return has("configuration.admin")
+	case "export":
+		return has("artifacts.read") || has("artifacts.manage")
+	case "qualification":
+		return has("qualification.monitor") || has("qualification.start")
+	case "sandbox":
+		return has(authentication.PermissionSandboxRead)
+	case "research", "shadow":
+		return has("research.control") || has("operations.read")
+	case "alert", "exchange", "fill", "incident", "inventory", "job",
+		"opportunity", "order", "portfolio", "rebalancing", "risk",
+		"strategy", "system", "trend":
+		return has("operations.read")
+	default:
+		return false
+	}
 }
 
 func a11SetStreamWriteDeadline(writer http.ResponseWriter) error {

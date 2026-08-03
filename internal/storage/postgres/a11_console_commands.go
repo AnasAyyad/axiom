@@ -277,6 +277,24 @@ func a11StreamForKind(kind string) string {
 		return "shadow"
 	case kind == "report.export":
 		return "research"
+	case kind == "strategy_configuration" || kind == "strategy_runtime":
+		return "strategy"
+	case kind == "risk_control":
+		return "risk"
+	case kind == "alert":
+		return "alert"
+	case kind == "report" || kind == "lab_run":
+		return "research"
+	case kind == "export" || kind == "artifact_hold":
+		return "export"
+	case kind == "incident":
+		return "incident"
+	case kind == "configuration_activation":
+		return "configuration"
+	case kind == "qualification":
+		return "qualification"
+	case kind == "role_change":
+		return "system"
 	default:
 		return "job"
 	}

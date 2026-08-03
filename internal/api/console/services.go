@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"axiom/internal/api/generated"
 	"axiom/internal/authentication"
@@ -89,4 +90,43 @@ type SandboxCommandService interface {
 	CreateSandboxTestOrder(context.Context, authentication.Principal, string, generated.SandboxTestOrderRequest) (generated.CommandAccepted, error)
 	QueueSandboxOrderCommand(context.Context, authentication.Principal, string, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
 	QueueSandboxAccountReconciliation(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
+}
+
+// D1ListQuery is a validated, bounded, deterministic collection request.
+type D1ListQuery struct {
+	Cursor   string
+	PageSize int
+	From     *time.Time
+	To       *time.Time
+	Filters  map[string]string
+}
+
+// D1ActivityQuery carries only stable documented activity filters.
+type D1ActivityQuery struct {
+	D1ListQuery
+	View, Strategy, Instrument, Exchange, Side, Outcome, Reason, Mode, CorrelationID string
+}
+
+// D1Command is the closed internal command envelope. Payload contains only
+// handler-validated, non-secret values from generated request models.
+type D1Command struct {
+	Kind, TargetID, Action, State, IdempotencyKey, Reason string
+	ExpectedRevision                                      int64
+	Payload                                               map[string]any
+	Authorization                                         *authentication.ConsumedAuthorization
+}
+
+// D1ReadService owns redacted D1 snapshots and authorized artifact reads.
+type D1ReadService interface {
+	D1Resources(context.Context, string, D1ListQuery) (generated.D1ResourcePage, error)
+	D1Resource(context.Context, string, string) (generated.D1Resource, error)
+	D1Activity(context.Context, D1ActivityQuery) (generated.ActivityPage, error)
+	D1ActivityDetail(context.Context, string) (generated.ActivityResource, error)
+	D1Export(context.Context, authentication.Principal, string) (generated.ExportArtifact, error)
+}
+
+// D1CommandService persists the closed D1 command set and export artifacts.
+type D1CommandService interface {
+	ExecuteD1(context.Context, authentication.Principal, D1Command) (generated.CommandAccepted, error)
+	CreateD1Export(context.Context, authentication.Principal, string, generated.ExportRequest) (generated.ExportArtifact, error)
 }
