@@ -410,6 +410,23 @@ b2-live-qualify: ## Run the explicitly enabled short public-only Binance/Bybit c
 
 b2-local-qualify: b2-model-qualify b2-postgres-qualify verify ## Pass every non-soak B2 gate cumulatively.
 
+b2-soak-smoke: ## Run the 20-second non-formal six-collector B2 qualification harness.
+	@test -n "$(AXIOM_B2_SOURCE_COMMIT)" || { echo "AXIOM_B2_SOURCE_COMMIT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_SOAK_OUTPUT)" || { echo "AXIOM_B2_SOAK_OUTPUT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_COLLECTOR_REGION)" || { echo "AXIOM_B2_COLLECTOR_REGION is required" >&2; exit 1; }
+	@test "$(AXIOM_B2_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_B2_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "B2 smoke requires an exact clean committed source" >&2; exit 1; }
+	@AXIOM_B2_SOAK_SMOKE=1 AXIOM_B2_SOURCE_COMMIT="$(AXIOM_B2_SOURCE_COMMIT)" AXIOM_B2_SOAK_OUTPUT="$(AXIOM_B2_SOAK_OUTPUT)" AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestB2PublicSoakHarnessSmoke$$' -count=1 -timeout=5m -v
+
+b2-soak-qualify: ## Run the explicit formal 72-hour B2 qualification; never use this target for smoke.
+	@test "$(AXIOM_B2_SOAK)" = "1" || { echo "AXIOM_B2_SOAK=1 explicit opt-in is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_SOURCE_COMMIT)" || { echo "AXIOM_B2_SOURCE_COMMIT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_SOAK_OUTPUT)" || { echo "AXIOM_B2_SOAK_OUTPUT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_B2_COLLECTOR_REGION)" || { echo "AXIOM_B2_COLLECTOR_REGION is required" >&2; exit 1; }
+	@test "$(AXIOM_B2_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_B2_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "formal B2 qualification requires a clean committed source" >&2; exit 1; }
+	@AXIOM_B2_SOAK=1 AXIOM_B2_SOURCE_COMMIT="$(AXIOM_B2_SOURCE_COMMIT)" AXIOM_B2_SOAK_OUTPUT="$(AXIOM_B2_SOAK_OUTPUT)" AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestB2Continuous72HourPublicSoak$$' -count=1 -timeout=73h -v
+
 b3-sqlc: ## Generate and compile the reviewed B3 mean-reversion and research queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml

@@ -93,6 +93,17 @@ ceiling, and a 2 GiB container limit. Forced-GC heap samples use two one-hour
 post-warm-up windows; a rise exceeding both 5% and 8 MiB is treated as a
 positive leak trend. The raw samples remain in the evidence artifact.
 
+For B2, the formal runner fixes six public collectors: Binance and Bybit for
+BTC/USDT, ETH/USDT, and ETH/BTC. Each collector retains 1,000 book levels,
+uses a 16,384-event queue, and records 15-minute, 1-hour, and 4-hour candles;
+Binance recovery snapshots request 5,000 levels. All six combined-health states
+and all three coherent pairs must become eligible within two minutes before the
+72-hour clock starts. Official coherent samples run every five seconds with the
+unchanged 250 ms age/skew and 100 ms uncertainty limits. Pair recovery at
+exactly 15 seconds is accepted; later or unresolved recovery fails. B2 has a
+1 GiB heap ceiling, preserves each recorder 512 MiB limit and 128 MiB proactive
+flush threshold, and requires at least 10 GiB free filesystem space.
+
 ## SLI definitions
 
 - **Book age/skew:** computed from the exact immutable market-view versions used

@@ -496,19 +496,25 @@ environment variables.
 
 Add the edge only after `APP_DOMAIN`, `ACME_EMAIL`, secure cookies, allowed origins, DNS, firewall, and TLS behavior are correct:
 
-Formal A7 and B1 qualifications run in separate, new empty output roots and
-separate service logs. Each runner must use a full committed source identity,
-public-only environment, `Restart=no`, and a 73-hour test timeout. A7 and B1
-may run concurrently, but their artifacts, status files, hash-chained journals,
-terminal evidence, and service logs must never be shared.
+```bash
+docker compose --profile app --profile record --profile observability --profile edge up -d
+```
+
+### Formal qualification services
+
+Formal A7, B1, and future B2 qualifications use separate, new empty output
+roots and separate service logs. Each runner must use an exact full committed
+source identity, a public-only environment, `Restart=no`, and a 73-hour test
+timeout. Their artifacts, status files, hash-chained journals, terminal evidence,
+and service logs must never be shared.
 
 A formal service is considered started only after all of the following are
 observed:
 
 - the unit is active with `NRestarts=0`, a valid PID, and expected start time;
-- the log names the exact A7 or B1 72-hour test and committed source;
+- the log names the exact 72-hour test and committed source;
 - the atomically replaced rolling status parses with the current schema;
-- lifecycle journal entries exist and their bounded facts mirror to the log;
+- lifecycle journal entries exist and their bounded facts mirror to the log; and
 - segment and cumulative-manifest data are arriving in the dedicated root.
 
 DNS, TCP, TLS, and WebSocket upgrade share a five-second setup deadline and
@@ -519,10 +525,14 @@ health before cancellation. Normal cancellation must not invalidate a healthy
 book or create a reconnect, while journal, rolling-status, recorder-flush,
 capacity, or terminal-evidence failure remains fail-closed.
 
-Do not modify old qualification directories, terminal JSON, journals, logs,
-```bash
-docker compose --profile app --profile record --profile observability --profile edge up -d
-```
+The B2 service contract additionally requires one dedicated empty B2 root and
+log, exact `AXIOM_B2_SOURCE_COMMIT`, bounded `AXIOM_B2_COLLECTOR_REGION`, and
+`AXIOM_B2_SOAK=1`. It runs `TestB2Continuous72HourPublicSoak` with a 73-hour
+timeout and `Restart=no`. This change documents that future contract only: no B2
+unit is installed or started, and the 20-second smoke cannot promote B2.
+
+Do not modify old qualification directories, terminal JSON, journals, logs, or
+the services supporting an active or historical run.
 
 ## 5. Encrypted PostgreSQL backups
 

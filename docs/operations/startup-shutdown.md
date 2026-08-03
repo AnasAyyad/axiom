@@ -131,6 +131,14 @@ successful.
 9. Exit zero only when the sequence completed; otherwise emit a redacted failure
    and require recovery on next startup.
 
+The B2 qualification runner uses a stricter evidence order at its official end:
+freeze all six combined-health snapshots and all three coherent-pair states,
+then cancel the collectors without allowing normal cancellation to mutate health
+or create false reconnect evidence. A genuine concurrent failure remains terminal.
+Only after every collector has stopped may the two candidate recorders finalize,
+validate their cumulative chains and replay linkage, and atomically retain the
+aggregate Tier-A dataset and terminal evidence.
+
 If the 60-second budget expires, preserve fail-closed state and terminate
 without fabricating completion. The next startup performs full recovery.
 

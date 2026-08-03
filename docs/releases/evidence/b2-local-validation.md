@@ -2,6 +2,10 @@
 
 ## Status
 
+The B2 formal 72-hour qualification runner is implemented and locally verified.
+The formal 72-hour qualification remains pending and has not been started. The
+20-second harness is non-formal and cannot promote B2.
+
 B2 is locally verified for every implemented and non-soak gate on 2026-07-22.
 Its model, deterministic replay, recorder, Tier A, PostgreSQL 18, cumulative
 verification, and short production-public coherent-view qualifications passed.
@@ -135,3 +139,24 @@ fail-closed evidence but is superseded as the short coherent-view gate result.
 - A7 is accepted under owner waiver and B1 is formally qualified.
 - Product, Security, QA, and SRE formal acceptance remains pending after those
   predecessor and deferred phase gates close.
+
+## Formal qualification runner
+
+The runner starts six production-public collectors for Binance and Bybit across
+BTC/USDT, ETH/USDT, and ETH/BTC. It requires an exact clean committed source, a
+dedicated absolute empty output root, an explicit opt-in, and a bounded
+collector region. The official clock begins only after all combined-health
+snapshots and all coherent pairs pass the two-minute readiness gate.
+
+Every five-second coherent sample is retained in five-minute atomic
+hash-chained segments and replayed at finalization. Rolling status is written as
+`axiom.b2-soak-status.v1`; lifecycle evidence uses
+`axiom.b2-soak-events.v1`; terminal evidence uses `axiom.b2-soak.v1`; and the
+final aggregate retains the existing `axiom.multi-exchange-dataset.v1` Tier-A
+schema. Exact 15-second recovery is inclusive. A later recovery or unresolved
+official-end degradation fails closed.
+
+`make b2-soak-smoke` runs only the 20-second non-formal harness.
+`AXIOM_B2_SOAK=1 make b2-soak-qualify` is reserved for the future formal run.
+Neither target installs a unit, deploys a service, or changes historical
+qualification evidence. See ADR 0020 and the operations documentation.

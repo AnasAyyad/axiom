@@ -37,8 +37,11 @@ func TestB2PostgresB1ToB2UpgradeQualification(t *testing.T) {
 	assertPostgres18(t, ctx, pool)
 	assertEmptyTestDatabase(t, ctx, pool)
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 14 {
+	if err != nil || len(migrations) < 14 {
 		t.Fatalf("migration catalog=%d error=%v", len(migrations), err)
+	}
+	if migrations[13].Name != "000014_b2_coherent_views.sql" {
+		t.Fatalf("B2 migration=%q", migrations[13].Name)
 	}
 	connection, err := pool.Acquire(ctx)
 	if err != nil {
@@ -56,8 +59,9 @@ func TestB2PostgresB1ToB2UpgradeQualification(t *testing.T) {
 		}
 	}
 	connection.Release()
-	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 1 {
-		t.Fatalf("B1-to-B2 migration=%d error=%v", applied, applyErr)
+	expected := len(migrations) - 13
+	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != expected {
+		t.Fatalf("B1-to-current migration=%d/%d error=%v", applied, expected, applyErr)
 	}
 	assertB2SchemaAndPersistence(t, ctx, pool)
 }
