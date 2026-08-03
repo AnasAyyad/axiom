@@ -83,7 +83,8 @@ jobs:
             axiom_recorder \
             axiom_readonly \
             axiom_binance_engine \
-            axiom_bybit_engine; do
+            axiom_bybit_engine \
+            axiom_c6_qualification; do
             docker exec "${POSTGRES_SERVICE_ID}" psql \
               --username postgres --dbname axiom --set=ON_ERROR_STOP=1 \
               --command "CREATE ROLE ${role} NOLOGIN"
