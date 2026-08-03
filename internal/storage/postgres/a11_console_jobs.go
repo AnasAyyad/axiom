@@ -18,14 +18,14 @@ import (
 // Job returns one durable backtest or replay lifecycle record.
 func (store *A11ConsoleStore) Job(ctx context.Context, id, eventOrdinal string) (generated.JobResource, error) {
 	var item generated.JobResource
-	var kind, state, runID string
+	var kind, state, runID, payloadHash string
 	var revision int64
 	var failure *string
 	var requestPayload, result []byte
 	err := store.pool.QueryRow(ctx, `SELECT id,job_type,state,created_at,updated_at,progress_revision,failure_code,
-	  coalesce(result_payload::text,''),coalesce(run_id,''),request_payload FROM jobs
+	  coalesce(result_payload::text,''),coalesce(run_id,''),request_payload,payload_hash::text FROM jobs
 	  WHERE id=$1 AND job_type IN ('backtest','replay') AND request_payload IS NOT NULL`, id).
-		Scan(&item.Id, &kind, &state, &item.CreatedAt, &item.UpdatedAt, &revision, &failure, &result, &runID, &requestPayload)
+		Scan(&item.Id, &kind, &state, &item.CreatedAt, &item.UpdatedAt, &revision, &failure, &result, &runID, &requestPayload, &payloadHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return generated.JobResource{}, console.ErrNotFound
 	}
@@ -54,6 +54,9 @@ func (store *A11ConsoleStore) Job(ctx context.Context, id, eventOrdinal string) 
 		}
 		item.Result = &projection
 	}
+	if err = populateD3JobEvidence(ctx, store, &item, request, payloadHash, runID); err != nil {
+		return generated.JobResource{}, err
+	}
 	return item, nil
 }
 
@@ -66,6 +69,11 @@ func (store *A11ConsoleStore) populateJobMode(ctx context.Context, item *generat
 		return nil
 	}
 	item.ModeLabel = generated.REPLAY
+	checkpoints, err := store.d3ReplayCheckpoints(ctx, runID)
+	if err != nil {
+		return err
+	}
+	item.Checkpoints = &checkpoints
 	inspection, err := store.replayInspection(ctx, runID, eventOrdinal)
 	if err != nil {
 		return err

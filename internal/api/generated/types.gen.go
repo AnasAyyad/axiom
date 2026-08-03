@@ -1037,6 +1037,42 @@ func (e JournalPageVirtual) Valid() bool {
 	}
 }
 
+// Defines values for LabInputManifestSpeed.
+const (
+	LabInputManifestSpeedAccelerated LabInputManifestSpeed = "accelerated"
+	LabInputManifestSpeedMaximum     LabInputManifestSpeed = "maximum"
+	LabInputManifestSpeedOriginal    LabInputManifestSpeed = "original"
+)
+
+// Valid indicates whether the value is a known member of the LabInputManifestSpeed enum.
+func (e LabInputManifestSpeed) Valid() bool {
+	switch e {
+	case LabInputManifestSpeedAccelerated:
+		return true
+	case LabInputManifestSpeedMaximum:
+		return true
+	case LabInputManifestSpeedOriginal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LabInputManifestStrategyVersion.
+const (
+	LabInputManifestStrategyVersionTrendV1a1 LabInputManifestStrategyVersion = "trend.v1a.1"
+)
+
+// Valid indicates whether the value is a known member of the LabInputManifestStrategyVersion enum.
+func (e LabInputManifestStrategyVersion) Valid() bool {
+	switch e {
+	case LabInputManifestStrategyVersionTrendV1a1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManualChecklistStepManualOnly.
 const (
 	ManualChecklistStepManualOnlyTrue ManualChecklistStepManualOnly = true
@@ -1525,19 +1561,19 @@ func (e ReplayFaultResourceSimulationOnly) Valid() bool {
 
 // Defines values for ReplayJobRequestSpeed.
 const (
-	Accelerated ReplayJobRequestSpeed = "accelerated"
-	Maximum     ReplayJobRequestSpeed = "maximum"
-	Original    ReplayJobRequestSpeed = "original"
+	ReplayJobRequestSpeedAccelerated ReplayJobRequestSpeed = "accelerated"
+	ReplayJobRequestSpeedMaximum     ReplayJobRequestSpeed = "maximum"
+	ReplayJobRequestSpeedOriginal    ReplayJobRequestSpeed = "original"
 )
 
 // Valid indicates whether the value is a known member of the ReplayJobRequestSpeed enum.
 func (e ReplayJobRequestSpeed) Valid() bool {
 	switch e {
-	case Accelerated:
+	case ReplayJobRequestSpeedAccelerated:
 		return true
-	case Maximum:
+	case ReplayJobRequestSpeedMaximum:
 		return true
-	case Original:
+	case ReplayJobRequestSpeedOriginal:
 		return true
 	default:
 		return false
@@ -1661,6 +1697,30 @@ func (e ReportRequestReportType) Valid() bool {
 	case ReportRequestReportTypeSandboxQualifications:
 		return true
 	case ReportRequestReportTypeStrategyResults:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReproductionBundleConfidenceTier.
+const (
+	A ReproductionBundleConfidenceTier = "A"
+	B ReproductionBundleConfidenceTier = "B"
+	C ReproductionBundleConfidenceTier = "C"
+	D ReproductionBundleConfidenceTier = "D"
+)
+
+// Valid indicates whether the value is a known member of the ReproductionBundleConfidenceTier enum.
+func (e ReproductionBundleConfidenceTier) Valid() bool {
+	switch e {
+	case A:
+		return true
+	case B:
+		return true
+	case C:
+		return true
+	case D:
 		return true
 	default:
 		return false
@@ -2309,6 +2369,78 @@ func (e SandboxTestOrderRequestStyle) Valid() bool {
 	}
 }
 
+// Defines values for ShadowDataHealthState.
+const (
+	ShadowDataHealthStateCONNECTING   ShadowDataHealthState = "CONNECTING"
+	ShadowDataHealthStateDISCONNECTED ShadowDataHealthState = "DISCONNECTED"
+	ShadowDataHealthStateHEALTHY      ShadowDataHealthState = "HEALTHY"
+	ShadowDataHealthStatePAUSED       ShadowDataHealthState = "PAUSED"
+	ShadowDataHealthStateSUBSCRIBED   ShadowDataHealthState = "SUBSCRIBED"
+	ShadowDataHealthStateSYNCING      ShadowDataHealthState = "SYNCING"
+)
+
+// Valid indicates whether the value is a known member of the ShadowDataHealthState enum.
+func (e ShadowDataHealthState) Valid() bool {
+	switch e {
+	case ShadowDataHealthStateCONNECTING:
+		return true
+	case ShadowDataHealthStateDISCONNECTED:
+		return true
+	case ShadowDataHealthStateHEALTHY:
+		return true
+	case ShadowDataHealthStatePAUSED:
+		return true
+	case ShadowDataHealthStateSUBSCRIBED:
+		return true
+	case ShadowDataHealthStateSYNCING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowDecisionSummaryRiskOutcome.
+const (
+	ShadowDecisionSummaryRiskOutcomeApproved     ShadowDecisionSummaryRiskOutcome = "approved"
+	ShadowDecisionSummaryRiskOutcomeLocked       ShadowDecisionSummaryRiskOutcome = "locked"
+	ShadowDecisionSummaryRiskOutcomeNotEvaluated ShadowDecisionSummaryRiskOutcome = "not_evaluated"
+	ShadowDecisionSummaryRiskOutcomePaused       ShadowDecisionSummaryRiskOutcome = "paused"
+	ShadowDecisionSummaryRiskOutcomeRejected     ShadowDecisionSummaryRiskOutcome = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ShadowDecisionSummaryRiskOutcome enum.
+func (e ShadowDecisionSummaryRiskOutcome) Valid() bool {
+	switch e {
+	case ShadowDecisionSummaryRiskOutcomeApproved:
+		return true
+	case ShadowDecisionSummaryRiskOutcomeLocked:
+		return true
+	case ShadowDecisionSummaryRiskOutcomeNotEvaluated:
+		return true
+	case ShadowDecisionSummaryRiskOutcomePaused:
+		return true
+	case ShadowDecisionSummaryRiskOutcomeRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowPnlAttributionValuationBasis.
+const (
+	SealedLedgerFunctionalValue ShadowPnlAttributionValuationBasis = "sealed_ledger_functional_value"
+)
+
+// Valid indicates whether the value is a known member of the ShadowPnlAttributionValuationBasis enum.
+func (e ShadowPnlAttributionValuationBasis) Valid() bool {
+	switch e {
+	case SealedLedgerFunctionalValue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ShadowSessionRequestStrategyVersion.
 const (
 	ShadowSessionRequestStrategyVersionTrendV1a1 ShadowSessionRequestStrategyVersion = "trend.v1a.1"
@@ -2414,6 +2546,81 @@ func (e ShadowSessionResourceState) Valid() bool {
 	case ShadowSessionResourceStateQUEUED:
 		return true
 	case ShadowSessionResourceStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionSummaryPublicOnly.
+const (
+	ShadowSessionSummaryPublicOnlyTrue ShadowSessionSummaryPublicOnly = true
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummaryPublicOnly enum.
+func (e ShadowSessionSummaryPublicOnly) Valid() bool {
+	switch e {
+	case ShadowSessionSummaryPublicOnlyTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionSummarySimulationOnly.
+const (
+	ShadowSessionSummarySimulationOnlyTrue ShadowSessionSummarySimulationOnly = true
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummarySimulationOnly enum.
+func (e ShadowSessionSummarySimulationOnly) Valid() bool {
+	switch e {
+	case ShadowSessionSummarySimulationOnlyTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionSummaryState.
+const (
+	ShadowSessionSummaryStateCANCELED        ShadowSessionSummaryState = "CANCELED"
+	ShadowSessionSummaryStateCANCELREQUESTED ShadowSessionSummaryState = "CANCEL_REQUESTED"
+	ShadowSessionSummaryStateFAILED          ShadowSessionSummaryState = "FAILED"
+	ShadowSessionSummaryStatePAUSED          ShadowSessionSummaryState = "PAUSED"
+	ShadowSessionSummaryStateQUEUED          ShadowSessionSummaryState = "QUEUED"
+	ShadowSessionSummaryStateRUNNING         ShadowSessionSummaryState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummaryState enum.
+func (e ShadowSessionSummaryState) Valid() bool {
+	switch e {
+	case ShadowSessionSummaryStateCANCELED:
+		return true
+	case ShadowSessionSummaryStateCANCELREQUESTED:
+		return true
+	case ShadowSessionSummaryStateFAILED:
+		return true
+	case ShadowSessionSummaryStatePAUSED:
+		return true
+	case ShadowSessionSummaryStateQUEUED:
+		return true
+	case ShadowSessionSummaryStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionSummaryStrategyVersion.
+const (
+	ShadowSessionSummaryStrategyVersionTrendV1a1 ShadowSessionSummaryStrategyVersion = "trend.v1a.1"
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummaryStrategyVersion enum.
+func (e ShadowSessionSummaryStrategyVersion) Valid() bool {
+	switch e {
+	case ShadowSessionSummaryStrategyVersionTrendV1a1:
 		return true
 	default:
 		return false
@@ -2782,19 +2989,19 @@ func (e SystemStatusRelease) Valid() bool {
 
 // Defines values for SystemStatusRiskState.
 const (
-	LOCKED  SystemStatusRiskState = "LOCKED"
-	PAUSED  SystemStatusRiskState = "PAUSED"
-	RESUMED SystemStatusRiskState = "RESUMED"
+	SystemStatusRiskStateLOCKED  SystemStatusRiskState = "LOCKED"
+	SystemStatusRiskStatePAUSED  SystemStatusRiskState = "PAUSED"
+	SystemStatusRiskStateRESUMED SystemStatusRiskState = "RESUMED"
 )
 
 // Valid indicates whether the value is a known member of the SystemStatusRiskState enum.
 func (e SystemStatusRiskState) Valid() bool {
 	switch e {
-	case LOCKED:
+	case SystemStatusRiskStateLOCKED:
 		return true
-	case PAUSED:
+	case SystemStatusRiskStatePAUSED:
 		return true
-	case RESUMED:
+	case SystemStatusRiskStateRESUMED:
 		return true
 	default:
 		return false
@@ -3110,18 +3317,48 @@ func (e ControlRiskScopeParamsScope) Valid() bool {
 	}
 }
 
+// Defines values for ListShadowSessionsParamsState.
+const (
+	ListShadowSessionsParamsStateCANCELED        ListShadowSessionsParamsState = "CANCELED"
+	ListShadowSessionsParamsStateCANCELREQUESTED ListShadowSessionsParamsState = "CANCEL_REQUESTED"
+	ListShadowSessionsParamsStateFAILED          ListShadowSessionsParamsState = "FAILED"
+	ListShadowSessionsParamsStatePAUSED          ListShadowSessionsParamsState = "PAUSED"
+	ListShadowSessionsParamsStateQUEUED          ListShadowSessionsParamsState = "QUEUED"
+	ListShadowSessionsParamsStateRUNNING         ListShadowSessionsParamsState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the ListShadowSessionsParamsState enum.
+func (e ListShadowSessionsParamsState) Valid() bool {
+	switch e {
+	case ListShadowSessionsParamsStateCANCELED:
+		return true
+	case ListShadowSessionsParamsStateCANCELREQUESTED:
+		return true
+	case ListShadowSessionsParamsStateFAILED:
+		return true
+	case ListShadowSessionsParamsStatePAUSED:
+		return true
+	case ListShadowSessionsParamsStateQUEUED:
+		return true
+	case ListShadowSessionsParamsStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListTrendDecisionsParamsOutcome.
 const (
-	ListTrendDecisionsParamsOutcomeAccepted ListTrendDecisionsParamsOutcome = "accepted"
-	ListTrendDecisionsParamsOutcomeRejected ListTrendDecisionsParamsOutcome = "rejected"
+	Accepted ListTrendDecisionsParamsOutcome = "accepted"
+	Rejected ListTrendDecisionsParamsOutcome = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the ListTrendDecisionsParamsOutcome enum.
 func (e ListTrendDecisionsParamsOutcome) Valid() bool {
 	switch e {
-	case ListTrendDecisionsParamsOutcomeAccepted:
+	case Accepted:
 		return true
-	case ListTrendDecisionsParamsOutcomeRejected:
+	case Rejected:
 		return true
 	default:
 		return false
@@ -3712,19 +3949,24 @@ type InventoryPositionVirtual bool
 
 // JobResource defines model for JobResource.
 type JobResource struct {
+	Checkpoints *[]ReplayCheckpoint `json:"checkpoints,omitempty"`
+
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
-	CreatedAt        Timestamp                 `json:"created_at"`
-	CursorOrdinal    *Revision                 `json:"cursor_ordinal,omitempty"`
-	FailureCode      *string                   `json:"failure_code,omitempty"`
-	Id               string                    `json:"id"`
-	Kind             JobResourceKind           `json:"kind"`
-	ModeLabel        JobResourceModeLabel      `json:"mode_label"`
-	Progress         *NonnegativeDecimal       `json:"progress,omitempty"`
-	RegisteredReport *RegisteredResearchReport `json:"registered_report,omitempty"`
-	ReplayInspection *ReplayEventInspection    `json:"replay_inspection,omitempty"`
-	Result           *JobResult                `json:"result,omitempty"`
-	Revision         Revision                  `json:"revision"`
-	State            JobResourceState          `json:"state"`
+	CreatedAt          Timestamp                 `json:"created_at"`
+	CursorOrdinal      *Revision                 `json:"cursor_ordinal,omitempty"`
+	FailureCode        *string                   `json:"failure_code,omitempty"`
+	Id                 string                    `json:"id"`
+	InputManifest      *LabInputManifest         `json:"input_manifest,omitempty"`
+	Kind               JobResourceKind           `json:"kind"`
+	Lifecycle          *LabLifecycleCapabilities `json:"lifecycle,omitempty"`
+	ModeLabel          JobResourceModeLabel      `json:"mode_label"`
+	Progress           *NonnegativeDecimal       `json:"progress,omitempty"`
+	RegisteredReport   *RegisteredResearchReport `json:"registered_report,omitempty"`
+	ReplayInspection   *ReplayEventInspection    `json:"replay_inspection,omitempty"`
+	ReproductionBundle *ReproductionBundle       `json:"reproduction_bundle,omitempty"`
+	Result             *JobResult                `json:"result,omitempty"`
+	Revision           Revision                  `json:"revision"`
+	State              JobResourceState          `json:"state"`
 
 	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
 	UpdatedAt *Timestamp `json:"updated_at,omitempty"`
@@ -3790,6 +4032,35 @@ type JournalPage struct {
 
 // JournalPageVirtual defines model for JournalPage.Virtual.
 type JournalPageVirtual bool
+
+// LabInputManifest defines model for LabInputManifest.
+type LabInputManifest struct {
+	ConfigurationId      string                          `json:"configuration_id"`
+	DatasetId            string                          `json:"dataset_id"`
+	FirstOrdinal         *Revision                       `json:"first_ordinal,omitempty"`
+	IncidentId           *string                         `json:"incident_id,omitempty"`
+	LastOrdinal          *Revision                       `json:"last_ordinal,omitempty"`
+	ResearchGenerationId string                          `json:"research_generation_id"`
+	RootSeedHash         string                          `json:"root_seed_hash"`
+	Speed                *LabInputManifestSpeed          `json:"speed,omitempty"`
+	StrategyVersion      LabInputManifestStrategyVersion `json:"strategy_version"`
+}
+
+// LabInputManifestSpeed defines model for LabInputManifest.Speed.
+type LabInputManifestSpeed string
+
+// LabInputManifestStrategyVersion defines model for LabInputManifest.StrategyVersion.
+type LabInputManifestStrategyVersion string
+
+// LabLifecycleCapabilities defines model for LabLifecycleCapabilities.
+type LabLifecycleCapabilities struct {
+	Cancel    bool `json:"cancel"`
+	Compare   bool `json:"compare"`
+	Export    bool `json:"export"`
+	Pause     bool `json:"pause"`
+	Reproduce bool `json:"reproduce"`
+	Resume    bool `json:"resume"`
+}
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
@@ -4140,6 +4411,17 @@ type RegisteredResearchReportConfidenceLabel string
 // RegisteredResearchReportViability defines model for RegisteredResearchReport.Viability.
 type RegisteredResearchReportViability string
 
+// ReplayCheckpoint defines model for ReplayCheckpoint.
+type ReplayCheckpoint struct {
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt              Timestamp `json:"created_at"`
+	DeterministicStateHash *string   `json:"deterministic_state_hash,omitempty"`
+	InputOrdinal           Revision  `json:"input_ordinal"`
+	ModelNamespaceId       *string   `json:"model_namespace_id,omitempty"`
+	Revision               Revision  `json:"revision"`
+	StateHash              string    `json:"state_hash"`
+}
+
 // ReplayEventInspection defines model for ReplayEventInspection.
 type ReplayEventInspection struct {
 	CanonicalBalances        string   `json:"canonical_balances"`
@@ -4252,6 +4534,29 @@ type ReportRequest struct {
 
 // ReportRequestReportType defines model for ReportRequest.ReportType.
 type ReportRequestReportType string
+
+// ReproductionBundle defines model for ReproductionBundle.
+type ReproductionBundle struct {
+	Architecture        string                           `json:"architecture"`
+	CanonicalManifest   string                           `json:"canonical_manifest"`
+	CodeCommit          string                           `json:"code_commit"`
+	ConfidenceTier      ReproductionBundleConfidenceTier `json:"confidence_tier"`
+	ConfigurationHash   string                           `json:"configuration_hash"`
+	DatasetManifestHash string                           `json:"dataset_manifest_hash"`
+	DatasetRevision     Revision                         `json:"dataset_revision"`
+	GoVersion           string                           `json:"go_version"`
+	InputHash           string                           `json:"input_hash"`
+	ManifestHash        string                           `json:"manifest_hash"`
+	ModelNamespaceId    string                           `json:"model_namespace_id"`
+	OperatingSystem     string                           `json:"operating_system"`
+	ResultHash          *string                          `json:"result_hash,omitempty"`
+	RunId               string                           `json:"run_id"`
+	SourceCommit        string                           `json:"source_commit"`
+	StartingBalanceHash string                           `json:"starting_balance_hash"`
+}
+
+// ReproductionBundleConfidenceTier defines model for ReproductionBundle.ConfidenceTier.
+type ReproductionBundleConfidenceTier string
 
 // ResearchCapacityPoint defines model for ResearchCapacityPoint.
 type ResearchCapacityPoint struct {
@@ -4672,6 +4977,79 @@ type SessionUser struct {
 	Roles       []string            `json:"roles"`
 }
 
+// ShadowBalance defines model for ShadowBalance.
+type ShadowBalance struct {
+	Asset     string             `json:"asset"`
+	Available NonnegativeDecimal `json:"available"`
+	Reserved  NonnegativeDecimal `json:"reserved"`
+	Revision  Revision           `json:"revision"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// ShadowDataHealth defines model for ShadowDataHealth.
+type ShadowDataHealth struct {
+	Exchange string `json:"exchange"`
+	Fresh    bool   `json:"fresh"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt Timestamp             `json:"observed_at"`
+	Reason     string                `json:"reason"`
+	State      ShadowDataHealthState `json:"state"`
+}
+
+// ShadowDataHealthState defines model for ShadowDataHealth.State.
+type ShadowDataHealthState string
+
+// ShadowDecisionSummary defines model for ShadowDecisionSummary.
+type ShadowDecisionSummary struct {
+	Id string `json:"id"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt     Timestamp                        `json:"occurred_at"`
+	Outcome        string                           `json:"outcome"`
+	ReasonCode     string                           `json:"reason_code"`
+	RiskOutcome    ShadowDecisionSummaryRiskOutcome `json:"risk_outcome"`
+	RiskReasonCode string                           `json:"risk_reason_code"`
+}
+
+// ShadowDecisionSummaryRiskOutcome defines model for ShadowDecisionSummary.RiskOutcome.
+type ShadowDecisionSummaryRiskOutcome string
+
+// ShadowPnlAttribution defines model for ShadowPnlAttribution.
+type ShadowPnlAttribution struct {
+	FeeExpense     Decimal                            `json:"fee_expense"`
+	Latency        Decimal                            `json:"latency"`
+	RealizedPnl    Decimal                            `json:"realized_pnl"`
+	Slippage       Decimal                            `json:"slippage"`
+	Spread         Decimal                            `json:"spread"`
+	ValuationBasis ShadowPnlAttributionValuationBasis `json:"valuation_basis"`
+}
+
+// ShadowPnlAttributionValuationBasis defines model for ShadowPnlAttribution.ValuationBasis.
+type ShadowPnlAttributionValuationBasis string
+
+// ShadowPosition defines model for ShadowPosition.
+type ShadowPosition struct {
+	Instrument  string             `json:"instrument"`
+	Quantity    NonnegativeDecimal `json:"quantity"`
+	RealizedPnl Decimal            `json:"realized_pnl"`
+	Revision    Revision           `json:"revision"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt           Timestamp          `json:"updated_at"`
+	WeightedAverageCost NonnegativeDecimal `json:"weighted_average_cost"`
+}
+
+// ShadowSessionPage defines model for ShadowSessionPage.
+type ShadowSessionPage struct {
+	HasMore    bool                   `json:"has_more"`
+	Items      []ShadowSessionSummary `json:"items"`
+	NextCursor *string                `json:"next_cursor,omitempty"`
+	Revision   Revision               `json:"revision"`
+}
+
 // ShadowSessionRequest defines model for ShadowSessionRequest.
 type ShadowSessionRequest struct {
 	ConfigurationId string                              `json:"configuration_id"`
@@ -4684,24 +5062,34 @@ type ShadowSessionRequestStrategyVersion string
 
 // ShadowSessionResource defines model for ShadowSessionResource.
 type ShadowSessionResource struct {
-	AcceptedDecisions int    `json:"accepted_decisions"`
-	ConfigurationId   string `json:"configuration_id"`
+	AcceptedDecisions int              `json:"accepted_decisions"`
+	Balances          *[]ShadowBalance `json:"balances,omitempty"`
+	ConfigurationId   string           `json:"configuration_id"`
 
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
 	CreatedAt           Timestamp                           `json:"created_at"`
+	DataHealth          *ShadowDataHealth                   `json:"data_health,omitempty"`
 	DecisionDatasetId   string                              `json:"decision_dataset_id"`
+	Decisions           *[]ShadowDecisionSummary            `json:"decisions,omitempty"`
 	EntriesEnabled      bool                                `json:"entries_enabled"`
+	ExchangeId          *string                             `json:"exchange_id,omitempty"`
 	FailureCode         *string                             `json:"failure_code,omitempty"`
+	GapModelId          *string                             `json:"gap_model_id,omitempty"`
 	Id                  string                              `json:"id"`
 	JournalTransactions int                                 `json:"journal_transactions"`
 	Label               ShadowSessionResourceLabel          `json:"label"`
 	ModelNamespaceId    string                              `json:"model_namespace_id"`
 	Orders              *[]SimulatedOrder                   `json:"orders,omitempty"`
+	PnlAttribution      *ShadowPnlAttribution               `json:"pnl_attribution,omitempty"`
+	PortfolioId         *string                             `json:"portfolio_id,omitempty"`
+	Positions           *[]ShadowPosition                   `json:"positions,omitempty"`
 	PublicOnly          ShadowSessionResourcePublicOnly     `json:"public_only"`
 	RejectedDecisions   int                                 `json:"rejected_decisions"`
 	Revision            Revision                            `json:"revision"`
 	RiskState           *ShadowSessionResourceRiskState     `json:"risk_state,omitempty"`
+	RunId               *string                             `json:"run_id,omitempty"`
 	SimulationOnly      ShadowSessionResourceSimulationOnly `json:"simulation_only"`
+	SlippageModelId     *string                             `json:"slippage_model_id,omitempty"`
 
 	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
 	StartedAt *Timestamp                 `json:"started_at,omitempty"`
@@ -4726,6 +5114,36 @@ type ShadowSessionResourceSimulationOnly bool
 
 // ShadowSessionResourceState defines model for ShadowSessionResource.State.
 type ShadowSessionResourceState string
+
+// ShadowSessionSummary defines model for ShadowSessionSummary.
+type ShadowSessionSummary struct {
+	ConfigurationId string `json:"configuration_id"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt      Timestamp                          `json:"created_at"`
+	FailureCode    *string                            `json:"failure_code,omitempty"`
+	Id             string                             `json:"id"`
+	PublicOnly     ShadowSessionSummaryPublicOnly     `json:"public_only"`
+	Revision       Revision                           `json:"revision"`
+	SimulationOnly ShadowSessionSummarySimulationOnly `json:"simulation_only"`
+	State          ShadowSessionSummaryState          `json:"state"`
+
+	// StoppedAt RFC 3339 timestamp with an explicit UTC offset.
+	StoppedAt       *Timestamp                          `json:"stopped_at,omitempty"`
+	StrategyVersion ShadowSessionSummaryStrategyVersion `json:"strategy_version"`
+}
+
+// ShadowSessionSummaryPublicOnly defines model for ShadowSessionSummary.PublicOnly.
+type ShadowSessionSummaryPublicOnly bool
+
+// ShadowSessionSummarySimulationOnly defines model for ShadowSessionSummary.SimulationOnly.
+type ShadowSessionSummarySimulationOnly bool
+
+// ShadowSessionSummaryState defines model for ShadowSessionSummary.State.
+type ShadowSessionSummaryState string
+
+// ShadowSessionSummaryStrategyVersion defines model for ShadowSessionSummary.StrategyVersion.
+type ShadowSessionSummaryStrategyVersion string
 
 // SimulatedOrder defines model for SimulatedOrder.
 type SimulatedOrder struct {
@@ -5436,6 +5854,16 @@ type LogoutSessionParams struct {
 	Origin     Origin    `json:"Origin"`
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
+
+// ListShadowSessionsParams defines parameters for ListShadowSessions.
+type ListShadowSessionsParams struct {
+	Cursor   *Cursor                        `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize                      `form:"page_size,omitempty" json:"page_size,omitempty"`
+	State    *ListShadowSessionsParamsState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ListShadowSessionsParamsState defines parameters for ListShadowSessions.
+type ListShadowSessionsParamsState string
 
 // CreateShadowSessionParams defines parameters for CreateShadowSession.
 type CreateShadowSessionParams struct {

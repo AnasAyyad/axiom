@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
-
+	"strconv"
 	"strings"
 	"time"
 
@@ -72,11 +72,14 @@ func d1ExportJobRecord(
 	ctx context.Context, tx pgx.Tx, id string, expected int64, record map[string]string,
 ) error {
 	var revision int64
-	var kind, state, failureCode string
+	var kind, state, failureCode, runID, inputHash, requestPayload, resultHash string
 	var createdAt, updatedAt time.Time
 	err := tx.QueryRow(ctx, `SELECT progress_revision,job_type,state,created_at,updated_at,
-coalesce(failure_code,'') FROM jobs WHERE id=$1`, id).Scan(
-		&revision, &kind, &state, &createdAt, &updatedAt, &failureCode,
+coalesce(failure_code,''),coalesce(run_id,''),payload_hash::text,
+coalesce(request_payload::text,''),coalesce(result_payload->>'result_hash','')
+FROM jobs WHERE id=$1`, id).Scan(
+		&revision, &kind, &state, &createdAt, &updatedAt, &failureCode, &runID,
+		&inputHash, &requestPayload, &resultHash,
 	)
 	if err != nil {
 		return d1NotFound(err)
@@ -85,8 +88,63 @@ coalesce(failure_code,'') FROM jobs WHERE id=$1`, id).Scan(
 		return console.ErrConflict
 	}
 	record["kind"], record["state"], record["failure_code"] = kind, state, failureCode
+	record["input_hash"], record["run_id"], record["result_hash"] = inputHash, runID, resultHash
 	record["created_at"] = createdAt.UTC().Format(time.RFC3339Nano)
 	record["updated_at"] = updatedAt.UTC().Format(time.RFC3339Nano)
+	if kind != "backtest" && kind != "replay" {
+		return nil
+	}
+	return d1ExportOfflineJobRecord(ctx, tx, kind, runID, requestPayload, record)
+}
+
+func d1ExportOfflineJobRecord(
+	ctx context.Context, tx pgx.Tx, kind, runID, requestPayload string, record map[string]string,
+) error {
+	request, err := decodeA11OfflineRequest(kind, json.RawMessage(requestPayload))
+	if err != nil {
+		return err
+	}
+	record["configuration_id"] = request.ConfigurationID
+	record["dataset_id"] = request.DatasetID
+	record["research_generation_id"] = request.ResearchGenerationID
+	record["strategy_version"] = request.StrategyVersion
+	record["root_seed_hash"] = request.RootSeedHash
+	if request.Speed != nil {
+		record["speed"] = *request.Speed
+	}
+	if request.IncidentID != nil {
+		record["incident_id"] = *request.IncidentID
+	}
+	if request.FirstOrdinal != nil {
+		record["first_ordinal"], record["last_ordinal"] = *request.FirstOrdinal, *request.LastOrdinal
+	}
+	if runID == "" {
+		return nil
+	}
+	return d1ExportRunManifest(ctx, tx, runID, record)
+}
+
+func d1ExportRunManifest(ctx context.Context, tx pgx.Tx, runID string, record map[string]string) error {
+	var datasetRevision int64
+	var manifestHash, codeCommit, datasetManifestHash, sourceCommit, configurationHash string
+	var modelNamespaceID, startingBalanceHash, confidenceTier string
+	err := tx.QueryRow(ctx, `SELECT manifest_hash::text,code_commit,dataset_manifest_hash::text,
+dataset_revision,source_commit,configuration_hash::text,model_namespace_id,
+starting_balance_hash::text,confidence_tier FROM run_manifests WHERE run_id=$1`, runID).Scan(
+		&manifestHash, &codeCommit, &datasetManifestHash, &datasetRevision, &sourceCommit,
+		&configurationHash, &modelNamespaceID, &startingBalanceHash, &confidenceTier,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	record["manifest_hash"], record["code_commit"] = manifestHash, codeCommit
+	record["dataset_manifest_hash"], record["source_commit"] = datasetManifestHash, sourceCommit
+	record["configuration_hash"], record["model_namespace_id"] = configurationHash, modelNamespaceID
+	record["starting_balance_hash"], record["confidence_tier"] = startingBalanceHash, confidenceTier
+	record["dataset_revision"] = strconv.FormatInt(datasetRevision, 10)
 	return nil
 }
 

@@ -28,6 +28,52 @@ const replayInspection = z
     canonical_balances: canonicalJSON,
   })
   .strict();
+const labInputManifest = z
+  .object({
+    configuration_id: z.string().min(1),
+    dataset_id: z.string().min(1),
+    research_generation_id: z.string().min(1),
+    strategy_version: z.literal("trend.v1a.1"),
+    root_seed_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    speed: z.enum(["original", "accelerated", "maximum"]).optional(),
+    incident_id: z.string().min(1).optional(),
+    first_ordinal: revision.optional(),
+    last_ordinal: revision.optional(),
+  })
+  .strict();
+const lifecycle = z
+  .object({
+    pause: z.boolean(),
+    resume: z.boolean(),
+    cancel: z.boolean(),
+    reproduce: z.boolean(),
+    compare: z.boolean(),
+    export: z.boolean(),
+  })
+  .strict();
+const reproductionBundle = z
+  .object({
+    run_id: z.string().min(1),
+    input_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    manifest_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    result_hash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
+    code_commit: z.string().regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/),
+    go_version: z.string().min(1),
+    architecture: z.string().min(1),
+    operating_system: z.string().min(1),
+    dataset_manifest_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    dataset_revision: revision,
+    source_commit: z.string().regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/),
+    configuration_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    model_namespace_id: z.string().min(1),
+    starting_balance_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    confidence_tier: z.enum(["A", "B", "C", "D"]),
+    canonical_manifest: canonicalJSON,
+  })
+  .strict();
 const jobResult = z
   .object({
     result_hash: z.string().regex(/^[0-9a-f]{64}$/),
@@ -110,5 +156,25 @@ export const jobSchema = z
     result: jobResult.optional(),
     registered_report: registeredResearchReport.optional(),
     replay_inspection: replayInspection.optional(),
+    checkpoints: z
+      .array(
+        z
+          .object({
+            revision,
+            input_ordinal: revision,
+            state_hash: z.string().regex(/^[0-9a-f]{64}$/),
+            deterministic_state_hash: z
+              .string()
+              .regex(/^[0-9a-f]{64}$/)
+              .optional(),
+            model_namespace_id: z.string().min(1).optional(),
+            created_at: timestamp,
+          })
+          .strict(),
+      )
+      .optional(),
+    input_manifest: labInputManifest.optional(),
+    lifecycle: lifecycle.optional(),
+    reproduction_bundle: reproductionBundle.optional(),
   })
   .loose();

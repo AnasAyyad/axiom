@@ -97,6 +97,30 @@ export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
         <MetricCard label="Progress" value={job.progress ?? "—"} />
         <MetricCard label="Revision" value={job.revision} />
       </div>
+      <section className={styles.card}>
+        <h2>Run progress and identity</h2>
+        <progress
+          aria-label="Durable run progress"
+          aria-valuetext={job.progress ?? job.state}
+          max={1}
+          value={job.state === "SUCCEEDED" ? 1 : undefined}
+        />
+        {job.input_manifest ? (
+          <dl className={styles.facts}>
+            {Object.entries(job.input_manifest).map(([name, value]) => (
+              <div key={name}>
+                <dt>{name.replaceAll("_", " ")}</dt>
+                <dd>{String(value)}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <StatePanel
+            state="partial"
+            detail="The legacy run has no projected input manifest. Its result remains visible, but comparison is incomplete."
+          />
+        )}
+      </section>
       {job.result && (
         <section className={styles.card}>
           <h2>Authoritative result</h2>
@@ -160,6 +184,10 @@ export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
             </>
           )}
           <p role="note">{job.result.disclaimer}</p>
+          <p role="note" className={styles.notice}>
+            Platform correctness and strategy viability are separate evidence
+            dimensions. This result does not prove profitability.
+          </p>
         </section>
       )}
       {job.registered_report && (

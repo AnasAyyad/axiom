@@ -658,6 +658,26 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
   /api/v1/shadow-sessions:
+    get:
+      operationId: listShadowSessions
+      tags: [Shadow]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+        - in: query
+          name: state
+          schema:
+            type: string
+            enum: [QUEUED, RUNNING, PAUSED, CANCEL_REQUESTED, CANCELED, FAILED]
+      responses:
+        "200":
+          description: Bounded deterministic public-data shadow history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShadowSessionPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       operationId: createShadowSession
       tags: [Shadow]
@@ -2810,8 +2830,85 @@ components:
           { $ref: "#/components/schemas/RegisteredResearchReport" }
         replay_inspection:
           { $ref: "#/components/schemas/ReplayEventInspection" }
+        checkpoints:
+          type: array
+          items: { $ref: "#/components/schemas/ReplayCheckpoint" }
+        input_manifest: { $ref: "#/components/schemas/LabInputManifest" }
+        lifecycle: { $ref: "#/components/schemas/LabLifecycleCapabilities" }
+        reproduction_bundle: { $ref: "#/components/schemas/ReproductionBundle" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    LabInputManifest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          configuration_id,
+          dataset_id,
+          research_generation_id,
+          strategy_version,
+          root_seed_hash,
+        ]
+      properties:
+        configuration_id: { type: string, minLength: 1 }
+        dataset_id: { type: string, minLength: 1 }
+        research_generation_id: { type: string, minLength: 1 }
+        strategy_version: { type: string, enum: [trend.v1a.1] }
+        root_seed_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        speed: { type: string, enum: [original, accelerated, maximum] }
+        incident_id: { type: string, minLength: 1 }
+        first_ordinal: { $ref: "#/components/schemas/Revision" }
+        last_ordinal: { $ref: "#/components/schemas/Revision" }
+    LabLifecycleCapabilities:
+      type: object
+      additionalProperties: false
+      required: [pause, resume, cancel, reproduce, compare, export]
+      properties:
+        pause: { type: boolean }
+        resume: { type: boolean }
+        cancel: { type: boolean }
+        reproduce: { type: boolean }
+        compare: { type: boolean }
+        export: { type: boolean }
+    ReproductionBundle:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          run_id,
+          input_hash,
+          manifest_hash,
+          code_commit,
+          go_version,
+          architecture,
+          operating_system,
+          dataset_manifest_hash,
+          dataset_revision,
+          source_commit,
+          configuration_hash,
+          model_namespace_id,
+          starting_balance_hash,
+          confidence_tier,
+          canonical_manifest,
+        ]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        input_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        result_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        code_commit: { type: string, pattern: "^[0-9a-f]{40}([0-9a-f]{24})?$" }
+        go_version: { type: string, minLength: 1 }
+        architecture: { type: string, minLength: 1 }
+        operating_system: { type: string, minLength: 1 }
+        dataset_manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        dataset_revision: { $ref: "#/components/schemas/Revision" }
+        source_commit:
+          { type: string, pattern: "^[0-9a-f]{40}([0-9a-f]{24})?$" }
+        configuration_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        model_namespace_id: { type: string, minLength: 1 }
+        starting_balance_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        confidence_tier: { type: string, enum: [A, B, C, D] }
+        canonical_manifest: { type: string, minLength: 2, maxLength: 1048576 }
     ReplayEventInspection:
       type: object
       additionalProperties: false
@@ -2836,6 +2933,17 @@ components:
         canonical_execution_events:
           { type: string, minLength: 2, maxLength: 1048576 }
         canonical_balances: { type: string, minLength: 2, maxLength: 1048576 }
+    ReplayCheckpoint:
+      type: object
+      additionalProperties: false
+      required: [revision, input_ordinal, state_hash, created_at]
+      properties:
+        revision: { $ref: "#/components/schemas/Revision" }
+        input_ordinal: { $ref: "#/components/schemas/Revision" }
+        state_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        deterministic_state_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        model_namespace_id: { type: string, minLength: 1 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
     ShadowSessionRequest:
       type: object
       additionalProperties: false
@@ -2858,6 +2966,118 @@ components:
         filled_quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
         latency_ms: { type: string, pattern: "^(0|[1-9][0-9]*)$" }
         simulated: { type: boolean, enum: [true] }
+    ShadowSessionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          state,
+          revision,
+          configuration_id,
+          strategy_version,
+          public_only,
+          simulation_only,
+          created_at,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        state:
+          {
+            type: string,
+            enum: [QUEUED, RUNNING, PAUSED, CANCEL_REQUESTED, CANCELED, FAILED],
+          }
+        revision: { $ref: "#/components/schemas/Revision" }
+        configuration_id: { type: string, minLength: 1 }
+        strategy_version: { type: string, enum: [trend.v1a.1] }
+        public_only: { type: boolean, enum: [true] }
+        simulation_only: { type: boolean, enum: [true] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        stopped_at: { $ref: "#/components/schemas/Timestamp" }
+        failure_code: { type: string }
+    ShadowSessionPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/ShadowSessionSummary" }
+    ShadowDecisionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [id, outcome, reason_code, risk_outcome, risk_reason_code, occurred_at]
+      properties:
+        id: { type: string, minLength: 1 }
+        outcome: { type: string, minLength: 1 }
+        reason_code: { type: string, minLength: 1 }
+        risk_outcome:
+          {
+            type: string,
+            enum: [approved, rejected, paused, locked, not_evaluated],
+          }
+        risk_reason_code: { type: string, minLength: 1 }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+    ShadowBalance:
+      type: object
+      additionalProperties: false
+      required: [asset, available, reserved, revision, updated_at]
+      properties:
+        asset: { type: string, minLength: 1 }
+        available: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        reserved: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ShadowPosition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          instrument,
+          quantity,
+          weighted_average_cost,
+          realized_pnl,
+          revision,
+          updated_at,
+        ]
+      properties:
+        instrument: { type: string, minLength: 1 }
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        weighted_average_cost:
+          { $ref: "#/components/schemas/NonnegativeDecimal" }
+        realized_pnl: { $ref: "#/components/schemas/Decimal" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ShadowPnlAttribution:
+      type: object
+      additionalProperties: false
+      required:
+        [realized_pnl, fee_expense, spread, slippage, latency, valuation_basis]
+      properties:
+        realized_pnl: { $ref: "#/components/schemas/Decimal" }
+        fee_expense: { $ref: "#/components/schemas/Decimal" }
+        spread: { $ref: "#/components/schemas/Decimal" }
+        slippage: { $ref: "#/components/schemas/Decimal" }
+        latency: { $ref: "#/components/schemas/Decimal" }
+        valuation_basis:
+          { type: string, enum: [sealed_ledger_functional_value] }
+    ShadowDataHealth:
+      type: object
+      additionalProperties: false
+      required: [exchange, state, reason, observed_at, fresh]
+      properties:
+        exchange: { type: string, minLength: 1 }
+        state:
+          {
+            type: string,
+            enum:
+              [CONNECTING, SYNCING, SUBSCRIBED, HEALTHY, PAUSED, DISCONNECTED],
+          }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        observed_at: { $ref: "#/components/schemas/Timestamp" }
+        fresh: { type: boolean }
     ShadowSessionResource:
       type: object
       additionalProperties: false
@@ -2899,6 +3119,25 @@ components:
         rejected_decisions: { type: integer, minimum: 0 }
         journal_transactions: { type: integer, minimum: 0 }
         risk_state: { type: string, enum: [PAUSED, RESUMED, LOCKED] }
+        portfolio_id: { type: string }
+        run_id: { type: string }
+        exchange_id: { type: string }
+        slippage_model_id: { type: string }
+        gap_model_id: { type: string }
+        decisions:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ShadowDecisionSummary" },
+          }
+        balances:
+          { type: array, items: { $ref: "#/components/schemas/ShadowBalance" } }
+        positions:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ShadowPosition" },
+          }
+        pnl_attribution: { $ref: "#/components/schemas/ShadowPnlAttribution" }
+        data_health: { $ref: "#/components/schemas/ShadowDataHealth" }
         orders:
           {
             type: array,

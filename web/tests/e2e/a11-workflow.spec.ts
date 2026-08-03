@@ -168,7 +168,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/**", (route) => routeAPI(route, state));
 });
 
-test("authenticated research workflow remains virtual and recovers state", async ({
+test("D3 labs preserve immutable identity and virtual execution", async ({
   page,
   isMobile,
 }) => {
@@ -191,8 +191,12 @@ test("authenticated research workflow remains virtual and recovers state", async
   await page.getByRole("link", { name: "Backtest Lab" }).click();
   await fillRun(page);
   await page.getByRole("button", { name: "Launch backtest" }).click();
-  await expect(page.getByText("SUCCEEDED")).toBeVisible();
+  await expect(page.getByText("SUCCEEDED", { exact: true })).toBeVisible();
   await expect(page.getByText("locally reproducible")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Run progress and identity" }),
+  ).toBeVisible();
+  await expect(page.getByText("dataset-a11", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("table", { name: "Registered benchmarks" }),
   ).toBeVisible();
@@ -231,6 +235,9 @@ test("authenticated research workflow remains virtual and recovers state", async
   await expect(
     page.getByRole("heading", { name: "Exact event and decision inspection" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Durable replay checkpoints" }),
+  ).toBeVisible();
   await page.getByText("Canonical decision", { exact: true }).click();
   await expect(
     page.getByText('{"reason_code":"entry_accepted"}', { exact: true }),
@@ -246,6 +253,15 @@ test("authenticated research workflow remains virtual and recovers state", async
   await expect(
     page.getByRole("table", { name: "Simulated orders and fills" }),
   ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.getByRole("table", { name: "Recent decisions and risk actions" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Owned virtual inventory" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Sealed-ledger P&L attribution" }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Trend" }).click();
   await expect(page.getByText("local_tier_b")).toBeVisible();
@@ -278,10 +294,12 @@ test("authenticated research workflow remains virtual and recovers state", async
   expect(incidentReplayHref).toContain("dataset=dataset-a11");
   await page.goto(incidentReplayHref!);
   await expect(page.getByRole("heading", { name: "Replay Lab" })).toBeVisible();
-  await expect(page.getByLabel("Dataset ID")).toHaveValue("dataset-a11");
-  await page.getByLabel("Configuration ID").fill("configuration-a10");
+  await expect(page.getByLabel("Approved dataset manifest ID")).toHaveValue(
+    "dataset-a11",
+  );
+  await page.getByLabel("Configuration revision ID").fill("configuration-a10");
   await page.getByLabel("Research generation ID").fill("generation-a10-1");
-  await page.getByLabel("Root seed hash").fill("8".repeat(64));
+  await page.getByLabel("Root seed SHA-256").fill("8".repeat(64));
   await page.getByRole("button", { name: "Create replay" }).click();
   await expect(page.getByText("single_run_incomplete")).toBeVisible();
 
@@ -307,6 +325,7 @@ test("authenticated research workflow remains virtual and recovers state", async
   }
 
   await page.goto("/shadow/shadow-a11");
+  expect(await seriousAxeViolations(page)).toEqual([]);
   await page.getByRole("button", { name: "Stop shadow session" }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "Stop session" }).click();
@@ -560,10 +579,37 @@ test("D2 command center is understandable, role-aware, and evidence-linked", asy
 });
 
 async function fillRun(page: Page) {
-  await page.getByLabel("Configuration ID").fill("configuration-a10");
-  await page.getByLabel("Dataset ID").fill("dataset-a11");
+  await page.getByLabel("Configuration revision ID").fill("configuration-a10");
+  await page.getByLabel("Approved dataset manifest ID").fill("dataset-a11");
   await page.getByLabel("Research generation ID").fill("generation-a10-1");
-  await page.getByLabel("Root seed hash").fill("8".repeat(64));
+  await page.getByLabel("Root seed SHA-256").fill("8".repeat(64));
+}
+
+async function seriousAxeViolations(page: Page) {
+  await page.addScriptTag({ content: axe.source });
+  return page.evaluate(async () => {
+    const engine = (
+      window as unknown as {
+        axe: {
+          run: (
+            root: Document,
+            options: unknown,
+          ) => Promise<{
+            violations: Array<{ id: string; impact: string | null }>;
+          }>;
+        };
+      }
+    ).axe;
+    const result = await engine.run(document, {
+      runOnly: {
+        type: "tag",
+        values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"],
+      },
+    });
+    return result.violations.filter((violation) =>
+      ["critical", "serious"].includes(violation.impact ?? ""),
+    );
+  });
 }
 
 interface FixtureState {
@@ -773,6 +819,17 @@ async function routeAPI(route: Route, state: FixtureState) {
         latest_run_id: null,
       }),
     ]);
+  else if (method === "GET" && path === "/api/v1/lab-runs")
+    body = snapshotEnvelope([
+      d2ResourceFixture("backtest-a11", "lab_run", "SUCCEEDED", {
+        job_type: "backtest",
+        run_id: "backtest-a11",
+      }),
+      d2ResourceFixture("replay-a11", "lab_run", state.replayState, {
+        job_type: "replay",
+        run_id: "replay-a11",
+      }),
+    ]);
   else if (method === "GET" && path === "/api/v1/users")
     body = snapshotEnvelope([
       d2ResourceFixture("owner-a11", "user", "active", {
@@ -933,6 +990,9 @@ async function routeAPI(route: Route, state: FixtureState) {
       path === "/api/v1/reports" ||
       path === "/api/v1/configuration-revisions" ||
       path === "/api/v1/qualifications" ||
+      /^\/api\/v1\/lab-runs\/[^/]+\/(pause|resume|cancel|reproduce)$/.test(
+        path,
+      ) ||
       /^\/api\/v1\/qualifications\/[^/]+\/abort$/.test(path) ||
       /^\/api\/v1\/users\/[^/]+\/roles$/.test(path))
   )
@@ -1047,6 +1107,19 @@ async function routeAPI(route: Route, state: FixtureState) {
     body = command("replay-a11");
   } else if (method === "POST" && path === "/api/v1/shadow-sessions")
     body = shadow();
+  else if (method === "GET" && path === "/api/v1/shadow-sessions")
+    body = pageEnvelope([
+      {
+        id: "shadow-a11",
+        state: "RUNNING",
+        revision: "3",
+        configuration_id: "configuration-a10",
+        strategy_version: "trend.v1a.1",
+        public_only: true,
+        simulation_only: true,
+        created_at: now,
+      },
+    ]);
   else if (method === "GET" && path.startsWith("/api/v1/shadow-sessions/"))
     body = shadow();
   else if (method === "POST" && path.endsWith("/stop"))
@@ -1259,6 +1332,40 @@ function job(kind: "backtest" | "replay", state: FixtureState) {
     progress: "1",
     created_at: now,
     updated_at: now,
+    input_manifest: {
+      configuration_id: "configuration-a10",
+      dataset_id: "dataset-a11",
+      research_generation_id: "generation-a10-1",
+      strategy_version: "trend.v1a.1",
+      root_seed_hash: "8".repeat(64),
+      ...(kind === "replay" ? { speed: "maximum" } : {}),
+    },
+    lifecycle: {
+      pause: kind === "replay" && state.replayState === "RUNNING",
+      resume: kind === "replay" && state.replayState === "PAUSED",
+      cancel: kind === "replay",
+      reproduce: kind === "backtest",
+      compare: true,
+      export: true,
+    },
+    reproduction_bundle: {
+      run_id: `${kind}-a11`,
+      input_hash: "1".repeat(64),
+      manifest_hash: "2".repeat(64),
+      result_hash: "a".repeat(64),
+      code_commit: "3".repeat(40),
+      go_version: "go1.26.5",
+      architecture: "amd64",
+      operating_system: "linux",
+      dataset_manifest_hash: "4".repeat(64),
+      dataset_revision: "1",
+      source_commit: "5".repeat(40),
+      configuration_hash: "6".repeat(64),
+      model_namespace_id: "production-public-v1a",
+      starting_balance_hash: "7".repeat(64),
+      confidence_tier: "B",
+      canonical_manifest: JSON.stringify({ run_id: `${kind}-a11` }),
+    },
     result: {
       result_hash: "a".repeat(64),
       platform_correctness: "locally reproducible",
@@ -1329,6 +1436,16 @@ function job(kind: "backtest" | "replay", state: FixtureState) {
             canonical_execution_events: "[]",
             canonical_balances: '{"USDT":"1000"}',
           },
+          checkpoints: [
+            {
+              revision: "2",
+              input_ordinal: "20",
+              state_hash: "9".repeat(64),
+              deterministic_state_hash: "8".repeat(64),
+              model_namespace_id: "production-public-v1a",
+              created_at: now,
+            },
+          ],
         }
       : {}),
   };
@@ -1352,6 +1469,55 @@ function shadow() {
     risk_state: "RESUMED",
     created_at: now,
     started_at: now,
+    portfolio_id: "portfolio-a11",
+    run_id: "shadow-a11",
+    exchange_id: "binance",
+    slippage_model_id: "slippage-v1",
+    gap_model_id: "gap-v1",
+    data_health: {
+      exchange: "binance",
+      state: "HEALTHY",
+      reason: "public stream synchronized",
+      observed_at: now,
+      fresh: true,
+    },
+    pnl_attribution: {
+      realized_pnl: "0.12",
+      fee_expense: "-0.01",
+      spread: "0.02",
+      slippage: "-0.01",
+      latency: "-0.005",
+      valuation_basis: "sealed_ledger_functional_value",
+    },
+    decisions: [
+      {
+        id: "decision-shadow-a11",
+        outcome: "accepted",
+        reason_code: "entry_accepted",
+        risk_outcome: "approved",
+        risk_reason_code: "within_limits",
+        occurred_at: now,
+      },
+    ],
+    balances: [
+      {
+        asset: "USDT",
+        available: "940",
+        reserved: "0",
+        revision: "2",
+        updated_at: now,
+      },
+    ],
+    positions: [
+      {
+        instrument: "BTCUSDT",
+        quantity: "0.001",
+        weighted_average_cost: "60000",
+        realized_pnl: "0.12",
+        revision: "2",
+        updated_at: now,
+      },
+    ],
     orders: [
       {
         id: "order-a11",
