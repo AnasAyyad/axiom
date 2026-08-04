@@ -27,6 +27,56 @@ export interface components {
       "strategy_id"?: string;
       "view": "decisions_orders" | "system_events";
     };
+    "AlertDeliveryAttempt": {
+      "attempt": number;
+      "completed_at": components["schemas"]["Timestamp"];
+      "id": string;
+      "latency_ms"?: number;
+      "reason_code"?: string;
+      "sink_name": string;
+      "started_at": components["schemas"]["Timestamp"];
+      "state": "delivered" | "failed";
+    };
+    "AlertDetail": {
+      "component": string;
+      "correlation_id": string;
+      "created_at": components["schemas"]["Timestamp"];
+      "deliveries": Array<components["schemas"]["AlertDeliveryAttempt"]>;
+      "escalations": Array<components["schemas"]["AlertEscalation"]>;
+      "id": string;
+      "incident_id"?: string;
+      "last_seen_at": components["schemas"]["Timestamp"];
+      "occurrences": number;
+      "reason_code": string;
+      "revision": components["schemas"]["Revision"];
+      "severity": "info" | "warning" | "critical";
+      "state": "open" | "acknowledged" | "resolved";
+    };
+    "AlertEscalation": {
+      "actor_user_id": string;
+      "escalated_at": components["schemas"]["Timestamp"];
+      "id": string;
+      "reason": string;
+      "revision": components["schemas"]["Revision"];
+    };
+    "AlertRoute": {
+      "enabled": boolean;
+      "id": string;
+      "last_test_state"?: "pending" | "delivered" | "failed";
+      "last_tested_at"?: components["schemas"]["Timestamp"];
+      "minimum_severity": "info" | "warning" | "critical";
+      "revision": components["schemas"]["Revision"];
+      "sink_name": string;
+      "target_label"?: string;
+    };
+    "AlertRoutePage": {
+      "items": Array<components["schemas"]["AlertRoute"]>;
+      "revision": components["schemas"]["Revision"];
+    };
+    "AlertTestRequest": {
+      "expected_revision": components["schemas"]["Revision"];
+      "reason": string;
+    };
     "ArtifactHoldRequest": {
       "authorization_token": string;
       "expected_revision": components["schemas"]["Revision"];
@@ -36,6 +86,7 @@ export interface components {
     };
     "AuditEvent": {
       "actor": string;
+      "category"?: "authentication" | "control" | "export" | "configuration" | "qualification" | "incident" | "alert" | "evidence_access" | "system";
       "causation_id": string;
       "correlation_id": string;
       "event_type": string;
@@ -46,6 +97,14 @@ export interface components {
     };
     "AuditEventPage": components["schemas"]["Page"] & {
       "items": Array<components["schemas"]["AuditEvent"]>;
+    };
+    "AuditVerification": {
+      "checked_events": number;
+      "first_broken_sequence"?: number;
+      "head_hash": string;
+      "reason_code"?: string;
+      "verdict": "valid" | "broken";
+      "verified_at": components["schemas"]["Timestamp"];
     };
     "Balance": {
       "asset": string;
@@ -177,6 +236,11 @@ export interface components {
       "field_details"?: Record<string, string>;
       "message": string;
     };
+    "EvidenceBundleRequest": {
+      "expected_revision": components["schemas"]["Revision"];
+      "format": "txt" | "csv" | "json" | "jsonl";
+      "reason": string;
+    };
     "EvidenceTimelineEvent": {
       "correlation_id": string;
       "event_type": string;
@@ -254,13 +318,32 @@ export interface components {
       "reason": string;
       "totp": string;
     };
+    "IncidentCreateRequest": {
+      "expected_revision": components["schemas"]["Revision"];
+      "owner_user_id": string;
+      "reason": string;
+      "reason_code": string;
+      "severity": "warning" | "error" | "critical";
+    };
     "IncidentDetail": components["schemas"]["IncidentSummary"] & {
+      "evidence_holds": Array<components["schemas"]["IncidentEvidenceHold"]>;
+      "related_activity_ids": Array<string>;
+      "related_alert_ids": Array<string>;
+      "remediation_notes": Array<string>;
       "replay_window": {
       "dataset_id": string;
       "first_ordinal": components["schemas"]["Revision"];
       "last_ordinal": components["schemas"]["Revision"];
+      "source_identity"?: string;
     };
+      "resolution_evidence"?: string;
       "timeline": Array<components["schemas"]["TimelineEvent"]>;
+    };
+    "IncidentEvidenceHold": {
+      "artifact_id": string;
+      "created_at": components["schemas"]["Timestamp"];
+      "hold_type": "incident" | "reproducibility";
+      "id": string;
     };
     "IncidentPage": components["schemas"]["Page"] & {
       "items": Array<components["schemas"]["IncidentSummary"]>;
@@ -268,15 +351,31 @@ export interface components {
     "IncidentSummary": {
       "id": string;
       "opened_at": components["schemas"]["Timestamp"];
+      "owner_user_id": string;
       "reason_code": string;
+      "resolved_at"?: components["schemas"]["Timestamp"];
       "revision": components["schemas"]["Revision"];
       "severity": "warning" | "error" | "critical";
       "state": "open" | "acknowledged" | "resolved";
+      "updated_at": components["schemas"]["Timestamp"];
     };
     "IncidentTransitionRequest": {
       "expected_revision": components["schemas"]["Revision"];
       "reason": string;
+      "resolution_evidence"?: string;
       "state": "acknowledged" | "resolved";
+    };
+    "IncidentUpdateRequest": {
+      "action": "assign_owner" | "add_remediation" | "link_alert" | "link_activity" | "link_replay";
+      "dataset_id"?: string;
+      "expected_revision": components["schemas"]["Revision"];
+      "first_ordinal"?: components["schemas"]["Revision"];
+      "last_ordinal"?: components["schemas"]["Revision"];
+      "note"?: string;
+      "owner_user_id"?: string;
+      "reason": string;
+      "reference_id"?: string;
+      "source_identity"?: string;
     };
     "Instrument": {
       "id": string;
@@ -665,10 +764,63 @@ export interface components {
       "revision": components["schemas"]["Revision"];
       "simulation_only": true;
     };
+    "ReportProvenance": {
+      "confidence_tier": string;
+      "maturity": string;
+      "mode": "backtest" | "replay" | "paper" | "shadow" | "testnet" | "demo" | "mixed" | "operational";
+      "model_provenance": Record<string, string>;
+      "source_identity": string;
+      "source_revision": components["schemas"]["Revision"];
+      "valuation_basis": string;
+    };
     "ReportRequest": {
       "expected_revision": components["schemas"]["Revision"];
       "reason": string;
       "report_type": "strategy_results" | "decisions_orders" | "portfolios" | "inventory_pnl" | "risk" | "exchange_data_health" | "lab_runs" | "sandbox_qualifications" | "platform_readiness";
+    };
+    "ReportResource": {
+      "content_hash"?: string;
+      "created_at": components["schemas"]["Timestamp"];
+      "failure_code"?: string;
+      "generated_at"?: components["schemas"]["Timestamp"];
+      "id": string;
+      "job_id": string;
+      "provenance": components["schemas"]["ReportProvenance"];
+      "report_type": "strategy_results" | "decisions_orders" | "portfolios" | "inventory_pnl" | "risk" | "exchange_data_health" | "lab_runs" | "sandbox_qualifications" | "platform_readiness";
+      "revision": components["schemas"]["Revision"];
+      "schedule_id"?: string;
+      "state": "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+    };
+    "ReportSchedule": {
+      "created_at": components["schemas"]["Timestamp"];
+      "frequency": "hourly" | "daily" | "weekly";
+      "hour_utc"?: number;
+      "id": string;
+      "last_run_at"?: components["schemas"]["Timestamp"];
+      "minute_utc": number;
+      "next_run_at": components["schemas"]["Timestamp"];
+      "report_type": "strategy_results" | "decisions_orders" | "portfolios" | "inventory_pnl" | "risk" | "exchange_data_health" | "lab_runs" | "sandbox_qualifications" | "platform_readiness";
+      "revision": components["schemas"]["Revision"];
+      "state": "active" | "paused";
+      "updated_at": components["schemas"]["Timestamp"];
+      "weekday_utc"?: number;
+    };
+    "ReportSchedulePage": components["schemas"]["Page"] & {
+      "items": Array<components["schemas"]["ReportSchedule"]>;
+    };
+    "ReportScheduleRequest": {
+      "expected_revision": components["schemas"]["Revision"];
+      "frequency": "hourly" | "daily" | "weekly";
+      "hour_utc"?: number;
+      "minute_utc": number;
+      "reason": string;
+      "report_type": "strategy_results" | "decisions_orders" | "portfolios" | "inventory_pnl" | "risk" | "exchange_data_health" | "lab_runs" | "sandbox_qualifications" | "platform_readiness";
+      "weekday_utc"?: number;
+    };
+    "ReportScheduleTransitionRequest": {
+      "expected_revision": components["schemas"]["Revision"];
+      "reason": string;
+      "state": "active" | "paused";
     };
     "ReproductionBundle": {
       "architecture": string;
@@ -1082,11 +1234,16 @@ export interface components {
       "strategy_activation": "unavailable" | "trend.v1a.1";
     };
     "TimelineEvent": {
+      "actor"?: string;
       "correlation_id": string;
+      "event_hash"?: string;
       "event_type": string;
       "id": string;
       "occurred_at": components["schemas"]["Timestamp"];
+      "reason"?: string;
       "redacted": boolean;
+      "reference_id"?: string;
+      "reference_type"?: string;
       "safe_detail"?: string;
     };
     "Timestamp": string;
@@ -1168,8 +1325,10 @@ export interface operations {
   "stopShadowSession": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
   "getShadowSession": { path: { "id": string; }; responses: { "200": components["schemas"]["ShadowSessionResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "listIncidents": { query: { "cursor"?: string; "page_size"?: number; "state"?: "open" | "acknowledged" | "resolved"; }; responses: { "200": components["schemas"]["IncidentPage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; }; };
+  "createIncident": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["IncidentCreateRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getIncident": { path: { "id": string; }; query: { "include_raw"?: boolean; }; responses: { "200": components["schemas"]["IncidentDetail"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "listAuditEvents": { query: { "cursor"?: string; "page_size"?: number; "event_type"?: string; "include_detail"?: boolean; }; responses: { "200": components["schemas"]["AuditEventPage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
+  "verifyAuditChain": { responses: { "200": components["schemas"]["AuditVerification"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getSandboxOverview": { responses: { "200": components["schemas"]["SandboxOverview"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listSandboxOrders": { query: { "cursor"?: string; "page_size"?: number; "exchange"?: components["schemas"]["SandboxExchange"]; "state"?: string; }; responses: { "200": components["schemas"]["SandboxOrderPage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
   "createSandboxTestOrder": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["SandboxTestOrderRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
@@ -1196,14 +1355,24 @@ export interface operations {
   "getOrder": { path: { "id": string; }; responses: { "200": components["schemas"]["D1Resource"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listFills": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["D1ResourcePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listAlerts": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["D1ResourcePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "getAlert": { path: { "id": string; }; responses: { "200": components["schemas"]["AlertDetail"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "acknowledgeAlert": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "escalateAlert": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "listAlertRoutes": { responses: { "200": components["schemas"]["AlertRoutePage"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
+  "testAlertRoute": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["AlertTestRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listReports": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["D1ResourcePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "createReport": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ReportRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "getReport": { path: { "id": string; }; responses: { "200": components["schemas"]["ReportResource"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "listReportSchedules": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["ReportSchedulePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "createReportSchedule": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ReportScheduleRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "transitionReportSchedule": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ReportScheduleTransitionRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "createExport": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ExportRequest"]; responses: { "201": components["schemas"]["ExportArtifact"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getExport": { path: { "id": string; }; responses: { "200": components["schemas"]["ExportArtifact"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "deleteExport": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "holdExport": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ArtifactHoldRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "transitionIncident": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["IncidentTransitionRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "updateIncident": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["IncidentUpdateRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "createIncidentEvidenceBundle": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["EvidenceBundleRequest"]; responses: { "201": components["schemas"]["ExportArtifact"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listConfigurationRevisions": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["D1ResourcePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "activateConfigurationRevision": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ConfigurationActivationRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listLabRuns": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["D1ResourcePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };

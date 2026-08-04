@@ -3,6 +3,7 @@ import { z } from "zod";
 import { b8ResponseSchemas } from "./b8Validation";
 import { c6ResponseSchemas } from "./c6Validation";
 import { d1ResponseSchemas } from "./d1Validation";
+import { d4ResponseSchemas } from "./d4Validation";
 import { legacyResponseSchemas } from "./legacyValidation";
 import { revision, timestamp } from "./validationShared";
 
@@ -45,6 +46,7 @@ const sessionResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
 const responseSchemas = [
   ...sessionResponseSchemas,
   ...d1ResponseSchemas,
+  ...d4ResponseSchemas,
   ...c6ResponseSchemas,
   ...b8ResponseSchemas,
   ...legacyResponseSchemas,

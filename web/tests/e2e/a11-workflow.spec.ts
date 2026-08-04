@@ -15,6 +15,11 @@ const user = {
     "sandbox.arm",
     "sandbox.cancel",
     "sandbox.admin",
+    "incident.write",
+    "alert.write",
+    "research.control",
+    "artifacts.read",
+    "artifacts.manage",
   ],
 };
 function pageEnvelope<T>(items: T[]) {
@@ -208,13 +213,26 @@ test("D3 labs preserve immutable identity and virtual execution", async ({
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Replay Lab" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Replay Lab", level: 1 }),
+  ).toBeVisible();
   await fillRun(page);
+  const createReplay = page.getByRole("button", { name: "Create replay" });
+  await expect(createReplay).toBeEnabled();
+  await expect
+    .poll(() =>
+      createReplay.evaluate((element) => {
+        const button = element as HTMLButtonElement;
+        return button.form?.checkValidity() ?? false;
+      }),
+    )
+    .toBe(true);
   const replayCreated = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       new URL(response.url()).pathname === "/api/v1/replays",
   );
-  await page.getByRole("button", { name: "Create replay" }).click();
+  await createReplay.click();
   await replayCreated;
   await page.goto("/replays/replay-a11");
   await expect(
@@ -288,14 +306,16 @@ test("D3 labs preserve immutable identity and virtual execution", async ({
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Incidents" }).click();
-  await page
-    .getByRole("link", { name: "Open latest incident evidence" })
-    .click();
-  await expect(page.getByText("dataset-a11")).toBeVisible();
+  await page.getByRole("link", { name: "Open incident workspace" }).click();
+  await expect(page.getByText("dataset-a11", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Show authorized evidence hashes" })
     .dispatchEvent("click");
-  await expect(page.getByText(/event_hash.*[a-f0-9]{64}/)).toBeVisible();
+  await expect(
+    page
+      .getByRole("table", { name: "Immutable incident timeline" })
+      .getByRole("cell", { name: "d".repeat(64), exact: true }),
+  ).toBeVisible();
   const incidentReplay = page.getByRole("link", {
     name: "Prepare incident replay",
   });
@@ -588,11 +608,99 @@ test("D2 command center is understandable, role-aware, and evidence-linked", asy
   ).toBe(true);
 });
 
+test("D4 operational evidence workflows are responsive, redacted, and actionable", async ({
+  page,
+}) => {
+  test.slow();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("owner@example.test");
+  await page.getByLabel("Password").fill("qualification-password");
+  await page.getByRole("button", { name: "Enter console" }).click();
+
+  await page.getByRole("link", { name: "Report jobs" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Report Center" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "UTC schedules" }),
+  ).toBeVisible();
+  await expect(page.getByText(/do not prove profitability/i)).toBeVisible();
+  await page.getByRole("link", { name: "Open report evidence" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Risk", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("operational", { exact: true }).first(),
+  ).toBeVisible();
+  const reportDownload = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download JSON", exact: true })
+    .click();
+  expect((await reportDownload).suggestedFilename()).toContain(
+    "axiom-report-report-d4",
+  );
+
+  await page.getByRole("link", { name: "Alerts" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Delivery routes" }),
+  ).toBeVisible();
+  await expect(page.getByText(/credentials.*never exposed/i)).toBeVisible();
+  await page
+    .getByRole("link", { name: "Open delivery and escalation evidence" })
+    .click();
+  await expect(
+    page.getByRole("table", { name: "Immutable sanitized delivery attempts" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("sink_unavailable", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Incidents" }).click();
+  await page.getByRole("link", { name: "Open incident workspace" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Hash-linked timeline" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Verified the public feed recovery.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Evidence holds" }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Audit" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Audit chain integrity" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/authoritative events have a valid immutable chain/i),
+  ).toBeVisible();
+  await page.addScriptTag({ content: axe.source });
+  expect(await seriousAxeViolations(page)).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 async function fillRun(page: Page) {
-  await page.getByLabel("Configuration revision ID").fill("configuration-a10");
-  await page.getByLabel("Approved dataset manifest ID").fill("dataset-a11");
-  await page.getByLabel("Research generation ID").fill("generation-a10-1");
-  await page.getByLabel("Root seed SHA-256").fill("8".repeat(64));
+  for (const [label, value] of [
+    ["Configuration revision ID", "configuration-a10"],
+    ["Approved dataset manifest ID", "dataset-a11"],
+    ["Research generation ID", "generation-a10-1"],
+    ["Root seed SHA-256", "8".repeat(64)],
+  ] as const) {
+    const field = page.getByLabel(label);
+    await field.fill(value);
+    await expect(field).toHaveValue(value);
+    await expect
+      .poll(() =>
+        field.evaluate((element) =>
+          (element as HTMLInputElement).checkValidity(),
+        ),
+      )
+      .toBe(true);
+  }
 }
 
 async function seriousAxeViolations(page: Page) {
@@ -805,8 +913,110 @@ async function routeAPI(route: Route, state: FixtureState) {
         alert_type: "public_feed_gap",
       }),
     ]);
+  else if (method === "GET" && path === "/api/v1/alerts/alert-d2")
+    body = {
+      id: "alert-d2",
+      severity: "warning",
+      reason_code: "alert_delivery",
+      component: "public-feed",
+      state: "open",
+      occurrences: 2,
+      revision: "2",
+      correlation_id: "correlation-alert-d2",
+      created_at: now,
+      last_seen_at: now,
+      deliveries: [
+        {
+          id: "attempt-d2",
+          sink_name: "webhook",
+          attempt: 1,
+          state: "failed",
+          reason_code: "sink_unavailable",
+          started_at: now,
+          completed_at: now,
+          latency_ms: 425,
+        },
+      ],
+      escalations: [
+        {
+          id: "escalation-d2",
+          actor_user_id: "owner-a11",
+          reason: "Escalated after delivery review",
+          revision: "2",
+          escalated_at: now,
+        },
+      ],
+    };
+  else if (method === "GET" && path === "/api/v1/alert-routes")
+    body = {
+      items: [
+        {
+          id: "in-app",
+          sink_name: "in_app",
+          enabled: true,
+          minimum_severity: "info",
+          target_label: "Axiom in-app Alert Center",
+          last_test_state: "delivered",
+          last_tested_at: now,
+          revision: "1",
+        },
+        {
+          id: "webhook",
+          sink_name: "webhook",
+          enabled: true,
+          minimum_severity: "warning",
+          target_label: "Allowlisted HTTPS webhook",
+          last_test_state: "failed",
+          last_tested_at: now,
+          revision: "1",
+        },
+      ],
+      revision: "1",
+    };
   else if (method === "GET" && path === "/api/v1/reports")
-    body = snapshotEnvelope([]);
+    body = snapshotEnvelope([
+      d2ResourceFixture("job-report-d4", "report", "SUCCEEDED", {
+        job_type: "report:risk",
+        report_id: "report-d4",
+        confidence_tier: "operational",
+      }),
+    ]);
+  else if (method === "GET" && path === "/api/v1/reports/report-d4")
+    body = {
+      id: "report-d4",
+      job_id: "job-report-d4",
+      report_type: "risk",
+      state: "SUCCEEDED",
+      provenance: {
+        mode: "operational",
+        confidence_tier: "operational",
+        valuation_basis: "not applicable",
+        model_provenance: { report_schema: "axiom.report.v1d.d4" },
+        maturity: "operational",
+        source_identity: "a".repeat(64),
+        source_revision: "12",
+      },
+      generated_at: now,
+      content_hash: "b".repeat(64),
+      created_at: now,
+      revision: "3",
+    };
+  else if (method === "GET" && path === "/api/v1/report-schedules")
+    body = pageEnvelope([
+      {
+        id: "schedule-d4",
+        report_type: "platform_readiness",
+        frequency: "daily",
+        minute_utc: 0,
+        hour_utc: 6,
+        state: "active",
+        next_run_at: "2026-07-17T06:00:00Z",
+        last_run_at: now,
+        revision: "2",
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
   else if (method === "GET" && path === "/api/v1/configuration-revisions")
     body = snapshotEnvelope([
       d2ResourceFixture(
@@ -994,10 +1204,37 @@ async function routeAPI(route: Route, state: FixtureState) {
     };
   else if (
     method === "POST" &&
+    /^\/api\/v1\/incidents\/[^/]+\/evidence-bundles$/.test(path)
+  )
+    body = {
+      id: "export-incident-d4",
+      command_id: "command-incident-d4",
+      job_id: "job-incident-d4",
+      resource_type: "incident",
+      resource_id: "incident-a11",
+      format: "json",
+      content_type: "application/json",
+      content: '{"real_trading_enabled":false,"timeline_head_hash":"sealed"}\n',
+      content_hash: "d".repeat(64),
+      size_bytes: "64",
+      redaction_version: "v1d.redaction.v1",
+      created_at: now,
+      expires_at: "2026-07-23T12:00:00Z",
+      held: false,
+      deleted: false,
+      revision: "1",
+    };
+  else if (
+    method === "POST" &&
     (/^\/api\/v1\/strategies\/[^/]+\/(configuration|runtime)$/.test(path) ||
       /^\/api\/v1\/risk\/controls\//.test(path) ||
-      /^\/api\/v1\/alerts\/[^/]+\/acknowledge$/.test(path) ||
+      /^\/api\/v1\/alerts\/[^/]+\/(acknowledge|escalate)$/.test(path) ||
+      /^\/api\/v1\/alert-routes\/[^/]+\/test$/.test(path) ||
       path === "/api/v1/reports" ||
+      path === "/api/v1/report-schedules" ||
+      /^\/api\/v1\/report-schedules\/[^/]+\/transitions$/.test(path) ||
+      path === "/api/v1/incidents" ||
+      /^\/api\/v1\/incidents\/[^/]+\/(updates|transitions)$/.test(path) ||
       path === "/api/v1/configuration-revisions" ||
       path === "/api/v1/qualifications" ||
       /^\/api\/v1\/lab-runs\/[^/]+\/(pause|resume|cancel|reproduce)$/.test(
@@ -1141,8 +1378,11 @@ async function routeAPI(route: Route, state: FixtureState) {
         severity: "critical",
         state: "resolved",
         reason_code: "public_feed_gap",
+        owner_user_id: "owner-a11",
         opened_at: now,
-        revision: "1",
+        updated_at: now,
+        resolved_at: now,
+        revision: "4",
       },
     ]);
   else if (path === "/api/v1/incidents/incident-a11")
@@ -1151,14 +1391,20 @@ async function routeAPI(route: Route, state: FixtureState) {
       severity: "critical",
       state: "resolved",
       reason_code: "public_feed_gap",
+      owner_user_id: "owner-a11",
       opened_at: now,
-      revision: "1",
+      updated_at: now,
+      resolved_at: now,
+      revision: "4",
       timeline: [
         {
           id: "event-a11",
           event_type: "gap",
           occurred_at: now,
           correlation_id: "correlation-a11",
+          actor: "operator-a11",
+          reason: "investigate public feed gap",
+          event_hash: "d".repeat(64),
           redacted: url.searchParams.get("include_raw") !== "true",
           ...(url.searchParams.get("include_raw") === "true"
             ? { safe_detail: `{"event_hash":"${"d".repeat(64)}"}` }
@@ -1169,9 +1415,29 @@ async function routeAPI(route: Route, state: FixtureState) {
         dataset_id: "dataset-a11",
         first_ordinal: "1",
         last_ordinal: "20",
+        source_identity: "qualified-dataset-window",
       },
+      related_alert_ids: ["alert-d2"],
+      related_activity_ids: ["activity-d2"],
+      evidence_holds: [
+        {
+          id: "hold-d4",
+          artifact_id: "export-incident-held",
+          hold_type: "incident",
+          created_at: now,
+        },
+      ],
+      remediation_notes: ["Verified the public feed recovery."],
+      resolution_evidence: "Verified the public feed recovery.",
     };
   else if (path === "/api/v1/audit-events") body = pageEnvelope([]);
+  else if (path === "/api/v1/audit-verification")
+    body = {
+      verdict: "valid",
+      checked_events: 22,
+      head_hash: "e".repeat(64),
+      verified_at: now,
+    };
   else
     return route.fulfill({
       status: 404,

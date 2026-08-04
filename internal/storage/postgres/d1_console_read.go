@@ -249,13 +249,13 @@ func (store *A11ConsoleStore) d1Alerts(
 	query console.D1ListQuery,
 ) ([]generated.D1Resource, error) {
 	rows, err := store.pool.Query(ctx, `
-SELECT alert.id,alert.state,coalesce(max(ack.revision),1),alert.created_at,
+SELECT alert.id,alert.state,alert.revision,alert.created_at,
        alert.alert_type,alert.incident_id
-FROM alerts alert LEFT JOIN alert_acknowledgements ack ON ack.alert_id=alert.id
+FROM alerts alert
 WHERE ($1='' OR alert.id<$1) AND ($2='' OR alert.state=$2)
   AND ($3::timestamptz IS NULL OR alert.created_at >= $3)
   AND ($4::timestamptz IS NULL OR alert.created_at <= $4)
-GROUP BY alert.id ORDER BY alert.id DESC LIMIT $5`, position, query.Filters["state"], query.From, query.To, query.PageSize+1)
+ORDER BY alert.id DESC LIMIT $5`, position, query.Filters["state"], query.From, query.To, query.PageSize+1)
 	if err != nil {
 		return nil, err
 	}
@@ -283,12 +283,15 @@ func (store *A11ConsoleStore) d1Jobs(
 	reports bool,
 ) ([]generated.D1Resource, error) {
 	rows, err := store.pool.Query(ctx, `
-SELECT id,state,progress_revision,updated_at,job_type,run_id,failure_code
-FROM jobs WHERE ($1='' OR id<$1) AND ($2='' OR state=$2)
-  AND (($3 AND job_type LIKE 'report:%') OR (NOT $3 AND job_type NOT LIKE 'report:%'))
-  AND ($4::timestamptz IS NULL OR updated_at >= $4)
-  AND ($5::timestamptz IS NULL OR updated_at <= $5)
-ORDER BY id DESC LIMIT $6`, position, query.Filters["state"], reports, query.From, query.To, query.PageSize+1)
+SELECT job.id,job.state,job.progress_revision,job.updated_at,job.job_type,job.run_id,
+job.failure_code,report.id,report.mode,report.confidence_tier,report.valuation_basis,
+report.maturity,report.source_identity,report.source_revision,report.content_hash
+FROM jobs job LEFT JOIN v1d_reports report ON report.job_id=job.id
+WHERE ($1='' OR job.id<$1) AND ($2='' OR job.state=$2)
+  AND (($3 AND job.job_type LIKE 'report:%') OR (NOT $3 AND job.job_type NOT LIKE 'report:%'))
+  AND ($4::timestamptz IS NULL OR job.updated_at >= $4)
+  AND ($5::timestamptz IS NULL OR job.updated_at <= $5)
+ORDER BY job.id DESC LIMIT $6`, position, query.Filters["state"], reports, query.From, query.To, query.PageSize+1)
 	if err != nil {
 		return nil, err
 	}
@@ -297,18 +300,29 @@ ORDER BY id DESC LIMIT $6`, position, query.Filters["state"], reports, query.Fro
 	for rows.Next() {
 		var id, state, jobType string
 		var runID, failure *string
+		var reportID, mode, confidence, valuation, maturity, source, contentHash *string
+		var sourceRevision *int64
 		var revision int64
 		var occurred time.Time
-		if err = rows.Scan(&id, &state, &revision, &occurred, &jobType, &runID, &failure); err != nil {
+		if err = rows.Scan(&id, &state, &revision, &occurred, &jobType, &runID, &failure,
+			&reportID, &mode, &confidence, &valuation, &maturity, &source, &sourceRevision,
+			&contentHash); err != nil {
 			return nil, err
 		}
 		kind := "lab_run"
 		if reports {
 			kind = "report"
 		}
-		items = append(items, d1Resource(id, kind, revision, state, &occurred,
-			map[string]any{"job_type": jobType, "run_id": runID, "failure_code": failure},
-			map[string]string{"command": "/api/v1/commands/" + id}))
+		attributes := map[string]any{"job_type": jobType, "run_id": runID,
+			"failure_code": failure, "report_id": reportID, "mode": mode,
+			"confidence_tier": confidence, "valuation_basis": valuation,
+			"maturity": maturity, "source_identity": source,
+			"source_revision": sourceRevision, "content_hash": contentHash}
+		links := map[string]string{"command": "/api/v1/commands/" + id}
+		if reportID != nil {
+			links["report"] = "/api/v1/reports/" + *reportID
+		}
+		items = append(items, d1Resource(id, kind, revision, state, &occurred, attributes, links))
 	}
 	return items, rows.Err()
 }

@@ -114,7 +114,7 @@ const d1ListPaths =
 const d1DetailPaths =
   /^GET \/api\/v1\/(?:strategies\/(?!trend$)[^/?]+|orders\/[^/?]+|commands\/[^/?]+)$/;
 const d1CommandPaths =
-  /^(?:POST|DELETE) \/api\/v1\/(?:strategies\/[^/?]+\/(?:configuration|runtime)|risk\/controls\/[^/?]+\/[^/?]+|alerts\/[^/?]+\/acknowledge|reports|exports\/[^/?]+(?:\/holds)?|incidents\/[^/?]+\/transitions|configuration-revisions|lab-runs\/[^/?]+\/[^/?]+|qualifications(?:\/[^/?]+\/abort)?|users\/[^/?]+\/roles)$/;
+  /^(?:POST|DELETE) \/api\/v1\/(?:strategies\/[^/?]+\/(?:configuration|runtime)|risk\/controls\/[^/?]+\/[^/?]+|alerts\/[^/?]+\/(?:acknowledge|escalate)|alert-routes\/[^/?]+\/test|reports|report-schedules(?:\/[^/?]+\/transitions)?|exports\/[^/?]+(?:\/holds)?|incidents(?:\/[^/?]+\/(?:transitions|updates))?|configuration-revisions|lab-runs\/[^/?]+\/[^/?]+|qualifications(?:\/[^/?]+\/abort)?|users\/[^/?]+\/roles)$/;
 
 export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [d1ListPaths, resourcePage],
@@ -124,6 +124,7 @@ export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [/^GET \/api\/v1\/activity\/[^/?]+$/, activity],
   [/^POST \/api\/v1\/authorizations$/, authorization],
   [/^POST \/api\/v1\/exports$/, exportArtifact],
+  [/^POST \/api\/v1\/incidents\/[^/?]+\/evidence-bundles$/, exportArtifact],
   [/^GET \/api\/v1\/exports\/[^/?]+$/, exportArtifact],
   [d1CommandPaths, command],
 ];

@@ -57,7 +57,9 @@ func newD1IntegrationFixture(
 	t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 ) d1IntegrationFixture {
 	t.Helper()
-	at := time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+	// Keep deterministic command time after migration-created timestamps so the
+	// lifecycle monotonicity checks do not depend on the wall date of the test.
+	at := time.Date(2030, 8, 3, 12, 0, 0, 0, time.UTC)
 	userID, sessionID := "d1-command-owner", "d1-command-session"
 	if _, err := pool.Exec(ctx, `INSERT INTO users(
 	    id,email,password_hash,status,created_at,normalized_email,password_changed_at
@@ -196,6 +198,12 @@ func assertD1HoldAndQuota(
 	artifact generated.ExportArtifact,
 ) {
 	t.Helper()
+	if _, err := pool.Exec(ctx, `INSERT INTO incidents(
+id,severity,state,reason_code,opened_at,resolved_at,updated_at
+) VALUES ('incident-d1','warning','open','d1_artifact_review',$1,NULL,$1)`,
+		artifact.CreatedAt); err != nil {
+		t.Fatal(err)
+	}
 	holdRevision := int64(1)
 	holdReason := "hold D1 artifact for incident review"
 	hold := console.D1Command{

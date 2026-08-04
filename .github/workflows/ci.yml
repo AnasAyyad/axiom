@@ -95,6 +95,66 @@ jobs:
       - name: Run D3 browser matrix
         run: make d3-browser-qualify
 
+  d4-browser:
+    name: D4 operations in Chromium, Firefox, WebKit, tablet, and mobile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - name: Activate exact pnpm
+        run: |
+          corepack enable
+          corepack install --global pnpm@${PNPM_VERSION}
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install pinned browser runtimes
+        run: pnpm --filter @axiom/web exec playwright install --with-deps chromium firefox webkit
+      - name: Run D4 browser matrix
+        run: make d4-browser-qualify
+
+  d4-postgres:
+    name: D4 PostgreSQL clean-install and D1 upgrade qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Create isolated D4 qualification databases
+        env:
+          POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d4_clean_d4_test
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d4_upgrade_d4_test
+      - name: Run D4 clean-install and exact D1 upgrade qualification
+        env:
+          AXIOM_D4_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d4_clean_d4_test?sslmode=disable
+          AXIOM_D4_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d4_upgrade_d4_test?sslmode=disable
+        run: make d4-postgres-qualify
+
   postgres-smoke:
     name: PostgreSQL readiness and process smoke
     runs-on: ubuntu-24.04

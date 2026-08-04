@@ -61,6 +61,40 @@ export const auditQuery = queryOptions({
   queryFn: () => getAPI<"AuditEventPage">("/api/v1/audit-events?page_size=50"),
 });
 
+export const auditVerificationQuery = queryOptions({
+  queryKey: ["audit", "verification"],
+  queryFn: () => getAPI<"AuditVerification">("/api/v1/audit-verification"),
+});
+
+export const reportSchedulesQuery = queryOptions({
+  queryKey: ["report-schedules"],
+  queryFn: () =>
+    getAPI<"ReportSchedulePage">("/api/v1/report-schedules?page_size=50"),
+});
+
+export function reportDetailQuery(id: string) {
+  return queryOptions({
+    queryKey: ["report", id],
+    queryFn: () =>
+      getAPI<"ReportResource">(`/api/v1/reports/${encodeURIComponent(id)}`),
+    enabled: id !== "",
+  });
+}
+
+export const alertRoutesQuery = queryOptions({
+  queryKey: ["alert-routes"],
+  queryFn: () => getAPI<"AlertRoutePage">("/api/v1/alert-routes"),
+});
+
+export function alertDetailQuery(id: string) {
+  return queryOptions({
+    queryKey: ["alert", id],
+    queryFn: () =>
+      getAPI<"AlertDetail">(`/api/v1/alerts/${encodeURIComponent(id)}`),
+    enabled: id !== "",
+  });
+}
+
 export const exchangesQuery = queryOptions({
   queryKey: ["exchanges"],
   queryFn: () => getAPI<"ExchangePage">("/api/v1/exchanges?page_size=50"),

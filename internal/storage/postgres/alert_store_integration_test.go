@@ -103,7 +103,8 @@ func assertA5FailedDelivery(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = store.CompleteDelivery(ctx, deliveryID, false, "sink_unavailable", now.Add(3*time.Second)); err != nil {
+	if err = store.CompleteDelivery(ctx, deliveryID, false, "sink_unavailable",
+		now.Add(2500*time.Millisecond), now.Add(3*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	var deliveryState string

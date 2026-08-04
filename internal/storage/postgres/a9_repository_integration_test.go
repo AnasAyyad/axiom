@@ -503,7 +503,9 @@ func assertA9RiskEvidence(
 	_, _ = queries.InsertCircuitBreakerEvent(ctx, generated.InsertCircuitBreakerEventParams{ID: "breaker-a",
 		BreakerKind: "reconciliation_mismatch", ScopeKind: "portfolio", ScopeID: "portfolio-a", Action: "quarantine",
 		ResultingState: "LOCKED", EvidenceHash: hash, OccurredAt: now})
-	if _, err = pool.Exec(ctx, "INSERT INTO incidents VALUES ('incident-a','critical','open','critical_reconciliation_mismatch',$1,NULL)", now.Time); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO incidents(
+id,severity,state,reason_code,opened_at,resolved_at
+) VALUES ('incident-a','critical','open','critical_reconciliation_mismatch',$1,NULL)`, now.Time); err != nil {
 		t.Fatal(err)
 	}
 	_ = pool

@@ -51,7 +51,9 @@ func (store *memoryStore) PrepareDelivery(_ context.Context, alert Alert, _ stri
 	store.pending = PendingDelivery{ID: "delivery_1", SinkName: "webhook", Alert: alert}
 	return "delivery_1", nil
 }
-func (store *memoryStore) CompleteDelivery(_ context.Context, _ string, delivered bool, _ string, _ time.Time) error {
+func (store *memoryStore) CompleteDelivery(
+	_ context.Context, _ string, delivered bool, _ string, _, _ time.Time,
+) error {
 	if delivered {
 		store.deliveryState = "delivered"
 	} else {

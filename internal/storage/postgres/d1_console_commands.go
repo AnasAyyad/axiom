@@ -119,12 +119,20 @@ func (store *A11ConsoleStore) applyD1Command(
 		return applyD1Alert(ctx, tx, principal, command, now)
 	case "report":
 		return applyD1Report(ctx, tx, principal, command, commandID, now)
+	case "report_schedule":
+		return applyD4ReportSchedule(ctx, tx, principal, command, now)
 	case "export":
 		return applyD1ExportDelete(ctx, tx, principal, command, now)
 	case "artifact_hold":
 		return applyD1ArtifactHold(ctx, tx, principal, command, now)
 	case "incident":
 		return applyD1Incident(ctx, tx, principal, command, now)
+	case "incident_create":
+		return applyD4IncidentCreate(ctx, tx, principal, command, now)
+	case "incident_update":
+		return applyD4IncidentUpdate(ctx, tx, principal, command, now)
+	case "alert_test":
+		return applyD4AlertTest(ctx, tx, principal, command, commandID, now)
 	case "configuration_activation":
 		return applyD1ConfigurationActivation(ctx, tx, principal, command, now)
 	case "lab_run":

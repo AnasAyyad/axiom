@@ -342,6 +342,30 @@ is_v1d_d2_ui_literal() {
   esac
 }
 
+# V1D D4 preserves Testnet/Demo only as report provenance and an explicit
+# non-profitability warning. These line-shaped exceptions cannot add an
+# endpoint, credential, control, or order-submission path.
+is_v1d_d4_evidence_literal() {
+  local rule_id="$1"
+  local file="${2#./}"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    later-release-sandbox:internal/storage/postgres/d4_report_content.go)
+      [[ "${line_text}" == *'"Historical, replay, shadow, Testnet, and Demo results do not prove profitability."'* ]]
+      ;;
+    later-release-sandbox:internal/storage/postgres/migrations/000026_v1d_d4_ops_evidence.sql)
+      [[ "${line_text}" == *"'backtest','replay','paper','shadow','testnet','demo','mixed','operational'"* ]]
+      ;;
+    later-release-sandbox:scripts/check-v1d-d4-boundary.mjs)
+      [[ "${line_text}" == *'"Historical, replay, shadow, Testnet, and Demo results do not prove profitability."'* ]]
+      ;;
+    later-release-sandbox:web/src/features/operations/ReportCenterPage.tsx)
+      [[ "${line_text}" == *'replay, shadow, Testnet, and Demo results do not prove profitability.'* ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 # run_rule ID DESCRIPTION REGEX ALLOW_POLICY GLOB_ARRAY TARGET...
 run_rule() {
   local rule_id="$1"
@@ -401,6 +425,10 @@ run_rule() {
     fi
 
     if is_v1d_d2_ui_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
+    if is_v1d_d4_evidence_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 

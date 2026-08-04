@@ -88,6 +88,64 @@ func TestD1RuntimeAndReportingGrantsRemainLeastPrivilege(t *testing.T) {
 	}
 }
 
+func TestD4OperationalEvidenceGrantsRemainLeastPrivilege(t *testing.T) {
+	appendOnly := []string{
+		"v1d_incident_events", "v1d_incident_replay_inputs", "v1d_incident_alert_links",
+		"v1d_incident_activity_links", "v1d_incident_resolution_evidence",
+		"v1d_alert_delivery_attempts", "v1d_alert_escalations",
+	}
+	for _, table := range appendOnly {
+		if !containsGrantTable(runtimeReadInsertTables, table) {
+			t.Errorf("D4 runtime append grant omits %s", table)
+		}
+		if containsGrantTable(runtimeUpdateTables, table) ||
+			containsGrantTable(runtimeDeleteTables, table) {
+			t.Errorf("D4 immutable relation %s received mutation privilege", table)
+		}
+	}
+	for _, table := range []string{
+		"v1d_report_schedules", "v1d_reports", "v1d_alert_routes", "v1d_alert_route_tests",
+	} {
+		if !containsGrantTable(runtimeUpdateTables, table) {
+			t.Errorf("D4 runtime update grant omits %s", table)
+		}
+	}
+	for _, table := range []string{
+		"v1d_incident_events", "v1d_incident_replay_inputs", "v1d_incident_alert_links",
+		"v1d_incident_activity_links", "v1d_incident_resolution_evidence",
+		"v1d_report_schedules", "v1d_reports", "v1d_alert_routes",
+		"v1d_alert_delivery_attempts", "v1d_alert_escalations", "v1d_alert_route_tests",
+		"v1d_audit_chain",
+	} {
+		if !containsGrantTable(readOnlyTables, table) {
+			t.Errorf("D4 reporting grant omits %s", table)
+		}
+	}
+	if containsGrantTable(runtimeReadInsertTables, "v1d_audit_chain") ||
+		containsGrantTable(runtimeUpdateTables, "v1d_audit_chain") ||
+		containsGrantTable(runtimeDeleteTables, "v1d_audit_chain") {
+		t.Error("D4 audit chain received direct mutation privilege")
+	}
+}
+
+func TestProcessAlertEvidenceGrantsAreNarrow(t *testing.T) {
+	if !containsGrantTable(processAlertAppendTables, "v1d_alert_delivery_attempts") {
+		t.Error("process alert append grant omits v1d_alert_delivery_attempts")
+	}
+	for _, table := range []string{"v1d_alert_routes", "v1d_alert_route_tests"} {
+		if !containsGrantTable(processAlertUpdateTables, table) {
+			t.Errorf("process alert update grant omits %s", table)
+		}
+	}
+	for _, immutable := range []string{
+		"v1d_alert_delivery_attempts", "v1d_alert_escalations", "v1d_audit_chain",
+	} {
+		if containsGrantTable(processAlertUpdateTables, immutable) {
+			t.Errorf("process alert update grant exposes immutable %s", immutable)
+		}
+	}
+}
+
 func TestRuntimeAuthenticatedEvidenceGrantIsReadOnly(t *testing.T) {
 	const table = `"public"."v1c_authenticated_request_evidence"`
 	read := grantSQL("SELECT", runtimeReadTables, `"axiom_runtime"`)
@@ -352,6 +410,8 @@ func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 		"v1c engine alert read/write": v1cEngineAlertReadWriteTables,
 		"v1c engine alert append":     v1cEngineAlertAppendTables,
 		"v1c engine runtime append":   v1cEngineRuntimeAppendTables,
+		"process alert append":        processAlertAppendTables,
+		"process alert update":        processAlertUpdateTables,
 		"c6 qualification read":       c6QualificationReadTables,
 		"c6 qualification append":     c6QualificationAppendTables,
 	}
