@@ -132,18 +132,21 @@ func d1ReplayExport(
 }
 
 func (store *A11ConsoleStore) d1CheckExportCapacity(ctx context.Context, tx pgx.Tx, userID string) error {
-	var userCount, globalCount, diskPressure int
+	var userCount, globalCount int
 	err := tx.QueryRow(ctx, `SELECT
       count(*) FILTER (WHERE owner_user_id=$1 AND deleted_at IS NULL AND expires_at>$2)::integer,
-      count(*) FILTER (WHERE deleted_at IS NULL AND expires_at>$2)::integer,
-      (SELECT count(*)::integer FROM circuit_breaker_events WHERE breaker_kind='disk_failure')
+	  count(*) FILTER (WHERE deleted_at IS NULL AND expires_at>$2)::integer
     FROM v1d_export_artifacts`, userID, store.clock.Now().UTC).Scan(
-		&userCount, &globalCount, &diskPressure,
+		&userCount, &globalCount,
 	)
 	if err != nil {
 		return err
 	}
-	if userCount >= 20 || globalCount >= 100 || diskPressure > 0 {
+	storageReady, err := d5HeavyWorkAllowed(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if userCount >= 20 || globalCount >= 100 || !storageReady {
 		return console.ErrQuota
 	}
 	return nil

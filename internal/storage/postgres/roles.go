@@ -81,7 +81,7 @@ var runtimeReadTables = []string{
 	"v1c_c6_chaos_events",
 	"v1d_reason_catalogue", "v1d_activity_projection", "v1d_activity_explanations",
 	"v1d_strategy_controls", "v1d_risk_controls", "v1d_qualification_catalogue",
-	"v1d_alert_routes", "v1d_audit_chain",
+	"v1d_alert_routes", "v1d_audit_chain", "v1d_storage_pressure_state",
 }
 
 var recorderReadTables = []string{
@@ -90,9 +90,10 @@ var recorderReadTables = []string{
 
 var recorderWriteTables = []string{
 	"alert_deliveries", "alerts", "data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "market_data_segments",
+	"v1d_storage_pressure_state",
 }
 
-var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events"}
+var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events", "v1d_storage_pressure_events"}
 
 // Shared alert services run in every process role. They may append immutable
 // delivery evidence and update only the bounded route state used for delivery
@@ -191,7 +192,7 @@ var readOnlyTables = []string{
 	"v1d_incident_activity_links", "v1d_incident_resolution_evidence",
 	"v1d_report_schedules", "v1d_reports", "v1d_alert_routes",
 	"v1d_alert_delivery_attempts", "v1d_alert_escalations", "v1d_alert_route_tests",
-	"v1d_audit_chain",
+	"v1d_audit_chain", "v1d_storage_pressure_state", "v1d_storage_pressure_events",
 }
 
 // ApplyV1CEngineRoleGrants keeps authenticated engines on distinct database

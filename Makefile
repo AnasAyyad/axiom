@@ -17,6 +17,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: d2-contract-qualify d2-frontend-qualify d2-browser-qualify d2-security-qualify v1d-d2-local-qualify
 .PHONY: d3-contract-qualify d3-api-qualify d3-postgres-qualify d3-frontend-qualify d3-browser-qualify d3-security-qualify v1d-d3-local-qualify
 .PHONY: d4-contract-qualify d4-api-qualify d4-postgres-qualify d4-frontend-qualify d4-browser-qualify d4-security-qualify v1d-d4-local-qualify
+.PHONY: d5-model-qualify d5-backup-qualify d5-postgres-qualify d5-hardening-qualify d5-chaos-qualify d5-soak-smoke d5-security-qualify d5-readiness v1d-d5-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -69,6 +70,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-v1d-d2-boundary.mjs
 	@$(NODE) scripts/check-v1d-d3-boundary.mjs
 	@$(NODE) scripts/check-v1d-d4-boundary.mjs
+	@$(NODE) scripts/check-v1d-d5-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -356,6 +358,57 @@ d4-security-qualify: ## Prove D4 redaction, audit, hold, outbound, role, and pro
 	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 v1d-d4-local-qualify: d4-contract-qualify d4-api-qualify d4-postgres-qualify d4-frontend-qualify d4-browser-qualify d4-security-qualify ## Pass every local D4 implementation gate; merge and cumulative acceptance remain separate.
+
+d5-model-qualify: ## Exercise D5 pressure, retention, lifecycle, runner, and fail-closed runtime models.
+	@AXIOM_D5_TEST_DSN= AXIOM_D5_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/storage/pressure ./internal/storage/segments \
+			./internal/qualification/d5 ./internal/config ./internal/bootstrap \
+			./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/storage/pressure ./internal/qualification/d5 \
+		./internal/bootstrap -count=1
+
+d5-backup-qualify: ## Prove independent mount rejection, encryption, retention, and authenticated restore evidence.
+	@$(GO) test ./internal/backup ./cmd/storage-backup -count=1
+	@$(GO) test -race ./internal/backup -count=1
+
+d5-postgres-qualify: ## Run D5 clean-install and exact D4-to-D5 upgrade gates on PostgreSQL 18.
+	@test -n "$(AXIOM_D5_TEST_DSN)" || { echo "AXIOM_D5_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_UPGRADE_TEST_DSN)" || { echo "AXIOM_D5_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_D5_TEST_DSN="$(AXIOM_D5_TEST_DSN)" \
+		AXIOM_D5_UPGRADE_TEST_DSN="$(AXIOM_D5_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestV1DD5Postgres(OperationalReadiness|D4ToD5Upgrade)Qualification$$' -count=1 -v
+
+d5-hardening-qualify: ## Validate D5 Compose retention, remote backup, digest, and lifecycle boundaries.
+	@$(NODE) scripts/check-v1d-d5-boundary.mjs
+	@scripts/check-compose.sh
+
+d5-chaos-qualify: ## Exercise terminal failure, no-replace evidence, races, restart, and kill-point models.
+	@$(GO) test ./internal/qualification/d5 ./internal/backup ./internal/storage/pressure \
+		./internal/execution ./internal/reconciliation ./internal/sandbox -count=1
+
+d5-soak-smoke: ## Run only deterministic D5 smoke; output is always non-qualifying.
+	@$(GO) test ./internal/qualification/d5 -run '^(TestSmokeRunner|TestRunnerFails|TestFileStore)' \
+		-count=1 -timeout=2m -v
+
+d5-security-qualify: ## Prove observation-only D5 code, secret redaction, and prohibited-capability denial.
+	@$(NODE) scripts/check-v1d-d5-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+d5-readiness: ## MANUAL: run the default-off exact seven-day D5 observer on the approved server.
+	@test "$(AXIOM_D5_READINESS_ENABLED)" = "1" || { echo "AXIOM_D5_READINESS_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_D5_MODE)" = "formal" || { echo "AXIOM_D5_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_RUN_FILE)" || { echo "AXIOM_D5_RUN_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_TEST_MANIFEST_FILE)" || { echo "AXIOM_D5_TEST_MANIFEST_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_FAULT_SCHEDULE_FILE)" || { echo "AXIOM_D5_FAULT_SCHEDULE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_PREFLIGHT_FILE)" || { echo "AXIOM_D5_PREFLIGHT_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_SAMPLE_FILE)" || { echo "AXIOM_D5_SAMPLE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_FAULT_EVIDENCE_FILE)" || { echo "AXIOM_D5_FAULT_EVIDENCE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D5_SIGNING_KEY_FILE)" || { echo "AXIOM_D5_SIGNING_KEY_FILE is required" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "formal D5 requires a clean exact source" >&2; exit 1; }
+	@$(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/d5-readiness
+
+v1d-d5-local-qualify: d5-model-qualify d5-backup-qualify d5-postgres-qualify d5-hardening-qualify d5-chaos-qualify d5-soak-smoke d5-security-qualify ## Pass local D5 implementation gates; the reference-server seven-day verdict remains separate.
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck -db "$(VULNDB)" ./...

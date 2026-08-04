@@ -323,6 +323,7 @@ func a11QualificationDatabase(t *testing.T) (context.Context, context.CancelFunc
 		t.Fatalf("A11 migrations = %d %v", applied, applyErr)
 	}
 	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC)
+	seedD5NormalPressure(t, ctx, pool, now)
 	return ctx, cancel, pool, now
 }
 

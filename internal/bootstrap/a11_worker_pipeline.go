@@ -47,7 +47,11 @@ func newA11WorkerRoleWork(
 	if err != nil {
 		return nil, err
 	}
-	return newWorkerRoleWork(orderedOfflineWorkers{reportWorker, worker}, time.Second)
+	lifecycleWorker, err := postgresstore.NewD5LifecycleWorker(pool, &domain.SystemClock{})
+	if err != nil {
+		return nil, err
+	}
+	return newWorkerRoleWork(orderedOfflineWorkers{lifecycleWorker, reportWorker, worker}, time.Second)
 }
 
 func newA11OperationalProcessor(claim backtest.JobClaim) (backtest.Processor, error) {

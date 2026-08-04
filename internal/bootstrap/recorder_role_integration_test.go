@@ -31,7 +31,8 @@ func TestA7RecorderRolePublicIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtimeConfig := config.Runtime{InstanceID: "a7-role-integration", Recorder: config.RecorderRuntime{
-		Root: t.TempDir(), FlushInterval: 5 * time.Second, QueueCapacity: 8192, BookDepth: 1000}}
+		Root: t.TempDir(), FlushInterval: 5 * time.Second, PressureInterval: 15 * time.Second,
+		HighFreeBytes: 10 << 30, CriticalFreeBytes: 5 << 30, QueueCapacity: 8192, BookDepth: 1000}}
 	clock := &domain.SystemClock{}
 	work, err := newRecorderRoleWork(ctx, pool, runtimeConfig, config.DefaultConfiguration(), clock)
 	if err != nil {

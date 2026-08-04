@@ -155,6 +155,68 @@ jobs:
           AXIOM_D4_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d4_upgrade_d4_test?sslmode=disable
         run: make d4-postgres-qualify
 
+  d5-postgres:
+    name: D5 PostgreSQL clean-install and D4 upgrade qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Create isolated D5 qualification databases
+        env:
+          POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d5_clean_d5_test
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d5_upgrade_d5_test
+      - name: Run D5 clean-install and exact D4 upgrade qualification
+        env:
+          AXIOM_D5_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d5_clean_d5_test?sslmode=disable
+          AXIOM_D5_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d5_upgrade_d5_test?sslmode=disable
+        run: make d5-postgres-qualify
+
+  d5-local:
+    name: D5 pressure, backup, lifecycle, chaos, and smoke gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - name: Run non-server D5 gates
+        run: |
+          make d5-model-qualify
+          make d5-backup-qualify
+          make d5-hardening-qualify
+          make d5-chaos-qualify
+          make d5-soak-smoke
+
   postgres-smoke:
     name: PostgreSQL readiness and process smoke
     runs-on: ubuntu-24.04
@@ -251,7 +313,7 @@ jobs:
     name: Image, clean deployment, SBOM, license, and vulnerability gates
     needs: [quality, postgres-smoke]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
       security-events: write
@@ -268,8 +330,12 @@ jobs:
         run: >-
           make image IMAGE=axiom:ci VERSION=0.1.0-ci COMMIT=${GITHUB_SHA}
           BUILT_AT=ci DIRTY=false
+      - name: Build backup and restore candidate
+        run: make backup-image BACKUP_IMAGE=axiom-backup:ci
       - name: Inspect non-root minimal runtime
-        run: scripts/inspect-image.sh axiom:ci
+        run: |
+          scripts/inspect-image.sh axiom:ci
+          test "$(docker image inspect --format '{{.Config.User}}' axiom-backup:ci)" = "10002:70"
       - name: Prove reproducible runtime payload
         run: |
           mkdir -p artifacts
@@ -284,6 +350,12 @@ jobs:
           image: axiom:ci
           format: spdx-json
           output-file: artifacts/axiom.spdx.json
+      - name: Generate backup image SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: axiom-backup:ci
+          format: spdx-json
+          output-file: artifacts/axiom-backup.spdx.json
       - name: Scan image vulnerabilities, secrets, misconfiguration, and licenses
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -295,8 +367,21 @@ jobs:
           limit-severities-for-sarif: true
           ignore-unfixed: false
           exit-code: "1"
+      - name: Scan backup image vulnerabilities, secrets, misconfiguration, and licenses
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: axiom-backup:ci
+          format: sarif
+          output: artifacts/trivy-backup.sarif
+          scanners: vuln,secret,misconfig,license
+          severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
+          ignore-unfixed: false
+          exit-code: "1"
       - name: Record image digest
-        run: docker image inspect --format '{{.Id}}' axiom:ci > artifacts/image-digest.txt
+        run: |
+          docker image inspect --format '{{.Id}}' axiom:ci > artifacts/image-digest.txt
+          docker image inspect --format '{{.Id}}' axiom-backup:ci > artifacts/backup-image-digest.txt
       - name: Upload supply-chain evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

@@ -10,16 +10,19 @@ backup service arrives in A4. V1C C4/C5 add two independent authenticated
 sandbox engines, two closed egress proxies, and inert-by-default one-shot
 canary coordinators. C6 adds the credential-free console/API and a separate
 least-privilege observer command; it does not add a Compose service or another
-credential owner. No service can target a production-private exchange host.
+credential owner. D5 replaces same-stack backup storage with a verified remote
+mount, adds current disk-pressure automation and a separate authenticated
+readiness runner. No service can target a production-private exchange host.
 
 ## 1. Prepare configuration
 
 ```bash
 cp .env.example .env
-mkdir -p .secrets .local/market-data .local/v1c-pr2-canaries
+mkdir -p .secrets .local/market-data .local/backup-staging .local/v1c-pr2-canaries
 chmod 700 .secrets
 # On Linux, ensure bind-mounted writable paths match APP_UID/APP_GID.
 sudo chown -R 10001:10001 .local/market-data
+sudo chown -R 10002:70 .local/backup-staging
 sudo chown 10001:70 .local/v1c-pr2-canaries
 chmod 750 .local/v1c-pr2-canaries
 ```
@@ -469,8 +472,9 @@ APP_IMAGE=axiom:local APP_PULL_POLICY=never \
   docker compose --env-file .env --profile app up -d --wait
 ```
 
-For a server, use an image that CI has built, scanned, signed, and published;
-set `APP_IMAGE` to its immutable digest where possible.
+For a server, use images that CI has built, scanned, signed, and published.
+Formal D5 requires immutable registry digests for every app and infrastructure
+image; mutable tags are rejected by preflight.
 
 The `app` profile starts the API, production-public shadow engine, recorder,
 and credential-free offline worker together, so the console workflows do not
@@ -541,6 +545,7 @@ image:
 
 ```bash
 make backup-image
+test -d "${BACKUP_REMOTE_HOST_PATH}"
 BACKUP_IMAGE=axiom-backup:local BACKUP_PULL_POLICY=never \
   docker compose --profile backup run --rm backup create
 ```
@@ -548,9 +553,12 @@ BACKUP_IMAGE=axiom-backup:local BACKUP_PULL_POLICY=never \
 The one-shot backup service uses the least-privilege backup role, streams
 PostgreSQL custom format directly into framed AES-256-GCM, syncs and atomically
 renames the object, and then writes a checksum manifest. Database and encryption
-secrets remain file-backed and never enter command arguments. The `backup_data`
-volume is independent of `postgres_data`, but a same-host volume is not an
-off-host disaster copy. The authenticated manifest records start/completion UTC,
+secrets remain file-backed and never enter command arguments.
+`BACKUP_REMOTE_HOST_PATH` must already be a writable independently mounted
+remote filesystem managed outside Compose. Inside the container the process
+compares its mount identity with read-only views of PostgreSQL, market data,
+and local staging. Root-filesystem directories and any shared identity are
+rejected. The authenticated manifest records start/completion UTC,
 database and schema identity, `pg_dump` version, WAL boundary, encryption format,
 object size, and checksum. After a successful backup, the job authenticates and
 decrypts the new object through `pg_restore --list`; a structurally invalid
@@ -558,11 +566,14 @@ archive is durably quarantined outside the ready inventory. It then authenticate
 and fully verifies every completed restore point, safely resumes any interrupted
 deletion, and retains the newest 14 generations (or the larger configured
 `BACKUP_RETENTION_GENERATIONS` value). Invalid inventory fails pruning closed.
-Schedule the reviewed command daily and copy encrypted objects plus manifests to
-protected independent off-host storage before release readiness.
+Schedule the reviewed command daily and retain the encrypted objects and
+manifests directly on that protected remote filesystem.
 
 Restore only into a clean isolated PostgreSQL database. Set the absolute
-manifest path as seen inside the backup container and run:
+manifest path as seen inside the backup container. Separately recover the
+declared market-data filesystem copy into
+`BACKUP_RESTORE_MARKET_DATA_HOST_PATH`; this must not be the active recorder
+directory. Then run:
 
 ```bash
 BACKUP_RESTORE_MANIFEST=/backups/<name>.manifest.json \
@@ -576,11 +587,42 @@ It then decrypts a second verified stream into an atomic
 `pg_restore --single-transaction` operation and withholds success unless the
 schema version, per-asset journal balance,
 nonnegative spot ownership, and active/quarantined reservation projection pass.
-Never point this command at the active primary. A successful command is still
-not release evidence until journal/projection, manifest/file, replay-hash, role,
-RPO, and timed-RTO checks pass on the clean instance.
+It also reads the restored ready-segment catalogue, confines every path to the
+separate restored market-data root, verifies every file SHA-256, and seals a
+deterministic inventory hash. Ambiguous, missing, corrupt, duplicate, or
+escaping paths fail closed. `BACKUP_REQUIRE_MARKET_RECOVERY=true` is the
+default and is mandatory for D5; setting it to `false` permits only a
+non-qualifying pre-recording database restore with an empty segment inventory.
+Never point this command at the active primary or active recorder directory.
+Success writes an authenticated, no-replace `restore-*.evidence.json`
+containing the artifact identity, market inventory, and timed clean-restore
+verdict. It is release evidence only when journal/projection, manifest/file,
+replay-hash, role, RPO, and four-hour RTO checks pass on the approved clean
+instance.
 
-## 6. Unavailable production trading
+## 6. Upgrade, rollback, and D5 readiness
+
+For a clean install, render all selected profiles, verify every server image is
+digest-pinned, run migrations once, apply least-privilege grants, and start in
+`READY_PAUSED`. For a supported upgrade, take and validate a remote backup,
+stop new work, drain/finalize recorder and workers, apply forward-only
+migrations, reapply grants, and execute startup recovery before any explicit
+resume. Never roll the schema backward.
+
+If an application-only rollout fails before a migration, restore the prior
+digest. After any migration, prefer a forward-fix. Disaster rollback requires
+an approved clean database restore from the pre-upgrade artifact and explicit
+loss/RPO accounting; never restore over the active database. Preserve failed
+rollout evidence under an incident hold.
+
+Run local D5 logic and evidence smoke with `make d5-soak-smoke`. The formal
+command is `make d5-readiness` and is intentionally unusable without all exact
+identity and live-evidence inputs. Follow
+[`docs/operations/d5-readiness.md`](../docs/operations/d5-readiness.md). The
+reference server has not been selected by repository configuration, so local
+success cannot pass the formal gate.
+
+## 7. Unavailable production trading
 
 The `testnet` and `demo` execution modes are reachable only through the two
 closed `sandbox-engine` commands and their compiled endpoint policies. There

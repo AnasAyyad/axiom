@@ -3675,6 +3675,42 @@ Owner: SRE and storage.
 
 Deliver hardened image/digest deployment, edge TLS, backup/off-host retention/restore drills, schema upgrades, raw-data lifecycle, disk-pressure automation, load/race/chaos tests, runbooks, rollback/forward-fix procedures, and seven-day readiness soak.
 
+D5 uses a current revisioned storage-pressure state plus immutable observations.
+The initial high free-space watermark remains 10 GiB. Until a measured server
+capacity plan raises it, the initial critical free-space watermark is 5 GiB.
+Missing, bootstrap-only, conflicting, stale beyond two minutes, or unobservable
+pressure state fails closed. High pressure rejects new lab, report, export, and
+not-yet-running shadow work while recording
+and already-running safe work may continue. Critical pressure disables new
+shadow entries, stops collectors, and finalizes or quarantines recorder work
+before the recorder becomes unready; database journal and audit writes are not
+disabled. Historical pressure events remain immutable and do not themselves
+keep the current state permanently blocked.
+
+Generated artifacts expire after seven days only when no active incident or
+reproducibility hold exists. Expiry removes content but preserves metadata and
+immutable access/audit evidence. Raw-segment deletion continues to require the
+30-day floor, verified backup, and explicit proof that no locked test,
+incident, active replay, reproducibility bundle, owner/legal hold, or pending
+deletion references the segment.
+
+Database backups are encrypted and authenticated and retain at least 14 daily
+restore points. The backup and restore processes must prove that the remote
+destination is a non-root mounted filesystem different from PostgreSQL,
+market data, and local staging. A successful clean restore records a
+no-replace authenticated verdict and must complete within four hours. A
+Compose-managed Docker volume is not accepted as remote backup evidence.
+
+The formal D5 readiness runner is default-off and begins its exact seven-day
+clock only after fail-closed preflight passes. The run is bound to exact source
+SHA, pinned image digests, configuration hash, server identity, dataset
+identity, test-manifest hash, and version-controlled fault schedule. It writes
+fsynced hash-chained samples and a no-replace Ed25519-authenticated terminal
+verdict. A failed run is terminal: it cannot reset its clock, weaken thresholds,
+hide a waiver, or be converted into a pass. Smoke evidence is always marked
+non-qualifying. B2 market-data and C6 sandbox verdicts remain independent and
+are not replaced by D5.
+
 Acceptance: numeric SLOs, resource bounds, RPO/RTO, disaster restore, graceful lifecycle, and incident rollback criteria pass on the recorded reference server.
 
 ### Phase D6: V1 readiness and safety certification

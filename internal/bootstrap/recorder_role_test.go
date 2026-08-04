@@ -2,11 +2,15 @@ package bootstrap
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
 	"axiom/internal/config"
 	"axiom/internal/domain"
+	postgresstore "axiom/internal/storage/postgres"
+	"axiom/internal/storage/pressure"
 )
 
 func TestRecorderRoleCompositionIsPublicBoundedAndDeterministic(t *testing.T) {
@@ -29,6 +33,30 @@ func TestRecorderRoleCompositionIsPublicBoundedAndDeterministic(t *testing.T) {
 	if len(work.collectors) != 2 || work.Ready() {
 		t.Fatalf("recorder role universe/readiness = %d/%t", len(work.collectors), work.Ready())
 	}
+}
+
+func TestRecorderStoragePressureFailsClosedAtCritical(t *testing.T) {
+	policy := pressure.Policy{HighFreeBytes: 10 << 30, CriticalFreeBytes: 5 << 30,
+		SampleInterval: 15 * time.Second}
+	now := time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)
+	observation, _ := policy.Classify(4<<30, 100<<30, now)
+	store := &pressureWriterStub{}
+	work := &recorderRoleWork{root: t.TempDir(), pressurePolicy: policy, pressureStore: store,
+		pressureProbe: func(string, time.Time) (pressure.Observation, error) { return observation, nil }}
+	critical, err := work.observeStoragePressure(context.Background(),
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil || !critical || store.observations != 1 {
+		t.Fatalf("critical=%t observations=%d error=%v", critical, store.observations, err)
+	}
+}
+
+type pressureWriterStub struct{ observations int }
+
+func (store *pressureWriterStub) Observe(_ context.Context, observation pressure.Observation,
+	_ pressure.Policy) (postgresstore.D5StoragePressureState, bool, error) {
+	store.observations++
+	return postgresstore.D5StoragePressureState{Observation: observation, Revision: 2,
+		SourceInstance: "test-recorder"}, true, nil
 }
 
 func TestB1RecorderRoleComposesBothPublicExchangesAndNativeTriangle(t *testing.T) {

@@ -1,0 +1,33 @@
+{
+  "schema_version": "axiom.d5.test-manifest.v1",
+  "duration_seconds": 604800,
+  "sample_interval_seconds": 60,
+  "clock_offset_threshold_ms": 100,
+  "fault_schedule_sha256": "f152aace59fb128b8e978fbb172c3b5d282a0d4125afe97e97ee7e8fdf1aac25",
+  "declared_load": [
+    "collectors_and_recording",
+    "coherent_sampling",
+    "strategies_allocator_risk_accounting",
+    "shadow_and_virtual_execution",
+    "api_sse_and_ui",
+    "lab_jobs",
+    "reports_exports_and_alerts",
+    "encrypted_backup_and_clean_restore",
+    "resource_limits"
+  ],
+  "zero_tolerance": [
+    "stale_decision",
+    "uninvalidated_gap",
+    "duplicate_order",
+    "lost_fill",
+    "double_posted_fill",
+    "unbalanced_journal",
+    "replay_mismatch",
+    "production_private_submission",
+    "prohibited_capability"
+  ],
+  "independent_verdicts_not_replaced": [
+    "B2 market-data qualification",
+    "C6 sandbox order and reconciliation qualification"
+  ]
+}

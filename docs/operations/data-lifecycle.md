@@ -1,15 +1,14 @@
-# V1A data lifecycle
+# V1 data lifecycle
 
 ## Status and governing rules
 
-This document defines the initial V1A classification, UTC retention, deletion,
-backup, RPO, and RTO policy. A4 now provides deny-by-default retention planning,
-crash-safe segment finalization, authenticated streaming backup artifacts, and
-clean-target restore tooling. Completed database restore points are fully
-authenticated before pruning, with a hard 14-generation floor and resumable
-deletion tombstones. Actual Parquet codecs, scheduled off-host copies,
-database/segment integration, and a timed clean restore remain incomplete, so
-RPO/RTO readiness is not yet claimed.
+This document defines the V1 classification, UTC retention, deletion, backup,
+RPO, and RTO policy. D5 adds current revisioned disk pressure with immutable
+observations, automatic unheld generated-artifact expiry, independently mounted
+encrypted backup enforcement, authenticated clean-restore evidence, and the
+formal readiness runner. Formal RPO/RTO readiness is not claimed until the
+approved reference server completes the timed drills and uninterrupted
+seven-day qualification.
 
 All persisted timestamps and retention cutoffs use UTC. Durations and timeouts
 use a monotonic clock. Retention never deletes a record or segment referenced by
@@ -95,10 +94,15 @@ each stream/depth and documents capacity for the retention window plus at least
 rejects duplicate/invalid samples, overflow, or weakened limits; its output is
 evidence only when populated from real recorder measurements and declared server
 capacity. Initial segment limits are one hour or 256 MiB, whichever occurs
-first, with Parquet, Zstandard level 3. At the high disk watermark, reject new
-backtest/export jobs and alert. At the critical watermark, stop new shadow
-decisions, finalize or quarantine recorder segments, preserve critical
-journal/audit capacity, and enter `PAUSED` or `LOCKED` according to policy.
+first, with Parquet, Zstandard level 3. The initial high free-space watermark is
+10 GiB and the initial critical watermark is 5 GiB. At high, new backtests,
+replays, reports, exports, and shadow sessions are rejected and an alert is
+opened. At critical, active shadow entries are disabled and recorder collectors
+are canceled before a final flush; the recorder becomes unready while database
+journal/audit writes remain available. A fresh normal observation resolves the
+alert but never deletes historical pressure evidence.
+Missing, bootstrap-only, or older-than-two-minutes current pressure is treated
+as unavailable and blocks new heavy work and shadow activation.
 
 ## Deletion protocol
 
@@ -137,8 +141,10 @@ referential and audit integrity.
 ### PostgreSQL
 
 - Take an encrypted backup daily and retain 14 daily restore points.
-- Write backup output to independent storage; a PostgreSQL/Docker volume is not
-  a backup. Copy to independent encrypted off-host storage before V1D readiness.
+- Write backup output directly to an independently mounted remote filesystem;
+  a PostgreSQL/Docker volume is not a backup. The process compares mount
+  identities with PostgreSQL, market data, and local staging and fails closed
+  when any are the same.
 - Use a least-privilege backup identity and a separate encryption key. Do not
   include the live secret directory or plaintext secret-manager export.
 - Record start/end UTC, database/schema version, tool version, snapshot/WAL
@@ -152,6 +158,10 @@ referential and audit integrity.
   documented cadence no slower than daily for the initial disaster RPO.
 - Back up dataset/segment manifests consistently enough to locate and order
   copied files. Verify content hashes after copy and on restore.
+- The database backup does not copy bulk Parquet files. Restore the independently
+  backed-up filesystem into a separate clean root, then require the restore
+  command to match every ready database segment to exactly one confined file
+  and its SHA-256 before it emits success evidence.
 - Never back up `.partial` files as ready. Preserve explicit gaps and quarantine
   facts rather than silently filling them from a different dataset.
 - A locked final test, incident, or reproducibility bundle pins every required
@@ -165,8 +175,9 @@ A clean restore is complete only when:
    provisioned without importing current secrets into the artifact;
 2. migrations/schema and configuration identities are compatible;
 3. journal transactions balance and projections rebuild to the same balances;
-4. manifest inventory matches files, hashes, ordered coverage, and explicit
-   gaps;
+4. the authenticated restore evidence reports `market_data_verified=true`, a
+   nonzero verified-segment count, and a sealed inventory hash matching the
+   clean restored filesystem; ordered coverage and explicit gaps remain intact;
 5. a declared replay produces the expected canonical hash; and
 6. readiness remains paused until health and recovery checks pass.
 
@@ -208,5 +219,6 @@ Access is least privilege and reviewed. Exports are explicit, bounded, redacted,
 watermarked with classification and expiry, and audited. A user’s ability to
 view data does not automatically grant export, backup, or deletion authority.
 
-V1A cannot claim backup, retention, deletion, RPO, or RTO readiness until the
-corresponding automation and clean-instance drills produce current evidence.
+Local D5 automation does not itself claim backup, retention, deletion, RPO, or
+RTO readiness. Those claims require current authenticated clean-instance drill
+and seven-day evidence from the approved exact release and reference server.

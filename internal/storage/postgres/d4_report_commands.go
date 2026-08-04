@@ -71,7 +71,11 @@ count(*) FILTER (WHERE state='QUEUED')::integer FROM jobs`, userID).Scan(
 		&ownerQueued, &globalQueued); err != nil {
 		return err
 	}
-	if ownerQueued >= 4 || globalQueued >= 32 {
+	storageReady, err := d5HeavyWorkAllowed(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if ownerQueued >= 4 || globalQueued >= 32 || !storageReady {
 		return console.ErrQuota
 	}
 	return nil

@@ -273,10 +273,17 @@ func applyD1LabReproduce(
 	jobType string,
 	now time.Time,
 ) (map[string]any, error) {
+	storageReady, err := d5HeavyWorkAllowed(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	if !storageReady {
+		return nil, console.ErrQuota
+	}
 	var payload []byte
 	var payloadHash string
 	var maxAttempts int32
-	if err := tx.QueryRow(ctx, `
+	if err = tx.QueryRow(ctx, `
 SELECT request_payload,payload_hash,max_attempts FROM jobs WHERE id=$1`, command.TargetID).Scan(
 		&payload, &payloadHash, &maxAttempts,
 	); err != nil {

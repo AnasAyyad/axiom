@@ -263,7 +263,10 @@ func a11RecoveryMarketFacts(ctx context.Context, tx pgx.Tx, riskState string, no
 	if err := tx.QueryRow(ctx, `SELECT
       (SELECT count(*) FROM incidents WHERE state<>'resolved' AND severity='critical')+
       (SELECT count(*) FROM quarantined_scopes WHERE released_at IS NULL)+
-      (SELECT count(*) FROM circuit_breaker_events WHERE breaker_kind IN ('disk_failure','persistence_failure','lease_loss'))`).Scan(&invariantBlockers); err != nil || invariantBlockers != 0 {
+	  (SELECT count(*) FROM circuit_breaker_events WHERE breaker_kind IN ('persistence_failure','lease_loss'))+
+		  (SELECT CASE WHEN EXISTS(SELECT 1 FROM v1d_storage_pressure_state WHERE scope_id='market-data'
+		    AND level<>'CRITICAL' AND source_instance<>'migration-bootstrap'
+		    AND observed_at>=CURRENT_TIMESTAMP-interval '2 minutes') THEN 0 ELSE 1 END)`).Scan(&invariantBlockers); err != nil || invariantBlockers != 0 {
 		return nil, fmt.Errorf("a11_startup_recovery_invariants_invalid")
 	}
 	facts = append(facts, map[string]any{"invariant_blockers": invariantBlockers},

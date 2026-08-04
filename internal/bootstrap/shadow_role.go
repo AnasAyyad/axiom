@@ -140,7 +140,12 @@ func (work *shadowRoleWork) controlClaim(ctx context.Context, id string, session
 		session.SetEntriesEnabled(false)
 		cancel()
 		return true
-	case posture.State == "PAUSED" && posture.RiskState == "NORMAL":
+	case posture.StoragePressure == "CRITICAL":
+		session.SetEntriesEnabled(false)
+		if posture.State == "RUNNING" {
+			_ = work.store.Pause(ctx, id)
+		}
+	case posture.State == "PAUSED" && posture.RiskState == "NORMAL" && posture.StoragePressure == "NORMAL":
 		if work.store.Activate(ctx, id) == nil {
 			session.SetEntriesEnabled(true)
 		}

@@ -1,0 +1,34 @@
+{
+  "identity": {
+    "run_id": "CHANGE_ME_NEW_UNIQUE_RUN_ID",
+    "mode": "formal",
+    "source_sha": "CHANGE_ME_40_HEX_SOURCE_SHA",
+    "source_dirty": false,
+    "image_digests": {
+      "app": "CHANGE_ME@sha256:CHANGE_ME_64_HEX",
+      "backup": "CHANGE_ME@sha256:CHANGE_ME_64_HEX",
+      "caddy": "CHANGE_ME@sha256:CHANGE_ME_64_HEX",
+      "grafana": "CHANGE_ME@sha256:CHANGE_ME_64_HEX",
+      "postgres": "CHANGE_ME@sha256:CHANGE_ME_64_HEX",
+      "prometheus": "CHANGE_ME@sha256:CHANGE_ME_64_HEX"
+    },
+    "configuration_hash": "CHANGE_ME_64_HEX",
+    "server_identity": "CHANGE_ME_64_HEX",
+    "dataset_identity": "CHANGE_ME_64_HEX",
+    "test_manifest_hash": "CHANGE_ME_64_HEX"
+  },
+  "duration_seconds": 604800,
+  "sample_interval_seconds": 60,
+  "evidence_root": "/srv/axiom/d5-evidence",
+  "declared_load": {
+    "collectors_recording": true,
+    "coherent_sampling": true,
+    "strategies_risk_accounting": true,
+    "shadow_virtual_execution": true,
+    "api_sse_ui": true,
+    "lab_jobs": true,
+    "reports_exports_alerts": true,
+    "backups_restore": true,
+    "resource_limits": true
+  }
+}

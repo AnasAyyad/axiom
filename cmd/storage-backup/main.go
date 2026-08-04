@@ -47,15 +47,18 @@ func run(arguments []string) error {
 }
 
 type settings struct {
-	host        string
-	port        uint16
-	database    string
-	user        string
-	password    string
-	destination string
-	key         [32]byte
-	manifest    string
-	retain      int
+	host                  string
+	port                  uint16
+	database              string
+	user                  string
+	password              string
+	destination           string
+	key                   [32]byte
+	manifest              string
+	retain                int
+	protected             []string
+	marketRoot            string
+	requireMarketRecovery bool
 }
 
 func loadSettings() (settings, error) {
@@ -66,6 +69,10 @@ func loadSettings() (settings, error) {
 	retention, err := strconv.Atoi(environment("BACKUP_RETENTION_GENERATIONS", "14"))
 	if err != nil || retention < backup.MinimumRetainedGenerations {
 		return settings{}, fmt.Errorf("backup_retention_invalid")
+	}
+	requireMarketRecovery, err := strictBoolean(environment("BACKUP_REQUIRE_MARKET_RECOVERY", "true"))
+	if err != nil {
+		return settings{}, fmt.Errorf("backup_market_recovery_configuration_invalid")
 	}
 	password, err := security.ReadSecretFile(environment("DB_PASSWORD_FILE", "/run/secrets/postgres_backup_password"))
 	if err != nil {
@@ -79,11 +86,16 @@ func loadSettings() (settings, error) {
 	if err != nil {
 		return settings{}, err
 	}
+	databaseFilesystem := environment("BACKUP_DATABASE_FILESYSTEM", "/verify/postgres")
+	marketFilesystem := environment("BACKUP_MARKET_DATA_FILESYSTEM", "/verify/market-data")
+	localFilesystem := environment("BACKUP_LOCAL_FILESYSTEM", "/verify/local-backup")
 	value := settings{
 		host: environment("DB_HOST", "postgres"), port: uint16(port),
 		database: environment("DB_NAME", "axiom"), user: environment("DB_USER", "axiom_backup"),
 		password: password, destination: environment("BACKUP_DESTINATION", "/backups"), key: key,
 		manifest: os.Getenv("BACKUP_RESTORE_MANIFEST"), retain: retention,
+		protected:  []string{databaseFilesystem, marketFilesystem, localFilesystem},
+		marketRoot: marketFilesystem, requireMarketRecovery: requireMarketRecovery,
 	}
 	if !safePGPassField(value.host) || !safePGPassField(value.database) || !safePGPassField(value.user) ||
 		!safePGPassField(value.password) || !filepath.IsAbs(value.destination) {
@@ -93,6 +105,9 @@ func loadSettings() (settings, error) {
 }
 
 func create(ctx context.Context, settings settings, passfile string) error {
+	if _, err := backup.ValidateIndependentDestination(settings.destination, settings.protected); err != nil {
+		return err
+	}
 	started := time.Now().UTC()
 	spec, err := artifactSpec(ctx, settings, passfile, started)
 	if err != nil {
@@ -176,48 +191,6 @@ func validateArchiveWithCommand(root string, manifest backup.ArtifactManifest, k
 	if decryptErr != nil || closeErr != nil || waitErr != nil {
 		return fmt.Errorf("backup_archive_validation_failed")
 	}
-	return nil
-}
-
-func restore(ctx context.Context, settings settings, passfile string) error {
-	if !filepath.IsAbs(settings.manifest) {
-		return fmt.Errorf("restore_manifest_invalid")
-	}
-	manifest, err := backup.ReadArtifactManifest(settings.manifest)
-	if err != nil || manifest.Spec.Database != settings.database {
-		return fmt.Errorf("restore_manifest_invalid")
-	}
-	root := filepath.Dir(settings.manifest)
-	if err = backup.RestoreArtifact(root, manifest, io.Discard, settings.key); err != nil {
-		return err
-	}
-	if err = validateArchive(ctx, root, manifest, settings.key); err != nil {
-		return err
-	}
-	empty, err := targetIsEmpty(ctx, settings, passfile)
-	if err != nil || !empty {
-		return fmt.Errorf("restore_target_not_clean")
-	}
-	command := exec.CommandContext(ctx, "pg_restore", restoreArguments(settings)...)
-	command.Env = append(os.Environ(), "PGPASSFILE="+passfile)
-	stdin, err := command.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("restore_process_unavailable")
-	}
-	command.Stdout, command.Stderr = io.Discard, io.Discard
-	if err = command.Start(); err != nil {
-		return fmt.Errorf("restore_process_unavailable")
-	}
-	decryptErr := backup.RestoreArtifact(root, manifest, stdin, settings.key)
-	closeErr := stdin.Close()
-	waitErr := command.Wait()
-	if decryptErr != nil || closeErr != nil || waitErr != nil {
-		return fmt.Errorf("restore_failed")
-	}
-	if err = verifyRestoredDatabase(ctx, settings, passfile, manifest); err != nil {
-		return err
-	}
-	_, _ = fmt.Fprintf(os.Stdout, "restore_complete name=%s schema=%s\n", manifest.Spec.Name, manifest.Spec.SchemaVersion)
 	return nil
 }
 
@@ -389,6 +362,17 @@ func validWALBoundary(value string) bool {
 	_, leftErr := strconv.ParseUint(left, 16, 32)
 	_, rightErr := strconv.ParseUint(right, 16, 32)
 	return leftErr == nil && rightErr == nil
+}
+
+func strictBoolean(value string) (bool, error) {
+	switch value {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("boolean_invalid")
+	}
 }
 
 func environment(key, fallback string) string {

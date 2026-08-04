@@ -24,6 +24,13 @@ func applyD1QualificationStart(
 	commandID string,
 	now time.Time,
 ) (map[string]any, error) {
+	storageReady, err := d5HeavyWorkAllowed(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	if !storageReady {
+		return nil, console.ErrPrecondition
+	}
 	revision, active, ownerRequired, err := d1QualificationDefinition(ctx, tx, command.TargetID)
 	if err != nil {
 		return nil, err

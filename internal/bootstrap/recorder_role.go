@@ -23,6 +23,7 @@ import (
 	runtimecore "axiom/internal/runtime"
 	postgresstore "axiom/internal/storage/postgres"
 	postgresgenerated "axiom/internal/storage/postgres/generated"
+	"axiom/internal/storage/pressure"
 	"axiom/internal/storage/segments"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -40,15 +41,14 @@ type recorderRoleWork struct {
 	metadata        *postgresstore.A11ShadowStore
 	commit          string
 	flush           time.Duration
+	pressurePolicy  pressure.Policy
+	pressureStore   storagePressureWriter
+	pressureProbe   func(string, time.Time) (pressure.Observation, error)
+	root            string
 }
 
-func newRecorderRoleWork(
-	ctx context.Context,
-	pool *pgxpool.Pool,
-	runtimeConfig config.Runtime,
-	product config.Configuration,
-	clock domain.Clock,
-) (*recorderRoleWork, error) {
+func newRecorderRoleWork(ctx context.Context, pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	product config.Configuration, clock domain.Clock) (*recorderRoleWork, error) {
 	if err := os.MkdirAll(runtimeConfig.Recorder.Root, 0o750); err != nil {
 		return nil, fmt.Errorf("recorder_root_unavailable")
 	}
@@ -79,7 +79,13 @@ func newRecorderRoleWork(
 	}
 	work := &recorderRoleWork{client: client, collectors: collectors, recorder: streamRecorder,
 		catalog: catalog, metadata: metadataStore, commit: buildinfo.Current().Commit,
-		flush: runtimeConfig.Recorder.FlushInterval}
+		flush: runtimeConfig.Recorder.FlushInterval, root: runtimeConfig.Recorder.Root,
+		pressurePolicy: pressure.Policy{HighFreeBytes: runtimeConfig.Recorder.HighFreeBytes,
+			CriticalFreeBytes: runtimeConfig.Recorder.CriticalFreeBytes,
+			SampleInterval:    runtimeConfig.Recorder.PressureInterval}}
+	if err = configureRecorderPressure(work, pool, runtimeConfig.InstanceID); err != nil {
+		return nil, err
+	}
 	if len(exchanges) == 2 {
 		if err = work.addBybit(runtimeConfig.InstanceID, runtimeConfig.Recorder, exchanges[1], session, ordinals,
 			pool, clock, monotonic); err != nil {
@@ -202,6 +208,11 @@ func newBybitCollectors(exchange config.ExchangeConfiguration, runtimeConfig con
 
 // Run owns collector and flush lifecycles until cancellation or a fatal defect.
 func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) error {
+	if critical, err := work.observeStoragePressure(ctx, logger); err != nil {
+		return err
+	} else if critical {
+		return fmt.Errorf("recorder_storage_pressure_critical")
+	}
 	if err := work.registerMetadata(ctx); err != nil {
 		return err
 	}
@@ -210,11 +221,9 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 	errorsChannel, group := work.startRecorderCollectors(workContext)
 	flushTicker := time.NewTicker(work.flush)
 	defer flushTicker.Stop()
-	binanceCapacity := work.recorder.FlushRequired()
-	var bybitCapacity <-chan struct{}
-	if work.bybitRecorder != nil {
-		bybitCapacity = work.bybitRecorder.FlushRequired()
-	}
+	pressureTicker := time.NewTicker(work.pressurePolicy.SampleInterval)
+	defer pressureTicker.Stop()
+	binanceCapacity, bybitCapacity := work.capacitySignals()
 	for {
 		select {
 		case <-workContext.Done():
@@ -231,6 +240,10 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 			if err := work.flushPending(logger, false); err != nil {
 				return err
 			}
+		case <-pressureTicker.C:
+			if err := work.handleStoragePressure(workContext, logger, cancel, group); err != nil {
+				return err
+			}
 		case <-binanceCapacity:
 			if err := work.flushCapacity(logger, "binance", work.recorder); err != nil {
 				return err
@@ -241,6 +254,15 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 			}
 		}
 	}
+}
+
+func (work *recorderRoleWork) capacitySignals() (<-chan struct{}, <-chan struct{}) {
+	binanceCapacity := work.recorder.FlushRequired()
+	var bybitCapacity <-chan struct{}
+	if work.bybitRecorder != nil {
+		bybitCapacity = work.bybitRecorder.FlushRequired()
+	}
+	return binanceCapacity, bybitCapacity
 }
 
 func (work *recorderRoleWork) startRecorderCollectors(ctx context.Context) (<-chan error, *sync.WaitGroup) {

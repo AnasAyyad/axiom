@@ -32,3 +32,12 @@ const restoredIntegrityQuery = `SELECT
     ) r USING (account_id,asset_symbol)
     WHERE coalesce(v.reserved,0) <> coalesce(r.quantity,0)
   ) reservation_violations)`
+
+const restoredMarketSegmentsQuery = `SELECT coalesce(json_agg(json_build_object(
+  'id',id,
+  'exchange',exchange_id,
+  'path',path,
+  'sha256',checksum::text
+) ORDER BY id),'[]'::json)::text
+FROM market_data_segments
+WHERE state='ready'`

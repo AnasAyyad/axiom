@@ -35,8 +35,9 @@ type A11ShadowClaim struct {
 
 // A11ShadowPosture is the authoritative durable control state for one session.
 type A11ShadowPosture struct {
-	State     string
-	RiskState string
+	State           string
+	RiskState       string
+	StoragePressure string
 }
 
 // A11ShadowCheckpoint is the canonical in-process state captured after entry
@@ -116,7 +117,12 @@ func selectA11ShadowClaim(ctx context.Context, tx pgx.Tx) (A11ShadowClaim, bool,
       cv.configuration_hash,cv.canonical_payload
       FROM shadow_sessions ss JOIN configuration_versions cv ON cv.id=ss.configuration_id
       JOIN strategy_versions sv ON sv.id=ss.strategy_version_id
-      WHERE ss.state='QUEUED' ORDER BY ss.created_at,ss.id FOR UPDATE OF ss SKIP LOCKED LIMIT 1`).
+	      WHERE ss.state='QUEUED' AND EXISTS(
+	        SELECT 1 FROM v1d_storage_pressure_state pressure
+	        WHERE pressure.scope_id='market-data' AND pressure.level='NORMAL'
+	          AND pressure.source_instance<>'migration-bootstrap'
+	          AND pressure.observed_at>=CURRENT_TIMESTAMP-interval '2 minutes'
+	      ) ORDER BY ss.created_at,ss.id FOR UPDATE OF ss SKIP LOCKED LIMIT 1`).
 		Scan(&claim.ID, &claim.PortfolioID, &claim.ConfigurationID, &claim.StrategyID,
 			&claim.StrategyVersion, &claim.ConfigurationHash, &canonical)
 	if err == pgx.ErrNoRows {
@@ -224,19 +230,6 @@ func (store *A11ShadowStore) Renew(ctx context.Context, id string) error {
 		return fmt.Errorf("a11_shadow_lease_lost")
 	}
 	return nil
-}
-
-// Posture returns the durable session command and global risk posture.
-func (store *A11ShadowStore) Posture(ctx context.Context, id string) (A11ShadowPosture, error) {
-	var posture A11ShadowPosture
-	err := store.pool.QueryRow(ctx, `SELECT ss.state,coalesce(
-      (SELECT next_state FROM risk_state_events ORDER BY entity_revision DESC LIMIT 1),'PAUSED')
-      FROM shadow_sessions ss WHERE ss.id=$1 AND ss.claim_owner=$2`, id, store.owner).
-		Scan(&posture.State, &posture.RiskState)
-	if err != nil {
-		return A11ShadowPosture{}, fmt.Errorf("a11_shadow_posture_unavailable")
-	}
-	return posture, nil
 }
 
 // Activate enables entries only while durable global risk is NORMAL.
@@ -378,7 +371,10 @@ func (store *A11ShadowStore) transition(ctx context.Context, id, current, next s
 	now := store.clock.Now().UTC
 	riskClause := ""
 	if next == "RUNNING" {
-		riskClause = ` AND coalesce((SELECT next_state FROM risk_state_events ORDER BY entity_revision DESC LIMIT 1),'PAUSED')='NORMAL'`
+		riskClause = ` AND coalesce((SELECT next_state FROM risk_state_events ORDER BY entity_revision DESC LIMIT 1),'PAUSED')='NORMAL'
+			  AND EXISTS(SELECT 1 FROM v1d_storage_pressure_state WHERE scope_id='market-data'
+			    AND level='NORMAL' AND source_instance<>'migration-bootstrap'
+			    AND observed_at>=CURRENT_TIMESTAMP-interval '2 minutes')`
 	}
 	query := `UPDATE shadow_sessions SET state=$1,revision=revision+1,entries_enabled=$2,
       failure_code=$3,stopped_at=CASE WHEN $1='CANCELED' THEN $4 ELSE stopped_at END,

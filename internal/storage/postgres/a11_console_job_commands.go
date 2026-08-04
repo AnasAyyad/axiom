@@ -100,16 +100,19 @@ func validateA11JobCreate(ctx context.Context, tx pgx.Tx, owner, configurationID
 			return err
 		}
 	}
-	var userQueued, globalQueued, diskPressure int
+	var userQueued, globalQueued int
 	err = tx.QueryRow(ctx, `SELECT
       count(*) FILTER (WHERE owner_user_id=$1 AND state='QUEUED')::integer,
-      count(*) FILTER (WHERE state='QUEUED')::integer,
-      (SELECT count(*)::integer FROM circuit_breaker_events WHERE breaker_kind='disk_failure')
-      FROM jobs`, owner).Scan(&userQueued, &globalQueued, &diskPressure)
+	  count(*) FILTER (WHERE state='QUEUED')::integer
+	  FROM jobs`, owner).Scan(&userQueued, &globalQueued)
 	if err != nil {
 		return err
 	}
-	if userQueued >= 4 || globalQueued >= 32 || diskPressure > 0 {
+	storageReady, err := d5HeavyWorkAllowed(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if userQueued >= 4 || globalQueued >= 32 || !storageReady {
 		return console.ErrQuota
 	}
 	return nil

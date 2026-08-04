@@ -73,6 +73,9 @@ readonly -a EXCLUDES=(
   --glob '!scripts/check-b6-rebalancing-boundary.mjs'
   --glob '!scripts/check-b8-console-boundary.mjs'
   --glob '!scripts/check-b8-binary-boundary.sh'
+  # The D5 observation-only boundary scanner contains denied method tokens as
+  # negative assertions; executable D5 sources remain inside this global scan.
+  --glob '!scripts/check-v1d-d5-boundary.mjs'
   # V1C authenticated sandbox inputs are governed by the narrower C1 scanner.
   --glob '!internal/config/v1c*.go'
   --glob '!internal/config/schema.go'

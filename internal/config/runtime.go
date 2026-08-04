@@ -44,11 +44,14 @@ type Tracing struct {
 
 // RecorderRuntime is the bounded production-public recorder process contract.
 type RecorderRuntime struct {
-	Root            string
-	CollectorRegion string
-	FlushInterval   time.Duration
-	QueueCapacity   int
-	BookDepth       int
+	Root              string
+	CollectorRegion   string
+	FlushInterval     time.Duration
+	PressureInterval  time.Duration
+	HighFreeBytes     uint64
+	CriticalFreeBytes uint64
+	QueueCapacity     int
+	BookDepth         int
 }
 
 // AuthenticationRuntime contains only file references and exact browser origins.
@@ -172,31 +175,6 @@ func exactOrigins(raw string) ([]string, error) {
 		return nil, fmt.Errorf("invalid_configuration:WEB_ALLOWED_ORIGINS")
 	}
 	return origins, nil
-}
-
-func loadRecorderRuntime() (RecorderRuntime, error) {
-	flush, err := durationValue("RECORDER_FLUSH_INTERVAL", "5m")
-	if err != nil || flush < time.Second || flush > time.Hour {
-		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:RECORDER_FLUSH_INTERVAL")
-	}
-	queue, err := integerValue("MARKET_EVENT_QUEUE_CAPACITY", "16384", 1000, 1<<20)
-	if err != nil {
-		return RecorderRuntime{}, err
-	}
-	depth, err := integerValue("ORDER_BOOK_RETAINED_DEPTH", "1000", 1, 5000)
-	if err != nil || queue < depth {
-		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:ORDER_BOOK_RETAINED_DEPTH")
-	}
-	root := value("RECORDER_ROOT", "/var/lib/axiom/market-data")
-	if !filepath.IsAbs(root) || filepath.Clean(root) == string(filepath.Separator) {
-		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:RECORDER_ROOT")
-	}
-	region := value("COLLECTOR_REGION", "local")
-	if !validRuntimeLabel(region) {
-		return RecorderRuntime{}, fmt.Errorf("invalid_configuration:COLLECTOR_REGION")
-	}
-	return RecorderRuntime{Root: filepath.Clean(root), CollectorRegion: region, FlushInterval: flush,
-		QueueCapacity: queue, BookDepth: depth}, nil
 }
 
 func loadTracing() (Tracing, error) {
@@ -372,6 +350,14 @@ func mustDuration(key, fallback string, prior *error) time.Duration {
 func integerValue(key, fallback string, minimum, maximum int) (int, error) {
 	parsed, err := strconv.Atoi(value(key, fallback))
 	if err != nil || parsed < minimum || parsed > maximum {
+		return 0, fmt.Errorf("invalid_configuration:%s", key)
+	}
+	return parsed, nil
+}
+
+func uint64Value(key, fallback string) (uint64, error) {
+	parsed, err := strconv.ParseUint(value(key, fallback), 10, 64)
+	if err != nil {
 		return 0, fmt.Errorf("invalid_configuration:%s", key)
 	}
 	return parsed, nil

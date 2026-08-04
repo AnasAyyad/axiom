@@ -60,6 +60,7 @@ func newD1IntegrationFixture(
 	// Keep deterministic command time after migration-created timestamps so the
 	// lifecycle monotonicity checks do not depend on the wall date of the test.
 	at := time.Date(2030, 8, 3, 12, 0, 0, 0, time.UTC)
+	seedD5NormalPressure(t, ctx, pool, at)
 	userID, sessionID := "d1-command-owner", "d1-command-session"
 	if _, err := pool.Exec(ctx, `INSERT INTO users(
 	    id,email,password_hash,status,created_at,normalized_email,password_changed_at
@@ -89,6 +90,15 @@ func newD1IntegrationFixture(
 	}
 	principal := authentication.Principal{UserID: userID, SessionID: sessionID, SessionRevision: 1}
 	return d1IntegrationFixture{store: store, principal: principal, userID: userID}
+}
+
+func seedD5NormalPressure(t *testing.T, ctx context.Context, pool *pgxpool.Pool, at time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `UPDATE v1d_storage_pressure_state SET level='NORMAL',
+available_bytes=21474836480,total_bytes=107374182400,revision=revision+1,
+observed_at=$1,source_instance='qualification-recorder' WHERE scope_id='market-data'`, at); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func assertD1CommandAndExportBoundary(

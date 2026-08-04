@@ -1,0 +1,23 @@
+{
+  "checked_at": "CHANGE_ME_UTC_RFC3339",
+  "reference_server_approved": false,
+  "clock_synchronized": false,
+  "clock_offset_ms": 0,
+  "clock_threshold_ms": 100,
+  "route_clock_threshold_passed": false,
+  "tls_valid": false,
+  "pinned_image_digests": false,
+  "non_root_execution": false,
+  "resource_limits_passed": false,
+  "disk_capacity_passed": false,
+  "remote_backup_independent": false,
+  "backup_age_seconds": 0,
+  "clean_restore_passed": false,
+  "clean_restore_duration_seconds": 0,
+  "market_data_recovery_passed": false,
+  "schema_upgrade_passed": false,
+  "rollback_forward_fix_passed": false,
+  "sbom_present": false,
+  "security_scan_passed": false,
+  "production_private_submission_impossible": false
+}

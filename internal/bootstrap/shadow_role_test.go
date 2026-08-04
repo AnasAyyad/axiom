@@ -13,7 +13,8 @@ import (
 
 func TestShadowRoleActivatesOnlyNormalRiskAndFlushesStop(t *testing.T) {
 	store := &shadowStoreStub{postures: []postgresstore.A11ShadowPosture{
-		{State: "PAUSED", RiskState: "NORMAL"}, {State: "CANCEL_REQUESTED", RiskState: "PAUSED"},
+		{State: "PAUSED", RiskState: "NORMAL", StoragePressure: "NORMAL"},
+		{State: "CANCEL_REQUESTED", RiskState: "PAUSED", StoragePressure: "NORMAL"},
 	}}
 	session := &shadowSessionStub{}
 	work, err := newShadowRoleWork(store, func(context.Context, postgresstore.A11ShadowClaim) (shadowSession, error) {
@@ -32,6 +33,23 @@ func TestShadowRoleActivatesOnlyNormalRiskAndFlushesStop(t *testing.T) {
 	work.finishClaim("shadow-a11", session, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if store.activations != 1 || store.completions != 1 || !session.flushed || !session.checkpointed || session.entries {
 		t.Fatalf("shadow control = %#v %#v", store, session)
+	}
+}
+
+func TestShadowRoleDoesNotActivatePausedSessionAtHighPressure(t *testing.T) {
+	store := &shadowStoreStub{postures: []postgresstore.A11ShadowPosture{
+		{State: "PAUSED", RiskState: "NORMAL", StoragePressure: "HIGH"},
+	}}
+	session := &shadowSessionStub{entries: true}
+	work, err := newShadowRoleWork(store, func(context.Context, postgresstore.A11ShadowClaim) (shadowSession, error) {
+		return session, nil
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if work.controlClaim(context.Background(), "shadow-a11", session, func() {}) ||
+		store.activations != 0 || session.entries {
+		t.Fatalf("high pressure resumed paused session: store=%#v session=%#v", store, session)
 	}
 }
 

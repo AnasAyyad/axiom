@@ -47,6 +47,13 @@ func (worker *D4ReportWorker) queueDue(ctx context.Context, now time.Time) (bool
 		return false, err
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
+	storageReady, err := d5HeavyWorkAllowed(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	if !storageReady {
+		return false, tx.Commit(ctx)
+	}
 	var id, reportType, frequency, owner string
 	var minute int
 	var hour, weekday *int

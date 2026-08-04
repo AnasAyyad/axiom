@@ -77,7 +77,10 @@ func (store *A11ConsoleStore) a11ShadowReady(ctx context.Context, tx pgx.Tx, bod
 		    AND segment.event_type IN ('candle','mixed_public') AND segment.ended_at >= $4) AND
 		EXISTS(SELECT 1 FROM startup_recovery_attempts attempt WHERE attempt.state='ready_paused' AND
 		  (SELECT count(*) FROM startup_recovery_evidence evidence WHERE evidence.attempt_id=attempt.id)=14) AND
-		NOT EXISTS(SELECT 1 FROM circuit_breaker_events WHERE breaker_kind='disk_failure')`,
+		NOT EXISTS(SELECT 1 FROM circuit_breaker_events WHERE breaker_kind='disk_failure') AND
+			EXISTS(SELECT 1 FROM v1d_storage_pressure_state WHERE scope_id='market-data'
+			  AND level='NORMAL' AND source_instance<>'migration-bootstrap'
+			  AND observed_at>=CURRENT_TIMESTAMP-interval '2 minutes')`,
 		body.PortfolioId, body.ConfigurationId, strategyVersionID, store.clock.Now().UTC.Add(-5*time.Hour)).Scan(&ready)
 	return ready, err
 }

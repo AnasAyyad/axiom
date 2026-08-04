@@ -32,6 +32,8 @@ Use `NNNN-short-kebab-title.md`. Numbers are never reused. Allowed statuses are 
 
 Every ADR must identify its scope, consequences, rejected alternatives, validation obligations, and revisit conditions. Safety, accounting, deterministic-replay, and production-order-lock decisions cannot be waived by an ADR.
 
+Current V1D operational decision: [ADR-0025](0025-v1d-d5-operational-readiness.md).
+
 ## Template
 
 ```markdown
