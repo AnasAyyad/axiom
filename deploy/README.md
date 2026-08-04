@@ -445,6 +445,7 @@ command in a persistent system supervisor so any exit is terminal:
 
 ```bash
 docker run --name REPLACE_WITH_RUN_ID-observer \
+  --no-healthcheck \
   --network axiom_core --read-only --restart=no --user "$(id -u):70" \
   --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
   --mount type=bind,src=/absolute/retained/bin/c6-soak,dst=/qualification/c6-soak,readonly \

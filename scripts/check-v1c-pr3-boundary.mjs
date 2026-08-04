@@ -162,4 +162,15 @@ requireText(
   "qualification targets",
 );
 
+const deploymentReadme = read("deploy/README.md");
+requireText(
+  deploymentReadme,
+  [
+    "docker run --name REPLACE_WITH_RUN_ID-observer",
+    "  --no-healthcheck",
+    "  --entrypoint /qualification/c6-soak REPLACE_WITH_EXACT_IMAGE",
+  ],
+  "standalone observer launch contract",
+);
+
 console.log("V1C PR3 C6 source boundary passed");
