@@ -36,7 +36,8 @@ func (handler *handler) createD1Report(
 		handler.writeServiceError(writer, request, ErrInvalidRequest)
 		return
 	}
-	command, ok := handler.d1BaseCommand(writer, request, "report", string(body.ReportType),
+	target := d4StableTarget("report", principal.UserID, request.Header.Get("Idempotency-Key"))
+	command, ok := handler.d1BaseCommand(writer, request, "report", target,
 		"create", "QUEUED", body.Reason, body.ExpectedRevision)
 	if ok {
 		command.Payload["report_type"] = string(body.ReportType)
@@ -130,9 +131,17 @@ func (handler *handler) transitionD1Incident(
 		handler.writeServiceError(writer, request, ErrInvalidRequest)
 		return
 	}
+	if body.State == generated.IncidentTransitionRequestStateResolved &&
+		(body.ResolutionEvidence == nil || len(*body.ResolutionEvidence) < 3) {
+		handler.writeServiceError(writer, request, ErrPrecondition)
+		return
+	}
 	command, ok := handler.d1BaseCommand(writer, request, "incident",
 		request.PathValue("id"), "transition", string(body.State), body.Reason, body.ExpectedRevision)
 	if ok {
+		if body.ResolutionEvidence != nil {
+			command.Payload["resolution_evidence"] = *body.ResolutionEvidence
+		}
 		handler.executeD1(writer, request, principal, command)
 	}
 }

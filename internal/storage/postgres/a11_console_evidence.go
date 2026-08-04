@@ -140,7 +140,8 @@ func (store *A11ConsoleStore) Incidents(ctx context.Context, cursor string, limi
 	if err != nil {
 		return generated.IncidentPage{}, err
 	}
-	rows, err := store.pool.Query(ctx, `SELECT id,severity,state,reason_code,opened_at FROM incidents
+	rows, err := store.pool.Query(ctx, `SELECT id,severity,state,reason_code,
+		coalesce(owner_user_id,''),opened_at,updated_at,resolved_at,revision FROM incidents
 		WHERE ($1='' OR state=$1) AND ($2::timestamptz IS NULL OR opened_at<$2 OR (opened_at=$2 AND id<$3))
 		ORDER BY opened_at DESC,id DESC LIMIT $4`, state, nullableA11Time(occurred), id, limit+1)
 	if err != nil {
@@ -150,10 +151,12 @@ func (store *A11ConsoleStore) Incidents(ctx context.Context, cursor string, limi
 	items := make([]generated.IncidentSummary, 0, limit+1)
 	for rows.Next() {
 		var item generated.IncidentSummary
-		if err = rows.Scan(&item.Id, &item.Severity, &item.State, &item.ReasonCode, &item.OpenedAt); err != nil {
+		var revision int64
+		if err = rows.Scan(&item.Id, &item.Severity, &item.State, &item.ReasonCode,
+			&item.OwnerUserId, &item.OpenedAt, &item.UpdatedAt, &item.ResolvedAt, &revision); err != nil {
 			return generated.IncidentPage{}, err
 		}
-		item.Revision = strconv.FormatInt(item.OpenedAt.UnixNano(), 10)
+		item.Revision = strconv.FormatInt(revision, 10)
 		items = append(items, item)
 	}
 	page := generated.IncidentPage{Items: items, Revision: "0"}
@@ -174,48 +177,21 @@ func (store *A11ConsoleStore) Incidents(ctx context.Context, cursor string, limi
 // Incident returns redacted evidence and a replay window when durable data exists.
 func (store *A11ConsoleStore) Incident(ctx context.Context, id string, raw bool) (generated.IncidentDetail, error) {
 	var item generated.IncidentDetail
-	if err := store.pool.QueryRow(ctx, `SELECT id,severity,state,reason_code,opened_at FROM incidents WHERE id=$1`, id).Scan(&item.Id, &item.Severity, &item.State, &item.ReasonCode, &item.OpenedAt); errors.Is(err, pgx.ErrNoRows) {
+	var revision int64
+	if err := store.pool.QueryRow(ctx, `SELECT id,severity,state,reason_code,
+		coalesce(owner_user_id,''),opened_at,updated_at,resolved_at,revision
+		FROM incidents WHERE id=$1`, id).Scan(&item.Id, &item.Severity, &item.State,
+		&item.ReasonCode, &item.OwnerUserId, &item.OpenedAt, &item.UpdatedAt,
+		&item.ResolvedAt, &revision); errors.Is(err, pgx.ErrNoRows) {
 		return generated.IncidentDetail{}, console.ErrNotFound
 	} else if err != nil {
 		return generated.IncidentDetail{}, err
 	}
-	item.Revision = strconv.FormatInt(item.OpenedAt.UnixNano(), 10)
-	item.Timeline = []generated.TimelineEvent{}
-	rows, err := store.pool.Query(ctx, `SELECT audit.id,audit.event_type,audit.correlation_id,audit.recorded_at,
-	  audit.event_hash::text,command.command_kind,command.target_type,command.target_id,command.reason,
-	  command.state,coalesce(command.result_payload::text,'')
-	  FROM audit_events audit LEFT JOIN LATERAL (SELECT command_kind,target_type,target_id,reason,state,result_payload
-	    FROM command_requests WHERE audit_event_id=audit.id ORDER BY id LIMIT 1) command ON true
-	  WHERE audit.causation_id=$1 OR audit.correlation_id=$1 ORDER BY audit.recorded_at,audit.id`, id)
-	if err != nil {
+	item.Revision = strconv.FormatInt(revision, 10)
+	if err := store.populateD4Incident(ctx, &item, raw); err != nil {
 		return generated.IncidentDetail{}, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var event generated.TimelineEvent
-		var evidenceHash string
-		var commandKind, targetType, targetID, reason, state *string
-		var result string
-		if err = rows.Scan(&event.Id, &event.EventType, &event.CorrelationId, &event.OccurredAt, &evidenceHash,
-			&commandKind, &targetType, &targetID, &reason, &state, &result); err != nil {
-			return generated.IncidentDetail{}, err
-		}
-		event.Redacted = !raw
-		if raw {
-			detail := a11SafeAuditDetail(evidenceHash, commandKind, targetType, targetID, reason, state, result)
-			event.SafeDetail = &detail
-		}
-		item.Timeline = append(item.Timeline, event)
-	}
-	dataset, first, last, replayErr := a11IncidentReplayWindow(ctx, store.pool, id)
-	if replayErr == nil {
-		item.ReplayWindow.DatasetId = dataset
-		item.ReplayWindow.FirstOrdinal = strconv.FormatInt(first, 10)
-		item.ReplayWindow.LastOrdinal = strconv.FormatInt(last, 10)
-	} else if !errors.Is(replayErr, console.ErrPrecondition) {
-		return generated.IncidentDetail{}, replayErr
-	}
-	return item, rows.Err()
+	return item, nil
 }
 
 type a11RowQuerier interface {
@@ -265,22 +241,9 @@ func (store *A11ConsoleStore) Audit(ctx context.Context, cursor string, limit in
 		return generated.AuditEventPage{}, err
 	}
 	defer rows.Close()
-	items := make([]generated.AuditEvent, 0, limit+1)
-	for rows.Next() {
-		var item generated.AuditEvent
-		var evidenceHash string
-		var commandKind, targetType, targetID, reason, state *string
-		var result string
-		if err = rows.Scan(&item.Id, &item.EventType, &item.Actor, &item.CausationId, &item.CorrelationId,
-			&item.RecordedAt, &evidenceHash, &commandKind, &targetType, &targetID, &reason, &state, &result); err != nil {
-			return generated.AuditEventPage{}, err
-		}
-		item.Redacted = !raw
-		if raw {
-			detail := a11SafeAuditDetail(evidenceHash, commandKind, targetType, targetID, reason, state, result)
-			item.SafeDetail = &detail
-		}
-		items = append(items, item)
+	items, err := scanA11AuditRows(rows, raw, limit)
+	if err != nil {
+		return generated.AuditEventPage{}, err
 	}
 	page := generated.AuditEventPage{Items: items, Revision: "0"}
 	if len(items) > 0 {
@@ -295,6 +258,54 @@ func (store *A11ConsoleStore) Audit(ctx context.Context, cursor string, limit in
 		page.NextCursor = &next
 	}
 	return page, rows.Err()
+}
+
+func scanA11AuditRows(rows pgx.Rows, raw bool, limit int) ([]generated.AuditEvent, error) {
+	items := make([]generated.AuditEvent, 0, limit+1)
+	for rows.Next() {
+		var item generated.AuditEvent
+		var evidenceHash string
+		var commandKind, targetType, targetID, reason, state *string
+		var result string
+		if err := rows.Scan(&item.Id, &item.EventType, &item.Actor, &item.CausationId, &item.CorrelationId,
+			&item.RecordedAt, &evidenceHash, &commandKind, &targetType, &targetID, &reason, &state, &result); err != nil {
+			return nil, err
+		}
+		item.Redacted = !raw
+		if raw {
+			detail := a11SafeAuditDetail(evidenceHash, commandKind, targetType, targetID, reason, state, result)
+			item.SafeDetail = &detail
+		}
+		category := generated.AuditEventCategory(d4AuditCategory(item.EventType))
+		item.Category = &category
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func d4AuditCategory(eventType string) string {
+	switch {
+	case strings.Contains(eventType, "authentication") || strings.Contains(eventType, "session") ||
+		strings.HasPrefix(eventType, "high_risk_"):
+		return "authentication"
+	case strings.Contains(eventType, "evidence_access"):
+		return "evidence_access"
+	case strings.Contains(eventType, "export") || strings.Contains(eventType, "artifact"):
+		return "export"
+	case strings.Contains(eventType, "configuration") || strings.Contains(eventType, "role_change"):
+		return "configuration"
+	case strings.Contains(eventType, "qualification"):
+		return "qualification"
+	case strings.Contains(eventType, "incident"):
+		return "incident"
+	case strings.Contains(eventType, "alert"):
+		return "alert"
+	case strings.Contains(eventType, "command") || strings.Contains(eventType, "risk") ||
+		strings.Contains(eventType, "strategy"):
+		return "control"
+	default:
+		return "system"
+	}
 }
 
 func a11SafeAuditDetail(eventHash string, commandKind, targetType, targetID, reason, state *string, result string) string {

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Axiom V1D API
-  version: 1.2.0
+  version: 1.3.0
   description: >-
     Authenticated research, operations, audit, sandbox, and qualification
     control plane. Axiom V1 is Spot-only research software. Real trading,
@@ -745,6 +745,32 @@ paths:
               schema: { $ref: "#/components/schemas/IncidentPage" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createIncident
+      tags: [Incident]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IncidentCreateRequest" }
+      responses:
+        "202":
+          description: Durable incident command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/incidents/{id}:
     get:
       operationId: getIncident
@@ -787,6 +813,20 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/audit-verification:
+    get:
+      operationId: verifyAuditChain
+      tags: [Audit]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Explicit tamper-evident audit verification verdict
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditVerification" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/sandbox/overview:
     get:
       operationId: getSandboxOverview
@@ -1238,6 +1278,22 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters: *d1ListParameters
       responses: *d1PageResponses
+  /api/v1/alerts/{id}:
+    get:
+      operationId: getAlert
+      tags: [Alerts]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Sanitized alert, escalation, and delivery history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/alerts/{id}/acknowledge:
     post:
       operationId: acknowledgeAlert
@@ -1246,6 +1302,40 @@ paths:
       parameters: *d1CommandParameters
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *d1CommandResponses
+  /api/v1/alerts/{id}/escalate:
+    post:
+      operationId: escalateAlert
+      tags: [Alerts]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses: *d1CommandResponses
+  /api/v1/alert-routes:
+    get:
+      operationId: listAlertRoutes
+      tags: [Alerts]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Sanitized configured alert routes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertRoutePage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/alert-routes/{id}/test:
+    post:
+      operationId: testAlertRoute
+      tags: [Alerts]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertTestRequest" }
       responses: *d1CommandResponses
   /api/v1/reports:
     get:
@@ -1267,6 +1357,66 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/ReportRequest" }
+      responses: *d1CommandResponses
+  /api/v1/reports/{id}:
+    get:
+      operationId: getReport
+      tags: [Reports]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Report lifecycle and immutable provenance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/report-schedules:
+    get:
+      operationId: listReportSchedules
+      tags: [Reports]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1ListParameters
+      responses:
+        "200":
+          description: Deterministic UTC report schedules
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSchedulePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "410": { $ref: "#/components/responses/CursorExpired" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    post:
+      operationId: createReportSchedule
+      tags: [Reports]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportScheduleRequest" }
+      responses: *d1CommandResponses
+  /api/v1/report-schedules/{id}/transitions:
+    post:
+      operationId: transitionReportSchedule
+      tags: [Reports]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              { $ref: "#/components/schemas/ReportScheduleTransitionRequest" }
       responses: *d1CommandResponses
   /api/v1/exports:
     post:
@@ -1344,6 +1494,45 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/IncidentTransitionRequest" }
       responses: *d1CommandResponses
+  /api/v1/incidents/{id}/updates:
+    post:
+      operationId: updateIncident
+      tags: [Incident]
+      security: [{ sessionCookie: [] }]
+      parameters: *d1CommandParameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IncidentUpdateRequest" }
+      responses: *d1CommandResponses
+  /api/v1/incidents/{id}/evidence-bundles:
+    post:
+      operationId: createIncidentEvidenceBundle
+      tags: [Incident]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceBundleRequest" }
+      responses:
+        "201":
+          description: Redacted hash-sealed seven-day incident evidence bundle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportArtifact" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/configuration-revisions:
     get:
       operationId: listConfigurationRevisions
@@ -3150,13 +3339,26 @@ components:
     IncidentSummary:
       type: object
       additionalProperties: false
-      required: [id, severity, state, reason_code, opened_at, revision]
+      required:
+        [
+          id,
+          severity,
+          state,
+          reason_code,
+          owner_user_id,
+          opened_at,
+          updated_at,
+          revision,
+        ]
       properties:
         id: { type: string }
         severity: { type: string, enum: [warning, error, critical] }
         state: { type: string, enum: [open, acknowledged, resolved] }
         reason_code: { type: string }
+        owner_user_id: { type: string }
         opened_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        resolved_at: { $ref: "#/components/schemas/Timestamp" }
         revision: { $ref: "#/components/schemas/Revision" }
     IncidentPage:
       allOf:
@@ -3179,12 +3381,25 @@ components:
         occurred_at: { $ref: "#/components/schemas/Timestamp" }
         correlation_id: { type: string }
         redacted: { type: boolean }
+        actor: { type: string }
+        reason: { type: string }
+        reference_type: { type: string }
+        reference_id: { type: string }
+        event_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
         safe_detail: { type: string, maxLength: 2000 }
     IncidentDetail:
       allOf:
         - $ref: "#/components/schemas/IncidentSummary"
         - type: object
-          required: [timeline, replay_window]
+          required:
+            [
+              timeline,
+              replay_window,
+              related_alert_ids,
+              related_activity_ids,
+              evidence_holds,
+              remediation_notes,
+            ]
           properties:
             timeline:
               {
@@ -3199,6 +3414,64 @@ components:
                 dataset_id: { type: string }
                 first_ordinal: { $ref: "#/components/schemas/Revision" }
                 last_ordinal: { $ref: "#/components/schemas/Revision" }
+                source_identity: { type: string }
+            related_alert_ids:
+              type: array
+              items: { type: string }
+            related_activity_ids:
+              type: array
+              items: { type: string }
+            evidence_holds:
+              type: array
+              items: { $ref: "#/components/schemas/IncidentEvidenceHold" }
+            remediation_notes:
+              type: array
+              items: { type: string }
+            resolution_evidence: { type: string }
+    IncidentEvidenceHold:
+      type: object
+      additionalProperties: false
+      required: [id, artifact_id, hold_type, created_at]
+      properties:
+        id: { type: string }
+        artifact_id: { type: string }
+        hold_type: { type: string, enum: [incident, reproducibility] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    IncidentCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [severity, reason_code, owner_user_id, expected_revision, reason]
+      properties:
+        severity: { type: string, enum: [warning, error, critical] }
+        reason_code: { type: string, minLength: 3, maxLength: 120 }
+        owner_user_id: { type: string, minLength: 1, maxLength: 160 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    IncidentUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [action, expected_revision, reason]
+      properties:
+        action:
+          type: string
+          enum:
+            [
+              assign_owner,
+              add_remediation,
+              link_alert,
+              link_activity,
+              link_replay,
+            ]
+        owner_user_id: { type: string, minLength: 1, maxLength: 160 }
+        note: { type: string, minLength: 3, maxLength: 2000 }
+        reference_id: { type: string, minLength: 1, maxLength: 160 }
+        dataset_id: { type: string, minLength: 1, maxLength: 160 }
+        first_ordinal: { $ref: "#/components/schemas/Revision" }
+        last_ordinal: { $ref: "#/components/schemas/Revision" }
+        source_identity: { type: string, minLength: 1, maxLength: 200 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
     AuditEvent:
       type: object
       additionalProperties: false
@@ -3215,6 +3488,20 @@ components:
       properties:
         id: { type: string }
         event_type: { type: string }
+        category:
+          type: string
+          enum:
+            [
+              authentication,
+              control,
+              export,
+              configuration,
+              qualification,
+              incident,
+              alert,
+              evidence_access,
+              system,
+            ]
         actor: { type: string }
         correlation_id: { type: string }
         causation_id: { type: string }
@@ -3232,6 +3519,105 @@ components:
                 type: array,
                 items: { $ref: "#/components/schemas/AuditEvent" },
               }
+    AuditVerification:
+      type: object
+      additionalProperties: false
+      required: [verdict, checked_events, head_hash, verified_at]
+      properties:
+        verdict: { type: string, enum: [valid, broken] }
+        checked_events: { type: integer, format: int64, minimum: 0 }
+        head_hash: { type: string, pattern: "^$|^[0-9a-f]{64}$" }
+        first_broken_sequence: { type: integer, format: int64, minimum: 1 }
+        reason_code: { type: string }
+        verified_at: { $ref: "#/components/schemas/Timestamp" }
+    AlertDeliveryAttempt:
+      type: object
+      additionalProperties: false
+      required: [id, sink_name, attempt, state, started_at, completed_at]
+      properties:
+        id: { type: string }
+        sink_name: { type: string }
+        attempt: { type: integer, minimum: 1 }
+        state: { type: string, enum: [delivered, failed] }
+        reason_code: { type: string }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        completed_at: { $ref: "#/components/schemas/Timestamp" }
+        latency_ms: { type: integer, format: int64, minimum: 0 }
+    AlertEscalation:
+      type: object
+      additionalProperties: false
+      required: [id, revision, actor_user_id, reason, escalated_at]
+      properties:
+        id: { type: string }
+        revision: { $ref: "#/components/schemas/Revision" }
+        actor_user_id: { type: string }
+        reason: { type: string }
+        escalated_at: { $ref: "#/components/schemas/Timestamp" }
+    AlertDetail:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          severity,
+          reason_code,
+          component,
+          state,
+          occurrences,
+          revision,
+          correlation_id,
+          created_at,
+          last_seen_at,
+          deliveries,
+          escalations,
+        ]
+      properties:
+        id: { type: string }
+        severity: { type: string, enum: [info, warning, critical] }
+        reason_code: { type: string }
+        component: { type: string }
+        state: { type: string, enum: [open, acknowledged, resolved] }
+        occurrences: { type: integer, format: int64, minimum: 1 }
+        revision: { $ref: "#/components/schemas/Revision" }
+        correlation_id: { type: string }
+        incident_id: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        last_seen_at: { $ref: "#/components/schemas/Timestamp" }
+        deliveries:
+          type: array
+          items: { $ref: "#/components/schemas/AlertDeliveryAttempt" }
+        escalations:
+          type: array
+          items: { $ref: "#/components/schemas/AlertEscalation" }
+    AlertRoute:
+      type: object
+      additionalProperties: false
+      required: [id, sink_name, enabled, minimum_severity, revision]
+      properties:
+        id: { type: string }
+        sink_name: { type: string }
+        enabled: { type: boolean }
+        minimum_severity: { type: string, enum: [info, warning, critical] }
+        target_label: { type: string }
+        revision: { $ref: "#/components/schemas/Revision" }
+        last_test_state: { type: string, enum: [pending, delivered, failed] }
+        last_tested_at: { $ref: "#/components/schemas/Timestamp" }
+    AlertRoutePage:
+      type: object
+      additionalProperties: false
+      required: [items, revision]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AlertRoute" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    AlertTestRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, reason]
+      properties:
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
     SandboxExchange:
       type: string
       enum: [binance, bybit]
@@ -4108,6 +4494,145 @@ components:
             ]
         expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }
+    ReportProvenance:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          mode,
+          confidence_tier,
+          valuation_basis,
+          model_provenance,
+          maturity,
+          source_identity,
+          source_revision,
+        ]
+      properties:
+        mode:
+          type: string
+          enum:
+            [backtest, replay, paper, shadow, testnet, demo, mixed, operational]
+        confidence_tier: { type: string }
+        valuation_basis: { type: string }
+        model_provenance:
+          type: object
+          additionalProperties: { type: string }
+        maturity: { type: string }
+        source_identity: { type: string }
+        source_revision: { $ref: "#/components/schemas/Revision" }
+    ReportResource:
+      type: object
+      additionalProperties: false
+      required:
+        [id, job_id, report_type, state, provenance, created_at, revision]
+      properties:
+        id: { type: string }
+        job_id: { type: string }
+        schedule_id: { type: string }
+        report_type:
+          type: string
+          enum:
+            [
+              strategy_results,
+              decisions_orders,
+              portfolios,
+              inventory_pnl,
+              risk,
+              exchange_data_health,
+              lab_runs,
+              sandbox_qualifications,
+              platform_readiness,
+            ]
+        state: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED] }
+        provenance: { $ref: "#/components/schemas/ReportProvenance" }
+        generated_at: { $ref: "#/components/schemas/Timestamp" }
+        content_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        failure_code: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    ReportScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [report_type, frequency, minute_utc, expected_revision, reason]
+      properties:
+        report_type:
+          type: string
+          enum:
+            [
+              strategy_results,
+              decisions_orders,
+              portfolios,
+              inventory_pnl,
+              risk,
+              exchange_data_health,
+              lab_runs,
+              sandbox_qualifications,
+              platform_readiness,
+            ]
+        frequency: { type: string, enum: [hourly, daily, weekly] }
+        minute_utc: { type: integer, minimum: 0, maximum: 59 }
+        hour_utc: { type: integer, minimum: 0, maximum: 23 }
+        weekday_utc: { type: integer, minimum: 0, maximum: 6 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    ReportScheduleTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [state, expected_revision, reason]
+      properties:
+        state: { type: string, enum: [active, paused] }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    ReportSchedule:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          report_type,
+          frequency,
+          minute_utc,
+          state,
+          next_run_at,
+          revision,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string }
+        report_type:
+          type: string
+          enum:
+            [
+              strategy_results,
+              decisions_orders,
+              portfolios,
+              inventory_pnl,
+              risk,
+              exchange_data_health,
+              lab_runs,
+              sandbox_qualifications,
+              platform_readiness,
+            ]
+        frequency: { type: string, enum: [hourly, daily, weekly] }
+        minute_utc: { type: integer, minimum: 0, maximum: 59 }
+        hour_utc: { type: integer, minimum: 0, maximum: 23 }
+        weekday_utc: { type: integer, minimum: 0, maximum: 6 }
+        state: { type: string, enum: [active, paused] }
+        next_run_at: { $ref: "#/components/schemas/Timestamp" }
+        last_run_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    ReportSchedulePage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/ReportSchedule" }
     ExportRequest:
       type: object
       additionalProperties: false
@@ -4117,6 +4642,14 @@ components:
           type: string
           enum: [activity, report, incident, audit, qualification, lab_run]
         resource_id: { type: string, minLength: 1, maxLength: 160 }
+        format: { type: string, enum: [txt, csv, json, jsonl] }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    EvidenceBundleRequest:
+      type: object
+      additionalProperties: false
+      required: [format, expected_revision, reason]
+      properties:
         format: { type: string, enum: [txt, csv, json, jsonl] }
         expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }
@@ -4181,6 +4714,7 @@ components:
       required: [state, expected_revision, reason]
       properties:
         state: { type: string, enum: [acknowledged, resolved] }
+        resolution_evidence: { type: string, minLength: 3, maxLength: 2000 }
         expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }
     ConfigurationActivationRequest:

@@ -22,35 +22,35 @@ func applyD1Alert(
 	command console.D1Command,
 	now time.Time,
 ) (map[string]any, error) {
+	if command.Action == "escalate" {
+		return applyD4AlertEscalation(ctx, tx, principal, command, now)
+	}
 	if command.Action != "acknowledge" {
 		return nil, console.ErrInvalidRequest
 	}
 	var state string
 	var revision int64
-	err := tx.QueryRow(ctx, `SELECT state FROM alerts WHERE id=$1 FOR UPDATE`, command.TargetID).Scan(&state)
+	err := tx.QueryRow(ctx, `SELECT state,revision FROM alerts WHERE id=$1 FOR UPDATE`, command.TargetID).Scan(&state, &revision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, console.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	if err = tx.QueryRow(ctx, `SELECT coalesce(max(revision),0)+1
-	    FROM alert_acknowledgements WHERE alert_id=$1`, command.TargetID).Scan(&revision); err != nil {
-		return nil, err
-	}
 	if command.ExpectedRevision != revision || state == "resolved" {
 		return nil, console.ErrConflict
 	}
+	next := revision + 1
 	if _, err = tx.Exec(ctx, `
 INSERT INTO alert_acknowledgements(alert_id,revision,actor,reason,acknowledged_at)
-VALUES ($1,$2,$3,$4,$5)`, command.TargetID, revision, principal.UserID, command.Reason, now); err != nil {
+VALUES ($1,$2,$3,$4,$5)`, command.TargetID, next, principal.UserID, command.Reason, now); err != nil {
 		return nil, err
 	}
 	if _, err = tx.Exec(ctx, `
-UPDATE alerts SET state='acknowledged',acknowledged_at=$2 WHERE id=$1`, command.TargetID, now); err != nil {
+UPDATE alerts SET state='acknowledged',acknowledged_at=$2,revision=$3 WHERE id=$1`, command.TargetID, now, next); err != nil {
 		return nil, err
 	}
-	return map[string]any{"alert_id": command.TargetID, "state": "acknowledged", "revision": revision}, nil
+	return map[string]any{"alert_id": command.TargetID, "state": "acknowledged", "revision": next}, nil
 }
 
 func applyD1Report(
@@ -64,30 +64,7 @@ func applyD1Report(
 	if command.Action != "create" || command.ExpectedRevision != 1 {
 		return nil, console.ErrConflict
 	}
-	var ownerQueued, globalQueued int
-	if err := tx.QueryRow(ctx, `SELECT
-      count(*) FILTER (WHERE owner_user_id=$1 AND state='QUEUED')::integer,
-      count(*) FILTER (WHERE state='QUEUED')::integer FROM jobs`, principal.UserID).Scan(&ownerQueued, &globalQueued); err != nil {
-		return nil, err
-	}
-	if ownerQueued >= 4 || globalQueued >= 32 {
-		return nil, console.ErrQuota
-	}
-	jobID, _ := a11Identifier("report")
-	payload, hash, err := a11CommandPayload(command.Payload)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = tx.Exec(ctx, `
-INSERT INTO jobs(
-  id,job_type,idempotency_key,state,payload_hash,created_at,updated_at,
-  owner_user_id,request_payload,max_attempts
-) VALUES ($1,$2,$3,'QUEUED',$4,$5,$5,$6,$7,3)`, jobID,
-		"report:"+command.TargetID, a11Dedupe(principal.UserID, command.IdempotencyKey),
-		hash, now, principal.UserID, string(payload)); err != nil {
-		return nil, a11ConstraintError(err)
-	}
-	return map[string]any{"job_id": jobID, "command_id": commandID, "state": "QUEUED"}, nil
+	return queueD4Report(ctx, tx, principal, command, commandID, now, nil, nil)
 }
 
 func applyD1ExportDelete(
@@ -148,6 +125,17 @@ func applyD1ArtifactHold(
 	if !typeOK || !referenceOK || !strings.Contains(" incident reproducibility ", " "+holdType+" ") {
 		return nil, console.ErrInvalidRequest
 	}
+	var referenceExists bool
+	query := `SELECT EXISTS(SELECT 1 FROM incidents WHERE id=$1)`
+	if holdType == "reproducibility" {
+		query = `SELECT EXISTS(SELECT 1 FROM jobs WHERE id=$1)`
+	}
+	if err := tx.QueryRow(ctx, query, reference).Scan(&referenceExists); err != nil {
+		return nil, err
+	}
+	if !referenceExists {
+		return nil, console.ErrPrecondition
+	}
 	var available bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(
       SELECT 1 FROM v1d_export_artifacts WHERE id=$1 AND deleted_at IS NULL
@@ -180,25 +168,7 @@ func applyD1Incident(
 	command console.D1Command,
 	now time.Time,
 ) (map[string]any, error) {
-	var current string
-	if err := tx.QueryRow(ctx, `SELECT state FROM incidents WHERE id=$1 FOR UPDATE`, command.TargetID).Scan(&current); errors.Is(err, pgx.ErrNoRows) {
-		return nil, console.ErrNotFound
-	} else if err != nil {
-		return nil, err
-	}
-	revision := map[string]int64{"open": 1, "acknowledged": 2, "resolved": 3}[current]
-	valid := current == "open" && command.State == "acknowledged" ||
-		(current == "open" || current == "acknowledged") && command.State == "resolved"
-	if revision != command.ExpectedRevision || !valid {
-		return nil, console.ErrConflict
-	}
-	if _, err := tx.Exec(ctx, `
-UPDATE incidents SET state=$2,resolved_at=CASE WHEN $2='resolved' THEN $3 ELSE NULL END
-WHERE id=$1`, command.TargetID, command.State, now); err != nil {
-		return nil, err
-	}
-	_ = principal
-	return map[string]any{"incident_id": command.TargetID, "state": command.State, "revision": revision + 1}, nil
+	return applyD4IncidentTransition(ctx, tx, principal, command, now)
 }
 
 func applyD1ConfigurationActivation(

@@ -3645,6 +3645,28 @@ Owner: reporting, security, and SRE.
 
 Deliver scheduled/on-demand reports, incident lifecycle, tamper-evident audit review, alert routing, acknowledgement, replay links, and evidence bundles.
 
+Report schedules use an explicit UTC cadence and create durable, deduplicated
+jobs for strategy results, decisions/orders, portfolios, inventory/P&L, risk,
+exchange/data health, lab runs, sandbox qualifications, and platform readiness.
+Every completed report preserves its mode, confidence tier, valuation basis,
+model provenance, maturity, immutable source identity and revision, generation
+time, report revision, and content hash. Reports and their exports continue to
+separate strategy viability from platform readiness and never claim
+profitability.
+
+Incidents preserve owner, severity, an immutable hash-linked timeline, related
+alerts and activity, exact replay inputs when available, remediation notes,
+resolution evidence, and active evidence holds. Resolving an incident requires
+documented resolution evidence; it does not release or delete held evidence.
+Incident and reproduction holds are validated against their referenced source
+and block both manual and retention deletion.
+
+Alert review exposes sanitized routes, acknowledgements, escalations, delivery
+attempts, retry state, and test-delivery outcomes. Alert payloads remain a
+closed, secret-free schema. Authentication, control, export, configuration,
+qualification, incident, alert, and evidence-access events are visible through
+tamper-evident audit review with an explicit verification verdict.
+
 Acceptance: incidents link to complete replay inputs when available, alerts meet delivery SLOs, and reports preserve confidence/valuation/model provenance.
 
 ### Phase D5: Operational hardening and data lifecycle

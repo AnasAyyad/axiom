@@ -28,7 +28,9 @@ func d1ExportRecord(
 	switch resourceType {
 	case "activity":
 		err = d1ExportActivityRecord(ctx, tx, id, expectedRevision, record)
-	case "report", "lab_run":
+	case "report":
+		err = d4ExportReportRecord(ctx, tx, id, expectedRevision, record)
+	case "lab_run":
 		err = d1ExportJobRecord(ctx, tx, id, expectedRevision, record)
 	case "incident":
 		err = d1ExportIncidentRecord(ctx, tx, id, expectedRevision, record)
@@ -151,23 +153,26 @@ starting_balance_hash::text,confidence_tier FROM run_manifests WHERE run_id=$1`,
 func d1ExportIncidentRecord(
 	ctx context.Context, tx pgx.Tx, id string, expected int64, record map[string]string,
 ) error {
-	var severity, state, reasonCode string
+	var severity, state, reasonCode, owner string
+	var revision int64
 	var openedAt time.Time
 	var resolvedAt *time.Time
-	err := tx.QueryRow(ctx, `SELECT severity,state,reason_code,opened_at,resolved_at
-FROM incidents WHERE id=$1`, id).Scan(&severity, &state, &reasonCode, &openedAt, &resolvedAt)
+	err := tx.QueryRow(ctx, `SELECT severity,state,reason_code,coalesce(owner_user_id,''),
+revision,opened_at,resolved_at FROM incidents WHERE id=$1`, id).Scan(
+		&severity, &state, &reasonCode, &owner, &revision, &openedAt, &resolvedAt)
 	if err != nil {
 		return d1NotFound(err)
 	}
-	if map[string]int64{"open": 1, "acknowledged": 2, "resolved": 3}[state] != expected {
+	if revision != expected {
 		return console.ErrConflict
 	}
 	record["severity"], record["state"], record["reason_code"] = severity, state, reasonCode
+	record["owner_user_id"], record["revision"] = owner, strconv.FormatInt(revision, 10)
 	record["opened_at"] = openedAt.UTC().Format(time.RFC3339Nano)
 	if resolvedAt != nil {
 		record["resolved_at"] = resolvedAt.UTC().Format(time.RFC3339Nano)
 	}
-	return nil
+	return d4ExportIncidentEvidence(ctx, tx, id, record)
 }
 
 func d1ExportAuditRecord(

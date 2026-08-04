@@ -199,6 +199,9 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	if err != nil {
 		return roleServices{}, err
 	}
+	if err = alertStore.SetWebhookRouteEnabled(ctx, sink != nil, time.Now().UTC()); err != nil && pool.Ping(ctx) == nil {
+		return roleServices{}, err
+	}
 	gate := runtimecore.NewSafetyGate()
 	alertService, err := alerting.NewService(alertStore, sink, gate, nil)
 	if err != nil {

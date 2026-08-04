@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   APIError,
@@ -10,34 +11,124 @@ import {
 import { d1CollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
-import { hasAccess } from "../shared/access";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
+import { hasAccess } from "../shared/access";
 import { stringAttribute } from "../strategies/strategyModel";
+import { ReportSchedulePanel } from "./ReportSchedulePanel";
+import { reportLabel, reportTypes } from "./reportModel";
 import styles from "../shared/D2.module.css";
-
-const reportTypes: ReadonlyArray<APIModel<"ReportRequest">["report_type"]> = [
-  "strategy_results",
-  "decisions_orders",
-  "portfolios",
-  "inventory_pnl",
-  "risk",
-  "exchange_data_health",
-  "lab_runs",
-  "sandbox_qualifications",
-  "platform_readiness",
-];
 
 export function ReportCenterPage() {
   const session = useQuery(sessionQuery);
   const query = useQuery(d1CollectionQuery("reports"));
-  const queryClient = useQueryClient();
+  if (session.isLoading || query.isLoading)
+    return <StatePanel state="loading" />;
+  if (
+    (session.error instanceof APIError && session.error.status === 403) ||
+    (query.error instanceof APIError && query.error.status === 403)
+  )
+    return <StatePanel state="forbidden" />;
+  if (session.isError || query.isError || !session.data || !query.data)
+    return <StatePanel state="error" detail="Report state is unavailable." />;
+  const canCreate = hasAccess(session.data.user, ["research.control"]);
+  return (
+    <Page
+      title="Report Center"
+      eyebrow="On-demand and scheduled evidence"
+      description="Generate deterministic reports with immutable source, model, valuation, maturity, and generation provenance."
+    >
+      {query.isFetching && (
+        <StatePanel
+          state="stale"
+          detail="Showing the prior report snapshot while durable state refreshes."
+        />
+      )}
+      {canCreate && <CreateReport />}
+      <section aria-labelledby="report-history-title">
+        <h2 id="report-history-title">Report history</h2>
+        {query.data.items.length === 0 ? (
+          <StatePanel
+            state="empty"
+            detail="No report jobs have been created."
+          />
+        ) : (
+          <div className={styles.cardGrid}>
+            {query.data.items.map((report) => {
+              const reportID = stringAttribute(
+                report.attributes,
+                "report_id",
+                "",
+              );
+              return (
+                <article className={styles.card} key={report.id}>
+                  <div className={styles.cardHeader}>
+                    <h3>
+                      {reportLabel(
+                        stringAttribute(
+                          report.attributes,
+                          "job_type",
+                          report.id,
+                        ).replace("report:", ""),
+                      )}
+                    </h3>
+                    <StatusBadge value={report.state} />
+                  </div>
+                  <dl className={styles.facts}>
+                    <div>
+                      <dt>Revision</dt>
+                      <dd>{report.revision}</dd>
+                    </div>
+                    <div>
+                      <dt>Updated</dt>
+                      <dd>{report.occurred_at ?? "Unavailable"}</dd>
+                    </div>
+                    <div>
+                      <dt>Confidence</dt>
+                      <dd>
+                        {stringAttribute(
+                          report.attributes,
+                          "confidence_tier",
+                          "Pending",
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                  {reportID !== "" && (
+                    <Link
+                      className={styles.linkButton}
+                      to={`/operations/reports/${encodeURIComponent(reportID)}`}
+                    >
+                      Open report evidence
+                    </Link>
+                  )}
+                  <EvidenceDetails
+                    summary="Job identity and allowlisted report provenance."
+                    value={report}
+                  />
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+      <ReportSchedulePanel canControl={canCreate} />
+      <p className={styles.notice} role="note">
+        Strategy viability and platform readiness are separate. Historical,
+        replay, shadow, Testnet, and Demo results do not prove profitability.
+      </p>
+    </Page>
+  );
+}
+
+function CreateReport() {
+  const client = useQueryClient();
   const [reportType, setReportType] =
     useState<APIModel<"ReportRequest">["report_type"]>("strategy_results");
   const [reason, setReason] = useState(
-    "Researcher requested an on-demand provenance-preserving report",
+    "Create an on-demand provenance-preserving operational report",
   );
-  const create = useMutation({
+  const mutation = useMutation({
     mutationFn: () =>
       postAPI<"CommandAccepted">(
         "/api/v1/reports",
@@ -48,114 +139,54 @@ export function ReportCenterPage() {
         } satisfies APIModel<"ReportRequest">,
         newIdempotencyKey("report-create"),
       ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["d1", "reports"] }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["d1", "reports"] }),
   });
-  if (session.isLoading || query.isLoading)
-    return <StatePanel state="loading" />;
-  if (
-    (session.error instanceof APIError && session.error.status === 403) ||
-    (query.error instanceof APIError && query.error.status === 403)
-  )
-    return <StatePanel state="forbidden" />;
-  if (session.isError || query.isError || !session.data || !query.data)
-    return <StatePanel state="error" detail="Report jobs are unavailable." />;
-  const canCreate = hasAccess(session.data.user, ["research.control"]);
   return (
-    <Page
-      title="Report Center"
-      eyebrow="On-demand report lifecycle"
-      description="Create provenance-preserving report jobs and inspect durable state. Scheduled delivery and routing are completed in D4."
-    >
-      {canCreate && (
-        <section className={styles.controlCard} aria-label="Create report">
-          <h2>Create an on-demand report</h2>
-          <div className={styles.form}>
-            <label className={styles.field}>
-              Report type
-              <select
-                value={reportType}
-                onChange={(event) =>
-                  setReportType(
-                    event.target
-                      .value as APIModel<"ReportRequest">["report_type"],
-                  )
-                }
-              >
-                {reportTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type.replaceAll("_", " ")}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.field}>
-              Reason
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </label>
-          </div>
-          <button
-            className={styles.button}
-            type="button"
-            disabled={create.isPending || reason.trim().length < 8}
-            onClick={() => create.mutate()}
+    <section className={styles.controlCard} aria-label="Create report">
+      <h2>Create an on-demand report</h2>
+      <div className={styles.form}>
+        <label className={styles.field}>
+          Report type
+          <select
+            value={reportType}
+            onChange={(event) =>
+              setReportType(event.target.value as typeof reportType)
+            }
           >
-            {create.isPending ? "Queueing…" : "Create report"}
-          </button>
-          {create.isError && (
-            <p className={styles.error} role="alert">
-              Report creation was rejected. Check quota, reason, and permission.
-            </p>
-          )}
-          {create.isSuccess && (
-            <p className={styles.success} role="status">
-              Report command accepted and queued durably.
-            </p>
-          )}
-        </section>
+            {reportTypes.map((type) => (
+              <option key={type} value={type}>
+                {reportLabel(type)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={styles.field}>
+          Reason
+          <textarea
+            minLength={8}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </label>
+      </div>
+      <button
+        className={styles.button}
+        type="button"
+        disabled={mutation.isPending || reason.trim().length < 8}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? "Queueing…" : "Create report"}
+      </button>
+      {mutation.isError && (
+        <p className={styles.error} role="alert">
+          Report creation was rejected. Check quota, reason, and permission.
+        </p>
       )}
-      {query.data.items.length === 0 ? (
-        <StatePanel state="empty" detail="No report jobs have been created." />
-      ) : (
-        <div className={styles.cardGrid}>
-          {query.data.items.map((report) => (
-            <article className={styles.card} key={report.id}>
-              <div className={styles.cardHeader}>
-                <h2>
-                  {stringAttribute(report.attributes, "job_type", report.id)}
-                </h2>
-                <StatusBadge value={report.state} />
-              </div>
-              <dl className={styles.facts}>
-                <div>
-                  <dt>Revision</dt>
-                  <dd>{report.revision}</dd>
-                </div>
-                <div>
-                  <dt>Created</dt>
-                  <dd>{report.occurred_at ?? "Unavailable"}</dd>
-                </div>
-                <div>
-                  <dt>Correlation</dt>
-                  <dd>{report.correlation_id}</dd>
-                </div>
-              </dl>
-              <EvidenceDetails
-                summary="Report identity and model/source provenance are server-redacted."
-                value={report}
-              />
-            </article>
-          ))}
-        </div>
+      {mutation.isSuccess && (
+        <p className={styles.success} role="status">
+          Report command accepted and queued durably.
+        </p>
       )}
-      <p className={styles.notice} role="note">
-        Reports preserve mode, confidence, valuation/model provenance, maturity,
-        source identity, generation time, and revision. They do not assert
-        profitability.
-      </p>
-    </Page>
+    </section>
   );
 }

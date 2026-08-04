@@ -131,3 +131,13 @@ type D1CommandService interface {
 	ExecuteD1(context.Context, authentication.Principal, D1Command) (generated.CommandAccepted, error)
 	CreateD1Export(context.Context, authentication.Principal, string, generated.ExportRequest) (generated.ExportArtifact, error)
 }
+
+// D4ReadService exposes provenance-complete operational evidence without raw
+// route secrets or unrestricted log payloads.
+type D4ReadService interface {
+	D4Report(context.Context, string) (generated.ReportResource, error)
+	D4ReportSchedules(context.Context, D1ListQuery) (generated.ReportSchedulePage, error)
+	D4Alert(context.Context, string) (generated.AlertDetail, error)
+	D4AlertRoutes(context.Context) (generated.AlertRoutePage, error)
+	D4AuditVerification(context.Context) (generated.AuditVerification, error)
+}

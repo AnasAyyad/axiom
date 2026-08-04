@@ -20,8 +20,6 @@ import {
   BinancePage,
   CommandCenter,
   AuditPage,
-  IncidentPage,
-  IncidentDetailPage,
   PortfolioPage,
   RiskPage,
   TrendPage,
@@ -35,9 +33,13 @@ import {
 } from "./MultiExchangePages";
 import { ActivityPage } from "../features/activity/ActivityPage";
 import { AlertCenterPage } from "../features/operations/AlertCenterPage";
+import { AlertDetailPage } from "../features/operations/AlertDetailPage";
 import { ConfigurationCenterPage } from "../features/operations/ConfigurationCenterPage";
 import { OperationsHubPage } from "../features/operations/OperationsHubPage";
+import { IncidentCenterPage } from "../features/operations/IncidentCenterPage";
+import { IncidentWorkspacePage } from "../features/operations/IncidentWorkspacePage";
 import { ReportCenterPage } from "../features/operations/ReportCenterPage";
+import { ReportDetailPage } from "../features/operations/ReportDetailPage";
 import { ResourceCollectionPage } from "../features/operations/ResourceCollectionPage";
 import { UserAccessPage } from "../features/operations/UserAccessPage";
 import { QualificationCenterPage } from "../features/qualifications/QualificationCenterPage";
@@ -134,7 +136,15 @@ export function App() {
                 element={<QualificationCenterPage />}
               />
               <Route path="operations/alerts" element={<AlertCenterPage />} />
+              <Route
+                path="operations/alerts/:id"
+                element={<AlertDetailPage />}
+              />
               <Route path="operations/reports" element={<ReportCenterPage />} />
+              <Route
+                path="operations/reports/:id"
+                element={<ReportDetailPage />}
+              />
               <Route
                 path="operations/configuration"
                 element={<ConfigurationCenterPage />}
@@ -162,8 +172,8 @@ export function App() {
                   />
                 }
               />
-              <Route path="incidents" element={<IncidentPage />} />
-              <Route path="incidents/:id" element={<IncidentDetailPage />} />
+              <Route path="incidents" element={<IncidentCenterPage />} />
+              <Route path="incidents/:id" element={<IncidentWorkspacePage />} />
               <Route path="audit" element={<AuditPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

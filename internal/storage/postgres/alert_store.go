@@ -26,6 +26,21 @@ func NewAlertStore(pool *pgxpool.Pool) (*AlertStore, error) {
 	return &AlertStore{pool: pool}, nil
 }
 
+// SetWebhookRouteEnabled makes the console route state match the validated
+// runtime sink configuration without persisting endpoints or credentials.
+func (store *AlertStore) SetWebhookRouteEnabled(ctx context.Context, enabled bool, at time.Time) error {
+	result, err := store.pool.Exec(ctx, `UPDATE v1d_alert_routes SET enabled=$1,
+revision=revision+1,updated_at=$2 WHERE id='webhook' AND enabled IS DISTINCT FROM $1`,
+		enabled, at.UTC())
+	if err != nil {
+		return fmt.Errorf("alert_route_state_failed: %w", err)
+	}
+	if result.RowsAffected() > 1 {
+		return fmt.Errorf("alert_route_state_failed")
+	}
+	return nil
+}
+
 // Upsert atomically deduplicates an alert and appends its audit event.
 func (store *AlertStore) Upsert(ctx context.Context, alert alerting.Alert) (alerting.Alert, error) {
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -95,24 +110,91 @@ func (store *AlertStore) PrepareDelivery(ctx context.Context, alert alerting.Ale
 }
 
 // CompleteDelivery records one delivered or retryable-failed attempt.
-func (store *AlertStore) CompleteDelivery(ctx context.Context, deliveryID string, delivered bool, reason string, at time.Time) error {
-	state := "failed"
-	next := at.Add(time.Minute)
-	deliveredAt := pgtype.Timestamptz{}
-	var reasonCode *string
-	if delivered {
-		state, next, deliveredAt = "delivered", at, timestamp(at)
-	} else {
-		reasonCode = &reason
+func (store *AlertStore) CompleteDelivery(
+	ctx context.Context, deliveryID string, delivered bool, reason string,
+	started, completed time.Time,
+) error {
+	if started.IsZero() || completed.Before(started) {
+		return fmt.Errorf("alert_delivery_complete_failed")
 	}
-	_, err := generated.New(store.pool).MarkAlertDelivery(ctx, generated.MarkAlertDeliveryParams{
-		ID: deliveryID, State: state, LastReasonCode: reasonCode,
-		NextAttemptAt: timestamp(next), DeliveredAt: deliveredAt,
+	started, completed = started.UTC(), completed.UTC()
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("alert_delivery_complete_failed")
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	var attempts int
+	if err = tx.QueryRow(ctx, `SELECT attempts FROM alert_deliveries WHERE id=$1 FOR UPDATE`,
+		deliveryID).Scan(&attempts); err != nil {
+		return fmt.Errorf("alert_delivery_complete_failed")
+	}
+	outcome := d4AlertDeliveryOutcome(delivered, reason, attempts, completed)
+	row, err := generated.New(tx).MarkAlertDelivery(ctx, generated.MarkAlertDeliveryParams{
+		ID: deliveryID, State: outcome.state, LastReasonCode: outcome.reasonCode,
+		NextAttemptAt: timestamp(outcome.next), DeliveredAt: outcome.deliveredAt,
 	})
 	if err != nil {
 		return fmt.Errorf("alert_delivery_complete_failed")
 	}
+	if err = recordD4DeliveryAttempt(ctx, tx, row, outcome, started, completed); err != nil {
+		return fmt.Errorf("alert_delivery_complete_failed")
+	}
+	if err = insertAlertAudit(ctx, generated.New(tx), "alert_delivery_"+outcome.state, "system",
+		row.AlertID, row.AlertID, uint64(row.Revision), completed, d4DeliveryReason(reason)); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("alert_delivery_complete_failed")
+	}
 	return nil
+}
+
+type d4DeliveryOutcome struct {
+	state       string
+	next        time.Time
+	deliveredAt pgtype.Timestamptz
+	reasonCode  *string
+}
+
+func d4AlertDeliveryOutcome(delivered bool, reason string, attempts int, completed time.Time) d4DeliveryOutcome {
+	if delivered {
+		return d4DeliveryOutcome{state: "delivered", next: completed, deliveredAt: timestamp(completed)}
+	}
+	return d4DeliveryOutcome{state: "failed", next: completed.Add(d4AlertRetryDelay(attempts)), reasonCode: &reason}
+}
+
+func recordD4DeliveryAttempt(
+	ctx context.Context, tx pgx.Tx, row *generated.AlertDelivery,
+	outcome d4DeliveryOutcome, started, completed time.Time,
+) error {
+	attemptID := "alert-attempt-" + a11Hash([]byte(fmt.Sprintf("%s\x00%d", row.ID, row.Attempts)))[:24]
+	if _, err := tx.Exec(ctx, `INSERT INTO v1d_alert_delivery_attempts(
+id,delivery_id,alert_id,sink_name,attempt,state,reason_code,started_at,completed_at,latency_ms
+) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, attemptID, row.ID, row.AlertID,
+		row.SinkName, row.Attempts, outcome.state, outcome.reasonCode, started, completed,
+		completed.Sub(started).Milliseconds()); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE v1d_alert_route_tests SET state=$2,completed_at=$3
+WHERE alert_id=$1`, row.AlertID, outcome.state, completed)
+	return err
+}
+
+func d4AlertRetryDelay(attempts int) time.Duration {
+	if attempts < 0 {
+		attempts = 0
+	}
+	if attempts > 5 {
+		attempts = 5
+	}
+	return time.Duration(1<<attempts) * time.Minute
+}
+
+func d4DeliveryReason(reason string) string {
+	if reason == "" {
+		return "delivered"
+	}
+	return reason
 }
 
 // DueDeliveries reconstructs bounded sanitized retry work.

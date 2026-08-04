@@ -16,6 +16,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: d1-contract-qualify d1-api-qualify d1-postgres-qualify d1-security-qualify v1d-d1-local-qualify
 .PHONY: d2-contract-qualify d2-frontend-qualify d2-browser-qualify d2-security-qualify v1d-d2-local-qualify
 .PHONY: d3-contract-qualify d3-api-qualify d3-postgres-qualify d3-frontend-qualify d3-browser-qualify d3-security-qualify v1d-d3-local-qualify
+.PHONY: d4-contract-qualify d4-api-qualify d4-postgres-qualify d4-frontend-qualify d4-browser-qualify d4-security-qualify v1d-d4-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -66,6 +67,8 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
 	@$(NODE) scripts/check-v1d-d1-boundary.mjs
 	@$(NODE) scripts/check-v1d-d2-boundary.mjs
+	@$(NODE) scripts/check-v1d-d3-boundary.mjs
+	@$(NODE) scripts/check-v1d-d4-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -316,6 +319,43 @@ d3-security-qualify: ## Prove D3 preserves redaction and every forbidden V1 capa
 	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 v1d-d3-local-qualify: d3-contract-qualify d3-api-qualify d3-postgres-qualify d3-frontend-qualify d3-browser-qualify d3-security-qualify ## Pass every local D3 implementation gate; merge and cumulative acceptance remain separate.
+
+d4-contract-qualify: ## Prove D4 uses compatible generated operational-evidence contracts.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-v1d-d1-boundary.mjs
+	@$(NODE) scripts/check-v1d-d2-boundary.mjs
+	@$(NODE) scripts/check-v1d-d3-boundary.mjs
+	@$(NODE) scripts/check-v1d-d4-boundary.mjs
+
+d4-api-qualify: ## Exercise D4 authorization, schedules, reports, incidents, alerts, audit, and artifacts.
+	@AXIOM_D4_TEST_DSN= AXIOM_D4_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/api/... ./internal/alerting ./internal/reporting \
+			./internal/storage/postgres ./internal/bootstrap -count=1
+	@$(GO) test -race ./internal/api/console ./internal/alerting ./internal/reporting -count=1
+
+d4-postgres-qualify: ## Run D4 clean-install and exact D1-to-D4 upgrade gates on dedicated PostgreSQL 18 databases.
+	@test -n "$(AXIOM_D4_TEST_DSN)" || { echo "AXIOM_D4_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D4_UPGRADE_TEST_DSN)" || { echo "AXIOM_D4_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_D4_TEST_DSN="$(AXIOM_D4_TEST_DSN)" \
+		AXIOM_D4_UPGRADE_TEST_DSN="$(AXIOM_D4_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestV1DD4Postgres(OperationalEvidence|D1ToD4Upgrade)Qualification$$' -count=1 -v
+
+d4-frontend-qualify: ## Type-check, lint, test, build, and inspect the D4 operational workflows.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+	@$(NODE) scripts/check-v1d-d4-boundary.mjs
+
+d4-browser-qualify: ## Run D4 workflows in Chromium, Firefox, WebKit, tablet, and mobile fixtures.
+	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'D4 operational evidence workflows'
+
+d4-security-qualify: ## Prove D4 redaction, audit, hold, outbound, role, and prohibited-capability boundaries.
+	@$(NODE) scripts/check-v1d-d4-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+v1d-d4-local-qualify: d4-contract-qualify d4-api-qualify d4-postgres-qualify d4-frontend-qualify d4-browser-qualify d4-security-qualify ## Pass every local D4 implementation gate; merge and cumulative acceptance remain separate.
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck -db "$(VULNDB)" ./...

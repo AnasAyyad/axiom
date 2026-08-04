@@ -131,9 +131,26 @@ func (store *A11AuthenticationStore) RecordFailure(ctx context.Context, emailHas
 	if err != nil {
 		return err
 	}
-	_, err = generated.New(store.pool).RecordAuthenticationFailure(ctx, generated.RecordAuthenticationFailureParams{ID: id,
-		NormalizedEmailHash: emailHash, SourceScopeHash: sourceHash, OccurredAt: a11Timestamp(now), CorrelationID: correlationID})
-	return err
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	queries := generated.New(tx)
+	if _, err = queries.RecordAuthenticationFailure(ctx, generated.RecordAuthenticationFailureParams{ID: id,
+		NormalizedEmailHash: emailHash, SourceScopeHash: sourceHash, OccurredAt: a11Timestamp(now), CorrelationID: correlationID}); err != nil {
+		return err
+	}
+	_, err = queries.InsertA11AuditEvent(ctx, generated.InsertA11AuditEventParams{
+		ID: "audit-" + id, EventType: "authentication_failed", Actor: "anonymous",
+		CausationID: id, CorrelationID: correlationID,
+		EventHash:  a11Hash([]byte(emailHash + "\x00" + sourceHash + "\x00" + now.UTC().Format(time.RFC3339Nano))),
+		RecordedAt: a11Timestamp(now),
+	})
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // CreateSession inserts a fresh session and revokes active sessions beyond the cap atomically.
@@ -154,6 +171,14 @@ func (store *A11AuthenticationStore) CreateSession(ctx context.Context, session 
 	}
 	if _, err = queries.RevokeOldestExcessSessions(ctx, generated.RevokeOldestExcessSessionsParams{
 		UserID: session.UserID, Now: a11Timestamp(session.CreatedAt)}); err != nil {
+		return err
+	}
+	if _, err = queries.InsertA11AuditEvent(ctx, generated.InsertA11AuditEventParams{
+		ID: "audit-login-" + session.ID, EventType: "authentication_succeeded", Actor: session.UserID,
+		CausationID: session.ID, CorrelationID: session.ID,
+		EventHash:  a11Hash([]byte(session.UserID + "\x00" + session.ID + "\x00" + session.CreatedAt.UTC().Format(time.RFC3339Nano))),
+		RecordedAt: a11Timestamp(session.CreatedAt),
+	}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -180,12 +205,29 @@ func (store *A11AuthenticationStore) TouchSession(ctx context.Context, id string
 
 // RevokeSession idempotently closes one session.
 func (store *A11AuthenticationStore) RevokeSession(ctx context.Context, id, reason string, now time.Time) error {
-	_, err := generated.New(store.pool).RevokeSession(ctx, generated.RevokeSessionParams{ID: id,
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	queries := generated.New(tx)
+	row, err := queries.RevokeSession(ctx, generated.RevokeSessionParams{ID: id,
 		RevokedAt: a11Timestamp(now), RevokedReason: &reason})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	if _, err = queries.InsertA11AuditEvent(ctx, generated.InsertA11AuditEventParams{
+		ID: "audit-revoke-" + id, EventType: "session_revoked", Actor: row.UserID,
+		CausationID: id, CorrelationID: id,
+		EventHash:  a11Hash([]byte(row.UserID + "\x00" + id + "\x00" + reason + "\x00" + now.UTC().Format(time.RFC3339Nano))),
+		RecordedAt: a11Timestamp(now),
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func a11AuthenticationSession(row *generated.GetSessionByTokenHashRow) authentication.Session {

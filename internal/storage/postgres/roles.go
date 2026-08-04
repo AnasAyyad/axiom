@@ -21,6 +21,10 @@ var runtimeReadInsertTables = []string{
 	"v1c_daily_cap_counters", "v1c_engine_commands", "v1c_canary_evidence",
 	"v1d_export_artifacts", "v1d_artifact_holds", "v1d_artifact_access_events",
 	"v1d_qualification_runs", "v1d_role_change_events",
+	"v1d_incident_events", "v1d_incident_replay_inputs", "v1d_incident_alert_links",
+	"v1d_incident_activity_links", "v1d_incident_resolution_evidence",
+	"v1d_report_schedules", "v1d_reports", "v1d_alert_delivery_attempts",
+	"v1d_alert_escalations", "v1d_alert_route_tests",
 	"allocation_candidates", "allocation_reservations", "allocation_score_components",
 	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
@@ -54,7 +58,8 @@ var runtimeUpdateTables = []string{
 	"v1c_sandbox_authorizations", "v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_arms",
 	"v1c_exchange_accounts", "v1c_daily_cap_counters", "v1c_engine_commands",
 	"v1d_strategy_controls", "v1d_risk_controls", "v1d_export_artifacts",
-	"v1d_artifact_holds", "v1d_qualification_runs",
+	"v1d_artifact_holds", "v1d_qualification_runs", "v1d_report_schedules",
+	"v1d_reports", "v1d_alert_routes", "v1d_alert_route_tests",
 }
 
 var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
@@ -76,6 +81,7 @@ var runtimeReadTables = []string{
 	"v1c_c6_chaos_events",
 	"v1d_reason_catalogue", "v1d_activity_projection", "v1d_activity_explanations",
 	"v1d_strategy_controls", "v1d_risk_controls", "v1d_qualification_catalogue",
+	"v1d_alert_routes", "v1d_audit_chain",
 }
 
 var recorderReadTables = []string{
@@ -87,6 +93,13 @@ var recorderWriteTables = []string{
 }
 
 var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events"}
+
+// Shared alert services run in every process role. They may append immutable
+// delivery evidence and update only the bounded route state used for delivery
+// tests and validated webhook availability.
+var processAlertAppendTables = []string{"v1d_alert_delivery_attempts"}
+
+var processAlertUpdateTables = []string{"v1d_alert_routes", "v1d_alert_route_tests"}
 
 var v1cEngineReadWriteTables = []string{
 	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
@@ -174,6 +187,11 @@ var readOnlyTables = []string{
 	"v1d_strategy_controls", "v1d_risk_controls", "v1d_export_artifacts",
 	"v1d_artifact_holds", "v1d_artifact_access_events", "v1d_qualification_catalogue",
 	"v1d_qualification_runs", "v1d_role_change_events",
+	"v1d_incident_events", "v1d_incident_replay_inputs", "v1d_incident_alert_links",
+	"v1d_incident_activity_links", "v1d_incident_resolution_evidence",
+	"v1d_report_schedules", "v1d_reports", "v1d_alert_routes",
+	"v1d_alert_delivery_attempts", "v1d_alert_escalations", "v1d_alert_route_tests",
+	"v1d_audit_chain",
 }
 
 // ApplyV1CEngineRoleGrants keeps authenticated engines on distinct database
@@ -196,26 +214,7 @@ func ApplyV1CEngineRoleGrants(
 	if err != nil {
 		return err
 	}
-	tables := filterTableGrants([]tableGrant{
-		{
-			privileges: "SELECT, INSERT, UPDATE",
-			tables: append(
-				append([]string(nil), v1cEngineReadWriteTables...),
-				v1cEngineAlertReadWriteTables...,
-			),
-		},
-		{
-			privileges: "SELECT, INSERT",
-			tables: append(
-				append([]string(nil), v1cEngineAlertAppendTables...),
-				v1cEngineRuntimeAppendTables...,
-			),
-		},
-		{
-			privileges: "SELECT",
-			tables:     v1cEngineReadOnlyTables,
-		},
-	}, available)
+	tables := filterTableGrants(v1cEngineTableGrants(), available)
 	for _, role := range []string{binanceRole, bybitRole} {
 		if err = applyTableGrants(ctx, tx, role, tables); err != nil {
 			return err
@@ -225,6 +224,19 @@ func ApplyV1CEngineRoleGrants(
 		return fmt.Errorf("v1c_role_grant_commit_failed")
 	}
 	return nil
+}
+
+func v1cEngineTableGrants() []tableGrant {
+	readWrite := append(append([]string(nil), v1cEngineReadWriteTables...),
+		v1cEngineAlertReadWriteTables...)
+	appendOnly := append(append(append([]string(nil), v1cEngineAlertAppendTables...),
+		v1cEngineRuntimeAppendTables...), processAlertAppendTables...)
+	return []tableGrant{
+		{privileges: "SELECT, INSERT, UPDATE", tables: readWrite},
+		{privileges: "SELECT, INSERT", tables: appendOnly},
+		{privileges: "SELECT, UPDATE", tables: processAlertUpdateTables},
+		{privileges: "SELECT", tables: v1cEngineReadOnlyTables},
+	}
 }
 
 // ApplyC6QualificationRoleGrants restricts the manual soak observer to
@@ -309,6 +321,8 @@ func roleTableGrants(runtimeRole, recorderRole, readOnlyRole string) map[string]
 			{privileges: "SELECT", tables: recorderReadTables},
 			{privileges: "SELECT, INSERT, UPDATE", tables: recorderWriteTables},
 			{privileges: "SELECT, INSERT", tables: recorderAppendTables},
+			{privileges: "SELECT, INSERT", tables: processAlertAppendTables},
+			{privileges: "SELECT, UPDATE", tables: processAlertUpdateTables},
 		},
 		readOnlyRole: {{privileges: "SELECT", tables: readOnlyTables}},
 	}

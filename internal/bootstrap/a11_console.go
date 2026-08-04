@@ -73,6 +73,7 @@ func setupA11Console(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	options.SandboxCommands = consoleStore
 	options.D1Read = consoleStore
 	options.D1Commands = consoleStore
+	options.D4Read = consoleStore
 	return a11ConsoleSetup{options: options, dependency: readiness}
 }
 

@@ -85,9 +85,9 @@ func (store *A11JobStore) claimRow(ctx context.Context, now time.Time) (string, 
 	var id, kind string
 	var payload []byte
 	err = tx.QueryRow(ctx, `SELECT candidate.id,candidate.job_type,candidate.request_payload FROM jobs candidate
-      WHERE (candidate.state='QUEUED' AND (SELECT count(*) FROM jobs active
-        WHERE active.owner_user_id=candidate.owner_user_id AND active.state IN ('RUNNING','PAUSE_REQUESTED'))<2)
-      OR (candidate.state='RUNNING' AND candidate.claim_expires_at<=$1 AND candidate.retry_count<candidate.max_attempts)
+	      WHERE candidate.job_type NOT LIKE 'report:%' AND ((candidate.state='QUEUED' AND (SELECT count(*) FROM jobs active
+	        WHERE active.owner_user_id=candidate.owner_user_id AND active.state IN ('RUNNING','PAUSE_REQUESTED'))<2)
+	      OR (candidate.state='RUNNING' AND candidate.claim_expires_at<=$1 AND candidate.retry_count<candidate.max_attempts))
       ORDER BY CASE WHEN candidate.state='RUNNING' THEN 0 ELSE 1 END,candidate.created_at,candidate.id
       FOR UPDATE OF candidate SKIP LOCKED LIMIT 1`, now).
 		Scan(&id, &kind, &payload)
