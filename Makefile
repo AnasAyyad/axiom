@@ -223,12 +223,12 @@ c6-soak-smoke: ## Run only the short deterministic C6 smoke runner; never grants
 c6-observer-build: ## Build the standalone exact-hash C6 observer at AXIOM_C6_OBSERVER_BIN.
 	@case "$(AXIOM_C6_OBSERVER_BIN)" in /*) ;; *) echo "AXIOM_C6_OBSERVER_BIN must be absolute" >&2; exit 1;; esac
 	@test -d "$$(dirname "$(AXIOM_C6_OBSERVER_BIN)")" || { echo "observer output directory is absent" >&2; exit 1; }
-	@CGO_ENABLED=0 $(GO) build -trimpath -ldflags='-buildid=' -o "$(AXIOM_C6_OBSERVER_BIN)" ./cmd/c6-soak
+	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_C6_OBSERVER_BIN)" ./cmd/c6-soak
 
 c6-chaos-build: ## Build the standalone exact-hash C6 chaos controller at AXIOM_C6_CHAOS_BIN.
 	@case "$(AXIOM_C6_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_C6_CHAOS_BIN must be absolute" >&2; exit 1;; esac
 	@test -d "$$(dirname "$(AXIOM_C6_CHAOS_BIN)")" || { echo "controller output directory is absent" >&2; exit 1; }
-	@CGO_ENABLED=0 $(GO) build -trimpath -ldflags='-buildid=' -o "$(AXIOM_C6_CHAOS_BIN)" ./cmd/c6-chaos
+	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_C6_CHAOS_BIN)" ./cmd/c6-chaos
 
 c6-controller-image: ## Build the exact-source, internal-network C6 controller image.
 	@test -n "$(C6_CONTROLLER_IMAGE)" || { echo "C6_CONTROLLER_IMAGE is required" >&2; exit 1; }

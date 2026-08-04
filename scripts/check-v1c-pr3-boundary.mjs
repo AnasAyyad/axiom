@@ -173,4 +173,14 @@ requireText(
   "standalone observer launch contract",
 );
 
+const controllerDockerfile = read("deploy/docker/C6Controller.Dockerfile");
+requireText(
+  makefile + controllerDockerfile,
+  [
+    "build -buildvcs=false -trimpath -ldflags='-buildid='",
+    "CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags=\"-buildid=\"",
+  ],
+  "reproducible C6 controller build contract",
+);
+
 console.log("V1C PR3 C6 source boundary passed");

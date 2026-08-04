@@ -13,7 +13,7 @@ COPY Makefile ./
 COPY cmd cmd
 COPY internal internal
 RUN --mount=type=cache,id=axiom-c6-go-mod,target=/go/pkg/mod \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-buildid=" \
+    CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-buildid=" \
     -o /out/c6-chaos ./cmd/c6-chaos
 
 FROM ${GO_IMAGE} AS runtime
