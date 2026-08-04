@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 
 	"axiom/internal/api/console"
 	"axiom/internal/api/generated"
@@ -58,13 +59,31 @@ func (store *A11ConsoleStore) TrendDecisions(ctx context.Context, cursor string,
 
 // Shadow returns one public-only simulation session and its simulated orders.
 func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.ShadowSessionResource, error) {
+	item, err := store.shadowSession(ctx, id)
+	if err != nil {
+		return generated.ShadowSessionResource{}, err
+	}
+	orders, err := store.shadowOrders(ctx, id)
+	if err != nil {
+		return generated.ShadowSessionResource{}, err
+	}
+	item.Orders = &orders
+	if err = store.populateD3Shadow(ctx, &item); err != nil {
+		return generated.ShadowSessionResource{}, err
+	}
+	return item, nil
+}
+
+func (store *A11ConsoleStore) shadowSession(ctx context.Context, id string) (generated.ShadowSessionResource, error) {
 	var item generated.ShadowSessionResource
 	var state string
 	var revision int64
+	var publicExchange string
 	err := store.pool.QueryRow(ctx, `SELECT session.id,session.state,session.revision,session.entries_enabled,
 	  session.created_at,session.started_at,session.stopped_at,session.failure_code,session.configuration_id,
 	  CASE WHEN strategy.id='trend-v1a-1' THEN 'trend.v1a.1' ELSE strategy.version::text END,
-	  coalesce(session.decision_dataset_id,''),coalesce(session.model_namespace_id,''),
+	  coalesce(session.decision_dataset_id,''),coalesce(session.model_namespace_id,''),session.portfolio_id,
+	  session.run_id,session.public_exchange,session.slippage_model_id,session.gap_model_id,
 	  (SELECT count(*)::integer FROM decisions WHERE run_id=session.run_id AND outcome='accepted'),
 	  (SELECT count(*)::integer FROM decisions WHERE run_id=session.run_id AND outcome='rejected'),
 	  (SELECT count(*)::integer FROM journal_transactions WHERE run_id=session.run_id)
@@ -72,7 +91,8 @@ func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.
 	  WHERE session.id=$1`, id).
 		Scan(&item.Id, &state, &revision, &item.EntriesEnabled, &item.CreatedAt, &item.StartedAt, &item.StoppedAt,
 			&item.FailureCode, &item.ConfigurationId, &item.StrategyVersion, &item.DecisionDatasetId,
-			&item.ModelNamespaceId, &item.AcceptedDecisions, &item.RejectedDecisions, &item.JournalTransactions)
+			&item.ModelNamespaceId, &item.PortfolioId, &item.RunId, &publicExchange, &item.SlippageModelId,
+			&item.GapModelId, &item.AcceptedDecisions, &item.RejectedDecisions, &item.JournalTransactions)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return generated.ShadowSessionResource{}, console.ErrNotFound
 	}
@@ -84,12 +104,18 @@ func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.
 	item.Label = generated.PUBLICLIVESHADOWVIRTUAL
 	item.PublicOnly = true
 	item.SimulationOnly = true
+	exchangeID := strings.TrimSuffix(publicExchange, "-production-public")
+	item.ExchangeId = &exchangeID
+	return item, nil
+}
+
+func (store *A11ConsoleStore) shadowOrders(ctx context.Context, id string) ([]generated.SimulatedOrder, error) {
 	rows, err := store.pool.Query(ctx, `SELECT o.id,o.instrument_id,o.side,o.quantity::text,
-	coalesce((SELECT sum(f.quantity)::text FROM fills f WHERE f.order_id=o.id),'0'),o.state,
-	o.requested_limit_price::text,o.simulation_latency_ms::text
-    FROM orders o JOIN virtual_accounts va ON va.id=o.account_id JOIN shadow_sessions ss ON ss.run_id=va.run_id WHERE ss.id=$1 ORDER BY o.created_at,o.id`, id)
+coalesce((SELECT sum(f.quantity)::text FROM fills f WHERE f.order_id=o.id),'0'),o.state,
+o.requested_limit_price::text,o.simulation_latency_ms::text
+	    FROM orders o JOIN virtual_accounts va ON va.id=o.account_id JOIN shadow_sessions ss ON ss.run_id=va.run_id WHERE ss.id=$1 ORDER BY o.created_at,o.id`, id)
 	if err != nil {
-		return generated.ShadowSessionResource{}, err
+		return nil, err
 	}
 	defer rows.Close()
 	orders := []generated.SimulatedOrder{}
@@ -98,14 +124,13 @@ func (store *A11ConsoleStore) Shadow(ctx context.Context, id string) (generated.
 		var filled string
 		if err = rows.Scan(&order.Id, &order.Instrument, &order.Side, &order.Quantity, &filled, &order.State,
 			&order.LimitPrice, &order.LatencyMs); err != nil {
-			return generated.ShadowSessionResource{}, err
+			return nil, err
 		}
 		order.FilledQuantity = &filled
 		order.Simulated = true
 		orders = append(orders, order)
 	}
-	item.Orders = &orders
-	return item, rows.Err()
+	return orders, rows.Err()
 }
 
 // Incidents returns immutable operational incident summaries.

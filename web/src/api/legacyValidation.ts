@@ -49,6 +49,61 @@ const shadow = z
     entries_enabled: z.boolean(),
     revision,
     created_at: timestamp,
+    decisions: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            outcome: z.string().min(1),
+            reason_code: z.string().min(1),
+            risk_outcome: z.enum([
+              "approved",
+              "rejected",
+              "paused",
+              "locked",
+              "not_evaluated",
+            ]),
+            risk_reason_code: z.string().min(1),
+            occurred_at: timestamp,
+          })
+          .strict(),
+      )
+      .optional(),
+    balances: z.array(z.object({ asset: z.string() }).loose()).optional(),
+    positions: z.array(z.object({ instrument: z.string() }).loose()).optional(),
+    pnl_attribution: z
+      .object({
+        realized_pnl: decimal,
+        fee_expense: decimal,
+        spread: decimal,
+        slippage: decimal,
+        latency: decimal,
+        valuation_basis: z.literal("sealed_ledger_functional_value"),
+      })
+      .strict()
+      .optional(),
+    data_health: z
+      .object({
+        exchange: z.string().min(1),
+        state: z.string().min(1),
+        reason: z.string().min(1),
+        observed_at: timestamp,
+        fresh: z.boolean(),
+      })
+      .strict()
+      .optional(),
+  })
+  .loose();
+const shadowSummary = z
+  .object({
+    id: z.string().min(1),
+    state: z.string().min(1),
+    revision,
+    configuration_id: z.string().min(1),
+    strategy_version: z.literal("trend.v1a.1"),
+    public_only: z.literal(true),
+    simulation_only: z.literal(true),
+    created_at: timestamp,
   })
   .loose();
 
@@ -215,6 +270,7 @@ export const legacyResponseSchemas: ReadonlyArray<
   [/^GET \/api\/v1\/(backtests|replays)\//, jobSchema],
   [/^POST \/api\/v1\/(backtests|replays)$/, jobSchema],
   [/^GET \/api\/v1\/shadow-sessions\//, shadow],
+  [/^GET \/api\/v1\/shadow-sessions(?:\?.*)?$/, page(shadowSummary)],
   [/^POST \/api\/v1\/shadow-sessions$/, shadow],
   [
     /^GET \/api\/v1\/incidents\?/,

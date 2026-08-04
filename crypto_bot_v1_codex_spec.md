@@ -3606,6 +3606,37 @@ Owner: frontend and research platform.
 
 Deliver run creation/lifecycle, progress, comparison, parameter diffs, reproducibility bundles, replay controls/faults, shadow comparison, and export.
 
+D3 uses guided, version-controlled presets over the immutable configuration,
+dataset, strategy, model, and seed identities that the execution engine already
+enforces. An advanced view may explain instruments, date windows, fees,
+latency, fills, and risk assumptions, but it must not imply that unsupported
+free-form browser values are executed. Every run keeps its original input
+manifest, source/build identity, dataset/configuration hashes, result identity,
+confidence, sample limits, and maturity visible when those facts exist.
+
+Backtest and replay pages provide durable history, reopen, exact-revision
+pause/resume/cancel where the state machine supports it, deterministic
+reproduction, two-run parameter/result comparison, and audited TXT, CSV, JSON,
+or JSONL export. Replay additionally provides original, accelerated, and
+maximum speed presets, pause/resume/single-step, ordinal navigation,
+checkpoints, incident windows, and only the approved deterministic fault
+catalogue. A cursor or event that has not been durably materialized is never
+invented by the UI.
+
+Shadow pages list durable public-data, simulation-only sessions and expose
+current decisions, simulated orders/fills, virtual balances and positions,
+ledger-backed P&L attribution, risk actions, public-data health, immutable
+model assumptions, and side-by-side session comparison. They cannot reach a
+production-private exchange endpoint or sell inventory that the isolated
+virtual portfolio does not own.
+
+Reproduction bundles contain safe manifests, hashes, parameters, dataset and
+result references, and exact application/build identity. They exclude secrets,
+request signatures, authorization headers, unrestricted private payloads, and
+arbitrary logs. Historical, replay, shadow, demo, and testnet results report
+strategy viability separately from platform readiness and never claim or prove
+profitability.
+
 Acceptance: runs can be created, paused/canceled where supported, monitored, reproduced, compared, opened, and exported without losing immutable identity.
 
 ### Phase D4: Reports, incidents, audit, and alert delivery

@@ -111,7 +111,7 @@ func assertA11WorkerLeasesAndRecovery(t *testing.T, ctx context.Context, pool *p
 func assertA11PauseDuringClaimMaterialization(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 	consoleStore *A11ConsoleStore, principal authentication.Principal, clock *domain.ReplayClock) {
 	t.Helper()
-	speed := generated.Maximum
+	speed := generated.ReplayJobRequestSpeedMaximum
 	request := generated.ReplayJobRequest{ConfigurationId: "configuration-a10", DatasetId: "dataset-a7-formal-pending",
 		ResearchGenerationId: "generation-a10-1", RootSeedHash: strings.Repeat("8", 64),
 		StrategyVersion: generated.ReplayJobRequestStrategyVersionTrendV1a1, Speed: &speed}
@@ -182,6 +182,29 @@ func assertA11CompletedJob(t *testing.T, ctx context.Context, consoleStore *A11C
 		len(projection.RegisteredReport.Benchmarks) != 3 || len(projection.RegisteredReport.Stress) != 6 ||
 		len(projection.RegisteredReport.Capacity) != 2 || projection.RegisteredReport.ConfidenceLabel != "local_tier_b" {
 		t.Fatalf("registered report projection = %#v", projection.RegisteredReport)
+	}
+	if projection.InputManifest == nil || projection.InputManifest.DatasetId != "dataset-a7-formal-pending" ||
+		projection.Lifecycle == nil || !projection.Lifecycle.Reproduce || projection.ReproductionBundle == nil ||
+		projection.ReproductionBundle.RunId != claim.ID || projection.ReproductionBundle.ResultHash == nil ||
+		*projection.ReproductionBundle.ResultHash != result.ResultHash || projection.ReproductionBundle.CanonicalManifest == "" {
+		t.Fatalf("D3 reproduction projection = %#v", projection)
+	}
+	revision, _ := strconv.ParseInt(projection.Revision, 10, 64)
+	tx, err := consoleStore.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	record := map[string]string{}
+	if err = d1ExportJobRecord(ctx, tx, claim.ID, revision, record); err != nil ||
+		record["manifest_hash"] == "" || record["configuration_id"] != "configuration-a10" ||
+		record["dataset_id"] != "dataset-a7-formal-pending" || record["result_hash"] != result.ResultHash {
+		t.Fatalf("D3 safe export record = %#v %v", record, err)
+	}
+	for _, forbidden := range []string{"request_payload", "canonical_manifest", "authorization", "signature", "credential"} {
+		if _, exposed := record[forbidden]; exposed {
+			t.Fatalf("D3 export exposed %s", forbidden)
+		}
 	}
 	inspection, err := consoleStore.replayInspection(ctx, claim.Manifest.RunID.Value(), "1")
 	if err != nil || inspection == nil || inspection.Ordinal != "1" || inspection.EventCount != "1" ||
@@ -639,6 +662,20 @@ func assertA11ShadowAndAudit(t *testing.T, ctx context.Context, pool *pgxpool.Po
 	if _, err = store.StopShadow(ctx, principal, shadow.Id, "shadow-stop-a11", stop); err != nil {
 		t.Fatalf("shadow stop rejected: %v", err)
 	}
+	assertA11ShadowRuntimeEvidence(t, ctx, pool, store, principal, clock, request)
+	assertA11ShadowImmutability(t, ctx, pool)
+}
+
+func assertA11ShadowRuntimeEvidence(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	store *A11ConsoleStore,
+	principal authentication.Principal,
+	clock *domain.ReplayClock,
+	request generated.ShadowSessionRequest,
+) {
+	t.Helper()
 	runtimeShadow, err := store.CreateShadow(ctx, principal, "shadow-runtime-a11", request)
 	if err != nil {
 		t.Fatal(err)
@@ -655,6 +692,22 @@ func assertA11ShadowAndAudit(t *testing.T, ctx context.Context, pool *pgxpool.Po
 	if err = runtimeStore.Fail(ctx, claim.ID, "qualification_complete"); err != nil {
 		t.Fatal(err)
 	}
+	projection, err := store.Shadow(ctx, claim.ID)
+	if err != nil || projection.RunId == nil || *projection.RunId != claim.ID ||
+		projection.PnlAttribution == nil || projection.Decisions == nil || projection.Balances == nil ||
+		projection.Positions == nil || projection.ExchangeId == nil || *projection.ExchangeId != "binance" {
+		t.Fatalf("D3 shadow evidence projection = %#v %v", projection, err)
+	}
+	history, err := store.Shadows(ctx, "", 10, "FAILED")
+	if err != nil || len(history.Items) != 1 || history.Items[0].Id != claim.ID ||
+		!bool(history.Items[0].PublicOnly) || !bool(history.Items[0].SimulationOnly) {
+		t.Fatalf("D3 shadow history = %#v %v", history, err)
+	}
+}
+
+func assertA11ShadowImmutability(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	var err error
 	if _, err = pool.Exec(ctx, `UPDATE command_requests SET reason='tampered' WHERE id=(SELECT id FROM command_requests ORDER BY created_at LIMIT 1)`); err == nil {
 		t.Fatal("immutable durable command mutated")
 	}

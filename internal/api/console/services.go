@@ -43,6 +43,7 @@ type ReadService interface {
 	Trend(context.Context) (generated.TrendStatus, error)
 	TrendDecisions(context.Context, string, int) (generated.TrendDecisionPage, error)
 	Job(context.Context, string, string) (generated.JobResource, error)
+	Shadows(context.Context, string, int, string) (generated.ShadowSessionPage, error)
 	Shadow(context.Context, string) (generated.ShadowSessionResource, error)
 	Incidents(context.Context, string, int, string) (generated.IncidentPage, error)
 	Incident(context.Context, string, bool) (generated.IncidentDetail, error)

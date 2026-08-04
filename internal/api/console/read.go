@@ -21,6 +21,7 @@ func (handler *handler) registerReads(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/strategies/trend/decisions", handler.authorized(handler.trendDecisions, "operations.read"))
 	mux.HandleFunc("GET /api/v1/backtests/{id}", handler.authorized(handler.job, "operations.read"))
 	mux.HandleFunc("GET /api/v1/replays/{id}", handler.authorized(handler.job, "operations.read"))
+	mux.HandleFunc("GET /api/v1/shadow-sessions", handler.authorized(handler.shadows, "operations.read"))
 	mux.HandleFunc("GET /api/v1/shadow-sessions/{id}", handler.authorized(handler.shadow, "operations.read"))
 	mux.HandleFunc("GET /api/v1/incidents", handler.authorized(handler.incidents, "operations.read"))
 	mux.HandleFunc("GET /api/v1/incidents/{id}", handler.authorized(handler.incident, "operations.read"))
@@ -135,6 +136,23 @@ func (handler *handler) shadow(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	value, err := handler.options.Read.Shadow(request.Context(), request.PathValue("id"))
+	handler.writeRead(writer, request, value, err)
+}
+func (handler *handler) shadows(writer http.ResponseWriter, request *http.Request, _ authentication.Principal) {
+	limit, err := pageSize(request)
+	if err != nil {
+		handler.writeServiceError(writer, request, err)
+		return
+	}
+	if handler.readUnavailable(writer, request) {
+		return
+	}
+	state := request.URL.Query().Get("state")
+	if state != "" && !strings.Contains(" QUEUED RUNNING PAUSED CANCEL_REQUESTED CANCELED FAILED ", " "+state+" ") {
+		handler.writeServiceError(writer, request, ErrInvalidRequest)
+		return
+	}
+	value, err := handler.options.Read.Shadows(request.Context(), request.URL.Query().Get("cursor"), limit, state)
 	handler.writeRead(writer, request, value, err)
 }
 func (handler *handler) incidents(writer http.ResponseWriter, request *http.Request, _ authentication.Principal) {

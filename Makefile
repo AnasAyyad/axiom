@@ -15,6 +15,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-soak v1c-pr3-local-qualify
 .PHONY: d1-contract-qualify d1-api-qualify d1-postgres-qualify d1-security-qualify v1d-d1-local-qualify
 .PHONY: d2-contract-qualify d2-frontend-qualify d2-browser-qualify d2-security-qualify v1d-d2-local-qualify
+.PHONY: d3-contract-qualify d3-api-qualify d3-postgres-qualify d3-frontend-qualify d3-browser-qualify d3-security-qualify v1d-d3-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -285,6 +286,36 @@ d2-security-qualify: ## Prove D2 has no arbitrary execution surface or forbidden
 	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 v1d-d2-local-qualify: d2-contract-qualify d2-frontend-qualify d2-browser-qualify d2-security-qualify ## Pass every local D2 implementation gate; merge and cumulative acceptance remain separate.
+
+d3-contract-qualify: ## Prove D3 uses compatible generated lab and evidence contracts.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-v1d-d1-boundary.mjs
+	@$(NODE) scripts/check-v1d-d2-boundary.mjs
+	@$(NODE) scripts/check-v1d-d3-boundary.mjs
+
+d3-api-qualify: ## Exercise D3 authorization, lifecycle, manifest, replay, export, and shadow projections.
+	@AXIOM_A11_TEST_DSN= $(GO) test ./internal/api/... ./internal/replay ./internal/backtest ./internal/storage/postgres -count=1
+
+d3-postgres-qualify: ## Run D3 durable lifecycle and evidence projections against PostgreSQL 18.
+	@test -n "$(AXIOM_A11_TEST_DSN)" || { echo "AXIOM_A11_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_A11_TEST_DSN="$(AXIOM_A11_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestA11PostgresAuthenticationCommandsAndConsoleQualification$$' -count=1 -v
+
+d3-frontend-qualify: ## Type-check, lint, test, build, and inspect the complete D3 laboratories.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+	@$(NODE) scripts/check-v1d-d3-boundary.mjs
+
+d3-browser-qualify: ## Run D3 lab workflows in Chromium, Firefox, WebKit, tablet, and mobile fixtures.
+	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'D3 labs'
+
+d3-security-qualify: ## Prove D3 preserves redaction and every forbidden V1 capability boundary.
+	@$(NODE) scripts/check-v1d-d3-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+v1d-d3-local-qualify: d3-contract-qualify d3-api-qualify d3-postgres-qualify d3-frontend-qualify d3-browser-qualify d3-security-qualify ## Pass every local D3 implementation gate; merge and cumulative acceptance remain separate.
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck -db "$(VULNDB)" ./...

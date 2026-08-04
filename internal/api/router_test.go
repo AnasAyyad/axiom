@@ -80,6 +80,7 @@ func TestA11RouterRegistersEveryRequiredMethodAndPath(t *testing.T) {
 		{http.MethodPost, "/api/v1/replays/replay-a11/resume"},
 		{http.MethodPost, "/api/v1/replays/replay-a11/step"},
 		{http.MethodPost, "/api/v1/shadow-sessions"},
+		{http.MethodGet, "/api/v1/shadow-sessions"},
 		{http.MethodPost, "/api/v1/shadow-sessions/shadow-a11/stop"},
 		{http.MethodGet, "/api/v1/shadow-sessions/shadow-a11"},
 		{http.MethodGet, "/api/v1/incidents"},

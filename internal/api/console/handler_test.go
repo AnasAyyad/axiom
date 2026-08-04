@@ -130,6 +130,37 @@ func TestViewerCannotMutateAndBoundaryValidationFailsClosed(t *testing.T) {
 	}
 }
 
+func TestResearchControlPermissionOwnsApprovedLabMutations(t *testing.T) {
+	t.Parallel()
+	requestBody := `{"configuration_id":"configuration-a10","dataset_id":"dataset-a7",` +
+		`"research_generation_id":"generation-a10-1","strategy_version":"trend.v1a.1",` +
+		`"root_seed_hash":"` + strings.Repeat("a", 64) + `"}`
+	for name, test := range map[string]struct {
+		permissions []string
+		want        int
+	}{
+		"researcher reaches command boundary":     {[]string{"operations.read", "research.control"}, http.StatusServiceUnavailable},
+		"read only fails before command boundary": {[]string{"operations.read"}, http.StatusForbidden},
+	} {
+		t.Run(name, func(t *testing.T) {
+			handler, _ := a11HTTPTestHandler(t, test.permissions)
+			session, csrf := a11HTTPLogin(t, handler)
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/backtests", strings.NewReader(requestBody))
+			request.Header.Set("Origin", "http://localhost:4173")
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("Idempotency-Key", "research-backtest-0001")
+			request.Header.Set("X-CSRF-Token", csrf.Value)
+			request.AddCookie(session)
+			request.AddCookie(csrf)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != test.want {
+				t.Fatalf("lab mutation status = %d, want %d: %s", response.Code, test.want, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestEventSourceOriginValidationAcceptsOnlyAllowlistedSameOriginMetadata(t *testing.T) {
 	_, store := a11HTTPTestHandler(t, []string{"operations.read"})
 	stream := &a11HTTPStream{}

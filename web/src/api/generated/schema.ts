@@ -329,15 +329,19 @@ export interface components {
       "virtual": true;
     };
     "JobResource": {
+      "checkpoints"?: Array<components["schemas"]["ReplayCheckpoint"]>;
       "created_at": components["schemas"]["Timestamp"];
       "cursor_ordinal"?: components["schemas"]["Revision"];
       "failure_code"?: string;
       "id": string;
+      "input_manifest"?: components["schemas"]["LabInputManifest"];
       "kind": "backtest" | "replay";
+      "lifecycle"?: components["schemas"]["LabLifecycleCapabilities"];
       "mode_label": "BACKTEST" | "REPLAY";
       "progress"?: components["schemas"]["NonnegativeDecimal"];
       "registered_report"?: components["schemas"]["RegisteredResearchReport"];
       "replay_inspection"?: components["schemas"]["ReplayEventInspection"];
+      "reproduction_bundle"?: components["schemas"]["ReproductionBundle"];
       "result"?: components["schemas"]["JobResult"];
       "revision": components["schemas"]["Revision"];
       "state": "QUEUED" | "RUNNING" | "PAUSE_REQUESTED" | "PAUSED" | "CANCEL_REQUESTED" | "CANCELED" | "SUCCEEDED" | "FAILED";
@@ -368,6 +372,25 @@ export interface components {
     "JournalPage": components["schemas"]["Page"] & {
       "items": Array<components["schemas"]["JournalEntry"]>;
       "virtual": true;
+    };
+    "LabInputManifest": {
+      "configuration_id": string;
+      "dataset_id": string;
+      "first_ordinal"?: components["schemas"]["Revision"];
+      "incident_id"?: string;
+      "last_ordinal"?: components["schemas"]["Revision"];
+      "research_generation_id": string;
+      "root_seed_hash": string;
+      "speed"?: "original" | "accelerated" | "maximum";
+      "strategy_version": "trend.v1a.1";
+    };
+    "LabLifecycleCapabilities": {
+      "cancel": boolean;
+      "compare": boolean;
+      "export": boolean;
+      "pause": boolean;
+      "reproduce": boolean;
+      "resume": boolean;
     };
     "LoginRequest": {
       "email": string;
@@ -579,6 +602,14 @@ export interface components {
       "stress": Array<components["schemas"]["ResearchResultSlice"]>;
       "viability": "undetermined" | "viable_for_more_research" | "rejected";
     };
+    "ReplayCheckpoint": {
+      "created_at": components["schemas"]["Timestamp"];
+      "deterministic_state_hash"?: string;
+      "input_ordinal": components["schemas"]["Revision"];
+      "model_namespace_id"?: string;
+      "revision": components["schemas"]["Revision"];
+      "state_hash": string;
+    };
     "ReplayEventInspection": {
       "canonical_balances": string;
       "canonical_decision": string;
@@ -638,6 +669,24 @@ export interface components {
       "expected_revision": components["schemas"]["Revision"];
       "reason": string;
       "report_type": "strategy_results" | "decisions_orders" | "portfolios" | "inventory_pnl" | "risk" | "exchange_data_health" | "lab_runs" | "sandbox_qualifications" | "platform_readiness";
+    };
+    "ReproductionBundle": {
+      "architecture": string;
+      "canonical_manifest": string;
+      "code_commit": string;
+      "confidence_tier": "A" | "B" | "C" | "D";
+      "configuration_hash": string;
+      "dataset_manifest_hash": string;
+      "dataset_revision": components["schemas"]["Revision"];
+      "go_version": string;
+      "input_hash": string;
+      "manifest_hash": string;
+      "model_namespace_id": string;
+      "operating_system": string;
+      "result_hash"?: string;
+      "run_id": string;
+      "source_commit": string;
+      "starting_balance_hash": string;
     };
     "ResearchCapacityPoint": {
       "fill_rate": components["schemas"]["NonnegativeDecimal"];
@@ -875,6 +924,47 @@ export interface components {
       "permissions": Array<string>;
       "roles": Array<string>;
     };
+    "ShadowBalance": {
+      "asset": string;
+      "available": components["schemas"]["NonnegativeDecimal"];
+      "reserved": components["schemas"]["NonnegativeDecimal"];
+      "revision": components["schemas"]["Revision"];
+      "updated_at": components["schemas"]["Timestamp"];
+    };
+    "ShadowDataHealth": {
+      "exchange": string;
+      "fresh": boolean;
+      "observed_at": components["schemas"]["Timestamp"];
+      "reason": string;
+      "state": "CONNECTING" | "SYNCING" | "SUBSCRIBED" | "HEALTHY" | "PAUSED" | "DISCONNECTED";
+    };
+    "ShadowDecisionSummary": {
+      "id": string;
+      "occurred_at": components["schemas"]["Timestamp"];
+      "outcome": string;
+      "reason_code": string;
+      "risk_outcome": "approved" | "rejected" | "paused" | "locked" | "not_evaluated";
+      "risk_reason_code": string;
+    };
+    "ShadowPnlAttribution": {
+      "fee_expense": components["schemas"]["Decimal"];
+      "latency": components["schemas"]["Decimal"];
+      "realized_pnl": components["schemas"]["Decimal"];
+      "slippage": components["schemas"]["Decimal"];
+      "spread": components["schemas"]["Decimal"];
+      "valuation_basis": "sealed_ledger_functional_value";
+    };
+    "ShadowPosition": {
+      "instrument": string;
+      "quantity": components["schemas"]["NonnegativeDecimal"];
+      "realized_pnl": components["schemas"]["Decimal"];
+      "revision": components["schemas"]["Revision"];
+      "updated_at": components["schemas"]["Timestamp"];
+      "weighted_average_cost": components["schemas"]["NonnegativeDecimal"];
+    };
+    "ShadowSessionPage": components["schemas"]["Page"] & {
+      "items": Array<components["schemas"]["ShadowSessionSummary"]>;
+    };
     "ShadowSessionRequest": {
       "configuration_id": string;
       "portfolio_id": string;
@@ -882,25 +972,47 @@ export interface components {
     };
     "ShadowSessionResource": {
       "accepted_decisions": number;
+      "balances"?: Array<components["schemas"]["ShadowBalance"]>;
       "configuration_id": string;
       "created_at": components["schemas"]["Timestamp"];
+      "data_health"?: components["schemas"]["ShadowDataHealth"];
       "decision_dataset_id": string;
+      "decisions"?: Array<components["schemas"]["ShadowDecisionSummary"]>;
       "entries_enabled": boolean;
+      "exchange_id"?: string;
       "failure_code"?: string;
+      "gap_model_id"?: string;
       "id": string;
       "journal_transactions": number;
       "label": "PUBLIC-LIVE SHADOW / VIRTUAL";
       "model_namespace_id": string;
       "orders"?: Array<components["schemas"]["SimulatedOrder"]>;
+      "pnl_attribution"?: components["schemas"]["ShadowPnlAttribution"];
+      "portfolio_id"?: string;
+      "positions"?: Array<components["schemas"]["ShadowPosition"]>;
       "public_only": true;
       "rejected_decisions": number;
       "revision": components["schemas"]["Revision"];
       "risk_state"?: "PAUSED" | "RESUMED" | "LOCKED";
+      "run_id"?: string;
       "simulation_only": true;
+      "slippage_model_id"?: string;
       "started_at"?: components["schemas"]["Timestamp"];
       "state": "QUEUED" | "RUNNING" | "PAUSED" | "CANCEL_REQUESTED" | "CANCELED" | "FAILED";
       "stopped_at"?: components["schemas"]["Timestamp"];
       "strategy_version": string;
+    };
+    "ShadowSessionSummary": {
+      "configuration_id": string;
+      "created_at": components["schemas"]["Timestamp"];
+      "failure_code"?: string;
+      "id": string;
+      "public_only": true;
+      "revision": components["schemas"]["Revision"];
+      "simulation_only": true;
+      "state": "QUEUED" | "RUNNING" | "PAUSED" | "CANCEL_REQUESTED" | "CANCELED" | "FAILED";
+      "stopped_at"?: components["schemas"]["Timestamp"];
+      "strategy_version": "trend.v1a.1";
     };
     "SimulatedOrder": {
       "filled_quantity"?: components["schemas"]["NonnegativeDecimal"];
@@ -1051,6 +1163,7 @@ export interface operations {
   "stepReplay": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
   "listReplayFaults": { path: { "id": string; }; responses: { "200": components["schemas"]["ReplayFaultPage"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "scheduleReplayFault": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ReplayFaultRequest"]; responses: { "201": components["schemas"]["ReplayFaultResource"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
+  "listShadowSessions": { query: { "cursor"?: string; "page_size"?: number; "state"?: "QUEUED" | "RUNNING" | "PAUSED" | "CANCEL_REQUESTED" | "CANCELED" | "FAILED"; }; responses: { "200": components["schemas"]["ShadowSessionPage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; }; };
   "createShadowSession": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["ShadowSessionRequest"]; responses: { "202": components["schemas"]["ShadowSessionResource"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "stopShadowSession": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
   "getShadowSession": { path: { "id": string; }; responses: { "200": components["schemas"]["ShadowSessionResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };

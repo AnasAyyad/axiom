@@ -4,4 +4,5 @@ export const emptyRun = {
   researchGeneration: "",
   strategy: "trend.v1a.1",
   seed: "",
+  speed: "maximum" as const,
 };

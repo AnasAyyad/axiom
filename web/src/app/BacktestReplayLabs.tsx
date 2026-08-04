@@ -3,16 +3,27 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { getAPI, newIdempotencyKey, postAPI } from "../api/client";
+import { sessionQuery } from "../api/queries";
 import { StatePanel } from "../components/StatePanel";
-import { JobPanel, Lab, RunForm } from "./ResearchLabShared";
-import { emptyRun } from "./researchLabModel";
+import { GuidedRunForm } from "../features/labs/GuidedRunForm";
+import { LabRunTools, LabSafetyNote } from "../features/labs/LabRunTools";
+import { emptyLabRun } from "../features/labs/labModel";
+import { hasAccess } from "../features/shared/access";
+import { JobPanel, Lab } from "./ResearchLabShared";
 
 export { ReplayLab } from "./ReplayLab";
 
 export function BacktestLab() {
   const { id } = useParams();
-  const [form, setForm] = useState(emptyRun);
+  const [form, setForm] = useState(emptyLabRun);
   const [jobID, setJobID] = useState(id ?? "");
+  const session = useQuery(sessionQuery);
+  const canControl = session.data
+    ? hasAccess(session.data.user, ["research.control"])
+    : false;
+  const canExport = session.data
+    ? hasAccess(session.data.user, ["artifacts.read"])
+    : false;
   const create = useMutation({
     mutationFn: () =>
       postAPI<"JobResource">(
@@ -45,11 +56,13 @@ export function BacktestLab() {
       eyebrow="Deterministic offline research"
       description="Create a durable Trend backtest from immutable configuration, dataset, strategy, and seed identities."
     >
-      <RunForm
+      <LabSafetyNote />
+      <GuidedRunForm
+        kind="backtest"
         form={form}
         setForm={setForm}
-        label="Launch backtest"
         pending={create.isPending}
+        allowed={canControl}
         submit={() => create.mutate()}
       />
       {create.isError && (
@@ -58,7 +71,17 @@ export function BacktestLab() {
           detail="The server rejected the run definition or quota."
         />
       )}
-      {job.data && <JobPanel job={job.data} />}
+      {job.data && (
+        <>
+          <JobPanel job={job.data} />
+          <LabRunTools
+            job={job.data}
+            canControl={canControl}
+            canExport={canExport}
+            refresh={() => job.refetch()}
+          />
+        </>
+      )}
     </Lab>
   );
 }
