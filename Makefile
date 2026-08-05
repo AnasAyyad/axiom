@@ -49,6 +49,9 @@ contracts: ## Generate Go and TypeScript models from OpenAPI.
 contracts-check: ## Prove generated OpenAPI models are current.
 	@GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)" scripts/check-generated.sh
 
+semantic-naming-check: ## Reject newly introduced delivery-stage terminology in active product surfaces.
+	@$(NODE) scripts/check-semantic-naming.mjs
+
 docs-check: ## Validate local documentation links and requirement-matrix consistency.
 	@$(NODE) scripts/check-doc-links.mjs
 	@$(NODE) scripts/check-a0-traceability.mjs $(if $(wildcard $(PLAN_FILE)),$(PLAN_FILE))
