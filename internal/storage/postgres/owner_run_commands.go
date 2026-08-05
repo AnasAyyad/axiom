@@ -193,4 +193,41 @@ func ownerRunSeed() (string, error) {
 	return hex.EncodeToString(digest[:]), nil
 }
 
+// ControlRun routes a semantic owner command only to an existing durable
+// lifecycle. A command is never silently remapped to another run type.
+func (store *A11ConsoleStore) ControlRun(
+	ctx context.Context,
+	principal authentication.Principal,
+	id, action, key string,
+	body generated.RevisionCommandRequest,
+) (generated.CommandAccepted, error) {
+	var kind string
+	err := store.pool.QueryRow(ctx, `
+SELECT kind FROM (
+  SELECT job_type AS kind FROM jobs WHERE id=$1 AND job_type IN ('backtest','replay')
+  UNION ALL
+  SELECT 'shadow' AS kind FROM shadow_sessions WHERE id=$1
+) source LIMIT 1`, id).Scan(&kind)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return generated.CommandAccepted{}, console.ErrNotFound
+	}
+	if err != nil {
+		return generated.CommandAccepted{}, err
+	}
+	switch kind {
+	case "replay":
+		if action != "pause" && action != "resume" && action != "step" {
+			return generated.CommandAccepted{}, console.ErrPrecondition
+		}
+		return store.ControlJob(ctx, principal, id, action, key, body)
+	case "shadow":
+		if action != "stop" {
+			return generated.CommandAccepted{}, console.ErrPrecondition
+		}
+		return store.StopShadow(ctx, principal, id, key, body)
+	default:
+		return generated.CommandAccepted{}, console.ErrPrecondition
+	}
+}
+
 var _ console.RunCommandService = (*A11ConsoleStore)(nil)

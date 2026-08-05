@@ -56,6 +56,9 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("GET /api/v1/runs", handler.authorized(handler.runs, ""))
 	mux.HandleFunc("POST /api/v1/runs", handler.authorizedMutation(handler.createRun, ""))
 	mux.HandleFunc("GET /api/v1/runs/{id}", handler.authorized(handler.run, ""))
+	for _, action := range []string{"pause", "resume", "step", "stop"} {
+		mux.HandleFunc("POST /api/v1/runs/{id}/"+action, handler.authorizedMutation(handler.controlRun(action), ""))
+	}
 	mux.HandleFunc("GET /api/v1/data-catalogue", handler.authorized(handler.dataCatalogue, ""))
 	handler.registerReads(mux)
 	handler.registerCommands(mux)

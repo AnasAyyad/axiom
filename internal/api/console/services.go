@@ -62,6 +62,7 @@ type RunReadService interface {
 // semantic selection to immutable server-side inputs.
 type RunCommandService interface {
 	CreateRun(context.Context, authentication.Principal, string, generated.RunCreateRequest) (generated.RunResource, error)
+	ControlRun(context.Context, authentication.Principal, string, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
 }
 
 // DataCatalogueReadService exposes only server-registered immutable dataset

@@ -76,6 +76,32 @@ func validRunCreateRequest(body generated.RunCreateRequest) bool {
 	return !strings.ContainsAny(body.Instrument, "\r\n\x00")
 }
 
+func (handler *handler) controlRun(action string) authenticatedHandler {
+	return func(writer http.ResponseWriter, request *http.Request, principal authentication.Principal) {
+		key, ok := handler.idempotencyKey(writer, request)
+		if !ok {
+			return
+		}
+		if handler.options.RunCommands == nil {
+			handler.writeError(writer, request, http.StatusServiceUnavailable,
+				"run_command_unavailable", "Durable run controls unavailable")
+			return
+		}
+		var body generated.RevisionCommandRequest
+		if !handler.decode(writer, request, &body) || !validRevisionCommand(body) {
+			handler.writeServiceError(writer, request, ErrInvalidRequest)
+			return
+		}
+		value, err := handler.options.RunCommands.ControlRun(request.Context(), principal,
+			request.PathValue("id"), action, key, body)
+		if err != nil {
+			handler.writeServiceError(writer, request, err)
+			return
+		}
+		handler.writeJSON(writer, http.StatusAccepted, value)
+	}
+}
+
 func (handler *handler) run(
 	writer http.ResponseWriter,
 	request *http.Request,
