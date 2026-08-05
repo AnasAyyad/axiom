@@ -323,9 +323,7 @@ export interface components {
       "status": "ready" | "not_ready";
     };
     "HealthResponse": {
-      "phase": "A1" | "A11";
       "reason_code"?: string;
-      "role": string;
       "status": "live" | "ready" | "not_ready";
     };
     "HighRiskAuthorizationGrant": {

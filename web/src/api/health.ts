@@ -38,13 +38,8 @@ export async function getReadiness(): Promise<HealthResponse> {
   if (status !== "ready" && status !== "not_ready") {
     throw new Error("invalid_health_response");
   }
-  if (value.phase !== "A1") {
-    throw new Error("invalid_health_response");
-  }
   return {
     status,
-    role: requiredString(value, "role"),
-    phase: "A1",
     ...(typeof value.reason_code === "string"
       ? { reason_code: value.reason_code }
       : {}),

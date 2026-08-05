@@ -31,7 +31,6 @@ type Options struct {
 	Dependency Dependency
 	Lifecycle  LifecycleState
 	Authorize  func(*http.Request) bool
-	Phase      generated.HealthResponsePhase
 	OmitStatus bool
 }
 
@@ -101,8 +100,6 @@ func liveness(options Options) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
 			Status: generated.HealthResponseStatusLive,
-			Role:   options.Role,
-			Phase:  responsePhase(options),
 		})
 	}
 }
@@ -120,26 +117,18 @@ func readiness(options Options) http.HandlerFunc {
 		}
 		if reason != "" {
 			writeJSON(writer, http.StatusServiceUnavailable, generated.HealthResponse{
-				Status: generated.HealthResponseStatusNotReady, Role: options.Role,
-				Phase: responsePhase(options), ReasonCode: &reason,
+				Status: generated.HealthResponseStatusNotReady, ReasonCode: &reason,
 			})
 			return
 		}
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
-			Status: generated.HealthResponseStatusReady, Role: options.Role, Phase: responsePhase(options),
+			Status: generated.HealthResponseStatusReady,
 		})
 	}
 }
 
 func lifecycleReady(options Options) bool {
 	return options.Lifecycle == nil || options.Lifecycle() == generated.SystemStatusLifecycleStateREADYPAUSED
-}
-
-func responsePhase(options Options) generated.HealthResponsePhase {
-	if options.Phase.Valid() {
-		return options.Phase
-	}
-	return generated.A1
 }
 
 func version(options Options) http.HandlerFunc {

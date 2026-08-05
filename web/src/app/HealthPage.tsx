@@ -78,10 +78,6 @@ function HealthSnapshot({ snapshot }: { readonly snapshot: Snapshot }) {
         </p>
         <dl>
           <div>
-            <dt>Role</dt>
-            <dd>{snapshot.readiness.role}</dd>
-          </div>
-          <div>
             <dt>Lifecycle</dt>
             <dd>{snapshot.system.lifecycle_state}</dd>
           </div>

@@ -1928,11 +1928,9 @@ components:
     HealthResponse:
       type: object
       additionalProperties: false
-      required: [status, role, phase]
+      required: [status]
       properties:
         status: { type: string, enum: [live, ready, not_ready] }
-        role: { type: string, minLength: 1 }
-        phase: { type: string, enum: [A1, A11] }
         reason_code: { type: string, minLength: 1 }
     VersionResponse:
       type: object

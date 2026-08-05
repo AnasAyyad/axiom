@@ -905,24 +905,6 @@ func (e HealthComponentStatus) Valid() bool {
 	}
 }
 
-// Defines values for HealthResponsePhase.
-const (
-	A1  HealthResponsePhase = "A1"
-	A11 HealthResponsePhase = "A11"
-)
-
-// Valid indicates whether the value is a known member of the HealthResponsePhase enum.
-func (e HealthResponsePhase) Valid() bool {
-	switch e {
-	case A1:
-		return true
-	case A11:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for HealthResponseStatus.
 const (
 	HealthResponseStatusLive     HealthResponseStatus = "live"
@@ -4648,14 +4630,9 @@ type HealthComponentStatus string
 
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
-	Phase      HealthResponsePhase  `json:"phase"`
 	ReasonCode *string              `json:"reason_code,omitempty"`
-	Role       string               `json:"role"`
 	Status     HealthResponseStatus `json:"status"`
 }
-
-// HealthResponsePhase defines model for HealthResponse.Phase.
-type HealthResponsePhase string
 
 // HealthResponseStatus defines model for HealthResponse.Status.
 type HealthResponseStatus string

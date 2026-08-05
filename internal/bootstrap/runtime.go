@@ -12,7 +12,6 @@ import (
 	"axiom/internal/alerting"
 	"axiom/internal/api"
 	"axiom/internal/api/console"
-	"axiom/internal/api/generated"
 	"axiom/internal/api/health"
 	"axiom/internal/buildinfo"
 	"axiom/internal/config"
@@ -184,7 +183,6 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	if role == "api" {
 		setup := setupA11Console(ctx, pool, runtimeConfig)
 		options.Dependency = setup.dependency
-		options.Phase = generated.A11
 		consoleOptions = setup.options
 	}
 	metrics, err := observability.NewMetrics(role, metricCatalog(product))

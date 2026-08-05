@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HealthPage } from "./HealthPage";
 
 const responses: Record<string, unknown> = {
-  "/health/ready": { status: "ready", role: "api", phase: "A1" },
+  "/health/ready": { status: "ready" },
   "/api/v1/system/build": {
     version: "0.1.0",
     commit: "test",
