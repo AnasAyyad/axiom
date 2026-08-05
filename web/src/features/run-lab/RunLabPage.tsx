@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { runCatalogQuery, runsQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
+import { WhyNothingPanel } from "../../components/WhyNothingPanel";
 import styles from "../shared/ConsoleSurface.module.css";
 
 const destinations: Record<string, string> = {
@@ -117,10 +118,17 @@ export function RunLabPage() {
           />
         )}
         {history.data?.items.length === 0 && (
-          <StatePanel
-            state="empty"
-            detail="No durable runs have been created yet."
-          />
+          <>
+            <StatePanel
+              state="empty"
+              detail="No durable runs have been created yet."
+            />
+            <WhyNothingPanel
+              reason="Nothing is wrong: a run appears here only after the server has accepted approved immutable inputs. A strategy may also wait safely for fresh data or its next evaluation point."
+              nextAction="Choose a reviewed workflow"
+              to="/run-lab"
+            />
+          </>
         )}
         {history.data?.items.map((run) => (
           <article className={styles.card} key={run.id}>

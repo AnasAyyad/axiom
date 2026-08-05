@@ -8,6 +8,7 @@ import {
 } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
+import { WhyNothingPanel } from "../../components/WhyNothingPanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import styles from "../shared/ConsoleSurface.module.css";
 import { HelpDetails } from "../../components/HelpDetails";
@@ -165,10 +166,17 @@ export function GuidedDemonstrationsPage() {
         />
       )}
       {demonstrations.data?.items.length === 0 && (
-        <StatePanel
-          state="empty"
-          detail="No executable guided demonstrations are installed in this build."
-        />
+        <>
+          <StatePanel
+            state="empty"
+            detail="No executable guided demonstrations are installed in this build."
+          />
+          <WhyNothingPanel
+            reason="A demonstration is shown only when this build can execute the real strategy and shared pipeline. This page never substitutes a static illustration."
+            nextAction="Review supported workflows"
+            to="/run-lab"
+          />
+        </>
       )}
       <div className={styles.cardGrid}>
         {demonstrations.data?.items.map((demonstration) => (
