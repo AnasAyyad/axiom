@@ -50,8 +50,6 @@ func (handler *handler) registerD1ReadRoutes(mux *http.ServeMux) {
 		handler.authorized(handler.d1List("lab_runs", nil), "operations.read"))
 	mux.HandleFunc("GET /api/v1/qualifications",
 		handler.authorized(handler.d1List("qualifications", nil), "operations.read"))
-	mux.HandleFunc("GET /api/v1/users",
-		handler.authorized(handler.d1List("users", nil), "roles.admin"))
 	mux.HandleFunc("GET /api/v1/commands/{id}",
 		handler.authorized(handler.d1Detail("command"), "operations.read"))
 }
@@ -83,8 +81,6 @@ func (handler *handler) registerD1MutationRoutes(mux *http.ServeMux) {
 		handler.authorizedMutation(handler.startD1Qualification, "qualification.start"))
 	mux.HandleFunc("POST /api/v1/qualifications/{id}/abort",
 		handler.authorizedMutation(handler.d1RevisionCommand("qualification", "abort"), "qualification.monitor"))
-	mux.HandleFunc("POST /api/v1/users/{id}/roles",
-		handler.authorizedMutation(handler.changeD1Roles, "roles.admin"))
 }
 
 func (handler *handler) d1ReadUnavailable(writer http.ResponseWriter, request *http.Request) bool {

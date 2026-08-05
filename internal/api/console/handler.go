@@ -190,6 +190,5 @@ func pageSize(request *http.Request) (int, error) {
 }
 
 func sessionUser(principal authentication.Principal) generated.SessionUser {
-	return generated.SessionUser{Id: principal.UserID, Email: openapi_types.Email(principal.Email),
-		Roles: append([]string(nil), principal.Roles...), Permissions: append([]string(nil), principal.Permissions...)}
+	return generated.SessionUser{Id: principal.UserID, Email: openapi_types.Email(principal.Email)}
 }

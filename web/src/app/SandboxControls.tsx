@@ -180,7 +180,6 @@ export function SandboxControls({ accounts, orders, reconciliations }: Props) {
   });
   if (session.isLoading) return <StatePanel state="loading" />;
   if (session.isError || !session.data) return <StatePanel state="forbidden" />;
-  const permissions = new Set(session.data.user.permissions);
   return (
     <SandboxControlsView
       accounts={accounts}
@@ -189,7 +188,6 @@ export function SandboxControls({ accounts, orders, reconciliations }: Props) {
       cleanReconciliation={cleanReconciliation}
       accountID={accountID}
       setAccountID={setAccountID}
-      permissions={permissions}
       lowRiskReason={lowRiskReason}
       setLowRiskReason={setLowRiskReason}
       highRiskAction={highRiskAction}

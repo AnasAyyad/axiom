@@ -113,7 +113,7 @@ func assertA11LogoutRevokes(t *testing.T, handler http.Handler, sessionCookie, c
 	}
 }
 
-func TestViewerCannotMutateAndBoundaryValidationFailsClosed(t *testing.T) {
+func TestOwnerMutationStillValidatesBoundaries(t *testing.T) {
 	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
 	session, csrf := a11HTTPLogin(t, handler)
 
@@ -125,12 +125,12 @@ func TestViewerCannotMutateAndBoundaryValidationFailsClosed(t *testing.T) {
 	viewerRequest.AddCookie(csrf)
 	viewerResponse := httptest.NewRecorder()
 	handler.ServeHTTP(viewerResponse, viewerRequest)
-	if viewerResponse.Code != http.StatusForbidden {
-		t.Fatalf("read-only viewer mutation = %d", viewerResponse.Code)
+	if viewerResponse.Code != http.StatusBadRequest {
+		t.Fatalf("invalid owner mutation = %d", viewerResponse.Code)
 	}
 }
 
-func TestResearchControlPermissionOwnsApprovedLabMutations(t *testing.T) {
+func TestOwnerReachesApprovedLabCommandBoundary(t *testing.T) {
 	t.Parallel()
 	requestBody := `{"configuration_id":"configuration-a10","dataset_id":"dataset-a7",` +
 		`"research_generation_id":"generation-a10-1","strategy_version":"trend.v1a.1",` +
@@ -139,8 +139,8 @@ func TestResearchControlPermissionOwnsApprovedLabMutations(t *testing.T) {
 		permissions []string
 		want        int
 	}{
-		"researcher reaches command boundary":     {[]string{"operations.read", "research.control"}, http.StatusServiceUnavailable},
-		"read only fails before command boundary": {[]string{"operations.read"}, http.StatusForbidden},
+		"first owner session":  {[]string{"operations.read", "research.control"}, http.StatusServiceUnavailable},
+		"second owner session": {[]string{"operations.read"}, http.StatusServiceUnavailable},
 	} {
 		t.Run(name, func(t *testing.T) {
 			handler, _ := a11HTTPTestHandler(t, test.permissions)

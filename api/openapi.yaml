@@ -34,7 +34,6 @@ tags:
   - name: Configuration
   - name: Exports
   - name: Qualification
-  - name: Roles
   - name: Stream
 paths:
   /health/live:
@@ -1609,25 +1608,6 @@ paths:
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
       responses: *d1CommandResponses
-  /api/v1/users:
-    get:
-      operationId: listUsers
-      tags: [Roles]
-      security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
-  /api/v1/users/{id}/roles:
-    post:
-      operationId: changeUserRoles
-      tags: [Roles]
-      security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/RoleChangeRequest" }
-      responses: *d1CommandResponses
   /api/v1/commands/{id}:
     get:
       operationId: getCommand
@@ -1846,12 +1826,10 @@ components:
     SessionUser:
       type: object
       additionalProperties: false
-      required: [id, email, roles, permissions]
+      required: [id, email]
       properties:
         id: { type: string }
         email: { type: string, format: email }
-        roles: { type: array, items: { type: string }, maxItems: 16 }
-        permissions: { type: array, items: { type: string }, maxItems: 64 }
     SessionMe:
       type: object
       additionalProperties: false
@@ -4313,7 +4291,6 @@ components:
               risk_control,
               qualification_start,
               configuration_activation,
-              role_change,
               artifact_hold,
             ]
         expected_revision: { $ref: "#/components/schemas/Revision" }
@@ -4334,7 +4311,6 @@ components:
               risk_control,
               qualification_start,
               configuration_activation,
-              role_change,
               artifact_hold,
             ]
         target_revision: { $ref: "#/components/schemas/Revision" }
@@ -4745,22 +4721,6 @@ components:
         configuration_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
         image_digest: { type: string, maxLength: 200 }
         server_identity: { type: string, maxLength: 200 }
-        authorization_token: { type: string, minLength: 32 }
-        expected_revision: { $ref: "#/components/schemas/Revision" }
-        reason: { type: string, minLength: 8, maxLength: 500 }
-    RoleChangeRequest:
-      type: object
-      additionalProperties: false
-      required: [roles, authorization_token, expected_revision, reason]
-      properties:
-        roles:
-          type: array
-          minItems: 1
-          maxItems: 4
-          uniqueItems: true
-          items:
-            type: string
-            enum: [researcher, operator, auditor, owner]
         authorization_token: { type: string, minLength: 32 }
         expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }

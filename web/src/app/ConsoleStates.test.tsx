@@ -75,8 +75,6 @@ describe("A11 console states", () => {
             user={{
               id: "user-a11",
               email: "owner@example.test",
-              roles: ["owner"],
-              permissions: ["operations.read"],
             }}
           >
             <h1>Evidence workspace</h1>
@@ -106,8 +104,6 @@ describe("A11 console states", () => {
             user={{
               id: "user-a11",
               email: "owner@example.test",
-              roles: ["owner"],
-              permissions: ["operations.read"],
             }}
           >
             <h1>Evidence workspace</h1>
@@ -142,8 +138,6 @@ describe("A11 console states", () => {
             user={{
               id: "user-a11",
               email: "owner@example.test",
-              roles: ["owner"],
-              permissions: ["operations.read"],
             }}
           >
             <h1>Evidence workspace</h1>

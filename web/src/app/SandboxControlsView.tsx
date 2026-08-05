@@ -25,7 +25,6 @@ interface Props {
   readonly cleanReconciliation: APIModel<"SandboxReconciliation"> | undefined;
   readonly accountID: string;
   readonly setAccountID: Dispatch<SetStateAction<string>>;
-  readonly permissions: Set<string>;
   readonly lowRiskReason: string;
   readonly setLowRiskReason: Dispatch<SetStateAction<string>>;
   readonly highRiskAction: HighRiskAction;
@@ -59,9 +58,9 @@ interface Props {
 }
 
 export function SandboxControlsView(props: Props) {
-  const canArm = props.permissions.has("sandbox.arm");
-  const canCancel = props.permissions.has("sandbox.cancel");
-  const canAdmin = props.permissions.has("sandbox.admin");
+  const canArm = true;
+  const canCancel = true;
+  const canAdmin = true;
   return (
     <section className={styles.controls} aria-labelledby="controls-heading">
       <header>
@@ -73,7 +72,7 @@ export function SandboxControlsView(props: Props) {
       </header>
       <p>
         No production target exists. Disabled controls are only guidance; the
-        server independently rechecks session, permission, Origin, CSRF,
+        server independently rechecks session, Origin, CSRF,
         idempotency, revision, reconciliation, arm, caps, and configuration.
       </p>
       <label>

@@ -80,7 +80,6 @@ const authorization = z
       "risk_control",
       "qualification_start",
       "configuration_activation",
-      "role_change",
       "artifact_hold",
     ]),
     target_revision: revision,

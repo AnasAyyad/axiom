@@ -16,8 +16,6 @@ const sessionUser = z
   .object({
     id: z.string().min(1),
     email: z.email(),
-    roles: z.array(z.string()),
-    permissions: z.array(z.string()),
   })
   .loose();
 const sessionResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [

@@ -171,31 +171,16 @@ func (store *A11ConsoleStore) writeA11Events(
 }
 
 func a11StreamAllowed(principal authentication.Principal, stream string) bool {
-	permissions := map[string]struct{}{}
-	for _, permission := range principal.Permissions {
-		permissions[permission] = struct{}{}
-	}
-	has := func(permission string) bool {
-		_, ok := permissions[permission]
-		return ok
+	if principal.UserID == "" {
+		return false
 	}
 	switch stream {
-	case "activity":
-		return has("activity.read")
-	case "configuration":
-		return has("configuration.admin")
-	case "export":
-		return has("artifacts.read") || has("artifacts.manage")
-	case "qualification":
-		return has("qualification.monitor") || has("qualification.start")
-	case "sandbox":
-		return has(authentication.PermissionSandboxRead)
-	case "research", "shadow":
-		return has("research.control") || has("operations.read")
+	case "activity", "configuration", "export", "qualification", "sandbox", "research", "shadow":
+		return true
 	case "alert", "exchange", "fill", "incident", "inventory", "job",
 		"opportunity", "order", "portfolio", "rebalancing", "risk",
 		"strategy", "system", "trend":
-		return has("operations.read")
+		return true
 	default:
 		return false
 	}

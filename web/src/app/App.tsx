@@ -35,7 +35,6 @@ import { IncidentWorkspacePage } from "../features/operations/IncidentWorkspaceP
 import { ReportCenterPage } from "../features/operations/ReportCenterPage";
 import { ReportDetailPage } from "../features/operations/ReportDetailPage";
 import { ResourceCollectionPage } from "../features/operations/ResourceCollectionPage";
-import { UserAccessPage } from "../features/operations/UserAccessPage";
 import { QualificationCenterPage } from "../features/qualifications/QualificationCenterPage";
 import { RiskControlsPage } from "../features/risk/RiskControlsPage";
 import { RunLabPage } from "../features/run-lab/RunLabPage";
@@ -143,7 +142,6 @@ export function App() {
                 path="operations/configuration"
                 element={<ConfigurationCenterPage />}
               />
-              <Route path="operations/users" element={<UserAccessPage />} />
               <Route
                 path="operations/orders"
                 element={

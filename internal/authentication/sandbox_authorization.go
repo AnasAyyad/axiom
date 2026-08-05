@@ -50,8 +50,6 @@ const (
 	PurposeQualificationStart AuthorizationPurpose = "qualification_start"
 	// PurposeConfigurationActivation authorizes one configuration activation.
 	PurposeConfigurationActivation AuthorizationPurpose = "configuration_activation"
-	// PurposeRoleChange authorizes one exact user-role revision.
-	PurposeRoleChange AuthorizationPurpose = "role_change"
 	// PurposeArtifactHold authorizes one evidence hold.
 	PurposeArtifactHold AuthorizationPurpose = "artifact_hold"
 )

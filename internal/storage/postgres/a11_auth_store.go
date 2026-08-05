@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// A11AuthenticationStore persists owner bootstrap, credentials, sessions, and rate limits.
+// A11AuthenticationStore persists the one owner, credentials, sessions, and rate limits.
 type A11AuthenticationStore struct{ pool *pgxpool.Pool }
 
 // NewA11AuthenticationStore constructs the least-privilege authentication repository.
@@ -27,27 +27,29 @@ func NewA11AuthenticationStore(pool *pgxpool.Pool) (*A11AuthenticationStore, err
 	return &A11AuthenticationStore{pool: pool}, nil
 }
 
-// UserCount reports whether bootstrap inputs are required.
+// UserCount reports whether the semantic owner account has been bootstrapped.
 func (store *A11AuthenticationStore) UserCount(ctx context.Context) (int64, error) {
-	return generated.New(store.pool).CountUsersForBootstrap(ctx)
+	var count int64
+	err := store.pool.QueryRow(ctx, `SELECT count(*) FROM owner_accounts`).Scan(&count)
+	return count, err
 }
 
-// BootstrapOwner creates the first user, roles, permissions, and audit event atomically.
+// BootstrapOwner creates the first owner account and audit event atomically.
 func (store *A11AuthenticationStore) BootstrapOwner(ctx context.Context, owner authentication.BootstrapOwner) (bool, error) {
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return false, fmt.Errorf("a11_bootstrap_begin_failed")
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	if _, err = tx.Exec(ctx, "LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE"); err != nil {
+	if _, err = tx.Exec(ctx, "LOCK TABLE users, owner_accounts IN SHARE ROW EXCLUSIVE MODE"); err != nil {
 		return false, fmt.Errorf("a11_bootstrap_lock_failed")
 	}
-	queries := generated.New(tx)
-	count, err := queries.CountUsersForBootstrap(ctx)
+	var count int64
+	err = tx.QueryRow(ctx, "SELECT count(*) FROM owner_accounts").Scan(&count)
 	if err != nil || count > 0 {
 		return false, err
 	}
-	if err = insertA11Owner(ctx, queries, owner); err != nil {
+	if err = insertOwnerAccount(ctx, tx, owner); err != nil {
 		return false, err
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -56,25 +58,18 @@ func (store *A11AuthenticationStore) BootstrapOwner(ctx context.Context, owner a
 	return true, nil
 }
 
-func insertA11Owner(ctx context.Context, queries *generated.Queries, owner authentication.BootstrapOwner) error {
+func insertOwnerAccount(ctx context.Context, tx pgx.Tx, owner authentication.BootstrapOwner) error {
 	now := a11Timestamp(owner.OccurredAt)
-	if _, err := queries.BootstrapOwnerUser(ctx, generated.BootstrapOwnerUserParams{ID: owner.ID, Email: owner.Email,
-		NormalizedEmail: owner.NormalizedEmail, PasswordHash: owner.PasswordHash, CreatedAt: now}); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO users(
+id,email,normalized_email,password_hash,status,created_at,password_changed_at
+) VALUES($1,$2,$3,$4,'active',$5,$5)`, owner.ID, owner.Email, owner.NormalizedEmail, owner.PasswordHash, now); err != nil {
 		return fmt.Errorf("a11_bootstrap_user_failed")
 	}
-	for _, role := range []string{"owner", "viewer"} {
-		if _, err := queries.GetBootstrapAuthorizationRole(ctx,
-			generated.GetBootstrapAuthorizationRoleParams{ID: role, Name: role}); err != nil {
-			return fmt.Errorf("a11_bootstrap_role_failed")
-		}
+	if _, err := tx.Exec(ctx, `INSERT INTO owner_accounts(singleton,user_id,established_at)
+VALUES(true,$1,$2)`, owner.ID, now); err != nil {
+		return fmt.Errorf("owner_bootstrap_account_failed")
 	}
-	if _, err := queries.GrantUserRole(ctx, generated.GrantUserRoleParams{UserID: owner.ID, RoleID: "owner", GrantedAt: now}); err != nil {
-		return fmt.Errorf("a11_bootstrap_role_assignment_failed")
-	}
-	if err := grantA11Permissions(ctx, queries, now); err != nil {
-		return err
-	}
-	_, err := queries.InsertA11AuditEvent(ctx, generated.InsertA11AuditEventParams{ID: owner.AuditID,
+	_, err := generated.New(tx).InsertA11AuditEvent(ctx, generated.InsertA11AuditEventParams{ID: owner.AuditID,
 		EventType: "owner_bootstrapped", Actor: owner.ID, CausationID: owner.AuditID, CorrelationID: owner.AuditID,
 		EventHash: owner.EventHash, RecordedAt: now})
 	if err != nil {
@@ -83,33 +78,18 @@ func insertA11Owner(ctx context.Context, queries *generated.Queries, owner authe
 	return nil
 }
 
-func grantA11Permissions(ctx context.Context, queries *generated.Queries, now pgtype.Timestamptz) error {
-	for _, permission := range []string{
-		"operations.read", "commands.write", "incident.raw", "audit.raw",
-		"sandbox.read", "sandbox.arm", "sandbox.cancel", "sandbox.admin",
-	} {
-		if _, err := queries.GrantRolePermission(ctx, generated.GrantRolePermissionParams{RoleID: "owner", PermissionID: permission, GrantedAt: now}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("a11_bootstrap_permission_failed")
-		}
-	}
-	if _, err := queries.GrantRolePermission(ctx, generated.GrantRolePermissionParams{RoleID: "viewer", PermissionID: "operations.read", GrantedAt: now}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("a11_bootstrap_permission_failed")
-	}
-	if _, err := queries.GrantRolePermission(ctx, generated.GrantRolePermissionParams{RoleID: "viewer", PermissionID: "sandbox.read", GrantedAt: now}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("a11_bootstrap_permission_failed")
-	}
-	return nil
-}
-
-// UserForLogin returns only the credential and explicit authorization projection.
+// UserForLogin returns only the active owner credential projection.
 func (store *A11AuthenticationStore) UserForLogin(ctx context.Context, normalizedEmail string) (authentication.User, error) {
-	row, err := generated.New(store.pool).GetUserForAuthentication(ctx, normalizedEmail)
+	var user authentication.User
+	err := store.pool.QueryRow(ctx, `SELECT u.id,u.email,u.normalized_email,u.password_hash,u.status
+FROM owner_accounts owner
+JOIN users u ON u.id=owner.user_id
+WHERE u.normalized_email=$1`, normalizedEmail).Scan(
+		&user.ID, &user.Email, &user.NormalizedEmail, &user.PasswordHash, &user.Status)
 	if err != nil {
 		return authentication.User{}, err
 	}
-	return authentication.User{ID: row.ID, Email: row.Email, NormalizedEmail: row.NormalizedEmail,
-		PasswordHash: row.PasswordHash, Status: row.Status, Roles: row.Roles,
-		Permissions: row.Permissions, RoleRevision: row.RoleRevision}, nil
+	return user, nil
 }
 
 // UpdatePasswordHash upgrades an obsolete profile only if the verified hash is unchanged.
@@ -184,13 +164,28 @@ func (store *A11AuthenticationStore) CreateSession(ctx context.Context, session 
 	return tx.Commit(ctx)
 }
 
-// SessionByTokenHash returns the server-side session and current authorization projection.
+// SessionByTokenHash returns the server-side session for the one active owner.
 func (store *A11AuthenticationStore) SessionByTokenHash(ctx context.Context, hash string) (authentication.Session, error) {
-	row, err := generated.New(store.pool).GetSessionByTokenHash(ctx, hash)
+	var session authentication.Session
+	var revoked pgtype.Timestamptz
+	err := store.pool.QueryRow(ctx, `SELECT s.id,s.user_id,s.token_hash,s.csrf_token_hash,
+s.created_at,s.expires_at,s.last_seen_at,s.idle_expires_at,s.reauthenticated_at,
+s.revision,s.revoked_at,u.email,u.status
+FROM sessions s
+JOIN owner_accounts owner ON owner.user_id=s.user_id
+JOIN users u ON u.id=s.user_id
+WHERE s.token_hash=$1`, hash).Scan(&session.ID, &session.UserID, &session.TokenHash,
+		&session.CSRFTokenHash, &session.CreatedAt, &session.ExpiresAt, &session.LastSeenAt,
+		&session.IdleExpiresAt, &session.ReauthenticatedAt, &session.Revision, &revoked,
+		&session.Email, &session.Status)
 	if err != nil {
 		return authentication.Session{}, err
 	}
-	return a11AuthenticationSession(row), nil
+	if revoked.Valid {
+		value := revoked.Time
+		session.RevokedAt = &value
+	}
+	return session, nil
 }
 
 // TouchSession advances idle activity without extending absolute lifetime.
@@ -228,19 +223,6 @@ func (store *A11AuthenticationStore) RevokeSession(ctx context.Context, id, reas
 		return err
 	}
 	return tx.Commit(ctx)
-}
-
-func a11AuthenticationSession(row *generated.GetSessionByTokenHashRow) authentication.Session {
-	session := authentication.Session{ID: row.ID, UserID: row.UserID, TokenHash: hashText(row.TokenHash),
-		CSRFTokenHash: hashText(row.CsrfTokenHash), Email: row.Email, Status: row.UserStatus,
-		Roles: row.Roles, Permissions: row.Permissions, RoleRevision: row.RoleRevision,
-		CreatedAt: row.CreatedAt.Time, ExpiresAt: row.ExpiresAt.Time, LastSeenAt: row.LastSeenAt.Time,
-		IdleExpiresAt: row.IdleExpiresAt.Time, ReauthenticatedAt: row.ReauthenticatedAt.Time, Revision: row.Revision}
-	if row.RevokedAt.Valid {
-		revoked := row.RevokedAt.Time
-		session.RevokedAt = &revoked
-	}
-	return session
 }
 
 func a11SessionRow(row *generated.Session) authentication.Session {

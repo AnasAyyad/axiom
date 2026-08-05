@@ -851,7 +851,6 @@ const (
 	HighRiskAuthorizationGrantPurposeConfigurationActivation HighRiskAuthorizationGrantPurpose = "configuration_activation"
 	HighRiskAuthorizationGrantPurposeQualificationStart      HighRiskAuthorizationGrantPurpose = "qualification_start"
 	HighRiskAuthorizationGrantPurposeRiskControl             HighRiskAuthorizationGrantPurpose = "risk_control"
-	HighRiskAuthorizationGrantPurposeRoleChange              HighRiskAuthorizationGrantPurpose = "role_change"
 	HighRiskAuthorizationGrantPurposeStrategyConfiguration   HighRiskAuthorizationGrantPurpose = "strategy_configuration"
 )
 
@@ -866,8 +865,6 @@ func (e HighRiskAuthorizationGrantPurpose) Valid() bool {
 		return true
 	case HighRiskAuthorizationGrantPurposeRiskControl:
 		return true
-	case HighRiskAuthorizationGrantPurposeRoleChange:
-		return true
 	case HighRiskAuthorizationGrantPurposeStrategyConfiguration:
 		return true
 	default:
@@ -881,7 +878,6 @@ const (
 	HighRiskAuthorizationRequestPurposeConfigurationActivation HighRiskAuthorizationRequestPurpose = "configuration_activation"
 	HighRiskAuthorizationRequestPurposeQualificationStart      HighRiskAuthorizationRequestPurpose = "qualification_start"
 	HighRiskAuthorizationRequestPurposeRiskControl             HighRiskAuthorizationRequestPurpose = "risk_control"
-	HighRiskAuthorizationRequestPurposeRoleChange              HighRiskAuthorizationRequestPurpose = "role_change"
 	HighRiskAuthorizationRequestPurposeStrategyConfiguration   HighRiskAuthorizationRequestPurpose = "strategy_configuration"
 )
 
@@ -895,8 +891,6 @@ func (e HighRiskAuthorizationRequestPurpose) Valid() bool {
 	case HighRiskAuthorizationRequestPurposeQualificationStart:
 		return true
 	case HighRiskAuthorizationRequestPurposeRiskControl:
-		return true
-	case HighRiskAuthorizationRequestPurposeRoleChange:
 		return true
 	case HighRiskAuthorizationRequestPurposeStrategyConfiguration:
 		return true
@@ -2270,30 +2264,6 @@ func (e RiskStatusState) Valid() bool {
 	case RiskStatusStateNORMAL:
 		return true
 	case RiskStatusStatePAUSED:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RoleChangeRequestRoles.
-const (
-	Auditor    RoleChangeRequestRoles = "auditor"
-	Operator   RoleChangeRequestRoles = "operator"
-	Owner      RoleChangeRequestRoles = "owner"
-	Researcher RoleChangeRequestRoles = "researcher"
-)
-
-// Valid indicates whether the value is a known member of the RoleChangeRequestRoles enum.
-func (e RoleChangeRequestRoles) Valid() bool {
-	switch e {
-	case Auditor:
-		return true
-	case Operator:
-		return true
-	case Owner:
-		return true
-	case Researcher:
 		return true
 	default:
 		return false
@@ -5409,17 +5379,6 @@ type RiskStatus struct {
 // RiskStatusState defines model for RiskStatus.State.
 type RiskStatusState string
 
-// RoleChangeRequest defines model for RoleChangeRequest.
-type RoleChangeRequest struct {
-	AuthorizationToken string                   `json:"authorization_token"`
-	ExpectedRevision   Revision                 `json:"expected_revision"`
-	Reason             string                   `json:"reason"`
-	Roles              []RoleChangeRequestRoles `json:"roles"`
-}
-
-// RoleChangeRequestRoles defines model for RoleChangeRequest.Roles.
-type RoleChangeRequestRoles string
-
 // RuntimeControlRequest defines model for RuntimeControlRequest.
 type RuntimeControlRequest struct {
 	ExpectedRevision Revision                   `json:"expected_revision"`
@@ -5762,10 +5721,8 @@ type SessionMe struct {
 
 // SessionUser defines model for SessionUser.
 type SessionUser struct {
-	Email       openapi_types.Email `json:"email"`
-	Id          string              `json:"id"`
-	Permissions []string            `json:"permissions"`
-	Roles       []string            `json:"roles"`
+	Email openapi_types.Email `json:"email"`
+	Id    string              `json:"id"`
 }
 
 // ShadowBalance defines model for ShadowBalance.
@@ -6776,22 +6733,6 @@ type StreamEventsParams struct {
 	LastEventID   *Revision `json:"Last-Event-ID,omitempty"`
 }
 
-// ListUsersParams defines parameters for ListUsers.
-type ListUsersParams struct {
-	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
-	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
-	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
-	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
-	State    *string   `form:"state,omitempty" json:"state,omitempty"`
-}
-
-// ChangeUserRolesParams defines parameters for ChangeUserRoles.
-type ChangeUserRolesParams struct {
-	Origin         Origin         `json:"Origin"`
-	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
 // TestAlertRouteJSONRequestBody defines body for TestAlertRoute for application/json ContentType.
 type TestAlertRouteJSONRequestBody = AlertTestRequest
 
@@ -6914,6 +6855,3 @@ type ConfigureStrategyJSONRequestBody = StrategyConfigurationRequest
 
 // ControlStrategyRuntimeJSONRequestBody defines body for ControlStrategyRuntime for application/json ContentType.
 type ControlStrategyRuntimeJSONRequestBody = RuntimeControlRequest
-
-// ChangeUserRolesJSONRequestBody defines body for ChangeUserRoles for application/json ContentType.
-type ChangeUserRolesJSONRequestBody = RoleChangeRequest

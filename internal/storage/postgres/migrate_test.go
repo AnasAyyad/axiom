@@ -27,6 +27,22 @@ func TestEmbeddedMigrationsAreOrderedForwardOnlyAndChecksummed(t *testing.T) {
 	}
 }
 
+func TestOwnerConsoleMigrationFailsClosedAndPreservesHistoricalEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000028")
+	if migration.Name == "" {
+		t.Fatal("owner console migration is missing")
+	}
+	assertMigrationContains(t, migration, "owner console", []string{
+		"create table owner_accounts", "owner_console_multiple_active_users",
+		"create view configuration_records", "create view activity_records",
+		"create trigger users_single_active_owner",
+	})
+}
+
 func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {

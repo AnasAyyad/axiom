@@ -228,41 +228,6 @@ func (handler *handler) startD1Qualification(
 	}
 }
 
-func (handler *handler) changeD1Roles(
-	writer http.ResponseWriter,
-	request *http.Request,
-	principal authentication.Principal,
-) {
-	var body generated.RoleChangeRequest
-	if !handler.decode(writer, request, &body) {
-		return
-	}
-	if len(body.Roles) == 0 || len(body.Roles) > 4 {
-		handler.writeServiceError(writer, request, ErrInvalidRequest)
-		return
-	}
-	roles := make([]string, 0, len(body.Roles))
-	for _, role := range body.Roles {
-		if !role.Valid() {
-			handler.writeServiceError(writer, request, ErrInvalidRequest)
-			return
-		}
-		roles = append(roles, string(role))
-	}
-	command, ok := handler.d1BaseCommand(writer, request, "role_change",
-		request.PathValue("id"), "replace", "active", body.Reason, body.ExpectedRevision)
-	if !ok {
-		return
-	}
-	command.Payload["roles"] = roles
-	command.Authorization, ok = handler.d1Authorization(writer, request, principal,
-		body.AuthorizationToken, authentication.PurposeRoleChange,
-		body.Reason, command.ExpectedRevision)
-	if ok {
-		handler.executeD1(writer, request, principal, command)
-	}
-}
-
 func validD1SourceSHA(value string) bool {
 	if len(value) != 40 {
 		return false

@@ -84,7 +84,9 @@ func validateD1Authorization(
 	case command.Kind == "configuration_activation":
 		purpose = authentication.PurposeConfigurationActivation
 	case command.Kind == "role_change":
-		purpose = authentication.PurposeRoleChange
+		// Legacy durable evidence can remain readable, but a role change is no
+		// longer a valid current command in the exactly-one-owner product.
+		return console.ErrInvalidRequest
 	case command.Kind == "artifact_hold":
 		purpose = authentication.PurposeArtifactHold
 	default:
@@ -143,7 +145,7 @@ func (store *A11ConsoleStore) applyD1Command(
 		}
 		return applyD1QualificationAbort(ctx, tx, principal, command, now)
 	case "role_change":
-		return applyD1RoleChange(ctx, tx, principal, command, commandID, now)
+		return nil, console.ErrInvalidRequest
 	default:
 		return nil, console.ErrInvalidRequest
 	}

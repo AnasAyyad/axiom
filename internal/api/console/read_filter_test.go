@@ -76,7 +76,7 @@ func TestReadFiltersReachAuthoritativeProjection(t *testing.T) {
 	auditResponse := httptest.NewRecorder()
 	handler.audit(auditResponse, httptest.NewRequest(http.MethodGet,
 		"/api/v1/audit-events?event_type=command_completed&include_detail=true&page_size=25", nil),
-		authentication.Principal{Permissions: []string{"audit.raw"}})
+		authentication.Principal{UserID: "owner"})
 	if auditResponse.Code != http.StatusOK || stub.auditEvent != "command_completed" || !stub.auditRaw {
 		t.Fatalf("audit filter = %d %q raw=%t", auditResponse.Code, stub.auditEvent, stub.auditRaw)
 	}
@@ -94,7 +94,7 @@ func TestRawEvidenceRequiresExplicitPermission(t *testing.T) {
 	}
 
 	allowed := httptest.NewRecorder()
-	handler.incident(allowed, request, authentication.Principal{Permissions: []string{"incident.raw"}})
+	handler.incident(allowed, request, authentication.Principal{UserID: "owner"})
 	if allowed.Code != http.StatusOK || !stub.incidentRaw {
 		t.Fatalf("authorized raw incident = %d forwarded=%t", allowed.Code, stub.incidentRaw)
 	}
@@ -102,7 +102,7 @@ func TestRawEvidenceRequiresExplicitPermission(t *testing.T) {
 	invalidRequest := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/incident-a11?include_raw=1", nil)
 	invalidRequest.SetPathValue("id", "incident-a11")
 	invalid := httptest.NewRecorder()
-	handler.incident(invalid, invalidRequest, authentication.Principal{Permissions: []string{"incident.raw"}})
+	handler.incident(invalid, invalidRequest, authentication.Principal{UserID: "owner"})
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("noncanonical boolean accepted = %d", invalid.Code)
 	}

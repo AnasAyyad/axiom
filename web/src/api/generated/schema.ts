@@ -307,14 +307,14 @@ export interface components {
     };
     "HighRiskAuthorizationGrant": {
       "expires_at": components["schemas"]["Timestamp"];
-      "purpose": "strategy_configuration" | "risk_control" | "qualification_start" | "configuration_activation" | "role_change" | "artifact_hold";
+      "purpose": "strategy_configuration" | "risk_control" | "qualification_start" | "configuration_activation" | "artifact_hold";
       "target_revision": components["schemas"]["Revision"];
       "token": string;
     };
     "HighRiskAuthorizationRequest": {
       "expected_revision": components["schemas"]["Revision"];
       "password": string;
-      "purpose": "strategy_configuration" | "risk_control" | "qualification_start" | "configuration_activation" | "role_change" | "artifact_hold";
+      "purpose": "strategy_configuration" | "risk_control" | "qualification_start" | "configuration_activation" | "artifact_hold";
       "reason": string;
       "totp": string;
     };
@@ -878,12 +878,6 @@ export interface components {
       "unresolved_critical"?: number;
       "updated_at": components["schemas"]["Timestamp"];
     };
-    "RoleChangeRequest": {
-      "authorization_token": string;
-      "expected_revision": components["schemas"]["Revision"];
-      "reason": string;
-      "roles": Array<"researcher" | "operator" | "auditor" | "owner">;
-    };
     "RuntimeControlRequest": {
       "expected_revision": components["schemas"]["Revision"];
       "reason": string;
@@ -1073,8 +1067,6 @@ export interface components {
     "SessionUser": {
       "email": string;
       "id": string;
-      "permissions": Array<string>;
-      "roles": Array<string>;
     };
     "ShadowBalance": {
       "asset": string;
@@ -1380,8 +1372,6 @@ export interface operations {
   "listQualifications": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["D1ResourcePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "startQualification": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["QualificationStartRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "abortQualification": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
-  "listUsers": { query: { "cursor"?: string; "page_size"?: number; "from"?: components["schemas"]["Timestamp"]; "to"?: components["schemas"]["Timestamp"]; "state"?: string; }; responses: { "200": components["schemas"]["D1ResourcePage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
-  "changeUserRoles": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RoleChangeRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getCommand": { path: { "id": string; }; responses: { "200": components["schemas"]["D1Resource"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "streamEvents": { query: { "after_revision"?: components["schemas"]["Revision"]; }; header: { "Origin": string; "Last-Event-ID"?: components["schemas"]["Revision"]; }; responses: { "200": string; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "410": components["schemas"]["Error"]; }; };
 }

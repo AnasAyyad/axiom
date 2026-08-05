@@ -30,23 +30,18 @@ func TestA11StreamWriteDeadlineBoundsSlowConsumers(t *testing.T) {
 	}
 }
 
-func TestD1StreamPermissionsAreFilteredByEventClass(t *testing.T) {
-	operator := authentication.Principal{Permissions: []string{
-		"operations.read", "activity.read", "qualification.monitor",
-	}}
+func TestOwnerStreamIncludesEverySanitizedProductEvent(t *testing.T) {
+	operator := authentication.Principal{UserID: "owner"}
 	for stream, want := range map[string]bool{
 		"activity": true, "qualification": true, "risk": true,
-		"configuration": false, "export": false, "sandbox": false, "unknown": false,
+		"configuration": true, "export": true, "sandbox": true, "unknown": false,
 	} {
 		if got := a11StreamAllowed(operator, stream); got != want {
 			t.Errorf("operator stream %s = %t, want %t", stream, got, want)
 		}
 	}
-	auditor := authentication.Principal{Permissions: []string{
-		"operations.read", "activity.read", "artifacts.read",
-	}}
-	if !a11StreamAllowed(auditor, "export") || a11StreamAllowed(auditor, "configuration") {
-		t.Fatal("auditor export/configuration stream boundary is open")
+	if a11StreamAllowed(authentication.Principal{}, "activity") {
+		t.Fatal("anonymous stream boundary is open")
 	}
 }
 

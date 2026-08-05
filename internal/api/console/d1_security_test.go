@@ -15,15 +15,15 @@ import (
 	"axiom/internal/domain"
 )
 
-func TestD1ReadAndMutationRoutesRequireExactPermissions(t *testing.T) {
+func TestD1OwnerRoutesExposeNoRoleChangeEndpoint(t *testing.T) {
 	operations, _ := a11HTTPTestHandler(t, []string{"operations.read"})
 	session, _ := a11HTTPLogin(t, operations)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/activity", nil)
 	request.AddCookie(session)
 	response := httptest.NewRecorder()
 	operations.ServeHTTP(response, request)
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("operations-only activity read = %d", response.Code)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("owner activity projection absence = %d", response.Code)
 	}
 
 	activity, _ := a11HTTPTestHandler(t, []string{"activity.read"})
@@ -41,8 +41,8 @@ func TestD1ReadAndMutationRoutesRequireExactPermissions(t *testing.T) {
 	request.AddCookie(session)
 	response = httptest.NewRecorder()
 	operations.ServeHTTP(response, request)
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("operations-only role mutation = %d", response.Code)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("role mutation endpoint = %d", response.Code)
 	}
 }
 

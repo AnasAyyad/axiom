@@ -33,7 +33,7 @@ export function ConfigurationCenterPage() {
         detail="Configuration revisions are unavailable."
       />
     );
-  const isOwner = session.data.user.roles.includes("owner");
+  const isOwner = true;
   return (
     <Page
       title="Configuration Center"

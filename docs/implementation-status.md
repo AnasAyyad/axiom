@@ -1,5 +1,28 @@
 # Axiom implementation status
 
+## Complete owner console program
+
+**Status:** In progress — implementation branch only; no formal qualification
+or certification is implied.
+
+**Branch:** `product/complete-owner-console` (local, intentionally does not
+track `origin/main`)
+
+**Starting SHA:** `a1bb6a89931cb6fcdd89dd842a4d16fe63cd18aa`
+
+This program replaces delivery-stage terminology and the multi-role console
+with a semantic, exactly-one-owner product model. It will add a server-validated
+unified run catalogue, strategy registry, deterministic guided demonstrations,
+and owner-facing workflows for historical, replay, public-data shadow, and
+explicitly armed Testnet/Demo sessions. It preserves every existing safety
+boundary: production-private orders remain structurally impossible; sandbox
+orders remain spot-only, capped, reconciled, and require a short-lived owner
+arm; and rebalancing remains advisory only.
+
+Implementation, local validation, review, merge, formal qualification, and
+release certification are reported separately. In particular, this program
+does not start, replace, or certify B2, C6, D5, or D6 evidence.
+
 ## V1D D6 repository certification
 
 The `v1d-d6-certification` worktree adds cumulative exact-identity evidence,

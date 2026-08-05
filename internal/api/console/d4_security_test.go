@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestD4RoutesEnforceRolePermissionsBeforeOperationalServices(t *testing.T) {
+func TestD4OwnerRoutesReachOperationalServiceBoundary(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name, method, path, body, permission string
@@ -26,16 +26,11 @@ func TestD4RoutesEnforceRolePermissionsBeforeOperationalServices(t *testing.T) {
 				test.method, test.path, test.body); status != http.StatusServiceUnavailable {
 				t.Fatalf("authorized boundary status=%d", status)
 			}
-			denied, _ := a11HTTPTestHandler(t, []string{"operations.read"})
-			deniedSession, deniedCSRF := a11HTTPLogin(t, denied)
-			want := http.StatusForbidden
-			if test.permission == "operations.read" {
-				denied, _ = a11HTTPTestHandler(t, []string{"activity.read"})
-				deniedSession, deniedCSRF = a11HTTPLogin(t, denied)
-			}
-			if status := d4PermissionRequest(denied, deniedSession, deniedCSRF,
-				test.method, test.path, test.body); status != want {
-				t.Fatalf("permission-denied status=%d", status)
+			secondOwner, _ := a11HTTPTestHandler(t, []string{"operations.read"})
+			secondSession, secondCSRF := a11HTTPLogin(t, secondOwner)
+			if status := d4PermissionRequest(secondOwner, secondSession, secondCSRF,
+				test.method, test.path, test.body); status != http.StatusServiceUnavailable {
+				t.Fatalf("owner boundary status=%d", status)
 			}
 		})
 	}

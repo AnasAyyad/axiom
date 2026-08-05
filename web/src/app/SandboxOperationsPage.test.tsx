@@ -167,13 +167,6 @@ function c6FetchFixture(input: RequestInfo | URL) {
       user: {
         id: "owner-c6",
         email: "owner@example.test",
-        roles: ["owner"],
-        permissions: [
-          "sandbox.read",
-          "sandbox.arm",
-          "sandbox.cancel",
-          "sandbox.admin",
-        ],
       },
       session_id: "browser-c6",
       session_revision: "1",

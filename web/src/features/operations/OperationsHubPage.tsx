@@ -55,11 +55,6 @@ const destinations = [
     "/operations/sandbox",
     "Capped Binance Spot Testnet and Bybit Demo controls.",
   ],
-  [
-    "User access",
-    "/operations/users",
-    "Owner-administered role assignments and read-only compatibility.",
-  ],
 ] as const;
 
 export function OperationsHubPage() {

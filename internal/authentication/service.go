@@ -103,8 +103,8 @@ func (service *Service) createLoginSession(ctx context.Context, user User, now t
 	if err = service.store.CreateSession(ctx, write, MaximumSessions); err != nil {
 		return LoginResult{}, ErrAuthenticationFailed
 	}
-	principal := Principal{UserID: user.ID, Email: user.Email, SessionID: sessionID, Roles: append([]string(nil), user.Roles...),
-		Permissions: append([]string(nil), user.Permissions...), ReauthenticatedAt: now, SessionRevision: 1}
+	principal := Principal{UserID: user.ID, Email: user.Email, SessionID: sessionID,
+		ReauthenticatedAt: now, SessionRevision: 1}
 	return LoginResult{Principal: principal, SessionToken: token, CSRFToken: csrf, ExpiresAt: expires}, nil
 }
 
@@ -139,7 +139,6 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 		return Principal{}, ErrSessionInvalid
 	}
 	updated.Email, updated.Status = session.Email, session.Status
-	updated.Roles, updated.Permissions = session.Roles, session.Permissions
 	return principalFromSession(updated), nil
 }
 
@@ -172,14 +171,14 @@ func (service *Service) Logout(ctx context.Context, sessionID string) error {
 	return nil
 }
 
-// RequirePermission checks explicit authorization without role-name shortcuts.
+// RequirePermission is retained as a compatibility seam while the owner
+// console is migrated. Every authenticated principal is the one owner, so
+// normal product actions are never role- or permission-gated.
 func RequirePermission(principal Principal, permission string) error {
-	for _, candidate := range principal.Permissions {
-		if candidate == permission {
-			return nil
-		}
+	if principal.UserID == "" || permission == "" {
+		return ErrForbidden
 	}
-	return ErrForbidden
+	return nil
 }
 
 // RequireRecentReauthentication gates policy-loosening recovery.
@@ -192,7 +191,6 @@ func (service *Service) RequireRecentReauthentication(principal Principal) error
 
 func principalFromSession(session Session) Principal {
 	return Principal{UserID: session.UserID, Email: session.Email, SessionID: session.ID,
-		Roles: append([]string(nil), session.Roles...), Permissions: append([]string(nil), session.Permissions...),
 		ReauthenticatedAt: session.ReauthenticatedAt, SessionRevision: session.Revision}
 }
 

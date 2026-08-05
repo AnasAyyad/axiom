@@ -11,7 +11,7 @@ func validPurpose(purpose AuthorizationPurpose) bool {
 	switch purpose {
 	case PurposeSandboxArm, PurposeRiskUnlock, PurposeCredentialRotate, PurposeRevokeAllSessions,
 		PurposeStrategyConfiguration, PurposeRiskControl, PurposeQualificationStart,
-		PurposeConfigurationActivation, PurposeRoleChange, PurposeArtifactHold:
+		PurposeConfigurationActivation, PurposeArtifactHold:
 		return true
 	default:
 		return false
@@ -28,8 +28,6 @@ func permissionForPurpose(purpose AuthorizationPurpose) string {
 		return "operations.control"
 	case PurposeQualificationStart:
 		return "qualification.start"
-	case PurposeRoleChange:
-		return "roles.admin"
 	case PurposeArtifactHold:
 		return "artifacts.manage"
 	default:
@@ -46,7 +44,7 @@ func isRevisionBoundPurpose(purpose AuthorizationPurpose) bool {
 func RevisionBoundAuthorizationPurpose(purpose AuthorizationPurpose) bool {
 	switch purpose {
 	case PurposeStrategyConfiguration, PurposeRiskControl, PurposeQualificationStart,
-		PurposeConfigurationActivation, PurposeRoleChange, PurposeArtifactHold:
+		PurposeConfigurationActivation, PurposeArtifactHold:
 		return true
 	default:
 		return false
