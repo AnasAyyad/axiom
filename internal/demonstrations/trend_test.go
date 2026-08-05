@@ -30,11 +30,29 @@ func TestTrendFollowingWalkthroughUsesTheSharedPipelineDeterministically(t *test
 
 func TestCatalogueOnlyExposesExecutableDemonstrations(t *testing.T) {
 	items := Catalogue()
-	if len(items) != 1 || items[0].ID != TrendFollowingID ||
-		items[0].StrategyID != "trend-following" || len(items[0].ExpectedOutcomes) < 5 {
+	if len(items) != 2 || items[0].ID != TrendFollowingID ||
+		items[0].StrategyID != "trend-following" || items[1].ID != MeanReversionID ||
+		items[1].StrategyID != "mean-reversion" || len(items[1].ExpectedOutcomes) < 5 {
 		t.Fatalf("catalogue=%+v", items)
 	}
 	if _, err := Run(context.Background(), "unknown-demo"); err == nil {
 		t.Fatal("unknown demonstration was accepted")
+	}
+}
+
+func TestMeanReversionWalkthroughUsesTheSharedPipelineDeterministically(t *testing.T) {
+	first, err := RunMeanReversion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Run(context.Background(), MeanReversionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ResultHash == "" || first.ResultHash != second.ResultHash ||
+		len(first.Accepted.Orders) == 0 || len(first.Accepted.ExecutionEvents) == 0 ||
+		string(first.Rejected.Orders) != "[]" ||
+		!strings.Contains(string(first.Rejected.Decision), "mean_reversion.reject.unhealthy_market") {
+		t.Fatalf("incomplete walkthrough accepted=%s rejected=%s", first.Accepted.Orders, first.Rejected.Decision)
 	}
 }

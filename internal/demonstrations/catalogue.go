@@ -34,6 +34,11 @@ func Catalogue() []Scenario {
 			"Virtual order and partial simulated fill", "Portfolio and journal update",
 			"Rejected decision when market health is unavailable",
 		},
+	}, {
+		ID: MeanReversionID, Title: "Mean Reversion basics",
+		Description: "A synthetic dual-timeframe walkthrough that shows one accepted entry through virtual execution and one market-health rejection.",
+		StrategyID:  "mean-reversion", StrategyVersion: "mean-reversion@1.0.0",
+		ExpectedOutcomes: []string{"Accepted strategy decision", "Allocator and central-risk approval", "Virtual order and partial simulated fill", "Portfolio and journal update", "Rejected decision when market health is unavailable"},
 	}}
 }
 
@@ -43,6 +48,8 @@ func Run(ctx context.Context, id string) (Result, error) {
 	switch id {
 	case TrendFollowingID:
 		return RunTrendFollowing(ctx)
+	case MeanReversionID:
+		return RunMeanReversion(ctx)
 	default:
 		return Result{}, ErrNotFound
 	}

@@ -24,8 +24,10 @@ func TestGuidedDemonstrationsOnlyExposeExecutableSyntheticWalkthroughs(t *testin
 	if err := json.Unmarshal(response.Body.Bytes(), &catalogue); err != nil {
 		t.Fatal(err)
 	}
-	if len(catalogue.Items) != 1 || catalogue.Items[0].Id != demonstrations.TrendFollowingID ||
-		!catalogue.Items[0].Synthetic || catalogue.Items[0].StrategyId != "trend-following" {
+	if len(catalogue.Items) != 2 || catalogue.Items[0].Id != demonstrations.TrendFollowingID ||
+		!catalogue.Items[0].Synthetic || catalogue.Items[0].StrategyId != "trend-following" ||
+		catalogue.Items[1].Id != demonstrations.MeanReversionID ||
+		catalogue.Items[1].StrategyId != "mean-reversion" {
 		t.Fatalf("catalogue=%+v", catalogue)
 	}
 }

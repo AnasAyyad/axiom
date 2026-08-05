@@ -50,10 +50,10 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
 - The sandbox qualification API now uses semantic public contract names for
   sandbox status, chaos, and service-level objectives. Its retained evidence
   window and endpoint are unchanged.
-- A deterministic, synthetic Trend Following walkthrough now exercises the
-  same strategy, allocation, risk, planning, virtual-execution, portfolio, and
-  journal pipeline as the credential-free offline runtime. The protected owner
-  catalogue and result view expose that one installed scenario and its
+- Deterministic, synthetic Trend Following and Mean Reversion walkthroughs now
+  exercise the same strategy, allocation, risk, planning, virtual-execution,
+  portfolio, and journal pipelines as their credential-free offline runtimes.
+  The protected owner catalogue and result view expose only those installed scenarios and their
   canonical evidence; it does not create a durable run, contact an exchange,
   or establish historical-performance or profitability evidence.
 
