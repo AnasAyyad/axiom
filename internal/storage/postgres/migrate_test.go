@@ -43,6 +43,25 @@ func TestOwnerConsoleMigrationFailsClosedAndPreservesHistoricalEvidence(t *testi
 	})
 }
 
+func TestSandboxStrategySessionMigrationPreservesArmableAccountTopology(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000029")
+	if migration.Name == "" {
+		t.Fatal("sandbox strategy-session migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox strategy session", []string{
+		"create table sandbox_strategy_sessions",
+		"create table sandbox_strategy_session_accounts",
+		"cross-exchange-arbitrage",
+		"sandbox_strategy_session_account_membership_invalid",
+		"sandbox_strategy_session_topology_invalid",
+		"sandbox_strategy_session_membership_immutable",
+	})
+}
+
 func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
