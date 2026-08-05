@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 
 import { APIError, type APIModel } from "../../api/client";
 import { activityQuery, sessionQuery } from "../../api/queries";

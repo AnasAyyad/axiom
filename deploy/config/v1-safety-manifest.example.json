@@ -1,0 +1,64 @@
+{
+  "schema_version": "axiom.v1.safety-manifest.v1",
+  "manifest_id": "CHANGE_ME",
+  "source_sha": "0000000000000000000000000000000000000000",
+  "source_dirty": true,
+  "artifacts": [],
+  "assertions": {
+    "spot_only": false,
+    "owned_inventory_only_sells": false,
+    "central_allocator_all_orders": false,
+    "central_risk_all_orders": false,
+    "no_production_private_submission": false,
+    "no_transfers": false,
+    "no_withdrawals": false,
+    "no_margin": false,
+    "no_futures": false,
+    "no_perpetuals": false,
+    "no_options": false,
+    "no_leverage": false,
+    "no_borrowing": false,
+    "no_lending": false,
+    "no_staking": false,
+    "no_short_selling": false,
+    "no_production_broker": false,
+    "no_production_signer": false,
+    "no_production_credential_input": false,
+    "no_production_private_endpoint": false,
+    "no_hidden_route": false,
+    "no_dormant_toggle": false,
+    "no_environment_bypass": false
+  },
+  "signed_destinations": [
+    {
+      "exchange": "binance",
+      "transport": "rest",
+      "host": "testnet.binance.vision"
+    },
+    {
+      "exchange": "binance",
+      "transport": "websocket",
+      "host": "ws-api.testnet.binance.vision"
+    },
+    {
+      "exchange": "bybit",
+      "transport": "rest",
+      "host": "api-demo.bybit.com"
+    },
+    {
+      "exchange": "bybit",
+      "transport": "websocket",
+      "host": "stream-demo.bybit.com"
+    }
+  ],
+  "reviewer": {
+    "id": "CHANGE_ME",
+    "role": "independent-safety-reviewer",
+    "independent": false
+  },
+  "reviewed_at": "1970-01-01T00:00:00Z",
+  "valid_until": "1970-01-01T00:00:00Z",
+  "evidence_hash": "",
+  "signing_key_fingerprint": "",
+  "signature": ""
+}

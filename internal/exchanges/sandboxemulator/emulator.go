@@ -43,12 +43,12 @@ type Config struct {
 // Capture is deliberately redacted. It cannot contain headers, signatures, or
 // private field values.
 type Capture struct {
-	Exchange    sandbox.Exchange
-	Host        string
-	Method      string
-	Path        string
-	FieldNames  []string
-	RequestHash string
+	Exchange    sandbox.Exchange `json:"exchange"`
+	Host        string           `json:"host"`
+	Method      string           `json:"method"`
+	Path        string           `json:"path"`
+	FieldNames  []string         `json:"field_names"`
+	RequestHash string           `json:"request_hash"`
 }
 
 // Emulator validates signed requests and retains only redacted captures.

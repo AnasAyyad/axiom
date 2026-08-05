@@ -369,6 +369,33 @@ is_v1d_d4_evidence_literal() {
   esac
 }
 
+# D6 names the exact already-reviewed V1C signed destinations as certification
+# assertions. The allowlist accepts only literal host values in the validator
+# and fail-closed example; it cannot admit a configurable endpoint or runtime
+# client.
+is_v1d_d6_certification_literal() {
+  local rule_id="$1"
+  local file="${2#./}"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    private-endpoint:internal/certification/validate.go | \
+    later-release-sandbox:internal/certification/validate.go)
+      [[ "${line_text}" == *'{Exchange: "binance", Transport: "rest", Host: "testnet.binance.vision"}'* ||
+         "${line_text}" == *'{Exchange: "binance", Transport: "websocket", Host: "ws-api.testnet.binance.vision"}'* ||
+         "${line_text}" == *'{Exchange: "bybit", Transport: "rest", Host: "api-demo.bybit.com"}'* ||
+         "${line_text}" == *'{Exchange: "bybit", Transport: "websocket", Host: "stream-demo.bybit.com"}'* ]]
+      ;;
+    private-endpoint:deploy/config/v1-safety-manifest.example.json | \
+    later-release-sandbox:deploy/config/v1-safety-manifest.example.json)
+      [[ "${line_text}" == *'"host": "testnet.binance.vision"'* ||
+         "${line_text}" == *'"host": "ws-api.testnet.binance.vision"'* ||
+         "${line_text}" == *'"host": "api-demo.bybit.com"'* ||
+         "${line_text}" == *'"host": "stream-demo.bybit.com"'* ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 # run_rule ID DESCRIPTION REGEX ALLOW_POLICY GLOB_ARRAY TARGET...
 run_rule() {
   local rule_id="$1"
@@ -432,6 +459,10 @@ run_rule() {
     fi
 
     if is_v1d_d4_evidence_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
+    if is_v1d_d6_certification_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 

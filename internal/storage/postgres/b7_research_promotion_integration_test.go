@@ -105,7 +105,7 @@ func assertB7SchemaAndPromotion(
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	clock, _ := domain.NewReplayClock(now)
-	_, _, login := a11QualificationAuthentication(t, ctx, pool, clock)
+	principal := b7QualificationPrincipal(t, ctx, pool, now)
 	seedA10References(t, ctx, pool)
 	repository, err := NewB7Repository(pool)
 	if err != nil {
@@ -114,13 +114,48 @@ func assertB7SchemaAndPromotion(
 	champion := seedB7ResearchFixture(t, ctx, pool, repository, now, "champion", 1)
 	challenger := seedB7ResearchFixture(t, ctx, pool, repository, now, "challenger", 2)
 	assertB7Comparison(t, ctx, pool, repository, champion, challenger, now)
-	assertB7LowConfidenceDenied(t, ctx, repository, login.Principal, clock, champion)
-	assertB7SequentialPromotion(t, ctx, repository, login.Principal, clock, champion)
-	assertB7ConcurrentPromotion(t, ctx, pool, repository, login.Principal, clock, challenger)
+	assertB7LowConfidenceDenied(t, ctx, repository, principal, clock, champion)
+	assertB7SequentialPromotion(t, ctx, repository, principal, clock, champion)
+	assertB7ConcurrentPromotion(t, ctx, pool, repository, principal, clock, challenger)
 	assertB7DatabaseAuthAndImmutability(
-		t, ctx, pool, repository, login.Principal, challenger, now,
+		t, ctx, pool, repository, principal, challenger, now,
 	)
 	assertB7RoleMatrix(t, ctx, pool)
+}
+
+func b7QualificationPrincipal(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	now time.Time,
+) authentication.Principal {
+	t.Helper()
+	const userID = "b7-qualification-owner"
+	const sessionID = "b7-qualification-session"
+	if _, err := pool.Exec(ctx, `INSERT INTO users(
+id,email,password_hash,status,created_at,normalized_email,password_changed_at
+) VALUES ($1,'b7-owner@example.test','qualification-hash','active',$2,
+  'b7-owner@example.test',$2)`, userID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO user_roles(user_id,role_id,granted_at) VALUES ($1,'owner',$2)`,
+		userID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO sessions(
+  id,user_id,token_hash,created_at,expires_at,csrf_token_hash,last_seen_at,
+  idle_expires_at,reauthenticated_at,revision
+) VALUES ($2,$1,$4,$3::timestamptz,$3::timestamptz+interval '1 hour',$5,
+  $3::timestamptz,$3::timestamptz+interval '30 minutes',$3::timestamptz,1)`,
+		userID, sessionID, now, strings.Repeat("6", 64), strings.Repeat("7", 64)); err != nil {
+		t.Fatal(err)
+	}
+	return authentication.Principal{
+		UserID: userID, Email: "b7-owner@example.test", SessionID: sessionID,
+		Roles: []string{"owner"}, Permissions: []string{"research.promote"},
+		ReauthenticatedAt: now, SessionRevision: 1,
+	}
 }
 
 type b7Fixture struct {

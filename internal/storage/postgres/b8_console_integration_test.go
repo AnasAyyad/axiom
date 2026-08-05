@@ -87,16 +87,53 @@ func assertB8SchemaAndCommands(
 	t.Helper()
 	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	clock, _ := domain.NewReplayClock(now)
-	_, _, login := a11QualificationAuthentication(t, ctx, pool, clock)
+	principal := b8QualificationPrincipal(t, ctx, pool, now)
 	store, err := NewA11ConsoleStore(pool, []byte(strings.Repeat("8", 32)), clock)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertB8ReadProjections(t, ctx, store)
-	assertB8MissingExport(t, ctx, store, login.Principal)
-	created := assertB8FaultCommands(t, ctx, pool, store, login.Principal, now)
+	assertB8MissingExport(t, ctx, store, principal)
+	created := assertB8FaultCommands(t, ctx, pool, store, principal, now)
 	assertB8FaultInjection(t, ctx, pool, created)
 	assertB8Tables(t, ctx, pool)
+}
+
+func b8QualificationPrincipal(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	now time.Time,
+) authentication.Principal {
+	t.Helper()
+	const userID = "b8-qualification-owner"
+	const sessionID = "b8-qualification-session"
+	if _, err := pool.Exec(ctx, `INSERT INTO users(
+id,email,password_hash,status,created_at,normalized_email,password_changed_at
+) VALUES ($1,'b8-owner@example.test','qualification-hash','active',$2,
+  'b8-owner@example.test',$2)`, userID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO user_roles(user_id,role_id,granted_at) VALUES ($1,'owner',$2)`,
+		userID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO sessions(
+  id,user_id,token_hash,created_at,expires_at,csrf_token_hash,last_seen_at,
+  idle_expires_at,reauthenticated_at,revision
+) VALUES ($2,$1,$4,$3::timestamptz,$3::timestamptz+interval '1 hour',$5,
+  $3::timestamptz,$3::timestamptz+interval '30 minutes',$3::timestamptz,1)`,
+		userID, sessionID, now, strings.Repeat("8", 64), strings.Repeat("9", 64)); err != nil {
+		t.Fatal(err)
+	}
+	return authentication.Principal{
+		UserID: userID, Email: "b8-owner@example.test", SessionID: sessionID,
+		Roles: []string{"owner"}, Permissions: []string{
+			"operations.read", "commands.write", "incident.raw", "audit.raw", "research.promote",
+		},
+		ReauthenticatedAt: now, SessionRevision: 1,
+	}
 }
 
 func assertB8MissingExport(

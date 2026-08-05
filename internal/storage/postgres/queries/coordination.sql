@@ -12,8 +12,8 @@ ON CONFLICT (consumer, message_id) DO NOTHING
 RETURNING *;
 
 -- name: InsertOutbox :one
-INSERT INTO outbox_events (id, topic, payload_hash, created_at)
-VALUES ($1, $2, $3, $4)
+INSERT INTO outbox_events (id, topic, payload_hash, created_at, event_time)
+VALUES ($1, $2, $3, $4, $4)
 RETURNING *;
 
 -- name: ListOutboxAfter :many

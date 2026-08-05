@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,6 +110,73 @@ func TestA11PrepareIntegratedBrowserEnvironment(t *testing.T) {
 		t.Fatalf("A11 immutable dataset catalog identity mismatch: %t %v", matched, err)
 	}
 	a11E2EPrepareShadowEvidence(t, ctx, pool, input)
+}
+
+// TestA11RunIntegratedBrowserLocalShadowDriver exercises the real durable
+// shadow lifecycle without constructing a public exchange client. It is an
+// opt-in local E2E fixture only and is absent from the platform binary.
+func TestA11RunIntegratedBrowserLocalShadowDriver(t *testing.T) {
+	dsn := os.Getenv("AXIOM_A11_E2E_LOCAL_DRIVER_DSN")
+	stopPath := os.Getenv("AXIOM_A11_E2E_LOCAL_DRIVER_STOP")
+	if dsn == "" || stopPath == "" {
+		t.Skip("A11 integrated local shadow driver is not enabled")
+	}
+	if !filepath.IsAbs(stopPath) || !strings.HasPrefix(filepath.Clean(stopPath), "/tmp/") {
+		t.Fatal("A11 integrated local shadow driver requires an isolated /tmp stop path")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	store, err := postgresstore.NewA11ShadowStore(pool, "a11-e2e-local-driver", &domain.SystemClock{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	work, err := newShadowRoleWork(store, func(context.Context, postgresstore.A11ShadowClaim) (shadowSession, error) {
+		return a11E2ELocalShadowSession{}, nil
+	}, 100*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go a11E2ERefreshLocalDriverPressure(ctx, cancel, pool, stopPath)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if err = work.Run(ctx, logger); err != nil || ctx.Err() == context.DeadlineExceeded {
+		t.Fatalf("A11 integrated local shadow driver stopped unexpectedly: %v", err)
+	}
+}
+
+type a11E2ELocalShadowSession struct{}
+
+func (a11E2ELocalShadowSession) Run(ctx context.Context) error { <-ctx.Done(); return nil }
+func (a11E2ELocalShadowSession) SetEntriesEnabled(bool)        {}
+func (a11E2ELocalShadowSession) FlushAvailable(context.Context) error {
+	return nil
+}
+func (a11E2ELocalShadowSession) Flush(context.Context) error      { return nil }
+func (a11E2ELocalShadowSession) Checkpoint(context.Context) error { return nil }
+
+func a11E2ERefreshLocalDriverPressure(ctx context.Context, cancel context.CancelFunc,
+	pool *pgxpool.Pool, stopPath string) {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		_, _ = pool.Exec(ctx, `UPDATE v1d_storage_pressure_state SET level='NORMAL',
+available_bytes=21474836480,total_bytes=107374182400,revision=revision+1,
+observed_at=CURRENT_TIMESTAMP,source_instance='a11-e2e-local-driver'
+WHERE scope_id='market-data'`)
+		if _, err := os.Stat(stopPath); err == nil {
+			cancel()
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 func a11E2EPrepareShadowEvidence(t *testing.T, ctx context.Context, pool *pgxpool.Pool, input trend.Input) {

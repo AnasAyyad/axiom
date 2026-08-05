@@ -334,8 +334,8 @@ func tryDatabaseReservation(ctx context.Context, pool *pgxpool.Pool, reservation
 		return errReservationRejected
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO reservations
-      (id,account_id,asset_symbol,quantity,state,fencing_token,revision,created_at,updated_at)
-      VALUES ($1,'account-a','USDT',400,'active',1,1,clock_timestamp(),clock_timestamp())`, reservationID)
+      (id,account_id,asset_symbol,quantity,state,fencing_token,revision,created_at,updated_at,remaining_quantity)
+      VALUES ($1,'account-a','USDT',400,'active',1,1,clock_timestamp(),clock_timestamp(),400)`, reservationID)
 	if err != nil {
 		return err
 	}

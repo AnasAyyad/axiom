@@ -25,6 +25,16 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0017](0017-b6-reviewed-advisory-rebalancing.md) | Accepted | B6 deterministically ranks immutable reviewed route facts while retaining a compiled advisory-only boundary. |
 | [0018](0018-b7-preregistered-research-promotion.md) | Accepted | B7 separates preregistered statistical evidence from explicit authenticated research-maturity promotion. |
 | [0019](0019-b8-generic-multi-exchange-console.md) | Accepted | B8 exposes generic multi-exchange evidence and deterministic simulation commands without external execution authority. |
+| [0020 V1C](0020-v1c-closed-authenticated-boundary.md) | Accepted | V1C authenticated Testnet/Demo clients are closed, isolated, and production-private incapable. |
+| [0020 B2](0020-b2-formal-coherent-qualification.md) | Accepted | B2 has an independent coherent formal market-data qualification contract. |
+| [0021 V1C](0021-v1c-durable-sandbox-dispatch.md) | Accepted | Sandbox dispatch persists intent before I/O and reconciles ambiguous outcomes. |
+| [0021 D1](0021-v1d-d1-control-plane.md) | Accepted | D1 exposes compatible durable control-plane contracts. |
+| [0022 Bybit](0022-bybit-demo-unified-key-bundle.md) | Accepted | Bybit Demo uses the reviewed unified key bundle boundary. |
+| [0022 D2](0022-v1d-d2-command-center.md) | Accepted | D2 provides the role-aware, safety-labelled command center. |
+| [0023](0023-v1d-d3-research-labs.md) | Accepted | D3 labs preserve immutable reproducibility and research claims. |
+| [0024](0024-v1d-d4-operational-evidence.md) | Accepted | D4 reports, incidents, alerts, audit, and evidence use one durable model. |
+| [0025](0025-v1d-d5-operational-readiness.md) | Accepted | D5 uses fail-closed pressure, independent recovery, and terminal readiness evidence. |
+| [0026](0026-v1d-d6-cumulative-certification.md) | Accepted | D6 requires exact signed cumulative evidence and never promotes local/CI results into certification. |
 
 ## Naming and lifecycle
 
@@ -32,7 +42,7 @@ Use `NNNN-short-kebab-title.md`. Numbers are never reused. Allowed statuses are 
 
 Every ADR must identify its scope, consequences, rejected alternatives, validation obligations, and revisit conditions. Safety, accounting, deterministic-replay, and production-order-lock decisions cannot be waived by an ADR.
 
-Current V1D operational decision: [ADR-0025](0025-v1d-d5-operational-readiness.md).
+Current V1D certification decision: [ADR-0026](0026-v1d-d6-cumulative-certification.md).
 
 ## Template
 

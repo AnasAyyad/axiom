@@ -116,8 +116,9 @@ RETURNING *;
 
 -- name: InsertRiskStateEvent :one
 INSERT INTO risk_state_events (
-  id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7)
+  id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at,
+  entity_revision
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 RETURNING *;
 
 -- name: InsertA9RiskEvaluation :one

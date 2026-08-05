@@ -304,8 +304,8 @@ func (q *Queries) InsertCommand(ctx context.Context, arg InsertCommandParams) (*
 }
 
 const insertOutbox = `-- name: InsertOutbox :one
-INSERT INTO outbox_events (id, topic, payload_hash, created_at)
-VALUES ($1, $2, $3, $4)
+INSERT INTO outbox_events (id, topic, payload_hash, created_at, event_time)
+VALUES ($1, $2, $3, $4, $4)
 RETURNING revision, id, topic, payload_hash, created_at, published_at, stream, schema_version, entity_type, entity_id, entity_revision, event_time, correlation_id, causation_id, payload
 `
 

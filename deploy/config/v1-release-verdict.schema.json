@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axiom.invalid/schemas/v1-release-verdict.schema.json",
+  "title": "Axiom V1 signed release verdict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "candidate_hash",
+    "source_sha",
+    "state",
+    "certified",
+    "profitability_evidence",
+    "issued_at",
+    "valid_until",
+    "evidence_hash",
+    "signing_key_fingerprint",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": { "const": "axiom.v1.release-verdict.v1" },
+    "candidate_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "candidate_hash": { "$ref": "#/$defs/hash" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "state": { "const": "CERTIFIED" },
+    "certified": { "const": true },
+    "profitability_evidence": { "const": false },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "valid_until": { "type": "string", "format": "date-time" },
+    "evidence_hash": { "$ref": "#/$defs/hash" },
+    "signing_key_fingerprint": { "$ref": "#/$defs/hash" },
+    "signature": { "type": "string", "minLength": 88, "maxLength": 88 }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

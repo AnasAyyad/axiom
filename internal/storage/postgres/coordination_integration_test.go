@@ -25,7 +25,9 @@ func assertCommandGuards(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 	if err != nil {
 		t.Fatalf("command seed failed: %v", err)
 	}
-	if _, err = pool.Exec(ctx, "UPDATE command_requests SET state='applied',applied_at=$1 WHERE id='command-a'", now); err != nil {
+	if _, err = pool.Exec(ctx, `UPDATE command_requests
+		SET state='applied',applied_at=$1,updated_at=$1,entity_revision=entity_revision+1
+		WHERE id='command-a'`, now); err != nil {
 		t.Fatalf("command completion rejected: %v", err)
 	}
 	if _, err = pool.Exec(ctx, "UPDATE command_requests SET payload_hash=$1 WHERE id='command-a'", fixedHash("f")); err == nil {
