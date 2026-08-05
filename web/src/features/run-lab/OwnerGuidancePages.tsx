@@ -143,7 +143,35 @@ const firstLoginChecklist = [
 export function GuidedDemonstrationsPage() {
   const demonstrations = useQuery(guidedDemonstrationsQuery);
   const [selectedID, setSelectedID] = useState("");
+  const [tourActive, setTourActive] = useState(false);
   const result = useQuery(guidedDemonstrationQuery(selectedID));
+  const tourItems = demonstrations.data?.items ?? [];
+  const selectedTourIndex = tourItems.findIndex(
+    (demonstration) => demonstration.id === selectedID,
+  );
+  const tourStepActive = tourActive && selectedTourIndex >= 0;
+
+  function startTour() {
+    const first = tourItems[0];
+    if (!first) return;
+    setTourActive(true);
+    setSelectedID(first.id);
+  }
+
+  function selectWalkthrough(id: string) {
+    setTourActive(false);
+    setSelectedID(id);
+  }
+
+  function continueTour() {
+    const next = tourItems[selectedTourIndex + 1];
+    if (!next) {
+      setTourActive(false);
+      return;
+    }
+    setSelectedID(next.id);
+  }
+
   return (
     <Page
       title="Guided Demonstrations"
@@ -178,6 +206,19 @@ export function GuidedDemonstrationsPage() {
           />
         </>
       )}
+      {tourItems.length > 0 && (
+        <section className={styles.section} aria-labelledby="all-strategies-tour">
+          <h2 id="all-strategies-tour">All strategies tour</h2>
+          <p>
+            Run every installed deterministic walkthrough in a guided order.
+            Each step is read-only, uses no credentials, and creates no durable
+            run.
+          </p>
+          <button className={styles.button} onClick={startTour} type="button">
+            Start tour
+          </button>
+        </section>
+      )}
       <div className={styles.cardGrid}>
         {demonstrations.data?.items.map((demonstration) => (
           <article className={styles.card} key={demonstration.id}>
@@ -194,7 +235,7 @@ export function GuidedDemonstrationsPage() {
             </ul>
             <button
               className={styles.button}
-              onClick={() => setSelectedID(demonstration.id)}
+              onClick={() => selectWalkthrough(demonstration.id)}
               type="button"
             >
               Run walkthrough
@@ -215,6 +256,27 @@ export function GuidedDemonstrationsPage() {
           aria-labelledby="walkthrough-evidence"
         >
           <h2 id="walkthrough-evidence">Walkthrough evidence</h2>
+          {tourStepActive && (
+            <div className={styles.notice} aria-live="polite">
+              <h3>
+                Tour step {selectedTourIndex + 1} of {tourItems.length}
+              </h3>
+              <p>
+                {selectedTourIndex + 1 < tourItems.length
+                  ? "Review this evidence, then continue to the next installed strategy."
+                  : "You have reviewed every installed strategy walkthrough."}
+              </p>
+              <button
+                className={styles.button}
+                onClick={continueTour}
+                type="button"
+              >
+                {selectedTourIndex + 1 < tourItems.length
+                  ? `Continue to ${tourItems[selectedTourIndex + 1]?.title}`
+                  : "Finish tour"}
+              </button>
+            </div>
+          )}
           <dl className={styles.facts}>
             <div>
               <dt>Configuration hash</dt>

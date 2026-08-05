@@ -60,9 +60,9 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
   insufficient fee capacity, and a Cross-Exchange Arbitrage advisory walkthrough
   that evaluates coherent two-venue closed-cycle inventory and restoration costs.
   They can never create a transfer, exchange order, or fill. The result view
-  exposes only installed scenarios and canonical evidence; it does not create a
-  durable run, contact an exchange, or establish historical-performance or
-  profitability evidence.
+  exposes every installed scenario in a guided all-strategies tour and shows
+  canonical evidence. It does not create a durable run, contact an exchange,
+  or establish historical-performance or profitability evidence.
 
 Remaining implementation includes shared materialization for the remaining
 strategy families and live shadows, deterministic demonstration bundles,
