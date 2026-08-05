@@ -62,6 +62,21 @@ func TestSandboxStrategySessionMigrationPreservesArmableAccountTopology(t *testi
 	})
 }
 
+func TestSandboxStrategySessionInstrumentMigrationPreservesHistoricalUnknowns(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000030")
+	if migration.Name == "" {
+		t.Fatal("sandbox strategy-session instrument migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox strategy session instrument", []string{
+		"add column instrument text", "instrument is null or instrument in ('btcusdt','ethusdt')",
+		"rather than receiving a guessed historical value",
+	})
+}
+
 func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {

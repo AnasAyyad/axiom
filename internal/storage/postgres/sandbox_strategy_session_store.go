@@ -138,9 +138,9 @@ VALUES ($1,$2,$3)`, command.ID, account.ID, account.Epoch); err != nil {
 	}
 	if _, err := tx.Exec(ctx, `
 INSERT INTO sandbox_strategy_sessions(
- id,sandbox_session_id,strategy_id,state,created_by,created_at,revision
-) VALUES ($1,$1,$2,'prepared',$3,$4,1)`,
-		command.ID, command.Strategy, command.CreatedBy, command.CreatedAt); err != nil {
+ id,sandbox_session_id,strategy_id,instrument,state,created_by,created_at,revision
+) VALUES ($1,$1,$2,$3,'prepared',$4,$5,1)`,
+		command.ID, command.Strategy, command.Instrument, command.CreatedBy, command.CreatedAt); err != nil {
 		return fmt.Errorf("sandbox_strategy_session_insert_failed")
 	}
 	for _, account := range session.Accounts {

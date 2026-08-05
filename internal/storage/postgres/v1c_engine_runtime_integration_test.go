@@ -346,15 +346,15 @@ SELECT id FROM users WHERE status='active' ORDER BY id LIMIT 1`,
 		session.Accounts[0].Epoch != 1 || session.Accounts[0].Exchange != sandbox.ExchangeBinance {
 		t.Fatalf("strategy session=%#v error=%v", session, err)
 	}
-	var parentState, childState string
+	var parentState, childState, instrument string
 	var parentMembers, childMembers int
 	if err = pool.QueryRow(ctx, `
 SELECT state FROM v1c_sandbox_sessions WHERE id=$1`, command.ID).Scan(&parentState); err != nil || parentState != "READY_PAUSED" {
 		t.Fatalf("strategy parent state=%q error=%v", parentState, err)
 	}
 	if err = pool.QueryRow(ctx, `
-SELECT state FROM sandbox_strategy_sessions WHERE id=$1`, command.ID).Scan(&childState); err != nil || childState != "prepared" {
-		t.Fatalf("strategy child state=%q error=%v", childState, err)
+SELECT state,instrument FROM sandbox_strategy_sessions WHERE id=$1`, command.ID).Scan(&childState, &instrument); err != nil || childState != "prepared" || instrument != "BTCUSDT" {
+		t.Fatalf("strategy child state=%q instrument=%q error=%v", childState, instrument, err)
 	}
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM v1c_sandbox_session_accounts WHERE session_id=$1`, command.ID).Scan(&parentMembers); err != nil || parentMembers != 1 {
 		t.Fatalf("strategy parent members=%d error=%v", parentMembers, err)
