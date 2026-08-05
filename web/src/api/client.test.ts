@@ -11,9 +11,10 @@ it("rejects an unsafe or structurally invalid system response", async () => {
       Promise.resolve(
         new Response(
           JSON.stringify({
-            release: "V1A",
-            phase: "A11",
-            role: "api",
+            application_version: "test",
+            build_commit: "test-commit",
+            configuration_identity: "test-configuration",
+            readiness_state: "ready",
             lifecycle_state: "RUNNING",
             strategy_activation: "trend.v1a.1",
             real_trading_enabled: true,

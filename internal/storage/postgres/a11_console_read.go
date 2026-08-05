@@ -9,6 +9,7 @@ import (
 
 	"axiom/internal/api/console"
 	"axiom/internal/api/generated"
+	"axiom/internal/buildinfo"
 	"axiom/internal/domain"
 
 	"github.com/jackc/pgx/v5"
@@ -80,8 +81,17 @@ func (store *A11ConsoleStore) SystemStatus(ctx context.Context) (generated.Syste
 	} else if binanceState == "stale" || binanceState == "unavailable" {
 		lifecycle = generated.SystemStatusLifecycleState("DEGRADED")
 	}
-	return generated.SystemStatus{Release: generated.SystemStatusRelease("V1B"), Phase: generated.SystemStatusPhase("B8"), Role: "api",
-		LifecycleState: lifecycle, StrategyActivation: strategy,
+	configurationIdentity := "unavailable"
+	_ = store.pool.QueryRow(ctx, `SELECT configuration_hash::text FROM configuration_versions ORDER BY created_at DESC,id DESC LIMIT 1`).Scan(&configurationIdentity)
+	build := buildinfo.Current()
+	readiness := generated.SystemStatusReadinessState("blocked")
+	if lifecycle == generated.SystemStatusLifecycleState("DEGRADED") {
+		readiness = generated.SystemStatusReadinessState("degraded")
+	} else if lifecycle == generated.SystemStatusLifecycleState("READY_PAUSED") || lifecycle == generated.SystemStatusLifecycleState("RUNNING") {
+		readiness = generated.SystemStatusReadinessState("ready")
+	}
+	return generated.SystemStatus{ApplicationVersion: build.Version, BuildCommit: build.Commit,
+		ConfigurationIdentity: configurationIdentity, ReadinessState: readiness, LifecycleState: lifecycle, StrategyActivation: strategy,
 		RealTradingEnabled: generated.SystemStatusRealTradingEnabled(false), ExecutionMode: &mode, Environment: &environment,
 		RiskState: ptr(generated.SystemStatusRiskState(riskState)), CriticalIncidents: &incidents, ActiveResourceId: activeID,
 		ServerTime: &now, Revision: &revision, EngineState: &engineState, BinanceState: &binanceState}, nil

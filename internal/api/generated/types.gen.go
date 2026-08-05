@@ -907,16 +907,16 @@ func (e HealthComponentStatus) Valid() bool {
 
 // Defines values for HealthResponsePhase.
 const (
-	HealthResponsePhaseA1  HealthResponsePhase = "A1"
-	HealthResponsePhaseA11 HealthResponsePhase = "A11"
+	A1  HealthResponsePhase = "A1"
+	A11 HealthResponsePhase = "A11"
 )
 
 // Valid indicates whether the value is a known member of the HealthResponsePhase enum.
 func (e HealthResponsePhase) Valid() bool {
 	switch e {
-	case HealthResponsePhaseA1:
+	case A1:
 		return true
-	case HealthResponsePhaseA11:
+	case A11:
 		return true
 	default:
 		return false
@@ -925,19 +925,19 @@ func (e HealthResponsePhase) Valid() bool {
 
 // Defines values for HealthResponseStatus.
 const (
-	Live     HealthResponseStatus = "live"
-	NotReady HealthResponseStatus = "not_ready"
-	Ready    HealthResponseStatus = "ready"
+	HealthResponseStatusLive     HealthResponseStatus = "live"
+	HealthResponseStatusNotReady HealthResponseStatus = "not_ready"
+	HealthResponseStatusReady    HealthResponseStatus = "ready"
 )
 
 // Valid indicates whether the value is a known member of the HealthResponseStatus enum.
 func (e HealthResponseStatus) Valid() bool {
 	switch e {
-	case Live:
+	case HealthResponseStatusLive:
 		return true
-	case NotReady:
+	case HealthResponseStatusNotReady:
 		return true
-	case Ready:
+	case HealthResponseStatusReady:
 		return true
 	default:
 		return false
@@ -3656,21 +3656,21 @@ func (e SystemStatusLifecycleState) Valid() bool {
 	}
 }
 
-// Defines values for SystemStatusPhase.
+// Defines values for SystemStatusReadinessState.
 const (
-	SystemStatusPhaseA1  SystemStatusPhase = "A1"
-	SystemStatusPhaseA11 SystemStatusPhase = "A11"
-	SystemStatusPhaseB8  SystemStatusPhase = "B8"
+	SystemStatusReadinessStateBlocked  SystemStatusReadinessState = "blocked"
+	SystemStatusReadinessStateDegraded SystemStatusReadinessState = "degraded"
+	SystemStatusReadinessStateReady    SystemStatusReadinessState = "ready"
 )
 
-// Valid indicates whether the value is a known member of the SystemStatusPhase enum.
-func (e SystemStatusPhase) Valid() bool {
+// Valid indicates whether the value is a known member of the SystemStatusReadinessState enum.
+func (e SystemStatusReadinessState) Valid() bool {
 	switch e {
-	case SystemStatusPhaseA1:
+	case SystemStatusReadinessStateBlocked:
 		return true
-	case SystemStatusPhaseA11:
+	case SystemStatusReadinessStateDegraded:
 		return true
-	case SystemStatusPhaseB8:
+	case SystemStatusReadinessStateReady:
 		return true
 	default:
 		return false
@@ -3686,24 +3686,6 @@ const (
 func (e SystemStatusRealTradingEnabled) Valid() bool {
 	switch e {
 	case SystemStatusRealTradingEnabledFalse:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SystemStatusRelease.
-const (
-	V1A SystemStatusRelease = "V1A"
-	V1B SystemStatusRelease = "V1B"
-)
-
-// Valid indicates whether the value is a known member of the SystemStatusRelease enum.
-func (e SystemStatusRelease) Valid() bool {
-	switch e {
-	case V1A:
-		return true
-	case V1B:
 		return true
 	default:
 		return false
@@ -6367,20 +6349,21 @@ type StreamEventStream string
 
 // SystemStatus defines model for SystemStatus.
 type SystemStatus struct {
-	ActiveResourceId   *string                        `json:"active_resource_id,omitempty"`
-	BinanceState       *string                        `json:"binance_state,omitempty"`
-	ClockDriftMs       *string                        `json:"clock_drift_ms,omitempty"`
-	CriticalIncidents  *int                           `json:"critical_incidents,omitempty"`
-	EngineState        *string                        `json:"engine_state,omitempty"`
-	Environment        *string                        `json:"environment,omitempty"`
-	ExecutionMode      *SystemStatusExecutionMode     `json:"execution_mode,omitempty"`
-	LifecycleState     SystemStatusLifecycleState     `json:"lifecycle_state"`
-	Phase              SystemStatusPhase              `json:"phase"`
-	RealTradingEnabled SystemStatusRealTradingEnabled `json:"real_trading_enabled"`
-	Release            SystemStatusRelease            `json:"release"`
-	Revision           *Revision                      `json:"revision,omitempty"`
-	RiskState          *SystemStatusRiskState         `json:"risk_state,omitempty"`
-	Role               string                         `json:"role"`
+	ActiveResourceId      *string                        `json:"active_resource_id,omitempty"`
+	ApplicationVersion    string                         `json:"application_version"`
+	BinanceState          *string                        `json:"binance_state,omitempty"`
+	BuildCommit           string                         `json:"build_commit"`
+	ClockDriftMs          *string                        `json:"clock_drift_ms,omitempty"`
+	ConfigurationIdentity string                         `json:"configuration_identity"`
+	CriticalIncidents     *int                           `json:"critical_incidents,omitempty"`
+	EngineState           *string                        `json:"engine_state,omitempty"`
+	Environment           *string                        `json:"environment,omitempty"`
+	ExecutionMode         *SystemStatusExecutionMode     `json:"execution_mode,omitempty"`
+	LifecycleState        SystemStatusLifecycleState     `json:"lifecycle_state"`
+	ReadinessState        SystemStatusReadinessState     `json:"readiness_state"`
+	RealTradingEnabled    SystemStatusRealTradingEnabled `json:"real_trading_enabled"`
+	Revision              *Revision                      `json:"revision,omitempty"`
+	RiskState             *SystemStatusRiskState         `json:"risk_state,omitempty"`
 
 	// ServerTime RFC 3339 timestamp with an explicit UTC offset.
 	ServerTime         *Timestamp                     `json:"server_time,omitempty"`
@@ -6393,14 +6376,11 @@ type SystemStatusExecutionMode string
 // SystemStatusLifecycleState defines model for SystemStatus.LifecycleState.
 type SystemStatusLifecycleState string
 
-// SystemStatusPhase defines model for SystemStatus.Phase.
-type SystemStatusPhase string
+// SystemStatusReadinessState defines model for SystemStatus.ReadinessState.
+type SystemStatusReadinessState string
 
 // SystemStatusRealTradingEnabled defines model for SystemStatus.RealTradingEnabled.
 type SystemStatusRealTradingEnabled bool
-
-// SystemStatusRelease defines model for SystemStatus.Release.
-type SystemStatusRelease string
 
 // SystemStatusRiskState defines model for SystemStatus.RiskState.
 type SystemStatusRiskState string

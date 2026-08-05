@@ -188,9 +188,10 @@ function a11FetchFixture(input: RequestInfo | URL) {
   const path = String(input);
   const body = path.includes("system/status")
     ? {
-        release: "V1A",
-        phase: "A11",
-        role: "api",
+        application_version: "test",
+        build_commit: "test-commit",
+        configuration_identity: "test-configuration",
+        readiness_state: "ready",
         lifecycle_state: "READY_PAUSED",
         strategy_activation: "trend.v1a.1",
         real_trading_enabled: false,

@@ -242,8 +242,8 @@ func assertB8ReadProjections(
 ) {
 	t.Helper()
 	status, err := store.SystemStatus(ctx)
-	if err != nil || status.Release != generated.V1B ||
-		status.Phase != generated.SystemStatusPhaseB8 || bool(status.RealTradingEnabled) {
+	if err != nil || status.ApplicationVersion == "" || status.BuildCommit == "" ||
+		status.ConfigurationIdentity == "" || status.ReadinessState == "" || bool(status.RealTradingEnabled) {
 		t.Fatalf("B8 system status=%#v error=%v", status, err)
 	}
 	exchanges, err := store.Exchanges(ctx, "", 20)

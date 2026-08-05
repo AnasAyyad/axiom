@@ -2098,17 +2098,19 @@ components:
       additionalProperties: false
       required:
         [
-          release,
-          phase,
-          role,
+          application_version,
+          build_commit,
+          configuration_identity,
+          readiness_state,
           lifecycle_state,
           strategy_activation,
           real_trading_enabled,
         ]
       properties:
-        release: { type: string, enum: [V1A, V1B] }
-        phase: { type: string, enum: [A1, A11, B8] }
-        role: { type: string, minLength: 1 }
+        application_version: { type: string, minLength: 1 }
+        build_commit: { type: string, minLength: 1 }
+        configuration_identity: { type: string, minLength: 1 }
+        readiness_state: { type: string, enum: [ready, blocked, degraded] }
         lifecycle_state:
           {
             type: string,

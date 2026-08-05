@@ -46,9 +46,10 @@ export const b8ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
     /^GET \/api\/v1\/system\/status$/,
     z
       .object({
-        release: z.enum(["V1A", "V1B"]),
-        phase: z.enum(["A11", "B8"]),
-        role: z.string(),
+        application_version: z.string().min(1),
+        build_commit: z.string().min(1),
+        configuration_identity: z.string().min(1),
+        readiness_state: z.enum(["ready", "blocked", "degraded"]),
         lifecycle_state: z.string(),
         strategy_activation: z.string(),
         real_trading_enabled: z.literal(false),

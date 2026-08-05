@@ -14,9 +14,10 @@ const responses: Record<string, unknown> = {
     dirty: false,
   },
   "/api/v1/system/status": {
-    release: "V1A",
-    phase: "A1",
-    role: "api",
+    application_version: "test",
+    build_commit: "test-commit",
+    configuration_identity: "test-configuration",
+    readiness_state: "ready",
     lifecycle_state: "READY_PAUSED",
     strategy_activation: "unavailable",
     real_trading_enabled: false,

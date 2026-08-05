@@ -1278,19 +1278,20 @@ export interface components {
     };
     "SystemStatus": {
       "active_resource_id"?: string;
+      "application_version": string;
       "binance_state"?: string;
+      "build_commit": string;
       "clock_drift_ms"?: string;
+      "configuration_identity": string;
       "critical_incidents"?: number;
       "engine_state"?: string;
       "environment"?: string;
       "execution_mode"?: "backtest" | "replay" | "paper" | "shadow";
       "lifecycle_state": "STARTING" | "READY_PAUSED" | "RUNNING" | "DEGRADED" | "STOPPING";
-      "phase": "A1" | "A11" | "B8";
+      "readiness_state": "ready" | "blocked" | "degraded";
       "real_trading_enabled": false;
-      "release": "V1A" | "V1B";
       "revision"?: components["schemas"]["Revision"];
       "risk_state"?: "PAUSED" | "RESUMED" | "LOCKED";
-      "role": string;
       "server_time"?: components["schemas"]["Timestamp"];
       "strategy_activation": "unavailable" | "trend.v1a.1";
     };
