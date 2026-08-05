@@ -136,7 +136,7 @@ export function RunLabPage() {
             )}
             <Link
               className={styles.linkButton}
-              to={`/${run.mode === "shadow" ? "shadow" : `${run.mode}s`}/${encodeURIComponent(run.id)}`}
+              to={`/runs/${encodeURIComponent(run.id)}`}
             >
               View run evidence
             </Link>

@@ -62,8 +62,9 @@ allowlists, caps, inventory checks, and explicit short-lived owner arm.
   of multiple active users.
 - Authentication, API, and browser tests prove session responses and
   navigation contain no roles or permissions.
-- Unified-run tests prove only catalogue combinations are accepted and every
-  strategy reaches allocation, risk, accounting, and reconciliation.
+- Unified-run tests prove only catalogue combinations and installed runtimes
+  are accepted. A strategy/mode without its real shared materializer remains
+  blocked rather than being routed through another strategy implementation.
 - Existing outbound signed-request capture and prohibited-capability checks
   continue to prove production-private submission is impossible.
 

@@ -116,6 +116,48 @@ func (handler *handler) run(
 	handler.writeRead(writer, request, value, err)
 }
 
+func (handler *handler) runOutputs(kind string) authenticatedHandler {
+	return func(writer http.ResponseWriter, request *http.Request, _ authentication.Principal) {
+		if handler.options.Runs == nil {
+			handler.writeError(writer, request, http.StatusServiceUnavailable,
+				"run_projection_unavailable", "Durable run projection unavailable")
+			return
+		}
+		value, err := handler.options.Runs.RunOutputs(request.Context(), request.PathValue("id"), kind)
+		handler.writeRead(writer, request, value, err)
+	}
+}
+
+func (handler *handler) runPortfolio(writer http.ResponseWriter, request *http.Request, _ authentication.Principal) {
+	if handler.options.Runs == nil {
+		handler.writeError(writer, request, http.StatusServiceUnavailable,
+			"run_projection_unavailable", "Durable run projection unavailable")
+		return
+	}
+	value, err := handler.options.Runs.RunPortfolio(request.Context(), request.PathValue("id"))
+	handler.writeRead(writer, request, value, err)
+}
+
+func (handler *handler) runRisk(writer http.ResponseWriter, request *http.Request, _ authentication.Principal) {
+	if handler.options.Runs == nil {
+		handler.writeError(writer, request, http.StatusServiceUnavailable,
+			"run_projection_unavailable", "Durable run projection unavailable")
+		return
+	}
+	value, err := handler.options.Runs.RunRisk(request.Context(), request.PathValue("id"))
+	handler.writeRead(writer, request, value, err)
+}
+
+func (handler *handler) runEvidence(writer http.ResponseWriter, request *http.Request, _ authentication.Principal) {
+	if handler.options.Runs == nil {
+		handler.writeError(writer, request, http.StatusServiceUnavailable,
+			"run_projection_unavailable", "Durable run projection unavailable")
+		return
+	}
+	value, err := handler.options.Runs.RunEvidence(request.Context(), request.PathValue("id"))
+	handler.writeRead(writer, request, value, err)
+}
+
 func (handler *handler) dataCatalogue(
 	writer http.ResponseWriter,
 	request *http.Request,

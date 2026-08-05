@@ -2290,22 +2290,22 @@ func (e ReportScheduleTransitionRequestState) Valid() bool {
 
 // Defines values for ReproductionBundleConfidenceTier.
 const (
-	A ReproductionBundleConfidenceTier = "A"
-	B ReproductionBundleConfidenceTier = "B"
-	C ReproductionBundleConfidenceTier = "C"
-	D ReproductionBundleConfidenceTier = "D"
+	ReproductionBundleConfidenceTierA ReproductionBundleConfidenceTier = "A"
+	ReproductionBundleConfidenceTierB ReproductionBundleConfidenceTier = "B"
+	ReproductionBundleConfidenceTierC ReproductionBundleConfidenceTier = "C"
+	ReproductionBundleConfidenceTierD ReproductionBundleConfidenceTier = "D"
 )
 
 // Valid indicates whether the value is a known member of the ReproductionBundleConfidenceTier enum.
 func (e ReproductionBundleConfidenceTier) Valid() bool {
 	switch e {
-	case A:
+	case ReproductionBundleConfidenceTierA:
 		return true
-	case B:
+	case ReproductionBundleConfidenceTierB:
 		return true
-	case C:
+	case ReproductionBundleConfidenceTierC:
 		return true
-	case D:
+	case ReproductionBundleConfidenceTierD:
 		return true
 	default:
 		return false
@@ -2468,6 +2468,90 @@ func (e RunCreateRequestPreset) Valid() bool {
 	}
 }
 
+// Defines values for RunEvidenceConfidenceTier.
+const (
+	RunEvidenceConfidenceTierA RunEvidenceConfidenceTier = "A"
+	RunEvidenceConfidenceTierB RunEvidenceConfidenceTier = "B"
+	RunEvidenceConfidenceTierC RunEvidenceConfidenceTier = "C"
+	RunEvidenceConfidenceTierD RunEvidenceConfidenceTier = "D"
+)
+
+// Valid indicates whether the value is a known member of the RunEvidenceConfidenceTier enum.
+func (e RunEvidenceConfidenceTier) Valid() bool {
+	switch e {
+	case RunEvidenceConfidenceTierA:
+		return true
+	case RunEvidenceConfidenceTierB:
+		return true
+	case RunEvidenceConfidenceTierC:
+		return true
+	case RunEvidenceConfidenceTierD:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunEvidenceState.
+const (
+	RunEvidenceStateNotRecorded RunEvidenceState = "not_recorded"
+	RunEvidenceStateRecorded    RunEvidenceState = "recorded"
+)
+
+// Valid indicates whether the value is a known member of the RunEvidenceState enum.
+func (e RunEvidenceState) Valid() bool {
+	switch e {
+	case RunEvidenceStateNotRecorded:
+		return true
+	case RunEvidenceStateRecorded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunOutputKind.
+const (
+	Decision  RunOutputKind = "decision"
+	Event     RunOutputKind = "event"
+	Execution RunOutputKind = "execution"
+	Order     RunOutputKind = "order"
+)
+
+// Valid indicates whether the value is a known member of the RunOutputKind enum.
+func (e RunOutputKind) Valid() bool {
+	switch e {
+	case Decision:
+		return true
+	case Event:
+		return true
+	case Execution:
+		return true
+	case Order:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunPortfolioProjectionState.
+const (
+	RunPortfolioProjectionStateNotRecorded RunPortfolioProjectionState = "not_recorded"
+	RunPortfolioProjectionStateRecorded    RunPortfolioProjectionState = "recorded"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioProjectionState enum.
+func (e RunPortfolioProjectionState) Valid() bool {
+	switch e {
+	case RunPortfolioProjectionStateNotRecorded:
+		return true
+	case RunPortfolioProjectionStateRecorded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RunResourceEnvironment.
 const (
 	ProductionPublic RunResourceEnvironment = "production_public"
@@ -2501,6 +2585,21 @@ func (e RunResourceMode) Valid() bool {
 	case RunResourceModeReplay:
 		return true
 	case RunResourceModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunRiskProjectionState.
+const (
+	NotRecorded RunRiskProjectionState = "not_recorded"
+)
+
+// Valid indicates whether the value is a known member of the RunRiskProjectionState enum.
+func (e RunRiskProjectionState) Valid() bool {
+	switch e {
+	case NotRecorded:
 		return true
 	default:
 		return false
@@ -5690,10 +5789,55 @@ type RunCreateRequestMode string
 // RunCreateRequestPreset defines model for RunCreateRequest.Preset.
 type RunCreateRequestPreset string
 
+// RunEvidence defines model for RunEvidence.
+type RunEvidence struct {
+	ConfidenceTier      *RunEvidenceConfidenceTier `json:"confidence_tier,omitempty"`
+	ConfigurationHash   *string                    `json:"configuration_hash,omitempty"`
+	DatasetManifestHash *string                    `json:"dataset_manifest_hash,omitempty"`
+	ManifestHash        *string                    `json:"manifest_hash,omitempty"`
+	ModelNamespace      *string                    `json:"model_namespace,omitempty"`
+	SourceCommit        *string                    `json:"source_commit,omitempty"`
+	State               RunEvidenceState           `json:"state"`
+}
+
+// RunEvidenceConfidenceTier defines model for RunEvidence.ConfidenceTier.
+type RunEvidenceConfidenceTier string
+
+// RunEvidenceState defines model for RunEvidence.State.
+type RunEvidenceState string
+
+// RunOutput defines model for RunOutput.
+type RunOutput struct {
+	CanonicalPayload string        `json:"canonical_payload"`
+	ContentHash      string        `json:"content_hash"`
+	Kind             RunOutputKind `json:"kind"`
+	Ordinal          Revision      `json:"ordinal"`
+}
+
+// RunOutputKind defines model for RunOutput.Kind.
+type RunOutputKind string
+
+// RunOutputPage defines model for RunOutputPage.
+type RunOutputPage struct {
+	Items []RunOutput `json:"items"`
+}
+
 // RunPage defines model for RunPage.
 type RunPage struct {
 	Items []RunResource `json:"items"`
 }
+
+// RunPortfolioProjection defines model for RunPortfolioProjection.
+type RunPortfolioProjection struct {
+	CanonicalPayload *string                     `json:"canonical_payload,omitempty"`
+	ContentHash      *string                     `json:"content_hash,omitempty"`
+	Ordinal          *Revision                   `json:"ordinal,omitempty"`
+	State            RunPortfolioProjectionState `json:"state"`
+	WaitingReason    *string                     `json:"waiting_reason,omitempty"`
+}
+
+// RunPortfolioProjectionState defines model for RunPortfolioProjection.State.
+type RunPortfolioProjectionState string
 
 // RunResource defines model for RunResource.
 type RunResource struct {
@@ -5719,6 +5863,15 @@ type RunResourceEnvironment string
 
 // RunResourceMode defines model for RunResource.Mode.
 type RunResourceMode string
+
+// RunRiskProjection defines model for RunRiskProjection.
+type RunRiskProjection struct {
+	State   RunRiskProjectionState `json:"state"`
+	Summary string                 `json:"summary"`
+}
+
+// RunRiskProjectionState defines model for RunRiskProjection.State.
+type RunRiskProjectionState string
 
 // RuntimeControlRequest defines model for RuntimeControlRequest.
 type RuntimeControlRequest struct {

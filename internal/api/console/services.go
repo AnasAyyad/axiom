@@ -87,6 +87,10 @@ type ReadService interface {
 type RunReadService interface {
 	Runs(context.Context) (generated.RunPage, error)
 	Run(context.Context, string) (generated.RunResource, error)
+	RunOutputs(context.Context, string, string) (generated.RunOutputPage, error)
+	RunPortfolio(context.Context, string) (generated.RunPortfolioProjection, error)
+	RunRisk(context.Context, string) (generated.RunRiskProjection, error)
+	RunEvidence(context.Context, string) (generated.RunEvidence, error)
 }
 
 // RunCommandService creates a run only after it resolves the owner-facing

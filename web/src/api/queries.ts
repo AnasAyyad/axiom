@@ -21,6 +21,66 @@ export const runsQuery = queryOptions({
   refetchInterval: 5_000,
 });
 
+export function runQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id],
+    queryFn: () => getAPI<"RunResource">(`/api/v1/runs/${encodeURIComponent(id)}`),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runOutputsQuery(
+  id: string,
+  view: "timeline" | "decisions" | "orders" | "fills",
+) {
+  return queryOptions({
+    queryKey: ["run", id, view],
+    queryFn: () =>
+      getAPI<"RunOutputPage">(
+        `/api/v1/runs/${encodeURIComponent(id)}/${view}`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runPortfolioProjectionQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "portfolio"],
+    queryFn: () =>
+      getAPI<"RunPortfolioProjection">(
+        `/api/v1/runs/${encodeURIComponent(id)}/portfolio`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runRiskProjectionQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "risk"],
+    queryFn: () =>
+      getAPI<"RunRiskProjection">(
+        `/api/v1/runs/${encodeURIComponent(id)}/risk`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runEvidenceQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "evidence"],
+    queryFn: () =>
+      getAPI<"RunEvidence">(
+        `/api/v1/runs/${encodeURIComponent(id)}/evidence`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
 export const dataCatalogueQuery = queryOptions({
   queryKey: ["data-catalogue"],
   queryFn: () => getAPI<"DataCataloguePage">("/api/v1/data-catalogue"),

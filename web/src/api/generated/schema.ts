@@ -928,8 +928,33 @@ export interface components {
       "strategy_id": string;
       "strategy_version": string;
     };
+    "RunEvidence": {
+      "confidence_tier"?: "A" | "B" | "C" | "D";
+      "configuration_hash"?: string;
+      "dataset_manifest_hash"?: string;
+      "manifest_hash"?: string;
+      "model_namespace"?: string;
+      "source_commit"?: string;
+      "state": "recorded" | "not_recorded";
+    };
+    "RunOutput": {
+      "canonical_payload": string;
+      "content_hash": string;
+      "kind": "event" | "decision" | "order" | "execution";
+      "ordinal": components["schemas"]["Revision"];
+    };
+    "RunOutputPage": {
+      "items": Array<components["schemas"]["RunOutput"]>;
+    };
     "RunPage": {
       "items": Array<components["schemas"]["RunResource"]>;
+    };
+    "RunPortfolioProjection": {
+      "canonical_payload"?: string;
+      "content_hash"?: string;
+      "ordinal"?: components["schemas"]["Revision"];
+      "state": "recorded" | "not_recorded";
+      "waiting_reason"?: string;
     };
     "RunResource": {
       "created_at": components["schemas"]["Timestamp"];
@@ -944,6 +969,10 @@ export interface components {
       "strategy_version": string;
       "updated_at"?: components["schemas"]["Timestamp"];
       "waiting_reason"?: string;
+    };
+    "RunRiskProjection": {
+      "state": "not_recorded";
+      "summary": string;
     };
     "RuntimeControlRequest": {
       "expected_revision": components["schemas"]["Revision"];
@@ -1356,6 +1385,13 @@ export interface operations {
   "resumeRun": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "stepRun": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "stopRun": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "getRunTimeline": { path: { "id": string; }; responses: { "200": components["schemas"]["RunOutputPage"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getRunDecisions": { path: { "id": string; }; responses: { "200": components["schemas"]["RunOutputPage"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getRunOrders": { path: { "id": string; }; responses: { "200": components["schemas"]["RunOutputPage"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getRunFills": { path: { "id": string; }; responses: { "200": components["schemas"]["RunOutputPage"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getRunPortfolio": { path: { "id": string; }; responses: { "200": components["schemas"]["RunPortfolioProjection"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getRunRisk": { path: { "id": string; }; responses: { "200": components["schemas"]["RunRiskProjection"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getRunEvidence": { path: { "id": string; }; responses: { "200": components["schemas"]["RunEvidence"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "listDataCatalogue": { responses: { "200": components["schemas"]["DataCataloguePage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getVersion": { responses: { "200": components["schemas"]["VersionResponse"]; }; };
   "getBuildInformation": { responses: { "200": components["schemas"]["BuildInformation"]; }; };

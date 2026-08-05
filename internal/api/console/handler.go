@@ -56,6 +56,13 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("GET /api/v1/runs", handler.authorized(handler.runs, ""))
 	mux.HandleFunc("POST /api/v1/runs", handler.authorizedMutation(handler.createRun, ""))
 	mux.HandleFunc("GET /api/v1/runs/{id}", handler.authorized(handler.run, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/timeline", handler.authorized(handler.runOutputs("event"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/decisions", handler.authorized(handler.runOutputs("decision"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/orders", handler.authorized(handler.runOutputs("order"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/fills", handler.authorized(handler.runOutputs("projection"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/portfolio", handler.authorized(handler.runPortfolio, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/risk", handler.authorized(handler.runRisk, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/evidence", handler.authorized(handler.runEvidence, ""))
 	for _, action := range []string{"pause", "resume", "step", "stop"} {
 		mux.HandleFunc("POST /api/v1/runs/{id}/"+action, handler.authorizedMutation(handler.controlRun(action), ""))
 	}

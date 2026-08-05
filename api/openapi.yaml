@@ -229,6 +229,97 @@ paths:
       parameters: *runControlParameters
       requestBody: { $ref: "#/components/requestBodies/RevisionCommand" }
       responses: *runControlResponses
+  /api/v1/runs/{id}/timeline:
+    get:
+      operationId: getRunTimeline
+      tags: [Research]
+      summary: Read immutable event evidence for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Ordered recorded run events
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunOutputPage" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/decisions:
+    get:
+      operationId: getRunDecisions
+      tags: [Research]
+      summary: Read immutable strategy decisions for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Recorded decisions
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunOutputPage" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/orders:
+    get:
+      operationId: getRunOrders
+      tags: [Research]
+      summary: Read planned orders for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Recorded planned orders
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunOutputPage" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/fills:
+    get:
+      operationId: getRunFills
+      tags: [Research]
+      summary: Read simulated execution events for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Recorded simulated execution events
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunOutputPage" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/portfolio:
+    get:
+      operationId: getRunPortfolio
+      tags: [Research]
+      summary: Read the latest recorded virtual portfolio projection
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Latest recorded portfolio state, if the run has produced one
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunPortfolioProjection" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/risk:
+    get:
+      operationId: getRunRisk
+      tags: [Research]
+      summary: Read the run risk-evidence availability state
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Run-specific risk evidence availability
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunRiskProjection" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/evidence:
+    get:
+      operationId: getRunEvidence
+      tags: [Research]
+      summary: Read safe immutable run identity and evidence hashes
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Run evidence identity without storage paths or credentials
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunEvidence" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/data-catalogue:
     get:
       operationId: listDataCatalogue
@@ -2043,6 +2134,53 @@ components:
         waiting_reason: { type: string, maxLength: 500 }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    RunOutput:
+      type: object
+      additionalProperties: false
+      required: [ordinal, kind, content_hash, canonical_payload]
+      properties:
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        kind: { type: string, enum: [event, decision, order, execution] }
+        content_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        canonical_payload: { type: string, minLength: 2, maxLength: 1048576 }
+    RunOutputPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/RunOutput" }
+    RunPortfolioProjection:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [recorded, not_recorded] }
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        content_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        canonical_payload: { type: string, minLength: 2, maxLength: 1048576 }
+        waiting_reason: { type: string, maxLength: 500 }
+    RunRiskProjection:
+      type: object
+      additionalProperties: false
+      required: [state, summary]
+      properties:
+        state: { type: string, enum: [not_recorded] }
+        summary: { type: string, maxLength: 500 }
+    RunEvidence:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [recorded, not_recorded] }
+        manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        source_commit: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        configuration_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        dataset_manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        model_namespace: { type: string, minLength: 1, maxLength: 200 }
+        confidence_tier: { type: string, enum: [A, B, C, D] }
     RunCreateRequest:
       type: object
       additionalProperties: false

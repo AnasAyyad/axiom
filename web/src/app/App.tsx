@@ -38,6 +38,7 @@ import { ResourceCollectionPage } from "../features/operations/ResourceCollectio
 import { QualificationCenterPage } from "../features/qualifications/QualificationCenterPage";
 import { RiskControlsPage } from "../features/risk/RiskControlsPage";
 import { RunLabPage } from "../features/run-lab/RunLabPage";
+import { RunDetailPage } from "../features/run-lab/RunDetailPage";
 import { DataCataloguePage } from "../features/run-lab/DataCataloguePage";
 import {
   GettingStartedPage,
@@ -119,6 +120,7 @@ export function App() {
                 element={<ActivityPage view="system_events" />}
               />
               <Route path="run-lab" element={<RunLabPage />} />
+              <Route path="runs/:id" element={<RunDetailPage />} />
               <Route
                 path="guided-demonstrations"
                 element={<GuidedDemonstrationsPage />}

@@ -30,7 +30,14 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
   historical only.
 - The server supplies a semantic strategy/run catalogue and a unified,
   read-only run history over durable backtest, replay, and public-data shadow
-  records. It does not yet claim a common launcher for every strategy family.
+  records. Trend Following and Mean Reversion now share the credential-free
+  durable backtest/replay worker; all other strategy/mode combinations remain
+  explicit blockers until their real shared runtime is installed.
+- Each listed run has one semantic detail route with immutable timeline,
+  decision, planned-order, simulated-execution, latest portfolio, risk
+  availability, and safe reproducibility-evidence projections. A missing
+  snapshot or run-scoped risk record is presented as `not_recorded`; the
+  product never substitutes current global state or fabricates evidence.
 - The protected Data Catalogue lists registered immutable manifests, coverage,
   gaps, quality tier, and hashes. It accepts no browser upload or raw storage
   path.
@@ -38,11 +45,11 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
   marks guided demonstrations unavailable until deterministic immutable bundles
   are actually installed.
 
-Remaining implementation includes shared materialization for every strategy,
-deterministic demonstration bundles, semantic run creation and all run action
-and evidence projections, automated armed Testnet/Demo sessions, and the
-full historical terminology cleanup. These items are not represented as
-operational capability today.
+Remaining implementation includes shared materialization for the remaining
+strategy families and live shadows, deterministic demonstration bundles,
+actual run-scoped risk/P&L projections, automated armed Testnet/Demo strategy
+sessions, and the full historical terminology cleanup. These items are not
+represented as operational capability today.
 
 ## V1D D6 repository certification
 

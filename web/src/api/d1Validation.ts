@@ -118,6 +118,50 @@ const run = z
 
 const runPage = z.object({ items: z.array(run) }).loose();
 
+const runOutputPage = z
+  .object({
+    items: z.array(
+      z
+        .object({
+          ordinal: revision,
+          kind: z.enum(["event", "decision", "order", "execution"]),
+          content_hash: z.string().regex(/^[0-9a-f]{64}$/),
+          canonical_payload: z.string().min(2).max(1_048_576),
+        })
+        .loose(),
+    ),
+  })
+  .loose();
+
+const runPortfolioProjection = z
+  .object({
+    state: z.enum(["recorded", "not_recorded"]),
+    ordinal: revision.optional(),
+    content_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    canonical_payload: z.string().min(2).max(1_048_576).optional(),
+    waiting_reason: z.string().min(1).max(500).optional(),
+  })
+  .loose();
+
+const runRiskProjection = z
+  .object({
+    state: z.literal("not_recorded"),
+    summary: z.string().min(1).max(500),
+  })
+  .loose();
+
+const runEvidence = z
+  .object({
+    state: z.enum(["recorded", "not_recorded"]),
+    manifest_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    source_commit: z.string().regex(/^[0-9a-f]{40,64}$/).optional(),
+    configuration_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    dataset_manifest_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    model_namespace: z.string().min(1).max(200).optional(),
+    confidence_tier: z.enum(["A", "B", "C", "D"]).optional(),
+  })
+  .loose();
+
 const dataCatalogue = z
   .object({
     items: z.array(
@@ -208,6 +252,10 @@ export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [/^GET \/api\/v1\/run-catalog$/, runCatalog],
   [/^GET \/api\/v1\/runs$/, runPage],
   [/^GET \/api\/v1\/runs\/[^/?]+$/, run],
+  [/^GET \/api\/v1\/runs\/[^/?]+\/(timeline|decisions|orders|fills)$/, runOutputPage],
+  [/^GET \/api\/v1\/runs\/[^/?]+\/portfolio$/, runPortfolioProjection],
+  [/^GET \/api\/v1\/runs\/[^/?]+\/risk$/, runRiskProjection],
+  [/^GET \/api\/v1\/runs\/[^/?]+\/evidence$/, runEvidence],
   [/^GET \/api\/v1\/data-catalogue$/, dataCatalogue],
   [/^POST \/api\/v1\/authorizations$/, authorization],
   [/^POST \/api\/v1\/exports$/, exportArtifact],
