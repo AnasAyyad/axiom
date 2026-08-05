@@ -878,6 +878,27 @@ export interface components {
       "unresolved_critical"?: number;
       "updated_at": components["schemas"]["Timestamp"];
     };
+    "RunBlocker": {
+      "code": string;
+      "detail": string;
+      "suggested_action": string;
+      "summary": string;
+    };
+    "RunCatalog": {
+      "blocker"?: components["schemas"]["RunBlocker"];
+      "choices": Array<components["schemas"]["RunChoice"]>;
+    };
+    "RunChoice": {
+      "cadence": string;
+      "exchanges": Array<"binance" | "bybit">;
+      "instrument": string;
+      "mode": "demonstration" | "backtest" | "replay" | "shadow" | "testnet" | "demo";
+      "order_capable": boolean;
+      "strategy_id": string;
+      "strategy_name": string;
+      "strategy_version": string;
+      "warmup": string;
+    };
     "RuntimeControlRequest": {
       "expected_revision": components["schemas"]["Revision"];
       "reason": string;
@@ -1280,6 +1301,7 @@ export interface operations {
   "loginSession": { header: { "Origin": string; }; requestBody: components["schemas"]["LoginRequest"]; responses: { "201": components["schemas"]["LoginResponse"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "logoutSession": { header: { "Origin": string; "X-CSRF-Token": string; }; responses: { "204": never; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
   "getCurrentSession": { responses: { "200": components["schemas"]["SessionMe"]; "401": components["schemas"]["Error"]; }; };
+  "getRunCatalog": { responses: { "200": components["schemas"]["RunCatalog"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getVersion": { responses: { "200": components["schemas"]["VersionResponse"]; }; };
   "getBuildInformation": { responses: { "200": components["schemas"]["BuildInformation"]; }; };
   "getSystemStatus": { responses: { "200": components["schemas"]["SystemStatus"]; "401": components["schemas"]["Error"]; }; };

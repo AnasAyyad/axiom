@@ -13,6 +13,7 @@ import (
 
 	"axiom/internal/api/generated"
 	"axiom/internal/authentication"
+	"axiom/internal/runs"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -36,6 +37,7 @@ type Options struct {
 	D1Read                D1ReadService
 	D1Commands            D1CommandService
 	D4Read                D4ReadService
+	RunRegistry           *runs.Registry
 }
 
 // Register installs all authenticated A11 routes on one mux.
@@ -47,6 +49,7 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("POST /api/v1/session/login", handler.login)
 	mux.HandleFunc("POST /api/v1/session/logout", handler.authorizedMutation(handler.logout, ""))
 	mux.HandleFunc("GET /api/v1/session/me", handler.authorized(handler.me, ""))
+	mux.HandleFunc("GET /api/v1/run-catalog", handler.authorized(handler.runCatalog, ""))
 	handler.registerReads(mux)
 	handler.registerCommands(mux)
 	handler.registerSandbox(mux)

@@ -2270,6 +2270,54 @@ func (e RiskStatusState) Valid() bool {
 	}
 }
 
+// Defines values for RunChoiceExchanges.
+const (
+	Binance RunChoiceExchanges = "binance"
+	Bybit   RunChoiceExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunChoiceExchanges enum.
+func (e RunChoiceExchanges) Valid() bool {
+	switch e {
+	case Binance:
+		return true
+	case Bybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunChoiceMode.
+const (
+	RunChoiceModeBacktest      RunChoiceMode = "backtest"
+	RunChoiceModeDemo          RunChoiceMode = "demo"
+	RunChoiceModeDemonstration RunChoiceMode = "demonstration"
+	RunChoiceModeReplay        RunChoiceMode = "replay"
+	RunChoiceModeShadow        RunChoiceMode = "shadow"
+	RunChoiceModeTestnet       RunChoiceMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the RunChoiceMode enum.
+func (e RunChoiceMode) Valid() bool {
+	switch e {
+	case RunChoiceModeBacktest:
+		return true
+	case RunChoiceModeDemo:
+		return true
+	case RunChoiceModeDemonstration:
+		return true
+	case RunChoiceModeReplay:
+		return true
+	case RunChoiceModeShadow:
+		return true
+	case RunChoiceModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeControlRequestState.
 const (
 	RuntimeControlRequestStatePaused  RuntimeControlRequestState = "paused"
@@ -3673,28 +3721,28 @@ func (e ListActivityParamsSide) Valid() bool {
 
 // Defines values for ListActivityParamsMode.
 const (
-	ListActivityParamsModeBacktest ListActivityParamsMode = "backtest"
-	ListActivityParamsModeDemo     ListActivityParamsMode = "demo"
-	ListActivityParamsModePaper    ListActivityParamsMode = "paper"
-	ListActivityParamsModeReplay   ListActivityParamsMode = "replay"
-	ListActivityParamsModeShadow   ListActivityParamsMode = "shadow"
-	ListActivityParamsModeTestnet  ListActivityParamsMode = "testnet"
+	Backtest ListActivityParamsMode = "backtest"
+	Demo     ListActivityParamsMode = "demo"
+	Paper    ListActivityParamsMode = "paper"
+	Replay   ListActivityParamsMode = "replay"
+	Shadow   ListActivityParamsMode = "shadow"
+	Testnet  ListActivityParamsMode = "testnet"
 )
 
 // Valid indicates whether the value is a known member of the ListActivityParamsMode enum.
 func (e ListActivityParamsMode) Valid() bool {
 	switch e {
-	case ListActivityParamsModeBacktest:
+	case Backtest:
 		return true
-	case ListActivityParamsModeDemo:
+	case Demo:
 		return true
-	case ListActivityParamsModePaper:
+	case Paper:
 		return true
-	case ListActivityParamsModeReplay:
+	case Replay:
 		return true
-	case ListActivityParamsModeShadow:
+	case Shadow:
 		return true
-	case ListActivityParamsModeTestnet:
+	case Testnet:
 		return true
 	default:
 		return false
@@ -5378,6 +5426,39 @@ type RiskStatus struct {
 
 // RiskStatusState defines model for RiskStatus.State.
 type RiskStatusState string
+
+// RunBlocker defines model for RunBlocker.
+type RunBlocker struct {
+	Code            string `json:"code"`
+	Detail          string `json:"detail"`
+	SuggestedAction string `json:"suggested_action"`
+	Summary         string `json:"summary"`
+}
+
+// RunCatalog defines model for RunCatalog.
+type RunCatalog struct {
+	Blocker *RunBlocker `json:"blocker,omitempty"`
+	Choices []RunChoice `json:"choices"`
+}
+
+// RunChoice defines model for RunChoice.
+type RunChoice struct {
+	Cadence         string               `json:"cadence"`
+	Exchanges       []RunChoiceExchanges `json:"exchanges"`
+	Instrument      string               `json:"instrument"`
+	Mode            RunChoiceMode        `json:"mode"`
+	OrderCapable    bool                 `json:"order_capable"`
+	StrategyId      string               `json:"strategy_id"`
+	StrategyName    string               `json:"strategy_name"`
+	StrategyVersion string               `json:"strategy_version"`
+	Warmup          string               `json:"warmup"`
+}
+
+// RunChoiceExchanges defines model for RunChoice.Exchanges.
+type RunChoiceExchanges string
+
+// RunChoiceMode defines model for RunChoice.Mode.
+type RunChoiceMode string
 
 // RuntimeControlRequest defines model for RuntimeControlRequest.
 type RuntimeControlRequest struct {
