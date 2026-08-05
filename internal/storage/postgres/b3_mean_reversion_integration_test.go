@@ -22,7 +22,7 @@ func TestB3PostgresCleanInstallQualification(t *testing.T) {
 	assertPostgres18(t, ctx, pool)
 	assertEmptyTestDatabase(t, ctx, pool)
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 15 {
+	if err != nil || len(migrations) < 15 {
 		t.Fatalf("migration catalog=%d error=%v", len(migrations), err)
 	}
 	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != len(migrations) {
@@ -37,7 +37,7 @@ func TestB3PostgresB2ToB3UpgradeQualification(t *testing.T) {
 	assertPostgres18(t, ctx, pool)
 	assertEmptyTestDatabase(t, ctx, pool)
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 15 {
+	if err != nil || len(migrations) < 15 {
 		t.Fatalf("migration catalog=%d error=%v", len(migrations), err)
 	}
 	connection, err := pool.Acquire(ctx)
@@ -56,8 +56,9 @@ func TestB3PostgresB2ToB3UpgradeQualification(t *testing.T) {
 		}
 	}
 	connection.Release()
-	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 1 {
-		t.Fatalf("B2-to-B3 migration=%d error=%v", applied, applyErr)
+	expected := len(migrations) - 14
+	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != expected {
+		t.Fatalf("B2-to-current migration=%d/%d error=%v", applied, expected, applyErr)
 	}
 	assertB3SchemaAndPersistence(t, ctx, pool)
 }

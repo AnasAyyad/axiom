@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 import { Page } from "../../app/OperationalShared";
 import styles from "../shared/D2.module.css";

@@ -10,7 +10,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image backup-image-reproducibility image-reproducibility
 .PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify v1c-pr1-local-qualify v1c-pr2-local-qualify
 .PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-soak v1c-pr3-local-qualify
 .PHONY: d1-contract-qualify d1-api-qualify d1-postgres-qualify d1-security-qualify v1d-d1-local-qualify
@@ -18,6 +18,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: d3-contract-qualify d3-api-qualify d3-postgres-qualify d3-frontend-qualify d3-browser-qualify d3-security-qualify v1d-d3-local-qualify
 .PHONY: d4-contract-qualify d4-api-qualify d4-postgres-qualify d4-frontend-qualify d4-browser-qualify d4-security-qualify v1d-d4-local-qualify
 .PHONY: d5-model-qualify d5-backup-qualify d5-postgres-qualify d5-hardening-qualify d5-chaos-qualify d5-soak-smoke d5-security-qualify d5-readiness v1d-d5-local-qualify
+.PHONY: d6-certification-model-qualify d6-traceability-qualify d6-security-qualify d6-final-certification v1d-d6-local-qualify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -71,6 +72,7 @@ docs-check: ## Validate local documentation links and requirement-matrix consist
 	@$(NODE) scripts/check-v1d-d3-boundary.mjs
 	@$(NODE) scripts/check-v1d-d4-boundary.mjs
 	@$(NODE) scripts/check-v1d-d5-boundary.mjs
+	@$(NODE) scripts/check-v1d-d6-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -409,6 +411,31 @@ d5-readiness: ## MANUAL: run the default-off exact seven-day D5 observer on the 
 	@$(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/d5-readiness
 
 v1d-d5-local-qualify: d5-model-qualify d5-backup-qualify d5-postgres-qualify d5-hardening-qualify d5-chaos-qualify d5-soak-smoke d5-security-qualify ## Pass local D5 implementation gates; the reference-server seven-day verdict remains separate.
+
+d6-certification-model-qualify: ## Exercise exact-identity, signature, expiry, tamper, duplicate, and fail-closed certification rules.
+	@$(GO) test ./internal/certification ./cmd/d6-certify -count=1
+	@$(GO) test -race ./internal/certification -count=1
+
+d6-traceability-qualify: ## Validate D6 boundaries, complete documentation paths, and all 22 Section 35 dispositions.
+	@$(NODE) scripts/check-v1d-d6-boundary.mjs
+	@$(NODE) scripts/check-doc-links.mjs
+
+d6-security-qualify: d6-certification-model-qualify d6-traceability-qualify ## Re-run V1 capability, secret, binary, and D6 release-input controls.
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(GO) test ./internal/exchanges/binance ./internal/exchanges/bybit \
+		./internal/exchanges/sandboxemulator ./internal/egressproxy -count=1
+
+d6-final-certification: ## MANUAL: issue a signed verdict only from complete current formal evidence; default-off and expected to reject today.
+	@test "$(AXIOM_D6_FINAL_CERTIFICATION_ENABLED)" = "1" || { echo "AXIOM_D6_FINAL_CERTIFICATION_ENABLED=1 is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D6_CANDIDATE_FILE)" || { echo "AXIOM_D6_CANDIDATE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D6_TRUSTED_REVIEWERS_FILE)" || { echo "AXIOM_D6_TRUSTED_REVIEWERS_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D6_RELEASE_SIGNING_KEY_FILE)" || { echo "AXIOM_D6_RELEASE_SIGNING_KEY_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_D6_VERDICT_DIRECTORY)" || { echo "AXIOM_D6_VERDICT_DIRECTORY is required" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "final certification requires a clean exact source" >&2; exit 1; }
+	@$(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/d6-certify
+
+v1d-d6-local-qualify: d6-security-qualify d1-contract-qualify d1-api-qualify d1-security-qualify d2-contract-qualify d2-frontend-qualify d2-browser-qualify d2-security-qualify d3-contract-qualify d3-api-qualify d3-frontend-qualify d3-browser-qualify d3-security-qualify d4-contract-qualify d4-api-qualify d4-frontend-qualify d4-browser-qualify d4-security-qualify d5-model-qualify d5-backup-qualify d5-hardening-qualify d5-chaos-qualify d5-security-qualify c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify ## Pass repository-verifiable D6 checks without invoking any formal or smoke soak target.
+	@$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck -db "$(VULNDB)" ./...
@@ -864,6 +891,10 @@ image: ## Build the pinned minimal Axiom image.
 
 backup-image: ## Build the pinned PostgreSQL-tooling backup image.
 	@docker build --file deploy/backup/Dockerfile --tag "$(BACKUP_IMAGE)" .
+	@scripts/inspect-backup-image.sh "$(BACKUP_IMAGE)"
+
+backup-image-reproducibility: backup-image ## Rebuild without layer cache and compare the complete backup runtime payload.
+	@scripts/check-backup-image-reproducibility.sh "$(BACKUP_IMAGE)" "$(BACKUP_IMAGE)-rebuild"
 
 image-reproducibility: image ## Rebuild and compare the complete runtime image payload.
 	@VERSION="$(VERSION)" COMMIT="$(COMMIT)" BUILT_AT="$(BUILT_AT)" DIRTY="$(DIRTY)" \

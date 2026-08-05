@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 
 import { getAPI, newIdempotencyKey, postAPI } from "../api/client";
 import { portfolioQuery, riskQuery } from "../api/queries";

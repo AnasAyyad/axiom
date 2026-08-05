@@ -1,8 +1,43 @@
 # Axiom implementation status
 
+## V1D D6 repository certification
+
+The `v1d-d6-certification` worktree adds cumulative exact-identity evidence,
+independent-review, Section 35, safety-manifest, and signed no-replace release
+verdict enforcement. Missing, expired, failed, dirty, wrong-SHA, mutable,
+unsigned, tampered, duplicate, or high-severity-open evidence fails closed. The
+final command remains default-off.
+
+Repository implementation and all available dirty-worktree non-soak gates are
+locally verified. A clean exact-SHA integrated workflow and hosted CI remain
+pending because the D6 content is not committed. Final V1 certification is
+also blocked by B2 and C6 72-hour verdicts, D5's seven-day verdict, earlier open
+owner/security/cumulative acceptances, a declared-server restore, current
+exact-candidate artifacts, all seven independent reviews, and signed formal
+Section 35 evidence. State: **NOT CERTIFIED**.
+
+## V1D D5 operational hardening
+
+D5 implementation is on `main` at
+`93dc3edf74ead553af75a589cd50eeb4735f2db5`. Storage-pressure fail-closed
+automation, lifecycle/holds, independent encrypted backup and recovery proof,
+hardened deployment, deterministic faults, and a default-off seven-day runner
+exist. The formal seven-day run was not started. The D6 worktree repairs the
+backup-image supply-chain failure from hosted run `30904448621`; new hosted D6
+evidence is still pending.
+
+## V1D D3-D4 application completion
+
+D3 merged through PR #35 and supplies functional backtest, replay, and shadow
+labs with immutable inputs, reproduction/comparison, controls, redacted export,
+and responsive browser coverage. D4 merged through PR #36 and supplies reports,
+incidents, alerts, tamper-evident audit review, evidence holds, and operational
+bundles. Both are implemented; current cumulative formal acceptance remains
+separate.
+
 ## V1D D2 React command center
 
-The `v1d-d2-command-center` branch implements the six-group role-aware product
+D2 merged through PR #34. It implements the six-group role-aware product
 navigation, persistent safety header, Decisions & Orders and restricted System
 Events, Strategy Center, Qualification Center, approved Run Lab, scoped risk
 controls, and the required operational resource screens over the merged D1
@@ -11,11 +46,9 @@ reauthorization, and the UI adds no arbitrary command or production-private
 execution surface.
 
 Strict TypeScript, lint, unit/axe, production build, generated-contract parity,
-D2 boundary, file policy, secret, and prohibited-capability gates pass locally.
-The D2 workflow passes Chromium desktop/tablet/mobile, Firefox desktop, and
-WebKit desktop; the existing A11-C6 regression suite passes all 16 non-WebKit
-matrix cases. Merge, hosted CI, formal earlier-gate acceptance, C6's separate
-72-hour qualification, and later D3-D6 work remain pending. See
+D2 boundary, file policy, secret, prohibited-capability, and five-project
+browser gates are implemented. Formal earlier-gate acceptance and C6's separate
+72-hour qualification remain pending. See
 `docs/releases/v1d-d2-readiness.md`.
 
 ## V1D D1 control plane

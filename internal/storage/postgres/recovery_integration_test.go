@@ -59,12 +59,12 @@ func writeRecoveryFacts(ctx context.Context, tx pgx.Tx, now time.Time) error {
 		sql  string
 		args []any
 	}{
-		{`INSERT INTO outbox_events (id,topic,payload_hash,created_at)
-          VALUES ('outbox-unit','accounting.committed',$1,$2)`, []any{fixedHash("d"), now}},
+		{`INSERT INTO outbox_events (id,topic,payload_hash,created_at,event_time)
+		  VALUES ('outbox-unit','accounting.committed',$1,$2,$2)`, []any{fixedHash("d"), now}},
 		{`UPDATE virtual_balances SET available=available-1,reserved=reserved+1,revision=revision+1,updated_at=$1
           WHERE account_id='account-a' AND asset_symbol='BTC' AND available>=1`, []any{now}},
-		{`INSERT INTO reservations (id,account_id,asset_symbol,quantity,state,fencing_token,revision,created_at,updated_at)
-          VALUES ('reservation-unit','account-a','BTC',1,'active',2,1,$1,$1)`, []any{now}},
+		{`INSERT INTO reservations (id,account_id,asset_symbol,quantity,state,fencing_token,revision,created_at,updated_at,remaining_quantity)
+		  VALUES ('reservation-unit','account-a','BTC',1,'active',2,1,$1,$1,1)`, []any{now}},
 		{`INSERT INTO journal_transactions
           (id,transaction_type,run_id,portfolio_id,configuration_id,causation_id,correlation_id,recorded_at,ingest_ordinal)
           VALUES ('journal-unit','reserve','run-a','portfolio-a','configuration-a','message-unit','recovery-test',$1,6)`, []any{now}},
@@ -75,8 +75,11 @@ func writeRecoveryFacts(ctx context.Context, tx pgx.Tx, now time.Time) error {
 	}
 	for _, statement := range statements {
 		result, err := tx.Exec(ctx, statement.sql, statement.args...)
-		if err != nil || result.RowsAffected() != 1 && statement.sql[0] == 'U' {
-			return fmt.Errorf("recovery_unit_write_failed")
+		if err != nil {
+			return fmt.Errorf("recovery_unit_write_failed: %w", err)
+		}
+		if result.RowsAffected() != 1 && statement.sql[0] == 'U' {
+			return fmt.Errorf("recovery_unit_write_failed: balance_update_affected_%d", result.RowsAffected())
 		}
 	}
 	return nil

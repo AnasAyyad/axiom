@@ -496,13 +496,23 @@ func assertA9RiskEvidence(
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = queries.InsertRiskEvaluationPolicy(ctx, generated.InsertRiskEvaluationPolicyParams{
-		EvaluationID: "risk-evaluation-a", PolicyID: "risk-global", PolicyVersion: 1, Precedence: 0})
-	_, _ = queries.InsertRiskStateEvent(ctx, generated.InsertRiskStateEventParams{ID: "risk-state-a", PriorState: "PAUSED",
-		NextState: "NORMAL", ReasonCode: "manual_recovery", Actor: "owner", EvidenceHash: hash, OccurredAt: now})
-	_, _ = queries.InsertCircuitBreakerEvent(ctx, generated.InsertCircuitBreakerEventParams{ID: "breaker-a",
+	if _, err = queries.InsertRiskEvaluationPolicy(ctx, generated.InsertRiskEvaluationPolicyParams{
+		EvaluationID: "risk-evaluation-a", PolicyID: "risk-global", PolicyVersion: 1, Precedence: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = queries.InsertRiskStateEvent(ctx, generated.InsertRiskStateEventParams{ID: "risk-state-a", PriorState: "PAUSED",
+		NextState: "NORMAL", ReasonCode: "manual_recovery", Actor: "owner", EvidenceHash: hash, OccurredAt: now,
+		EntityRevision: 2,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = queries.InsertCircuitBreakerEvent(ctx, generated.InsertCircuitBreakerEventParams{ID: "breaker-a",
 		BreakerKind: "reconciliation_mismatch", ScopeKind: "portfolio", ScopeID: "portfolio-a", Action: "quarantine",
-		ResultingState: "LOCKED", EvidenceHash: hash, OccurredAt: now})
+		ResultingState: "LOCKED", EvidenceHash: hash, OccurredAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = pool.Exec(ctx, `INSERT INTO incidents(
 id,severity,state,reason_code,opened_at,resolved_at
 ) VALUES ('incident-a','critical','open','critical_reconciliation_mismatch',$1,NULL)`, now.Time); err != nil {

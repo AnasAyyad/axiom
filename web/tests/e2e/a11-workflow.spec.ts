@@ -140,6 +140,10 @@ test.beforeEach(async ({ page }) => {
     replayRevision: 1,
   };
   await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => true,
+    });
     class DeterministicEventSource extends EventTarget {
       static CONNECTING = 0;
       static OPEN = 1;
@@ -333,13 +337,20 @@ test("D3 labs preserve immutable identity and virtual execution", async ({
   await page.getByRole("button", { name: "Create replay" }).click();
   await expect(page.getByText("single_run_incomplete")).toBeVisible();
 
-  await page.evaluate(() =>
-    (
+  await expect(
+    page
+      .getByLabel("Persistent safety status")
+      .getByText("live", { exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const stream = (
       window as unknown as {
-        axiomStream: { onerror: ((event: Event) => void) | null };
+        axiomStream?: { onerror: ((event: Event) => void) | null };
       }
-    ).axiomStream.onerror?.(new Event("error")),
-  );
+    ).axiomStream;
+    if (stream === undefined) throw new Error("deterministic_stream_missing");
+    stream.onerror?.(new Event("error"));
+  });
   await expect(page.getByText("reconnecting")).toBeVisible();
 
   expect(

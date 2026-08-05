@@ -739,19 +739,21 @@ func (q *Queries) InsertRiskPolicyLimits(ctx context.Context, arg InsertRiskPoli
 
 const insertRiskStateEvent = `-- name: InsertRiskStateEvent :one
 INSERT INTO risk_state_events (
-  id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7)
+  id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at,
+  entity_revision
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 RETURNING id, prior_state, next_state, reason_code, actor, evidence_hash, occurred_at, entity_revision
 `
 
 type InsertRiskStateEventParams struct {
-	ID           string             `db:"id" json:"id"`
-	PriorState   string             `db:"prior_state" json:"prior_state"`
-	NextState    string             `db:"next_state" json:"next_state"`
-	ReasonCode   string             `db:"reason_code" json:"reason_code"`
-	Actor        string             `db:"actor" json:"actor"`
-	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
-	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	ID             string             `db:"id" json:"id"`
+	PriorState     string             `db:"prior_state" json:"prior_state"`
+	NextState      string             `db:"next_state" json:"next_state"`
+	ReasonCode     string             `db:"reason_code" json:"reason_code"`
+	Actor          string             `db:"actor" json:"actor"`
+	EvidenceHash   interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt     pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	EntityRevision int64              `db:"entity_revision" json:"entity_revision"`
 }
 
 func (q *Queries) InsertRiskStateEvent(ctx context.Context, arg InsertRiskStateEventParams) (*RiskStateEvent, error) {
@@ -763,6 +765,7 @@ func (q *Queries) InsertRiskStateEvent(ctx context.Context, arg InsertRiskStateE
 		arg.Actor,
 		arg.EvidenceHash,
 		arg.OccurredAt,
+		arg.EntityRevision,
 	)
 	var i RiskStateEvent
 	err := row.Scan(

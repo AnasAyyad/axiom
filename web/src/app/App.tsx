@@ -4,13 +4,7 @@ import {
   useQuery,
 } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
-import {
-  BrowserRouter,
-  Navigate,
-  Outlet,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 
 import { sessionQuery } from "../api/queries";
 import { StatePanel } from "../components/StatePanel";

@@ -769,12 +769,16 @@ type InboxEvent struct {
 }
 
 type Incident struct {
-	ID         string             `db:"id" json:"id"`
-	Severity   string             `db:"severity" json:"severity"`
-	State      string             `db:"state" json:"state"`
-	ReasonCode string             `db:"reason_code" json:"reason_code"`
-	OpenedAt   pgtype.Timestamptz `db:"opened_at" json:"opened_at"`
-	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ID             string             `db:"id" json:"id"`
+	Severity       string             `db:"severity" json:"severity"`
+	State          string             `db:"state" json:"state"`
+	ReasonCode     string             `db:"reason_code" json:"reason_code"`
+	OpenedAt       pgtype.Timestamptz `db:"opened_at" json:"opened_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	OwnerUserID    *string            `db:"owner_user_id" json:"owner_user_id"`
+	Revision       int64              `db:"revision" json:"revision"`
+	AcknowledgedAt pgtype.Timestamptz `db:"acknowledged_at" json:"acknowledged_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type Instrument struct {
@@ -2018,20 +2022,21 @@ type V1cExternalAdjustment struct {
 }
 
 type V1cHighRiskAuditEvent struct {
-	ID            string             `db:"id" json:"id"`
-	ChainSequence *int64             `db:"chain_sequence" json:"chain_sequence"`
-	ActorUserID   string             `db:"actor_user_id" json:"actor_user_id"`
-	SessionID     string             `db:"session_id" json:"session_id"`
-	Purpose       string             `db:"purpose" json:"purpose"`
-	Outcome       string             `db:"outcome" json:"outcome"`
-	SourceHash    interface{}        `db:"source_hash" json:"source_hash"`
-	ReasonHash    interface{}        `db:"reason_hash" json:"reason_hash"`
-	Revision      int64              `db:"revision" json:"revision"`
-	BeforeHash    interface{}        `db:"before_hash" json:"before_hash"`
-	AfterHash     interface{}        `db:"after_hash" json:"after_hash"`
-	PreviousHash  interface{}        `db:"previous_hash" json:"previous_hash"`
-	EventHash     interface{}        `db:"event_hash" json:"event_hash"`
-	OccurredAt    pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	ID             string             `db:"id" json:"id"`
+	ChainSequence  *int64             `db:"chain_sequence" json:"chain_sequence"`
+	ActorUserID    string             `db:"actor_user_id" json:"actor_user_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	Purpose        string             `db:"purpose" json:"purpose"`
+	Outcome        string             `db:"outcome" json:"outcome"`
+	SourceHash     interface{}        `db:"source_hash" json:"source_hash"`
+	ReasonHash     interface{}        `db:"reason_hash" json:"reason_hash"`
+	Revision       int64              `db:"revision" json:"revision"`
+	BeforeHash     interface{}        `db:"before_hash" json:"before_hash"`
+	AfterHash      interface{}        `db:"after_hash" json:"after_hash"`
+	PreviousHash   interface{}        `db:"previous_hash" json:"previous_hash"`
+	EventHash      interface{}        `db:"event_hash" json:"event_hash"`
+	OccurredAt     pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	TargetRevision *int64             `db:"target_revision" json:"target_revision"`
 }
 
 type V1cPlanEligibility struct {
@@ -2159,6 +2164,7 @@ type V1cSandboxAuthorization struct {
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ExpiresAt       pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 	ConsumedAt      pgtype.Timestamptz `db:"consumed_at" json:"consumed_at"`
+	TargetRevision  *int64             `db:"target_revision" json:"target_revision"`
 }
 
 type V1cSandboxReservation struct {
@@ -2257,6 +2263,336 @@ type V1cTotpReplayState struct {
 	UserID          string             `db:"user_id" json:"user_id"`
 	LastUsedCounter int64              `db:"last_used_counter" json:"last_used_counter"`
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1dActivityExplanation struct {
+	ActivityRevision  int64              `db:"activity_revision" json:"activity_revision"`
+	ID                string             `db:"id" json:"id"`
+	ViewKind          string             `db:"view_kind" json:"view_kind"`
+	SourceType        string             `db:"source_type" json:"source_type"`
+	SourceID          string             `db:"source_id" json:"source_id"`
+	SourceRevision    string             `db:"source_revision" json:"source_revision"`
+	ReasonCode        string             `db:"reason_code" json:"reason_code"`
+	Outcome           string             `db:"outcome" json:"outcome"`
+	StrategyID        *string            `db:"strategy_id" json:"strategy_id"`
+	InstrumentID      *string            `db:"instrument_id" json:"instrument_id"`
+	ExchangeID        *string            `db:"exchange_id" json:"exchange_id"`
+	Side              *string            `db:"side" json:"side"`
+	Mode              *string            `db:"mode" json:"mode"`
+	CorrelationID     string             `db:"correlation_id" json:"correlation_id"`
+	CausationID       *string            `db:"causation_id" json:"causation_id"`
+	OccurredAt        pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	Details           []byte             `db:"details" json:"details"`
+	ProjectedAt       pgtype.Timestamptz `db:"projected_at" json:"projected_at"`
+	ReasonSummary     string             `db:"reason_summary" json:"reason_summary"`
+	ReasonExplanation string             `db:"reason_explanation" json:"reason_explanation"`
+	SuggestedAction   string             `db:"suggested_action" json:"suggested_action"`
+	Severity          string             `db:"severity" json:"severity"`
+	ReasonVersion     int64              `db:"reason_version" json:"reason_version"`
+	UnknownReason     interface{}        `db:"unknown_reason" json:"unknown_reason"`
+}
+
+type V1dActivityProjection struct {
+	ActivityRevision int64              `db:"activity_revision" json:"activity_revision"`
+	ID               string             `db:"id" json:"id"`
+	ViewKind         string             `db:"view_kind" json:"view_kind"`
+	SourceType       string             `db:"source_type" json:"source_type"`
+	SourceID         string             `db:"source_id" json:"source_id"`
+	SourceRevision   string             `db:"source_revision" json:"source_revision"`
+	ReasonCode       string             `db:"reason_code" json:"reason_code"`
+	Outcome          string             `db:"outcome" json:"outcome"`
+	StrategyID       *string            `db:"strategy_id" json:"strategy_id"`
+	InstrumentID     *string            `db:"instrument_id" json:"instrument_id"`
+	ExchangeID       *string            `db:"exchange_id" json:"exchange_id"`
+	Side             *string            `db:"side" json:"side"`
+	Mode             *string            `db:"mode" json:"mode"`
+	CorrelationID    string             `db:"correlation_id" json:"correlation_id"`
+	CausationID      *string            `db:"causation_id" json:"causation_id"`
+	OccurredAt       pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	Details          []byte             `db:"details" json:"details"`
+	ProjectedAt      pgtype.Timestamptz `db:"projected_at" json:"projected_at"`
+}
+
+type V1dAlertDeliveryAttempt struct {
+	ID          string             `db:"id" json:"id"`
+	DeliveryID  string             `db:"delivery_id" json:"delivery_id"`
+	AlertID     string             `db:"alert_id" json:"alert_id"`
+	SinkName    string             `db:"sink_name" json:"sink_name"`
+	Attempt     int32              `db:"attempt" json:"attempt"`
+	State       string             `db:"state" json:"state"`
+	ReasonCode  *string            `db:"reason_code" json:"reason_code"`
+	StartedAt   pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	LatencyMs   int64              `db:"latency_ms" json:"latency_ms"`
+}
+
+type V1dAlertEscalation struct {
+	ID          string             `db:"id" json:"id"`
+	AlertID     string             `db:"alert_id" json:"alert_id"`
+	Revision    int64              `db:"revision" json:"revision"`
+	ActorUserID string             `db:"actor_user_id" json:"actor_user_id"`
+	Reason      string             `db:"reason" json:"reason"`
+	EscalatedAt pgtype.Timestamptz `db:"escalated_at" json:"escalated_at"`
+}
+
+type V1dAlertRoute struct {
+	ID              string             `db:"id" json:"id"`
+	SinkName        string             `db:"sink_name" json:"sink_name"`
+	Enabled         bool               `db:"enabled" json:"enabled"`
+	MinimumSeverity string             `db:"minimum_severity" json:"minimum_severity"`
+	TargetLabel     string             `db:"target_label" json:"target_label"`
+	Revision        int64              `db:"revision" json:"revision"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1dAlertRouteTest struct {
+	ID          string             `db:"id" json:"id"`
+	CommandID   string             `db:"command_id" json:"command_id"`
+	RouteID     string             `db:"route_id" json:"route_id"`
+	AlertID     *string            `db:"alert_id" json:"alert_id"`
+	State       string             `db:"state" json:"state"`
+	RequestedBy string             `db:"requested_by" json:"requested_by"`
+	Reason      string             `db:"reason" json:"reason"`
+	RequestedAt pgtype.Timestamptz `db:"requested_at" json:"requested_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+}
+
+type V1dArtifactAccessEvent struct {
+	ID            string             `db:"id" json:"id"`
+	ArtifactID    string             `db:"artifact_id" json:"artifact_id"`
+	ActorUserID   string             `db:"actor_user_id" json:"actor_user_id"`
+	Action        string             `db:"action" json:"action"`
+	Reason        *string            `db:"reason" json:"reason"`
+	CorrelationID string             `db:"correlation_id" json:"correlation_id"`
+	OccurredAt    pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1dArtifactHold struct {
+	ID          string             `db:"id" json:"id"`
+	ArtifactID  string             `db:"artifact_id" json:"artifact_id"`
+	HoldType    string             `db:"hold_type" json:"hold_type"`
+	ReferenceID string             `db:"reference_id" json:"reference_id"`
+	Reason      string             `db:"reason" json:"reason"`
+	ActorUserID string             `db:"actor_user_id" json:"actor_user_id"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ReleasedAt  pgtype.Timestamptz `db:"released_at" json:"released_at"`
+	ReleasedBy  *string            `db:"released_by" json:"released_by"`
+}
+
+type V1dAuditChain struct {
+	ChainSequence     int64              `db:"chain_sequence" json:"chain_sequence"`
+	AuditEventID      string             `db:"audit_event_id" json:"audit_event_id"`
+	PreviousEventHash interface{}        `db:"previous_event_hash" json:"previous_event_hash"`
+	EventHash         interface{}        `db:"event_hash" json:"event_hash"`
+	RecordedAt        pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type V1dExportArtifact struct {
+	ID               string             `db:"id" json:"id"`
+	CommandID        string             `db:"command_id" json:"command_id"`
+	JobID            string             `db:"job_id" json:"job_id"`
+	OwnerUserID      string             `db:"owner_user_id" json:"owner_user_id"`
+	ResourceType     string             `db:"resource_type" json:"resource_type"`
+	ResourceID       string             `db:"resource_id" json:"resource_id"`
+	Format           string             `db:"format" json:"format"`
+	ContentType      string             `db:"content_type" json:"content_type"`
+	Content          *string            `db:"content" json:"content"`
+	ContentHash      interface{}        `db:"content_hash" json:"content_hash"`
+	SizeBytes        int64              `db:"size_bytes" json:"size_bytes"`
+	RedactionVersion string             `db:"redaction_version" json:"redaction_version"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ExpiresAt        pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	DeletedAt        pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DeletionReason   *string            `db:"deletion_reason" json:"deletion_reason"`
+}
+
+type V1dIncidentActivityLink struct {
+	IncidentID string             `db:"incident_id" json:"incident_id"`
+	ActivityID string             `db:"activity_id" json:"activity_id"`
+	LinkedBy   string             `db:"linked_by" json:"linked_by"`
+	LinkedAt   pgtype.Timestamptz `db:"linked_at" json:"linked_at"`
+}
+
+type V1dIncidentAlertLink struct {
+	IncidentID string             `db:"incident_id" json:"incident_id"`
+	AlertID    string             `db:"alert_id" json:"alert_id"`
+	LinkedBy   string             `db:"linked_by" json:"linked_by"`
+	LinkedAt   pgtype.Timestamptz `db:"linked_at" json:"linked_at"`
+}
+
+type V1dIncidentEvent struct {
+	ID               string             `db:"id" json:"id"`
+	IncidentID       string             `db:"incident_id" json:"incident_id"`
+	IncidentRevision int64              `db:"incident_revision" json:"incident_revision"`
+	EventType        string             `db:"event_type" json:"event_type"`
+	Actor            string             `db:"actor" json:"actor"`
+	Reason           string             `db:"reason" json:"reason"`
+	ReferenceType    *string            `db:"reference_type" json:"reference_type"`
+	ReferenceID      *string            `db:"reference_id" json:"reference_id"`
+	Detail           *string            `db:"detail" json:"detail"`
+	PreviousHash     interface{}        `db:"previous_hash" json:"previous_hash"`
+	EventHash        interface{}        `db:"event_hash" json:"event_hash"`
+	CorrelationID    string             `db:"correlation_id" json:"correlation_id"`
+	OccurredAt       pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1dIncidentReplayInput struct {
+	IncidentID     string             `db:"incident_id" json:"incident_id"`
+	DatasetID      string             `db:"dataset_id" json:"dataset_id"`
+	FirstOrdinal   int64              `db:"first_ordinal" json:"first_ordinal"`
+	LastOrdinal    int64              `db:"last_ordinal" json:"last_ordinal"`
+	SourceIdentity string             `db:"source_identity" json:"source_identity"`
+	LinkedBy       string             `db:"linked_by" json:"linked_by"`
+	LinkedAt       pgtype.Timestamptz `db:"linked_at" json:"linked_at"`
+}
+
+type V1dIncidentResolutionEvidence struct {
+	IncidentID   string             `db:"incident_id" json:"incident_id"`
+	Evidence     string             `db:"evidence" json:"evidence"`
+	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	RecordedBy   string             `db:"recorded_by" json:"recorded_by"`
+	RecordedAt   pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type V1dQualificationCatalogue struct {
+	ID                 string             `db:"id" json:"id"`
+	Name               string             `db:"name" json:"name"`
+	Kind               string             `db:"kind" json:"kind"`
+	DurationSeconds    *int64             `db:"duration_seconds" json:"duration_seconds"`
+	OwnerStartRequired bool               `db:"owner_start_required" json:"owner_start_required"`
+	AbortPermission    string             `db:"abort_permission" json:"abort_permission"`
+	Active             bool               `db:"active" json:"active"`
+	DefinitionRevision int64              `db:"definition_revision" json:"definition_revision"`
+	RecordedAt         pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type V1dQualificationRun struct {
+	ID                string             `db:"id" json:"id"`
+	QualificationID   string             `db:"qualification_id" json:"qualification_id"`
+	CommandID         string             `db:"command_id" json:"command_id"`
+	State             string             `db:"state" json:"state"`
+	Revision          int64              `db:"revision" json:"revision"`
+	SourceSha         string             `db:"source_sha" json:"source_sha"`
+	ConfigurationHash interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	ImageDigest       *string            `db:"image_digest" json:"image_digest"`
+	ServerIdentity    *string            `db:"server_identity" json:"server_identity"`
+	EvidenceReference *string            `db:"evidence_reference" json:"evidence_reference"`
+	StartedBy         string             `db:"started_by" json:"started_by"`
+	StartedAt         pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	FailureCode       *string            `db:"failure_code" json:"failure_code"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1dReasonCatalogue struct {
+	Code            string             `db:"code" json:"code"`
+	Version         int64              `db:"version" json:"version"`
+	Summary         string             `db:"summary" json:"summary"`
+	Explanation     string             `db:"explanation" json:"explanation"`
+	SuggestedAction string             `db:"suggested_action" json:"suggested_action"`
+	Severity        string             `db:"severity" json:"severity"`
+	Active          bool               `db:"active" json:"active"`
+	RecordedAt      pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+}
+
+type V1dReport struct {
+	ID              string             `db:"id" json:"id"`
+	JobID           string             `db:"job_id" json:"job_id"`
+	ScheduleID      *string            `db:"schedule_id" json:"schedule_id"`
+	ScheduledFor    pgtype.Timestamptz `db:"scheduled_for" json:"scheduled_for"`
+	ReportType      string             `db:"report_type" json:"report_type"`
+	State           string             `db:"state" json:"state"`
+	Mode            string             `db:"mode" json:"mode"`
+	ConfidenceTier  string             `db:"confidence_tier" json:"confidence_tier"`
+	ValuationBasis  string             `db:"valuation_basis" json:"valuation_basis"`
+	ModelProvenance []byte             `db:"model_provenance" json:"model_provenance"`
+	Maturity        string             `db:"maturity" json:"maturity"`
+	SourceIdentity  string             `db:"source_identity" json:"source_identity"`
+	SourceRevision  int64              `db:"source_revision" json:"source_revision"`
+	Content         []byte             `db:"content" json:"content"`
+	ContentHash     interface{}        `db:"content_hash" json:"content_hash"`
+	FailureCode     *string            `db:"failure_code" json:"failure_code"`
+	GeneratedAt     pgtype.Timestamptz `db:"generated_at" json:"generated_at"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	Revision        int64              `db:"revision" json:"revision"`
+}
+
+type V1dReportSchedule struct {
+	ID          string             `db:"id" json:"id"`
+	ReportType  string             `db:"report_type" json:"report_type"`
+	Frequency   string             `db:"frequency" json:"frequency"`
+	MinuteUtc   int32              `db:"minute_utc" json:"minute_utc"`
+	HourUtc     *int32             `db:"hour_utc" json:"hour_utc"`
+	WeekdayUtc  *int32             `db:"weekday_utc" json:"weekday_utc"`
+	State       string             `db:"state" json:"state"`
+	NextRunAt   pgtype.Timestamptz `db:"next_run_at" json:"next_run_at"`
+	LastRunAt   pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	Revision    int64              `db:"revision" json:"revision"`
+	OwnerUserID string             `db:"owner_user_id" json:"owner_user_id"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1dRiskControl struct {
+	ScopeType  string             `db:"scope_type" json:"scope_type"`
+	ScopeID    string             `db:"scope_id" json:"scope_id"`
+	State      string             `db:"state" json:"state"`
+	Revision   int64              `db:"revision" json:"revision"`
+	ReasonCode string             `db:"reason_code" json:"reason_code"`
+	UpdatedBy  string             `db:"updated_by" json:"updated_by"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type V1dRoleChangeEvent struct {
+	ID           string             `db:"id" json:"id"`
+	CommandID    string             `db:"command_id" json:"command_id"`
+	TargetUserID string             `db:"target_user_id" json:"target_user_id"`
+	PriorRoles   []string           `db:"prior_roles" json:"prior_roles"`
+	NewRoles     []string           `db:"new_roles" json:"new_roles"`
+	RoleRevision int64              `db:"role_revision" json:"role_revision"`
+	ActorUserID  string             `db:"actor_user_id" json:"actor_user_id"`
+	Reason       string             `db:"reason" json:"reason"`
+	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type V1dStoragePressureEvent struct {
+	ID                string             `db:"id" json:"id"`
+	ScopeID           string             `db:"scope_id" json:"scope_id"`
+	PriorLevel        *string            `db:"prior_level" json:"prior_level"`
+	Level             string             `db:"level" json:"level"`
+	AvailableBytes    int64              `db:"available_bytes" json:"available_bytes"`
+	TotalBytes        int64              `db:"total_bytes" json:"total_bytes"`
+	HighFreeBytes     int64              `db:"high_free_bytes" json:"high_free_bytes"`
+	CriticalFreeBytes int64              `db:"critical_free_bytes" json:"critical_free_bytes"`
+	Revision          int64              `db:"revision" json:"revision"`
+	ObservedAt        pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+	SourceInstance    string             `db:"source_instance" json:"source_instance"`
+	EvidenceHash      interface{}        `db:"evidence_hash" json:"evidence_hash"`
+}
+
+type V1dStoragePressureState struct {
+	ScopeID           string             `db:"scope_id" json:"scope_id"`
+	Level             string             `db:"level" json:"level"`
+	AvailableBytes    int64              `db:"available_bytes" json:"available_bytes"`
+	TotalBytes        int64              `db:"total_bytes" json:"total_bytes"`
+	HighFreeBytes     int64              `db:"high_free_bytes" json:"high_free_bytes"`
+	CriticalFreeBytes int64              `db:"critical_free_bytes" json:"critical_free_bytes"`
+	Revision          int64              `db:"revision" json:"revision"`
+	ObservedAt        pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+	SourceInstance    string             `db:"source_instance" json:"source_instance"`
+}
+
+type V1dStrategyControl struct {
+	StrategyID            string             `db:"strategy_id" json:"strategy_id"`
+	ConfiguredState       string             `db:"configured_state" json:"configured_state"`
+	RuntimeState          string             `db:"runtime_state" json:"runtime_state"`
+	BlockingPrerequisites []byte             `db:"blocking_prerequisites" json:"blocking_prerequisites"`
+	ConfigurationID       *string            `db:"configuration_id" json:"configuration_id"`
+	Revision              int64              `db:"revision" json:"revision"`
+	UpdatedBy             string             `db:"updated_by" json:"updated_by"`
+	UpdatedAt             pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type VirtualAccount struct {

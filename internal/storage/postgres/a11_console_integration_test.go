@@ -323,7 +323,11 @@ func a11QualificationDatabase(t *testing.T) (context.Context, context.CancelFunc
 		t.Fatalf("A11 migrations = %d %v", applied, applyErr)
 	}
 	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC)
-	seedD5NormalPressure(t, ctx, pool, now)
+	// The production pressure gate compares this row with the database wall
+	// clock. Keep the console/replay clock deterministic, but establish a fresh
+	// qualification-only NORMAL observation so the fixture does not age into a
+	// fail-closed state as the calendar advances.
+	seedD5NormalPressure(t, ctx, pool, time.Now().UTC())
 	return ctx, cancel, pool, now
 }
 

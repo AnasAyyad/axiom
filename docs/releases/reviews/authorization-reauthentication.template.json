@@ -1,0 +1,24 @@
+{
+  "schema_version": "axiom.v1.independent-review.v1",
+  "review_id": "CHANGE_ME",
+  "area": "authorization-reauthentication",
+  "source_sha": "0000000000000000000000000000000000000000",
+  "state": "PENDING",
+  "evidence": [],
+  "findings": [
+    {
+      "id": "CHANGE_ME",
+      "severity": "high",
+      "owner": "CHANGE_ME",
+      "evidence": "CHANGE_ME",
+      "remediation": "CHANGE_ME",
+      "closure_status": "open"
+    }
+  ],
+  "reviewer": { "id": "CHANGE_ME", "role": "authorization-reviewer", "independent": false },
+  "reviewed_at": "1970-01-01T00:00:00Z",
+  "valid_until": "1970-01-01T00:00:00Z",
+  "evidence_hash": "",
+  "signing_key_fingerprint": "",
+  "signature": ""
+}

@@ -46,8 +46,37 @@ jobs:
           corepack install --global pnpm@${PNPM_VERSION}
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: Audit locked JavaScript dependency graph
+        run: pnpm audit --audit-level=moderate
       - name: Run local-equivalent quality gate
         run: make verify
+
+  d6-certification:
+    name: D6 fail-closed certification and traceability
+    needs: [quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - name: Validate certification model and complete traceability
+        run: make d6-certification-model-qualify d6-traceability-qualify
+      - name: Prove final certification remains default-off
+        run: |
+          if make d6-final-certification; then
+            echo "default-off certification unexpectedly passed" >&2
+            exit 1
+          fi
 
   d2-browser:
     name: D2 Chromium, Firefox, WebKit, tablet, and mobile
@@ -335,13 +364,15 @@ jobs:
       - name: Inspect non-root minimal runtime
         run: |
           scripts/inspect-image.sh axiom:ci
-          test "$(docker image inspect --format '{{.Config.User}}' axiom-backup:ci)" = "10002:70"
-      - name: Prove reproducible runtime payload
+          scripts/inspect-backup-image.sh axiom-backup:ci
+      - name: Prove reproducible runtime payloads
         run: |
           mkdir -p artifacts
           make image-reproducibility IMAGE=axiom:ci REBUILD_IMAGE=axiom:ci-rebuild \
             VERSION=0.1.0-ci COMMIT=${GITHUB_SHA} BUILT_AT=ci DIRTY=false | \
             tee artifacts/image-reproducibility.txt
+          make backup-image-reproducibility BACKUP_IMAGE=axiom-backup:ci | \
+            tee artifacts/backup-image-reproducibility.txt
       - name: Walk through image-backed application setup
         run: make compose-smoke IMAGE=axiom:ci
       - name: Generate SPDX SBOM

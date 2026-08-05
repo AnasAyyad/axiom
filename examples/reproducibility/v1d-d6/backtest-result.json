@@ -1,0 +1,21 @@
+{
+  "schema_version": "axiom.example.research-result.v1",
+  "run_id": "example-backtest-negative",
+  "mode": "backtest",
+  "data_confidence": "synthetic-fixture",
+  "valuation_basis": "USDT synthetic midpoint",
+  "fee_model": "fixed 0.001 quote fraction",
+  "latency_model": "fixed 50ms",
+  "fill_model": "visible-depth only",
+  "sample_size": 4,
+  "uncertainty": "insufficient sample; not generalizable",
+  "maturity": "example-only",
+  "strategy_viability": "negative",
+  "platform_readiness": "not_assessed",
+  "profitability_evidence": false,
+  "source_sha": "0000000000000000000000000000000000000000",
+  "configuration_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "dataset_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "seed": "0",
+  "result_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}

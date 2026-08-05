@@ -48,7 +48,7 @@ test("real authenticated API drives the complete virtual research workflow", asy
   await page.getByRole("link", { name: "Backtest Lab" }).click();
   await fillRun(page, dataset);
   await page.getByRole("button", { name: "Launch backtest" }).click();
-  await expect(page.getByText("SUCCEEDED")).toBeVisible({ timeout: 120_000 });
+  await expect(jobState(page, "SUCCEEDED")).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText("single_run_incomplete")).toBeVisible();
   await expect(page.getByText("canonical_pipeline_completed")).toBeVisible();
   await expect(
@@ -69,11 +69,9 @@ test("real authenticated API drives the complete virtual research workflow", asy
   );
   await page.getByRole("button", { name: "Create replay" }).click();
   const replayID = ((await (await replayResponse).json()) as { id: string }).id;
-  await expect(page.getByText("RUNNING")).toBeVisible({ timeout: 15_000 });
+  await expect(jobState(page, "RUNNING")).toBeVisible({ timeout: 15_000 });
   await confirm(page, "pause", "pause");
-  await expect(
-    page.getByRole("main").getByText("PAUSED", { exact: true }),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(jobState(page, "PAUSED")).toBeVisible({ timeout: 15_000 });
   await page.goto(`/replays/${replayID}`);
   const pausedOrdinal = Number((await replaySnapshot(page, replayID)).ordinal);
   expect(pausedOrdinal).toBeGreaterThan(0);
@@ -88,11 +86,9 @@ test("real authenticated API drives the complete virtual research workflow", asy
     )
     .toBe(`PAUSED:${pausedOrdinal + 1}`);
   await page.goto(`/replays/${replayID}`);
-  await expect(
-    page.getByRole("main").getByText("PAUSED", { exact: true }),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(jobState(page, "PAUSED")).toBeVisible({ timeout: 15_000 });
   await confirm(page, "resume", "resume");
-  await expect(page.getByText("SUCCEEDED")).toBeVisible({ timeout: 120_000 });
+  await expect(jobState(page, "SUCCEEDED")).toBeVisible({ timeout: 120_000 });
   await expect(
     page.getByRole("heading", { name: "Exact event and decision inspection" }),
   ).toBeVisible();
@@ -109,7 +105,7 @@ test("real authenticated API drives the complete virtual research workflow", asy
   ).toBeVisible();
 
   await page.goto(`/shadow/${evidenceShadow}`);
-  await expect(page.getByText("CANCELED")).toBeVisible({ timeout: 15_000 });
+  await expect(shadowState(page, "CANCELED")).toBeVisible({ timeout: 15_000 });
   await expect(
     page.getByRole("table", { name: "Simulated orders and fills" }),
   ).toBeVisible();
@@ -155,7 +151,7 @@ test("real authenticated API drives the complete virtual research workflow", asy
   await page.getByRole("link", { name: "Prepare incident replay" }).click();
   await fillRun(page, dataset);
   await page.getByRole("button", { name: "Create replay" }).click();
-  await expect(page.getByText("SUCCEEDED")).toBeVisible({ timeout: 120_000 });
+  await expect(jobState(page, "SUCCEEDED")).toBeVisible({ timeout: 120_000 });
 
   await context.setOffline(true);
   await expect(page.getByText("reconnecting")).toBeVisible({ timeout: 20_000 });
@@ -174,7 +170,7 @@ test("real authenticated API drives the complete virtual research workflow", asy
   const liveShadowID = (
     (await (await liveShadowResponse).json()) as { id: string }
   ).id;
-  await expect(page.getByText("RUNNING")).toBeVisible({ timeout: 30_000 });
+  await expect(shadowState(page, "RUNNING")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("yes").first()).toBeVisible();
   await page.goto("/shadow");
   await page.getByLabel("Configuration ID").fill(configuration);
@@ -187,7 +183,7 @@ test("real authenticated API drives the complete virtual research workflow", asy
   });
   await stopShadow.click();
   await page.getByRole("button", { name: "Stop session" }).click();
-  await expect(page.getByText("CANCELED")).toBeVisible({ timeout: 30_000 });
+  await expect(shadowState(page, "CANCELED")).toBeVisible({ timeout: 30_000 });
   await expect(stopShadow).toBeFocused();
 
   if (!isMobile) {
@@ -210,10 +206,25 @@ test("real authenticated API drives the complete virtual research workflow", asy
 });
 
 async function fillRun(page: Page, datasetID: string) {
-  await page.getByLabel("Configuration ID").fill(configuration);
-  await page.getByLabel("Dataset ID").fill(datasetID);
+  await page.getByLabel("Configuration revision ID").fill(configuration);
+  await page.getByLabel("Approved dataset manifest ID").fill(datasetID);
   await page.getByLabel("Research generation ID").fill(generation);
-  await page.getByLabel("Root seed hash").fill(seed);
+  await page.getByLabel("Root seed SHA-256").fill(seed);
+}
+
+function jobState(page: Page, value: string) {
+  return metricValue(page, "Job state", value);
+}
+
+function shadowState(page: Page, value: string) {
+  return metricValue(page, "State", value);
+}
+
+function metricValue(page: Page, label: string, value: string) {
+  return page
+    .getByRole("article")
+    .filter({ has: page.getByText(label, { exact: true }) })
+    .getByText(value, { exact: true });
 }
 
 async function confirm(page: Page, trigger: string, confirmation: string) {

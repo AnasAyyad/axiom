@@ -192,8 +192,14 @@ func assertB1RoleGrants(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
 	roles := []string{"axiom_b1_runtime", "axiom_b1_recorder", "axiom_b1_readonly"}
 	for _, role := range roles {
-		if _, err := pool.Exec(ctx, "CREATE ROLE "+role); err != nil {
+		var exists bool
+		if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=$1)", role).Scan(&exists); err != nil {
 			t.Fatal(err)
+		}
+		if !exists {
+			if _, err := pool.Exec(ctx, "CREATE ROLE "+role); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	if err := ApplyRoleGrants(ctx, pool, roles[0], roles[1], roles[2]); err != nil {

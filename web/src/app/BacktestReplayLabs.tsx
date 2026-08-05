@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 
 import { getAPI, newIdempotencyKey, postAPI } from "../api/client";
 import { sessionQuery } from "../api/queries";
