@@ -418,4 +418,19 @@ SELECT state FROM sandbox_strategy_sessions WHERE id=$1`, command.ID).Scan(&chil
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM sandbox_strategy_session_accounts WHERE strategy_session_id=$1`, cross.ID).Scan(&childMembers); err != nil || childMembers != 2 {
 		t.Fatalf("cross child members=%d error=%v", childMembers, err)
 	}
+	if _, err = pool.Exec(ctx, `
+UPDATE sandbox_strategy_sessions
+SET state='running',started_at=$2,revision=revision+1
+WHERE id=$1`, cross.ID, cross.CreatedAt); err != nil {
+		t.Fatalf("cross session test start error=%v", err)
+	}
+	blocked, err := store.BlockExpiredStrategySessions(ctx, "v1c-engine-runtime-account", 1, cross.CreatedAt.Add(time.Second))
+	if err != nil || blocked != 1 {
+		t.Fatalf("expired strategy sessions=%d error=%v", blocked, err)
+	}
+	var blockingReason string
+	if err = pool.QueryRow(ctx, `
+SELECT state,blocking_reason FROM sandbox_strategy_sessions WHERE id=$1`, cross.ID).Scan(&childState, &blockingReason); err != nil || childState != "blocked" || blockingReason != "arm_expired_or_revoked" {
+		t.Fatalf("expired strategy state=%q reason=%q error=%v", childState, blockingReason, err)
+	}
 }

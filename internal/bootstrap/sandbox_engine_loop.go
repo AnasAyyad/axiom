@@ -223,6 +223,11 @@ func (loop sandboxEngineLoop) dispatch(
 	ctx context.Context,
 	eligible bool,
 ) error {
+	if _, err := loop.store.BlockExpiredStrategySessions(
+		ctx, loop.account.AccountID, loop.account.Epoch, time.Now().UTC(),
+	); err != nil {
+		return err
+	}
 	if !eligible {
 		return nil
 	}

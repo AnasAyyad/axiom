@@ -79,8 +79,11 @@ environment-scoped account epochs, then writes the armable parent and immutable
 strategy-account topology together; single-venue and paired Binance/Bybit
 topologies are covered by the dedicated PostgreSQL qualification path. The
 owner-facing start/stop commands are persisted separately and never contact an
-exchange. A server-resolved creation API and the strategy worker are not yet
-installed, so no automatic sandbox strategy session is currently operational.
+exchange. Each credential-owning engine blocks a running strategy session when
+its exact arm expires or is revoked, without interrupting cancellation,
+reconciliation, or risk-reducing recovery. A server-resolved creation API and
+the strategy worker are not yet installed, so no automatic sandbox strategy
+session is currently operational.
 
 ## V1D D6 repository certification
 
