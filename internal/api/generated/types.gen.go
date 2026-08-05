@@ -4701,9 +4701,13 @@ type GuidedDemonstrationPage struct {
 
 // GuidedDemonstrationResult defines model for GuidedDemonstrationResult.
 type GuidedDemonstrationResult struct {
-	Accepted          GuidedDemonstrationEvent `json:"accepted"`
-	ConfigurationHash string                   `json:"configuration_hash"`
-	Id                string                   `json:"id"`
+	Accepted GuidedDemonstrationEvent `json:"accepted"`
+
+	// AdvisoryEvidence Canonical JSON advisory evidence; present only for non-order-capable demonstrations
+	AdvisoryEvidence  *string `json:"advisory_evidence,omitempty"`
+	AdvisoryOnly      bool    `json:"advisory_only"`
+	ConfigurationHash string  `json:"configuration_hash"`
+	Id                string  `json:"id"`
 
 	// Metrics Canonical JSON metric payload; not profitability evidence
 	Metrics         string                   `json:"metrics"`

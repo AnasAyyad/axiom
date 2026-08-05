@@ -133,6 +133,8 @@ const guidedDemonstrationResult = z
     strategy_id: z.string().min(1),
     strategy_version: z.string().min(1),
     synthetic: z.literal(true),
+    advisory_only: z.boolean(),
+    advisory_evidence: z.string().min(2).optional(),
     configuration_hash: z.string().regex(/^[0-9a-f]{64}$/),
     accepted: guidedDemonstrationEvent,
     rejected: guidedDemonstrationEvent,

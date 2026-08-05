@@ -294,6 +294,8 @@ export interface components {
     };
     "GuidedDemonstrationResult": {
       "accepted": components["schemas"]["GuidedDemonstrationEvent"];
+      "advisory_evidence"?: string;
+      "advisory_only": boolean;
       "configuration_hash": string;
       "id": string;
       "metrics": string;

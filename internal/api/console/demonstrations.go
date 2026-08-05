@@ -51,7 +51,11 @@ func (handler *handler) guidedDemonstration(
 	accepted, acceptedErr := guidedDemonstrationEvent(result.Accepted)
 	rejected, rejectedErr := guidedDemonstrationEvent(result.Rejected)
 	metrics, metricsErr := json.Marshal(result.Metrics)
-	if acceptedErr != nil || rejectedErr != nil || metricsErr != nil {
+	advisoryEvidence, advisoryErr := canonicalDemonstrationPayload(result.AdvisoryEvidence)
+	if result.AdvisoryEvidence == nil {
+		advisoryEvidence, advisoryErr = "", nil
+	}
+	if acceptedErr != nil || rejectedErr != nil || metricsErr != nil || advisoryErr != nil {
 		handler.writeError(writer, request, http.StatusServiceUnavailable, "demonstration_unavailable", "Guided demonstration is unavailable")
 		return
 	}
@@ -59,7 +63,15 @@ func (handler *handler) guidedDemonstration(
 		Id: result.ID, StrategyId: result.StrategyID, StrategyVersion: result.StrategyVersion,
 		Synthetic: result.Synthetic, ConfigurationHash: result.ConfigurationHash,
 		Accepted: accepted, Rejected: rejected, Metrics: string(metrics), ResultHash: result.ResultHash,
+		AdvisoryOnly: result.AdvisoryOnly, AdvisoryEvidence: optionalString(advisoryEvidence),
 	})
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func guidedDemonstrationEvent(event backtest.EventResult) (generated.GuidedDemonstrationEvent, error) {

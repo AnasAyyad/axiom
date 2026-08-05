@@ -39,6 +39,8 @@ type Result struct {
 	StrategyID        string               `json:"strategy_id"`
 	StrategyVersion   string               `json:"strategy_version"`
 	Synthetic         bool                 `json:"synthetic"`
+	AdvisoryOnly      bool                 `json:"advisory_only"`
+	AdvisoryEvidence  json.RawMessage      `json:"advisory_evidence,omitempty"`
 	ConfigurationHash string               `json:"configuration_hash"`
 	Accepted          backtest.EventResult `json:"accepted"`
 	Rejected          backtest.EventResult `json:"rejected"`

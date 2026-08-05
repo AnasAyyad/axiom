@@ -2215,6 +2215,7 @@ components:
           strategy_id,
           strategy_version,
           synthetic,
+          advisory_only,
           configuration_hash,
           accepted,
           rejected,
@@ -2226,6 +2227,13 @@ components:
         strategy_id: { type: string, minLength: 1 }
         strategy_version: { type: string, minLength: 1 }
         synthetic: { type: boolean, const: true }
+        advisory_only: { type: boolean }
+        advisory_evidence:
+          {
+            type: string,
+            minLength: 2,
+            description: Canonical JSON advisory evidence; present only for non-order-capable demonstrations,
+          }
         configuration_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
         accepted: { $ref: "#/components/schemas/GuidedDemonstrationEvent" }
         rejected: { $ref: "#/components/schemas/GuidedDemonstrationEvent" }
