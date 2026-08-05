@@ -40,6 +40,20 @@ func TestA11OfflineRequestRequiresCompleteWindowAndSeed(t *testing.T) {
 	}
 }
 
+func TestA11OfflineRequestAcceptsOnlyInstalledStrategyRuntimes(t *testing.T) {
+	mean := []byte(`{"configuration_id":"configuration-b","dataset_id":"dataset-b","research_generation_id":"generation-b","root_seed_hash":"` +
+		strings.Repeat("b", 64) + `","strategy_version":"mean-reversion.v1b.1"}`)
+	request, err := decodeA11OfflineRequest("backtest", mean)
+	if err != nil || request.StrategyVersion != "mean-reversion.v1b.1" {
+		t.Fatalf("mean-reversion request = %#v %v", request, err)
+	}
+	unknown := []byte(`{"configuration_id":"configuration-c","dataset_id":"dataset-c","research_generation_id":"generation-c","root_seed_hash":"` +
+		strings.Repeat("c", 64) + `","strategy_version":"triangular-arbitrage.v1b.1"}`)
+	if _, err = decodeA11OfflineRequest("backtest", unknown); err == nil {
+		t.Fatal("uninstalled strategy runtime was accepted")
+	}
+}
+
 func TestA11RunManifestRequiresCleanEmbeddedBuildIdentity(t *testing.T) {
 	originalCommit, originalDirty := buildinfo.Commit, buildinfo.Dirty
 	originalGoSum, originalPNPM := buildinfo.GoSumHash, buildinfo.PNPMLockHash

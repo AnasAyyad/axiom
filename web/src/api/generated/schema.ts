@@ -534,7 +534,7 @@ export interface components {
       "dataset_id": string;
       "research_generation_id": string;
       "root_seed_hash": string;
-      "strategy_version": "trend.v1a.1";
+      "strategy_version": "trend.v1a.1" | "mean-reversion.v1b.1";
     };
     "OpportunityDetail": {
       "cost_attribution": Record<string, components["schemas"]["Decimal"]>;

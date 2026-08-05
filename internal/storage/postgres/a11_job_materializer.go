@@ -193,7 +193,7 @@ func (materializer *a11Materializer) loadInputs(ctx context.Context, request a11
 	}
 	var configuration config.Configuration
 	if json.Unmarshal(canonical, &configuration) != nil || config.Validate(configuration) != nil ||
-		a11SHA256(canonical) != configurationHash || configuration.Trend.StrategyVersion != request.StrategyVersion {
+		a11SHA256(canonical) != configurationHash || !a11ConfigurationMatchesStrategy(configuration, request.StrategyVersion) {
 		return a11DatasetInput{}, config.Configuration{}, "", fmt.Errorf("a11_job_configuration_invalid")
 	}
 	return dataset, configuration, configurationHash, nil
@@ -255,7 +255,7 @@ func decodeA11OfflineRequest(kind string, payload json.RawMessage) (a11OfflineRe
 	seed, err := hex.DecodeString(request.RootSeedHash)
 	if (kind != "backtest" && kind != "replay") || request.ConfigurationID == "" || request.DatasetID == "" ||
 		request.ResearchGenerationID == "" ||
-		request.StrategyVersion != "trend.v1a.1" || err != nil || len(seed) != sha256.Size {
+		!a11OfflineStrategySupported(request.StrategyVersion) || err != nil || len(seed) != sha256.Size {
 		return request, fmt.Errorf("a11_job_request_invalid")
 	}
 	if (request.FirstOrdinal == nil) != (request.LastOrdinal == nil) {
@@ -292,11 +292,26 @@ func a11RunManifest(jobID, kind string, request a11OfflineRequest, configuration
 	}{Asset: configuration.Portfolio.SettlementAsset, Quantity: configuration.Portfolio.StartingCapital.Value})
 	return backtest.RunManifest{RunID: runID, Mode: kind, CodeCommit: build.Commit,
 		Build: backtest.CurrentBuildIdentity([]string{"trimpath"}, build.GoSumHash, build.PNPMLockHash), Dataset: dataset,
-		ConfigurationHash: configurationHash, Seed: request.RootSeedHash,
+		ConfigurationHash: configurationHash, StrategyVersion: request.StrategyVersion, Seed: request.RootSeedHash,
 		ResearchGenerationID: request.ResearchGenerationID,
 		SchedulerVersion:     fmt.Sprintf("deterministic-scheduler-v1:%s:%d", timing, acceleration),
 		SerializationVersion: "canonical-json-v1",
 		Models:               namespace, StartingBalanceHash: a11SHA256(startingPayload)}, nil
+}
+
+func a11OfflineStrategySupported(value string) bool {
+	return value == "trend.v1a.1" || value == "mean-reversion.v1b.1"
+}
+
+func a11ConfigurationMatchesStrategy(configuration config.Configuration, version string) bool {
+	switch version {
+	case "trend.v1a.1":
+		return configuration.Trend.StrategyVersion == version
+	case "mean-reversion.v1b.1":
+		return configuration.MeanReversion.StrategyVersion == version
+	default:
+		return false
+	}
 }
 
 func a11JobTiming(kind string, speed *string) (replay.TimingMode, uint64, error) {

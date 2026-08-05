@@ -151,7 +151,7 @@ func newA11ShadowProcessor(claim postgresstore.A11ShadowClaim) (backtest.Process
 	seed := a11LocalHash([]byte("shadow-seed:" + claim.ID))
 	processor, err := newA11OperationalProcessorWithPortfolio(backtest.JobClaim{ID: claim.ID,
 		Configuration: claim.Configuration, Manifest: backtest.RunManifest{RunID: runID, Mode: "shadow",
-			ConfigurationHash: claim.ConfigurationHash, Seed: seed, Models: claim.Models}}, owned)
+			ConfigurationHash: claim.ConfigurationHash, StrategyVersion: "trend.v1a.1", Seed: seed, Models: claim.Models}}, owned)
 	if err != nil {
 		return nil, trend.Configuration{}, portfolio.Snapshot{}, err
 	}

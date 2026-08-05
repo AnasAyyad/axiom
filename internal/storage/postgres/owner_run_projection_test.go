@@ -49,12 +49,12 @@ func TestOwnerDataCatalogueUsesReadableNamesInsteadOfStorageIdentifiers(t *testi
 func TestOwnerRunProjectionUsesSemanticLabelsAndWaitingReasons(t *testing.T) {
 	now := time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
 	item, err := scanOwnerRun(ownerRunRow{values: []any{
-		"replay-123", "replay", "PAUSED", int64(7), now, now,
+		"replay-123", "replay", "PAUSED", int64(7), now, now, "mean-reversion-v1b-1",
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if item.StrategyId != "trend-following" || item.StrategyVersion != "trend-following@1.0.0" ||
+	if item.StrategyId != "mean-reversion" || item.StrategyVersion != "mean-reversion@1.0.0" ||
 		item.Environment != "recorded_data" || item.WaitingReason == nil {
 		t.Fatalf("semantic run projection=%+v", item)
 	}

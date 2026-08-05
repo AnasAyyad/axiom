@@ -184,7 +184,7 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	if role == "api" {
 		setup := setupA11Console(ctx, pool, runtimeConfig)
 		options.Dependency = setup.dependency
-		options.Phase = generated.HealthResponsePhaseA11
+		options.Phase = generated.A11
 		consoleOptions = setup.options
 	}
 	metrics, err := observability.NewMetrics(role, metricCatalog(product))

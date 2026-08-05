@@ -398,7 +398,7 @@ func a11E2EClaim(claim postgresstore.A11ShadowClaim) backtest.JobClaim {
 	runID, _ := domain.NewRunID(claim.RunID)
 	return backtest.JobClaim{ID: claim.ID, Configuration: claim.Configuration,
 		Manifest: backtest.RunManifest{RunID: runID, Mode: "shadow", ConfigurationHash: claim.ConfigurationHash,
-			Seed: a11LocalHash([]byte("shadow-seed:" + claim.ID)), Models: claim.Models}}
+			StrategyVersion: "trend.v1a.1", Seed: a11LocalHash([]byte("shadow-seed:" + claim.ID)), Models: claim.Models}}
 }
 
 func a11E2EPrincipal(t *testing.T, ctx context.Context, pool *pgxpool.Pool) authentication.Principal {

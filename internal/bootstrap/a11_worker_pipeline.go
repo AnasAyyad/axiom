@@ -20,6 +20,7 @@ import (
 	runtimecore "axiom/internal/runtime"
 	"axiom/internal/simulation"
 	postgresstore "axiom/internal/storage/postgres"
+	"axiom/internal/strategies/meanreversion"
 	"axiom/internal/strategies/trend"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,11 +56,21 @@ func newA11WorkerRoleWork(
 }
 
 func newA11OperationalProcessor(claim backtest.JobClaim) (backtest.Processor, error) {
-	return newA11OperationalProcessorWithPortfolio(claim, nil)
+	switch claim.Manifest.StrategyVersion {
+	case "trend.v1a.1":
+		return newA11OperationalProcessorWithPortfolio(claim, nil)
+	case "mean-reversion.v1b.1":
+		return newA11MeanReversionOperationalProcessor(claim)
+	default:
+		return nil, fmt.Errorf("a11_worker_strategy_runtime_unavailable")
+	}
 }
 
 func newA11OperationalProcessorWithPortfolio(claim backtest.JobClaim,
 	owned *portfolio.Portfolio) (backtest.Processor, error) {
+	if claim.Manifest.StrategyVersion != "trend.v1a.1" {
+		return nil, fmt.Errorf("a11_worker_strategy_runtime_unavailable")
+	}
 	components, err := newA11WorkerComponents(claim, owned)
 	if err != nil {
 		return nil, err
@@ -85,7 +96,8 @@ type a11WorkerComponents struct {
 }
 
 func newA11WorkerComponents(claim backtest.JobClaim, owned *portfolio.Portfolio) (a11WorkerComponents, error) {
-	if err := config.Validate(claim.Configuration); err != nil || claim.Configuration.Trend.StrategyVersion != "trend.v1a.1" {
+	if err := config.Validate(claim.Configuration); err != nil || claim.Manifest.StrategyVersion != "trend.v1a.1" ||
+		claim.Configuration.Trend.StrategyVersion != "trend.v1a.1" {
 		return a11WorkerComponents{}, fmt.Errorf("a11_worker_configuration_invalid")
 	}
 	configuredTrend, err := trend.NewConfiguration(claim.Configuration.Trend)
@@ -175,6 +187,110 @@ func newA11OfflinePortfolio(claim backtest.JobClaim) (*portfolio.Portfolio, erro
 		return nil, err
 	}
 	return portfolio.InitializeTrend(claim.Manifest.RunID, portfolioID, accountID, claim.Manifest.ConfigurationHash,
+		capital, accounting.NewMemoryJournal(), domain.EventTime{UTC: time.Unix(0, 1).UTC(), Sequence: 1})
+}
+
+// newA11MeanReversionOperationalProcessor installs the existing B3 evaluator
+// into the same durable allocator, risk, planner, simulation, and accounting
+// path as Trend. The immutable manifest selects it; configuration presence on
+// its own is not enough because a V1B graph can contain several strategies.
+func newA11MeanReversionOperationalProcessor(claim backtest.JobClaim) (backtest.Processor, error) {
+	if err := config.Validate(claim.Configuration); err != nil ||
+		claim.Manifest.StrategyVersion != "mean-reversion.v1b.1" ||
+		claim.Configuration.MeanReversion.StrategyVersion != "mean-reversion.v1b.1" {
+		return nil, fmt.Errorf("a11_mean_reversion_configuration_invalid")
+	}
+	configured, err := meanreversion.NewConfiguration(claim.Configuration.MeanReversion)
+	if err != nil {
+		return nil, err
+	}
+	evaluator, err := meanreversion.NewEvaluator(configured)
+	if err != nil {
+		return nil, err
+	}
+	adapter, err := meanreversion.NewAdapter(evaluator)
+	if err != nil {
+		return nil, err
+	}
+	owned, err := newA11MeanReversionOfflinePortfolio(claim)
+	if err != nil {
+		return nil, err
+	}
+	registry := portfolio.NewAssetRegistry()
+	liquidity := portfolio.NewLiquidityPool()
+	availableDepth, _ := domain.ParseQuantity("1000000000")
+	if err = liquidity.Open(claim.Manifest.Models.LiquidityDomain, availableDepth); err != nil {
+		return nil, err
+	}
+	allocator, err := portfolio.NewAllocator(owned, registry, liquidity)
+	if err != nil {
+		return nil, err
+	}
+	pipelineAllocator, err := portfolio.NewPipelineAllocator(allocator)
+	if err != nil {
+		return nil, err
+	}
+	inputs := &a11MeanReversionInputContext{}
+	riskEngine, err := risk.NewEngine(&a11RunRiskAudit{}, a11RunRiskAlerts{})
+	if err != nil {
+		return nil, err
+	}
+	recoveryAt := time.Unix(0, 1).UTC()
+	if err = riskEngine.ManualTransition(risk.StateNormal, risk.RecoveryEvidence{Reconciled: true,
+		PersistenceHealthy: true, BooksFresh: true, UnknownOrdersResolved: true, Reauthenticated: true,
+		AuditDurable: true, Actor: "offline-worker", Reason: "verified immutable replay inputs", At: recoveryAt}); err != nil {
+		return nil, err
+	}
+	vault := portfolio.NewApprovalVault()
+	pipelineRisk, err := risk.NewPipelineEngine(riskEngine, vault, registry, inputs)
+	if err != nil {
+		return nil, err
+	}
+	strategyPlanner, err := meanreversion.NewPlanner(claim.Manifest.Mode, claim.Manifest.Models.LiquidityDomain, adapter)
+	if err != nil {
+		return nil, err
+	}
+	planner, err := portfolio.NewEligibilityPlanner(strategyPlanner, vault, registry)
+	if err != nil {
+		return nil, err
+	}
+	guard, err := portfolio.NewBrokerGuard(owned, registry)
+	if err != nil {
+		return nil, err
+	}
+	broker, err := newA11MeanReversionDynamicBroker(claim, inputs, guard)
+	if err != nil {
+		return nil, err
+	}
+	pipeline, err := backtest.NewPipelineProcessor(backtest.PipelineDependencies{Strategy: adapter,
+		Allocator: pipelineAllocator, Risk: pipelineRisk, Planner: planner, Broker: broker,
+		Reduce: pipelineAllocator.ReduceSimulation, Metrics: func() backtest.Metrics { return backtest.Metrics{} }})
+	if err != nil {
+		return nil, err
+	}
+	operational, err := meanreversion.NewOperationalProcessor(evaluator, pipeline, func() (json.RawMessage, error) {
+		return json.Marshal(owned.Snapshot())
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &a11MeanReversionInputAwareProcessor{inputs: inputs, delegate: operational}, nil
+}
+
+func newA11MeanReversionOfflinePortfolio(claim backtest.JobClaim) (*portfolio.Portfolio, error) {
+	portfolioID, err := domain.NewPortfolioID("offline-portfolio-" + claim.ID)
+	if err != nil {
+		return nil, err
+	}
+	accountID, err := domain.NewVirtualAccountID("offline-account-" + claim.ID)
+	if err != nil {
+		return nil, err
+	}
+	capital, err := domain.ParseBalance(claim.Configuration.Portfolio.StartingCapital.Value)
+	if err != nil {
+		return nil, err
+	}
+	return portfolio.InitializeMeanReversion(claim.Manifest.RunID, portfolioID, accountID, claim.Manifest.ConfigurationHash,
 		capital, accounting.NewMemoryJournal(), domain.EventTime{UTC: time.Unix(0, 1).UTC(), Sequence: 1})
 }
 
@@ -353,6 +469,169 @@ func (metadata a11InputMetadata) Metadata(state simulation.BookState) (domain.In
 	return metadata.input.Sizing.InstrumentMetadata, nil
 }
 
+type a11MeanReversionInputAwareProcessor struct {
+	inputs   *a11MeanReversionInputContext
+	delegate backtest.Processor
+}
+
+func (processor *a11MeanReversionInputAwareProcessor) Process(ctx context.Context, event replay.Event) (backtest.EventResult, error) {
+	var input meanreversion.Input
+	if json.Unmarshal(event.Canonical, &input) != nil || processor.inputs.Set(input) != nil {
+		return backtest.EventResult{}, fmt.Errorf("a11_mean_reversion_input_invalid")
+	}
+	return processor.delegate.Process(ctx, event)
+}
+
+func (processor *a11MeanReversionInputAwareProcessor) Metrics() backtest.Metrics {
+	return processor.delegate.Metrics()
+}
+
+// a11MeanReversionInputContext makes the event's immutable B3 evidence the
+// sole source for risk and simulation. It intentionally does not derive a
+// substitute candle, book, or model from live transport.
+type a11MeanReversionInputContext struct {
+	mutex sync.RWMutex
+	input meanreversion.Input
+	set   bool
+}
+
+func (inputs *a11MeanReversionInputContext) Set(input meanreversion.Input) error {
+	if input.Ordinal == 0 || input.LogicalTime == 0 || input.Now.IsZero() || input.Now.Location() != time.UTC ||
+		input.Instrument.Product != domain.ProductSpot || input.Sizing.InstrumentMetadata.Instrument != input.Instrument ||
+		input.Evidence.MarketViewRevision == 0 || input.Evidence.PrimaryCandleViewRevision == 0 ||
+		input.Evidence.HigherCandleViewRevision == 0 {
+		return fmt.Errorf("a11_mean_reversion_input_invalid")
+	}
+	inputs.mutex.Lock()
+	inputs.input, inputs.set = input, true
+	inputs.mutex.Unlock()
+	return nil
+}
+
+func (inputs *a11MeanReversionInputContext) current() (meanreversion.Input, error) {
+	inputs.mutex.RLock()
+	defer inputs.mutex.RUnlock()
+	if !inputs.set {
+		return meanreversion.Input{}, fmt.Errorf("a11_mean_reversion_input_unavailable")
+	}
+	return inputs.input, nil
+}
+
+func (inputs *a11MeanReversionInputContext) Current() (risk.Observations, []risk.Policy, time.Time, error) {
+	input, err := inputs.current()
+	if err != nil {
+		return risk.Observations{}, nil, time.Time{}, fmt.Errorf("a11_mean_reversion_risk_input_unavailable")
+	}
+	zero := a11Percent("0")
+	one := a11Percent("1")
+	openOrders, quality := uint32(0), uint8(100)
+	queueLag, clockDrift := time.Duration(0), time.Duration(0)
+	problem := !input.MarketHealthy || !input.MarketDataQualityPass || input.ExchangeRiskPaused
+	policy := risk.DefaultGlobalPolicy()
+	policy.State = risk.StateNormal
+	observations := risk.Observations{AccountDrawdown: &zero, UTCDayLoss: &zero, Rolling24HourLoss: &zero,
+		StrategyLoss: &zero, AssetExposure: &zero, CombinedExposure: &zero, ExchangeExposure: &zero,
+		Reserve: &one, ReservedCapital: &zero, Spread: &input.Spread, Slippage: &zero, OpenOrders: &openOrders,
+		BookAge: &input.BookAge, QueueLag: &queueLag, ClockDrift: &clockDrift, QualityScore: &quality,
+		Health: risk.HealthInputs{Gap: &problem, StaleData: &problem, ReconciliationFault: &problem,
+			AccountingFault: &problem, UnknownOrder: &problem, PersistenceFault: &problem,
+			DiskFault: &problem, APIError: &problem, LeaseLost: &problem}}
+	return observations, []risk.Policy{policy}, input.Now, nil
+}
+
+type a11MeanReversionDynamicBroker struct {
+	claim      backtest.JobClaim
+	inputs     *a11MeanReversionInputContext
+	guard      simulation.BoundaryGuard
+	randomness *runtimecore.Randomness
+	liquidity  *simulation.LiquidityLedger
+}
+
+func newA11MeanReversionDynamicBroker(claim backtest.JobClaim, inputs *a11MeanReversionInputContext,
+	guard simulation.BoundaryGuard) (*a11MeanReversionDynamicBroker, error) {
+	seed, err := hex.DecodeString(claim.Manifest.Seed)
+	if err != nil {
+		return nil, fmt.Errorf("a11_worker_seed_invalid")
+	}
+	randomness, err := runtimecore.NewRandomness(seed)
+	if err != nil {
+		return nil, err
+	}
+	return &a11MeanReversionDynamicBroker{claim: claim, inputs: inputs, guard: guard, randomness: randomness,
+		liquidity: simulation.NewLiquidityLedger()}, nil
+}
+
+func (broker *a11MeanReversionDynamicBroker) Submit(ctx context.Context, plan execution.SimulatedPlan) ([]execution.OrderEvent, error) {
+	input, err := broker.inputs.current()
+	if err != nil || input.Evidence.FeeModelID != broker.claim.Configuration.Models.Fee ||
+		input.Evidence.LatencyModelID != broker.claim.Configuration.Models.Latency {
+		return nil, fmt.Errorf("a11_simulation_model_mismatch")
+	}
+	models, err := a11MeanReversionBrokerModels(input, broker.claim.Manifest.Models)
+	if err != nil {
+		return nil, err
+	}
+	simulated, err := simulation.NewBroker(broker.randomness, a11MeanReversionInputTimeline{input: input},
+		a11MeanReversionInputMetadata{input: input}, broker.guard, broker.liquidity, models)
+	if err != nil {
+		return nil, err
+	}
+	events, err := simulated.Submit(ctx, plan)
+	if err != nil {
+		return nil, err
+	}
+	for index := range events {
+		events[index].OccurredAt = input.Now.Add(time.Duration(index) * time.Nanosecond)
+	}
+	return events, nil
+}
+
+func (broker *a11MeanReversionDynamicBroker) Cancel(context.Context, domain.VirtualOrderID, string) ([]execution.OrderEvent, error) {
+	return nil, fmt.Errorf("a11_simulation_order_not_active")
+}
+
+func a11MeanReversionBrokerModels(input meanreversion.Input, namespace backtest.ModelNamespace) (simulation.BrokerModels, error) {
+	if namespace.FillDomain == "" || input.Evidence.FillModelID != namespace.FillDomain ||
+		input.Evidence.LatencyModelID != "fixed-zero-v1" {
+		return simulation.BrokerModels{}, fmt.Errorf("a11_simulation_model_mismatch")
+	}
+	zeroRate, _ := domain.ParseRate("0")
+	zeroPercent, _ := domain.ParsePercent("0")
+	onePercent, _ := domain.ParsePercent("1")
+	return simulation.BrokerModels{
+		Fee: simulation.FeeModel{Version: input.Evidence.FeeModelID, TakerRate: input.Sizing.EntryFeeRate,
+			MakerRate: zeroRate, RebateRate: zeroRate, DecimalScale: 18},
+		Price: simulation.PriceModel{Version: "recorded-first-executable-v1", Spread: zeroPercent,
+			Slippage: zeroPercent, Impact: zeroPercent, AdverseSelection: zeroPercent, DecimalScale: 18},
+		Latency: simulation.LatencyModel{Version: input.Evidence.LatencyModelID, Samples: []time.Duration{0}},
+		Fill:    simulation.FillModel{Version: input.Evidence.FillModelID, PartialRatio: onePercent, QuantityScale: 18},
+	}, nil
+}
+
+type a11MeanReversionInputTimeline struct{ input meanreversion.Input }
+
+func (timeline a11MeanReversionInputTimeline) AtOrAfter(instrument domain.Instrument, logical uint64) (simulation.BookState, bool, error) {
+	if instrument != timeline.input.Instrument || timeline.input.Sizing.FirstExecutablePrice.String() == "0" {
+		return simulation.BookState{}, false, nil
+	}
+	quantity, _ := domain.ParseQuantity("1000000000")
+	level := exchangecontracts.PriceLevel{Price: timeline.input.Sizing.FirstExecutablePrice, Quantity: quantity}
+	if logical <= timeline.input.LogicalTime {
+		logical = timeline.input.LogicalTime + 1
+	}
+	return simulation.BookState{Exchange: "binance", Instrument: instrument, Version: timeline.input.Evidence.MarketViewRevision,
+		LogicalTime: logical, Bids: []exchangecontracts.PriceLevel{level}, Asks: []exchangecontracts.PriceLevel{level}}, true, nil
+}
+
+type a11MeanReversionInputMetadata struct{ input meanreversion.Input }
+
+func (metadata a11MeanReversionInputMetadata) Metadata(state simulation.BookState) (domain.InstrumentMetadata, error) {
+	if state.Instrument != metadata.input.Instrument {
+		return domain.InstrumentMetadata{}, fmt.Errorf("a11_metadata_identity_mismatch")
+	}
+	return metadata.input.Sizing.InstrumentMetadata, nil
+}
+
 type a11RunRiskAudit struct{}
 
 // Append accepts the deterministic run-local transition captured by the run output.
@@ -366,3 +645,6 @@ func (a11RunRiskAlerts) Emit(string, risk.Action, risk.State) error { return nil
 var _ execution.Broker = (*a11DynamicBroker)(nil)
 var _ risk.ObservationProvider = (*a11DecisionInputContext)(nil)
 var _ backtest.Processor = (*a11InputAwareProcessor)(nil)
+var _ execution.Broker = (*a11MeanReversionDynamicBroker)(nil)
+var _ risk.ObservationProvider = (*a11MeanReversionInputContext)(nil)
+var _ backtest.Processor = (*a11MeanReversionInputAwareProcessor)(nil)

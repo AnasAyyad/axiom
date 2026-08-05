@@ -93,18 +93,23 @@ func CurrentBuildIdentity(flags []string, goSumHash, pnpmLockHash string) BuildI
 
 // RunManifest is the complete immutable reproducibility identity for one run.
 type RunManifest struct {
-	RunID                domain.RunID      `json:"run_id"`
-	Mode                 string            `json:"mode"`
-	CodeCommit           string            `json:"code_commit"`
-	Build                BuildIdentity     `json:"build"`
-	Dataset              DatasetDescriptor `json:"dataset"`
-	ConfigurationHash    string            `json:"configuration_hash"`
-	ResearchGenerationID string            `json:"research_generation_id,omitempty"`
-	Seed                 string            `json:"seed"`
-	SchedulerVersion     string            `json:"scheduler_version"`
-	SerializationVersion string            `json:"serialization_version"`
-	Models               ModelNamespace    `json:"models"`
-	StartingBalanceHash  string            `json:"starting_balance_hash"`
+	RunID             domain.RunID      `json:"run_id"`
+	Mode              string            `json:"mode"`
+	CodeCommit        string            `json:"code_commit"`
+	Build             BuildIdentity     `json:"build"`
+	Dataset           DatasetDescriptor `json:"dataset"`
+	ConfigurationHash string            `json:"configuration_hash"`
+	// StrategyVersion binds this result to the exact shared runtime that
+	// interpreted its recorded decision inputs. It is optional for historical
+	// manifests so legacy evidence remains readable, but new materialized jobs
+	// must set it before a worker will run them.
+	StrategyVersion      string         `json:"strategy_version,omitempty"`
+	ResearchGenerationID string         `json:"research_generation_id,omitempty"`
+	Seed                 string         `json:"seed"`
+	SchedulerVersion     string         `json:"scheduler_version"`
+	SerializationVersion string         `json:"serialization_version"`
+	Models               ModelNamespace `json:"models"`
+	StartingBalanceHash  string         `json:"starting_balance_hash"`
 }
 
 // CanonicalHash validates and hashes the canonical manifest representation.

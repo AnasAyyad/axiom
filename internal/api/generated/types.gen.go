@@ -1432,12 +1432,15 @@ func (e ManualChecklistStepManualOnly) Valid() bool {
 
 // Defines values for OfflineJobRequestStrategyVersion.
 const (
-	OfflineJobRequestStrategyVersionTrendV1a1 OfflineJobRequestStrategyVersion = "trend.v1a.1"
+	OfflineJobRequestStrategyVersionMeanReversionV1b1 OfflineJobRequestStrategyVersion = "mean-reversion.v1b.1"
+	OfflineJobRequestStrategyVersionTrendV1a1         OfflineJobRequestStrategyVersion = "trend.v1a.1"
 )
 
 // Valid indicates whether the value is a known member of the OfflineJobRequestStrategyVersion enum.
 func (e OfflineJobRequestStrategyVersion) Valid() bool {
 	switch e {
+	case OfflineJobRequestStrategyVersionMeanReversionV1b1:
+		return true
 	case OfflineJobRequestStrategyVersionTrendV1a1:
 		return true
 	default:
@@ -1924,12 +1927,15 @@ func (e ReplayJobRequestSpeed) Valid() bool {
 
 // Defines values for ReplayJobRequestStrategyVersion.
 const (
-	ReplayJobRequestStrategyVersionTrendV1a1 ReplayJobRequestStrategyVersion = "trend.v1a.1"
+	ReplayJobRequestStrategyVersionMeanReversionV1b1 ReplayJobRequestStrategyVersion = "mean-reversion.v1b.1"
+	ReplayJobRequestStrategyVersionTrendV1a1         ReplayJobRequestStrategyVersion = "trend.v1a.1"
 )
 
 // Valid indicates whether the value is a known member of the ReplayJobRequestStrategyVersion enum.
 func (e ReplayJobRequestStrategyVersion) Valid() bool {
 	switch e {
+	case ReplayJobRequestStrategyVersionMeanReversionV1b1:
+		return true
 	case ReplayJobRequestStrategyVersionTrendV1a1:
 		return true
 	default:

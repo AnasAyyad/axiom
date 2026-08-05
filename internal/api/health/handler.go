@@ -100,7 +100,7 @@ func detailed(options Options) http.HandlerFunc {
 func liveness(options Options) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
-			Status: generated.Live,
+			Status: generated.HealthResponseStatusLive,
 			Role:   options.Role,
 			Phase:  responsePhase(options),
 		})
@@ -120,13 +120,13 @@ func readiness(options Options) http.HandlerFunc {
 		}
 		if reason != "" {
 			writeJSON(writer, http.StatusServiceUnavailable, generated.HealthResponse{
-				Status: generated.NotReady, Role: options.Role,
+				Status: generated.HealthResponseStatusNotReady, Role: options.Role,
 				Phase: responsePhase(options), ReasonCode: &reason,
 			})
 			return
 		}
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
-			Status: generated.Ready, Role: options.Role, Phase: responsePhase(options),
+			Status: generated.HealthResponseStatusReady, Role: options.Role, Phase: responsePhase(options),
 		})
 	}
 }
@@ -139,7 +139,7 @@ func responsePhase(options Options) generated.HealthResponsePhase {
 	if options.Phase.Valid() {
 		return options.Phase
 	}
-	return generated.HealthResponsePhaseA1
+	return generated.A1
 }
 
 func version(options Options) http.HandlerFunc {
@@ -164,9 +164,20 @@ func status(options Options) http.HandlerFunc {
 		if options.Lifecycle != nil {
 			state = options.Lifecycle()
 		}
+		readiness := generated.SystemStatusReadinessStateBlocked
+		if lifecycleReady(options) {
+			readiness = generated.SystemStatusReadinessStateReady
+		}
+		version, commit := options.Build.Version, options.Build.Commit
+		if version == "" {
+			version = "unavailable"
+		}
+		if commit == "" {
+			commit = "unavailable"
+		}
 		writeJSON(writer, http.StatusOK, generated.SystemStatus{
-			Release: generated.V1A, Phase: generated.SystemStatusPhaseA1,
-			Role: options.Role, LifecycleState: state,
+			ApplicationVersion: version, BuildCommit: commit, ConfigurationIdentity: "not-projected",
+			ReadinessState: readiness, LifecycleState: state,
 			StrategyActivation: generated.SystemStatusStrategyActivationUnavailable,
 			RealTradingEnabled: generated.SystemStatusRealTradingEnabled(false),
 		})

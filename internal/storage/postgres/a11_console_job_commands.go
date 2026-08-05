@@ -147,8 +147,11 @@ func a11JobReferences(request any) (string, string, string, string, bool) {
 }
 
 func a11StrategyVersionID(value string) string {
-	if value == "trend.v1a.1" {
+	switch value {
+	case "trend.v1a.1":
 		return "trend-v1a-1"
+	case "mean-reversion.v1b.1":
+		return "mean-reversion-v1b-1"
 	}
 	return value
 }

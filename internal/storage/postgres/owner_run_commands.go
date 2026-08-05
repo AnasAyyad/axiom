@@ -38,28 +38,26 @@ func (store *A11ConsoleStore) CreateRun(
 		return generated.RunResource{}, console.ErrPrecondition
 	}
 
-	// The existing durable materializer is the production Trend implementation.
-	// Do not route another strategy's input into it merely because its semantic
-	// metadata is visible in the catalogue.
-	if request.StrategyId != "trend-following" || request.StrategyVersion != "trend-following@1.0.0" {
-		return generated.RunResource{}, console.NewWorkflowBlocker("STRATEGY_RUNTIME_UNAVAILABLE",
-			"That strategy is not runnable in this build yet.",
-			"Its semantic catalogue record exists, but its shared durable materializer has not been installed.",
-			"No run was created and no order-capable path was reached.",
-			"Choose Trend Following or wait for this strategy's shared runtime to be installed.",
-			"runtime not installed", "shared materializer installed", "strategy runtime")
-	}
 	if len(request.Exchanges) != 1 {
 		return generated.RunResource{}, console.NewWorkflowBlocker("EXCHANGE_SELECTION_UNSUPPORTED",
 			"Choose one exchange for this run.",
-			"The currently installed durable Trend workflow evaluates one exchange at a time.",
+			"The installed durable workflow evaluates one exchange at a time.",
 			"No run was created.", "Choose one exchange shown by the catalogue.",
 			"multiple exchanges", "one approved exchange", "single-venue runtime")
 	}
 	exchange := string(request.Exchanges[0])
 	switch request.Mode {
 	case generated.RunCreateRequestModeBacktest, generated.RunCreateRequestModeReplay:
-		configurationID, datasetID, generationID, resolveErr := store.resolveOwnerOfflineInputs(ctx, exchange, request.Instrument)
+		offline, installed := ownerOfflineStrategy(request.StrategyId, request.StrategyVersion)
+		if !installed {
+			return generated.RunResource{}, console.NewWorkflowBlocker("STRATEGY_RUNTIME_UNAVAILABLE",
+				"That strategy is not runnable in this mode yet.",
+				"Its semantic catalogue record exists, but its shared durable offline runtime has not been installed.",
+				"No run was created and no order-capable path was reached.",
+				"Choose Trend Following or Mean Reversion for a recorded-data run, or wait for this runtime to be installed.",
+				"offline runtime not installed", "shared offline runtime installed", "strategy runtime")
+		}
+		configurationID, datasetID, generationID, resolveErr := store.resolveOwnerOfflineInputs(ctx, offline.storageID, exchange, request.Instrument)
 		if resolveErr != nil {
 			return generated.RunResource{}, resolveErr
 		}
@@ -70,7 +68,7 @@ func (store *A11ConsoleStore) CreateRun(
 		if request.Mode == generated.RunCreateRequestModeBacktest {
 			job, createErr := store.CreateJob(ctx, principal, "backtest", key, generated.OfflineJobRequest{
 				ConfigurationId: configurationID, DatasetId: datasetID, ResearchGenerationId: generationID,
-				RootSeedHash: seed, StrategyVersion: generated.OfflineJobRequestStrategyVersionTrendV1a1,
+				RootSeedHash: seed, StrategyVersion: offline.version,
 			})
 			if createErr != nil {
 				return generated.RunResource{}, createErr
@@ -79,13 +77,20 @@ func (store *A11ConsoleStore) CreateRun(
 		}
 		job, createErr := store.CreateJob(ctx, principal, "replay", key, generated.ReplayJobRequest{
 			ConfigurationId: configurationID, DatasetId: datasetID, ResearchGenerationId: generationID,
-			RootSeedHash: seed, StrategyVersion: generated.ReplayJobRequestStrategyVersionTrendV1a1,
+			RootSeedHash: seed, StrategyVersion: generated.ReplayJobRequestStrategyVersion(offline.version),
 		})
 		if createErr != nil {
 			return generated.RunResource{}, createErr
 		}
 		return store.Run(ctx, job.Id)
 	case generated.RunCreateRequestModeShadow:
+		if request.StrategyId != "trend-following" || request.StrategyVersion != "trend-following@1.0.0" {
+			return generated.RunResource{}, console.NewWorkflowBlocker("STRATEGY_RUNTIME_UNAVAILABLE",
+				"That strategy does not have a public-shadow worker yet.",
+				"Public shadow is not substituted with a recorded-data worker or a different strategy evaluator.",
+				"No shadow session was created.", "Choose Trend Following or wait for this public-shadow worker.",
+				"public-shadow runtime not installed", "public-shadow runtime installed", "strategy runtime")
+		}
 		if exchange != "binance" {
 			return generated.RunResource{}, console.NewWorkflowBlocker("PUBLIC_SHADOW_EXCHANGE_UNAVAILABLE",
 				"Public shadow is currently available on Binance only.",
@@ -114,6 +119,22 @@ func (store *A11ConsoleStore) CreateRun(
 	}
 }
 
+type ownerOfflineRuntime struct {
+	storageID string
+	version   generated.OfflineJobRequestStrategyVersion
+}
+
+func ownerOfflineStrategy(id, version string) (ownerOfflineRuntime, bool) {
+	switch id + "@" + version {
+	case "trend-following@trend-following@1.0.0":
+		return ownerOfflineRuntime{storageID: "trend-v1a-1", version: generated.OfflineJobRequestStrategyVersionTrendV1a1}, true
+	case "mean-reversion@mean-reversion@1.0.0":
+		return ownerOfflineRuntime{storageID: "mean-reversion-v1b-1", version: generated.OfflineJobRequestStrategyVersionMeanReversionV1b1}, true
+	default:
+		return ownerOfflineRuntime{}, false
+	}
+}
+
 func ownerRunSelection(request generated.RunCreateRequest) (runs.Selection, error) {
 	exchanges := make([]runs.Exchange, 0, len(request.Exchanges))
 	for _, exchange := range request.Exchanges {
@@ -128,7 +149,7 @@ func ownerRunSelection(request generated.RunCreateRequest) (runs.Selection, erro
 
 func (store *A11ConsoleStore) resolveOwnerOfflineInputs(
 	ctx context.Context,
-	exchange, instrument string,
+	strategyID, exchange, instrument string,
 ) (string, string, string, error) {
 	base, quote, ok := ownerRunInstrument(instrument)
 	if !ok {
@@ -142,7 +163,7 @@ JOIN experiment_registrations experiment ON experiment.strategy_version_id=strat
 JOIN configuration_versions configuration ON configuration.id=experiment.configuration_id
 JOIN dataset_manifests dataset ON dataset.id=experiment.dataset_id
 JOIN research_generations generation ON generation.experiment_id=experiment.id
-WHERE strategy.id='trend-v1a-1'
+WHERE strategy.id=$1
   AND experiment.status IN ('registered','running','completed','locked')
   AND dataset.state='qualified' AND dataset.dataset_kind='decision_inputs'
   AND EXISTS (
@@ -156,7 +177,7 @@ WHERE strategy.id='trend-v1a-1'
     OR EXISTS (SELECT 1 FROM dataset_segments member JOIN market_data_segments segment ON segment.id=member.segment_id
       WHERE member.dataset_id=dataset.id AND segment.exchange_id=$3 AND segment.state='ready')
   )
-ORDER BY generation.registered_at DESC,generation.id DESC LIMIT 1`, base, quote, exchange).
+ORDER BY generation.registered_at DESC,generation.id DESC LIMIT 1`, strategyID, base, quote, exchange).
 		Scan(&configurationID, &datasetID, &generationID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", "", console.NewWorkflowBlocker("QUALIFIED_INPUTS_UNAVAILABLE",
