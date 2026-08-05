@@ -51,6 +51,26 @@ export function GettingStartedPage() {
           </Link>
         </article>
       </div>
+      <section
+        className={styles.section}
+        aria-labelledby="first-login-checklist"
+      >
+        <h2 id="first-login-checklist">First-login checklist</h2>
+        <p>
+          Complete these in order. Optional sandbox steps remain unavailable
+          until a separate exchange account is correctly configured and armed.
+        </p>
+        <ol className={styles.facts}>
+          {firstLoginChecklist.map((item) => (
+            <li key={item.title}>
+              <Link className={styles.linkButton} to={item.to}>
+                {item.title}
+              </Link>
+              <p>{item.detail}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
       <HelpDetails title="What this first tour proves">
         <p>
           A guided walkthrough proves that the displayed strategy, allocation,
@@ -62,6 +82,62 @@ export function GettingStartedPage() {
     </Page>
   );
 }
+
+const firstLoginChecklist = [
+  {
+    title: "1. Confirm both public-data collectors",
+    detail:
+      "Check Binance and Bybit freshness before relying on either exchange.",
+    to: "/exchanges",
+  },
+  {
+    title: "2. Run a guided proof demonstration",
+    detail:
+      "Use a synthetic walkthrough before interpreting any live or historical result.",
+    to: "/guided-demonstrations",
+  },
+  {
+    title: "3. Follow one decision end to end",
+    detail:
+      "Open its decision, planned order, virtual fill, and accounting evidence.",
+    to: "/activity/decisions-orders",
+  },
+  {
+    title: "4. Start a live shadow session",
+    detail:
+      "Shadow is public-data simulation only and never creates an exchange order.",
+    to: "/shadow",
+  },
+  {
+    title: "5. Understand its next evaluation",
+    detail: "Read the waiting reason and cadence before expecting a decision.",
+    to: "/run-lab",
+  },
+  {
+    title: "6. Optionally configure Binance Testnet",
+    detail:
+      "Review the isolated account and engine state without exposing credentials.",
+    to: "/operations/sandbox",
+  },
+  {
+    title: "7. Optionally configure Bybit Demo",
+    detail:
+      "Review the separate Demo account and its public-data prerequisites.",
+    to: "/operations/sandbox",
+  },
+  {
+    title: "8. Run a capped sandbox connection check",
+    detail:
+      "This advanced manual check remains spot-only, capped, and reconciled.",
+    to: "/operations/sandbox",
+  },
+  {
+    title: "9. Start an armed sandbox strategy session",
+    detail:
+      "Available only after the required strategy-session workflow is installed and armed.",
+    to: "/operations/sandbox",
+  },
+] as const;
 
 export function GuidedDemonstrationsPage() {
   const demonstrations = useQuery(guidedDemonstrationsQuery);
