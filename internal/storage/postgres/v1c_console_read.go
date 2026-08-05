@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"axiom/internal/api/console"
@@ -94,6 +95,10 @@ func (store *A11ConsoleStore) SandboxOverview(
 	if err != nil {
 		return generated.SandboxOverview{}, err
 	}
+	strategySessions, err := store.sandboxStrategySessions(ctx)
+	if err != nil {
+		return generated.SandboxOverview{}, err
+	}
 	now := store.clock.Now().UTC
 	arms, stale := c6OverviewArms(accounts)
 	riskState, err := store.v1cConsoleRiskState(ctx, accounts)
@@ -105,17 +110,162 @@ func (store *A11ConsoleStore) SandboxOverview(
 		RealTradingEnabled: generated.SandboxOverviewRealTradingEnabled(
 			false,
 		),
-		ObservedAt:      now,
-		Stale:           stale,
-		Accounts:        accounts,
-		ActiveArms:      arms,
-		Orders:          orders.Items,
-		Reconciliations: reconciliations.Items,
-		ResetIncidents:  reconciliations.ResetIncidents,
-		RiskState:       generated.SandboxOverviewRiskState(riskState),
-		Qualification:   qualification,
-		AuditUrl:        "/api/v1/audit-events?event_type=v1c",
+		ObservedAt:       now,
+		Stale:            stale,
+		Accounts:         accounts,
+		ActiveArms:       arms,
+		StrategySessions: strategySessions,
+		Orders:           orders.Items,
+		Reconciliations:  reconciliations.Items,
+		ResetIncidents:   reconciliations.ResetIncidents,
+		RiskState:        generated.SandboxOverviewRiskState(riskState),
+		Qualification:    qualification,
+		AuditUrl:         "/api/v1/audit-events?event_type=v1c",
 	}, nil
+}
+
+const sandboxStrategySessionsSQL = `
+SELECT strategy.id,strategy.strategy_id,strategy.instrument,strategy.state,
+       strategy.created_at,strategy.started_at,strategy.stopped_at,
+       strategy.blocking_reason,strategy.revision,
+       array_agg(account.exchange ORDER BY account.exchange)
+FROM sandbox_strategy_sessions strategy
+JOIN sandbox_strategy_session_accounts membership
+  ON membership.strategy_session_id=strategy.id
+JOIN v1c_exchange_accounts account ON account.id=membership.account_id
+GROUP BY strategy.id,strategy.strategy_id,strategy.instrument,strategy.state,
+         strategy.created_at,strategy.started_at,strategy.stopped_at,
+         strategy.blocking_reason,strategy.revision
+ORDER BY strategy.created_at DESC,strategy.id DESC`
+
+func (store *A11ConsoleStore) sandboxStrategySessions(
+	ctx context.Context,
+) ([]generated.SandboxStrategySession, error) {
+	rows, err := store.pool.Query(ctx, sandboxStrategySessionsSQL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]generated.SandboxStrategySession, 0)
+	for rows.Next() {
+		var id, strategy, state string
+		var instrument, blockingReason *string
+		var createdAt time.Time
+		var startedAt, stoppedAt *time.Time
+		var revision int64
+		var exchanges []string
+		if err = rows.Scan(&id, &strategy, &instrument, &state, &createdAt,
+			&startedAt, &stoppedAt, &blockingReason, &revision, &exchanges); err != nil {
+			return nil, err
+		}
+		item, itemErr := generatedSandboxStrategySession(id, strategy, instrument,
+			state, createdAt, startedAt, stoppedAt, blockingReason, revision, exchanges)
+		if itemErr != nil {
+			return nil, itemErr
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func generatedSandboxStrategySession(
+	id, strategy string,
+	instrument *string,
+	state string,
+	createdAt time.Time,
+	startedAt, stoppedAt *time.Time,
+	blockingReason *string,
+	revision int64,
+	exchanges []string,
+) (generated.SandboxStrategySession, error) {
+	name, ok := sandboxStrategyName(strategy)
+	if !ok || id == "" || revision <= 0 || createdAt.IsZero() || createdAt.Location() != time.UTC ||
+		len(exchanges) < 1 || len(exchanges) > 2 {
+		return generated.SandboxStrategySession{}, fmt.Errorf("sandbox_strategy_session_projection_invalid")
+	}
+	venues := make([]generated.SandboxExchange, 0, len(exchanges))
+	for _, exchange := range exchanges {
+		venue := generated.SandboxExchange(exchange)
+		if !venue.Valid() {
+			return generated.SandboxStrategySession{}, fmt.Errorf("sandbox_strategy_session_projection_invalid")
+		}
+		venues = append(venues, venue)
+	}
+	item := generated.SandboxStrategySession{
+		Id: id, StrategyName: name, Exchanges: venues,
+		State: generated.SandboxStrategySessionState(state), CreatedAt: createdAt.UTC(),
+		Revision: strconv.FormatInt(revision, 10),
+		AuditUrl: "/api/v1/audit-events?target_type=sandbox_strategy_session",
+	}
+	if !item.State.Valid() {
+		return generated.SandboxStrategySession{}, fmt.Errorf("sandbox_strategy_session_projection_invalid")
+	}
+	if instrument != nil {
+		value := generated.SandboxStrategySessionInstrument(*instrument)
+		if !value.Valid() {
+			return generated.SandboxStrategySession{}, fmt.Errorf("sandbox_strategy_session_projection_invalid")
+		}
+		item.Instrument = &value
+	}
+	item.DisplayName = sandboxStrategySessionDisplayName(name, venues, item.Instrument)
+	waitingReason := sandboxStrategySessionWaitingReason(item.State, blockingReason)
+	item.WaitingReason = &waitingReason
+	item.StartedAt, item.StoppedAt = utcPointer(startedAt), utcPointer(stoppedAt)
+	return item, nil
+}
+
+func sandboxStrategyName(value string) (string, bool) {
+	switch value {
+	case "trend":
+		return "Trend Following", true
+	case "mean-reversion":
+		return "Mean Reversion", true
+	case "triangular":
+		return "Triangular Arbitrage", true
+	case "cross-exchange-arbitrage":
+		return "Cross-Exchange Arbitrage", true
+	default:
+		return "", false
+	}
+}
+
+func sandboxStrategySessionDisplayName(
+	strategy string,
+	exchanges []generated.SandboxExchange,
+	instrument *generated.SandboxStrategySessionInstrument,
+) string {
+	venueNames := make([]string, 0, len(exchanges))
+	for _, exchange := range exchanges {
+		if exchange == generated.SandboxExchangeBinance {
+			venueNames = append(venueNames, "Binance Spot Testnet")
+		} else {
+			venueNames = append(venueNames, "Bybit Demo")
+		}
+	}
+	label := strategy + " · " + strings.Join(venueNames, " + ")
+	if instrument != nil {
+		label += " · " + string(*instrument)
+	}
+	return label
+}
+
+func sandboxStrategySessionWaitingReason(
+	state generated.SandboxStrategySessionState,
+	blockingReason *string,
+) string {
+	switch state {
+	case generated.SandboxStrategySessionStatePrepared, generated.SandboxStrategySessionStateRunning:
+		return "Automatic strategy execution is not installed yet. This session cannot submit an automatic order."
+	case generated.SandboxStrategySessionStateBlocked:
+		if blockingReason != nil && *blockingReason == "arm_expired_or_revoked" {
+			return "The owner arm expired or was revoked. New automatic entries are blocked; cancellation, reconciliation, and risk-reducing recovery remain available."
+		}
+		return "This strategy session is blocked. Review the account, arm, and reconciliation state before creating a new session."
+	case generated.SandboxStrategySessionStateStopped:
+		return "The owner stopped this strategy session. It cannot create new automatic entries."
+	default:
+		return "Session status is not recorded."
+	}
 }
 
 func c6OverviewArms(

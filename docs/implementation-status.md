@@ -83,7 +83,10 @@ exchange. Each credential-owning engine blocks a running strategy session when
 its exact arm expires or is revoked, without interrupting cancellation,
 reconciliation, or risk-reducing recovery. A server-resolved creation API and
 the strategy worker are not yet installed, so no automatic sandbox strategy
-session is currently operational.
+session is currently operational. Sandbox Operations now projects each durable
+session by strategy, Testnet/Demo venue, recorded instrument, state, and a
+plain-English waiting or blocking reason; it never guesses an instrument for
+pre-existing rows that did not record one.
 
 ## V1D D6 repository certification
 

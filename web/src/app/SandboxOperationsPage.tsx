@@ -17,6 +17,7 @@ import {
   SandboxReconciliationGrid,
   SandboxResetGrid,
 } from "./SandboxReconciliationEvidence";
+import { SandboxStrategySessions } from "./SandboxStrategySessions";
 import styles from "./SandboxOperationsPage.module.css";
 
 export function SandboxOperationsPage() {
@@ -108,6 +109,7 @@ export function SandboxOperationsPage() {
         orders={orders.data.items}
         reconciliations={reconciliations.data.items}
       />
+      <SandboxStrategySessions sessions={data.strategy_sessions} />
       <SandboxAccountGrid accounts={data.accounts} />
       <SandboxOrderLedger orders={orders.data.items} />
       <SandboxReconciliationGrid reconciliations={reconciliations.data.items} />

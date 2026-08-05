@@ -117,6 +117,19 @@ const qualification = {
   formal_soak_pending: true,
   audit_url: audit,
 };
+const strategySession = {
+  id: "strategy-session-c6",
+  display_name: "Trend Following · Binance Spot Testnet · BTCUSDT",
+  strategy_name: "Trend Following",
+  exchanges: ["binance"],
+  instrument: "BTCUSDT",
+  state: "prepared",
+  waiting_reason:
+    "Automatic strategy execution is not installed yet. This session cannot submit an automatic order.",
+  created_at: at,
+  revision: "1",
+  audit_url: audit,
+};
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -141,6 +154,12 @@ describe("C6 sandbox console", () => {
     expect(screen.getByText("BYBIT DEMO")).toBeInTheDocument();
     expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
     expect(screen.getByText("UNKNOWN", { exact: true })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Strategy sessions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/automatic strategy execution is not installed yet/i),
+    ).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { name: "Virtual/test actions only" }),
     ).toBeInTheDocument();
@@ -180,6 +199,7 @@ function c6FetchFixture(input: RequestInfo | URL) {
       stale: false,
       accounts: [account],
       active_arms: [arm],
+      strategy_sessions: [strategySession],
       orders: [order],
       reconciliations: [reconciliation],
       reset_incidents: [],

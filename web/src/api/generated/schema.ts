@@ -1097,6 +1097,7 @@ export interface components {
       "reset_incidents": Array<components["schemas"]["SandboxResetIncident"]>;
       "risk_state": "NORMAL" | "CAUTIOUS" | "PAUSED" | "LOCKED";
       "stale": boolean;
+      "strategy_sessions": Array<components["schemas"]["SandboxStrategySession"]>;
     };
     "SandboxQualificationStatus": {
       "audit_url": string;
@@ -1168,6 +1169,20 @@ export interface components {
       "samples": number;
       "suspense_items": number;
       "unknown_orders": number;
+    };
+    "SandboxStrategySession": {
+      "audit_url": string;
+      "created_at": components["schemas"]["Timestamp"];
+      "display_name": string;
+      "exchanges": Array<components["schemas"]["SandboxExchange"]>;
+      "id": string;
+      "instrument"?: "BTCUSDT" | "ETHUSDT";
+      "revision": components["schemas"]["Revision"];
+      "started_at"?: components["schemas"]["Timestamp"];
+      "state": "prepared" | "running" | "blocked" | "stopped";
+      "stopped_at"?: components["schemas"]["Timestamp"];
+      "strategy_name": string;
+      "waiting_reason"?: string;
     };
     "SandboxStrategySessionStartRequest": {
       "authorization_token": string;

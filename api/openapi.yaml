@@ -1269,7 +1269,10 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/SandboxStrategySessionStartRequest" }
+            schema:
+              {
+                $ref: "#/components/schemas/SandboxStrategySessionStartRequest",
+              }
       responses:
         "202":
           description: Audited durable sandbox strategy-session command accepted
@@ -4800,6 +4803,7 @@ components:
           stale,
           accounts,
           active_arms,
+          strategy_sessions,
           orders,
           reconciliations,
           reset_incidents,
@@ -4821,6 +4825,9 @@ components:
         active_arms:
           type: array
           items: { $ref: "#/components/schemas/SandboxArm" }
+        strategy_sessions:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxStrategySession" }
         orders:
           type: array
           items: { $ref: "#/components/schemas/SandboxOrder" }
@@ -4842,6 +4849,53 @@ components:
             ]
         qualification:
           { $ref: "#/components/schemas/SandboxQualificationStatus" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxStrategySession:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          display_name,
+          strategy_name,
+          exchanges,
+          state,
+          created_at,
+          revision,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        display_name: { type: string, minLength: 1 }
+        strategy_name: { type: string, minLength: 1 }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: { $ref: "#/components/schemas/SandboxExchange" }
+        instrument:
+          type: string
+          enum: [BTCUSDT, ETHUSDT]
+          x-enum-varnames:
+            [
+              SandboxStrategySessionInstrumentBTCUSDT,
+              SandboxStrategySessionInstrumentETHUSDT,
+            ]
+        state:
+          type: string
+          enum: [prepared, running, blocked, stopped]
+          x-enum-varnames:
+            [
+              SandboxStrategySessionStatePrepared,
+              SandboxStrategySessionStateRunning,
+              SandboxStrategySessionStateBlocked,
+              SandboxStrategySessionStateStopped,
+            ]
+        waiting_reason: { type: string, maxLength: 500 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        stopped_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
         audit_url: { type: string, pattern: "^/api/v1/audit-events" }
     SandboxAuthorizationRequest:
       type: object

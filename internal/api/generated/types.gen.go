@@ -3149,6 +3149,48 @@ func (e SandboxResetIncidentState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxStrategySessionInstrument.
+const (
+	SandboxStrategySessionInstrumentBTCUSDT SandboxStrategySessionInstrument = "BTCUSDT"
+	SandboxStrategySessionInstrumentETHUSDT SandboxStrategySessionInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionInstrument enum.
+func (e SandboxStrategySessionInstrument) Valid() bool {
+	switch e {
+	case SandboxStrategySessionInstrumentBTCUSDT:
+		return true
+	case SandboxStrategySessionInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxStrategySessionState.
+const (
+	SandboxStrategySessionStateBlocked  SandboxStrategySessionState = "blocked"
+	SandboxStrategySessionStatePrepared SandboxStrategySessionState = "prepared"
+	SandboxStrategySessionStateRunning  SandboxStrategySessionState = "running"
+	SandboxStrategySessionStateStopped  SandboxStrategySessionState = "stopped"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionState enum.
+func (e SandboxStrategySessionState) Valid() bool {
+	switch e {
+	case SandboxStrategySessionStateBlocked:
+		return true
+	case SandboxStrategySessionStatePrepared:
+		return true
+	case SandboxStrategySessionStateRunning:
+		return true
+	case SandboxStrategySessionStateStopped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxTestOrderRequestInstrument.
 const (
 	SandboxTestOrderRequestInstrumentBTCUSDT SandboxTestOrderRequestInstrument = "BTCUSDT"
@@ -6124,6 +6166,7 @@ type SandboxOverview struct {
 	ResetIncidents     []SandboxResetIncident            `json:"reset_incidents"`
 	RiskState          SandboxOverviewRiskState          `json:"risk_state"`
 	Stale              bool                              `json:"stale"`
+	StrategySessions   []SandboxStrategySession          `json:"strategy_sessions"`
 }
 
 // SandboxOverviewEnvironmentLabel defines model for SandboxOverview.EnvironmentLabel.
@@ -6251,6 +6294,34 @@ type SandboxSLOSummary struct {
 	SuspenseItems            int64 `json:"suspense_items"`
 	UnknownOrders            int64 `json:"unknown_orders"`
 }
+
+// SandboxStrategySession defines model for SandboxStrategySession.
+type SandboxStrategySession struct {
+	AuditUrl string `json:"audit_url"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt   Timestamp                         `json:"created_at"`
+	DisplayName string                            `json:"display_name"`
+	Exchanges   []SandboxExchange                 `json:"exchanges"`
+	Id          string                            `json:"id"`
+	Instrument  *SandboxStrategySessionInstrument `json:"instrument,omitempty"`
+	Revision    Revision                          `json:"revision"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt *Timestamp                  `json:"started_at,omitempty"`
+	State     SandboxStrategySessionState `json:"state"`
+
+	// StoppedAt RFC 3339 timestamp with an explicit UTC offset.
+	StoppedAt     *Timestamp `json:"stopped_at,omitempty"`
+	StrategyName  string     `json:"strategy_name"`
+	WaitingReason *string    `json:"waiting_reason,omitempty"`
+}
+
+// SandboxStrategySessionInstrument defines model for SandboxStrategySession.Instrument.
+type SandboxStrategySessionInstrument string
+
+// SandboxStrategySessionState defines model for SandboxStrategySession.State.
+type SandboxStrategySessionState string
 
 // SandboxStrategySessionStartRequest defines model for SandboxStrategySessionStartRequest.
 type SandboxStrategySessionStartRequest struct {
