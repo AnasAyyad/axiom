@@ -75,6 +75,7 @@ func setupA11Console(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	options.D1Commands = consoleStore
 	options.D4Read = consoleStore
 	options.Runs = consoleStore
+	options.DataCatalogue = consoleStore
 	return a11ConsoleSetup{options: options, dependency: readiness}
 }
 

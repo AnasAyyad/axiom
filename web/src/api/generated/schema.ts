@@ -222,6 +222,22 @@ export interface components {
       "items": Array<components["schemas"]["D1Resource"]>;
       "snapshot_revision": components["schemas"]["Revision"];
     };
+    "DataCatalogueItem": {
+      "coverage_end": components["schemas"]["Timestamp"];
+      "coverage_start": components["schemas"]["Timestamp"];
+      "exchanges": Array<"binance" | "bybit">;
+      "known_gap_count": number;
+      "manifest_hash": string;
+      "name": string;
+      "quality_tier"?: "unclassified" | "tier_a";
+      "segment_count": number;
+      "source": "recorded_public_data" | "approved_historical_data";
+      "state": "building" | "ready" | "qualified" | "rejected";
+      "supported_modes": Array<"backtest" | "replay" | "shadow">;
+    };
+    "DataCataloguePage": {
+      "items": Array<components["schemas"]["DataCatalogueItem"]>;
+    };
     "Decimal": string;
     "DetailedHealthResponse": {
       "components": Array<components["schemas"]["HealthComponent"]>;
@@ -1321,6 +1337,7 @@ export interface operations {
   "getRunCatalog": { responses: { "200": components["schemas"]["RunCatalog"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listRuns": { responses: { "200": components["schemas"]["RunPage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getRun": { path: { "id": string; }; responses: { "200": components["schemas"]["RunResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "listDataCatalogue": { responses: { "200": components["schemas"]["DataCataloguePage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getVersion": { responses: { "200": components["schemas"]["VersionResponse"]; }; };
   "getBuildInformation": { responses: { "200": components["schemas"]["BuildInformation"]; }; };
   "getSystemStatus": { responses: { "200": components["schemas"]["SystemStatus"]; "401": components["schemas"]["Error"]; }; };

@@ -154,6 +154,20 @@ paths:
               schema: { $ref: "#/components/schemas/RunResource" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/data-catalogue:
+    get:
+      operationId: listDataCatalogue
+      tags: [Research]
+      summary: List protected server-registered data available to the owner
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Immutable data coverage and evidence identity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataCataloguePage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/system/version:
     get:
       operationId: getVersion
@@ -1946,6 +1960,38 @@ components:
         waiting_reason: { type: string, maxLength: 500 }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    DataCataloguePage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/DataCatalogueItem" }
+    DataCatalogueItem:
+      type: object
+      additionalProperties: false
+      required: [name, source, state, exchanges, coverage_start, coverage_end, segment_count, known_gap_count, manifest_hash, supported_modes]
+      properties:
+        name: { type: string, minLength: 1 }
+        source: { type: string, enum: [recorded_public_data, approved_historical_data] }
+        state: { type: string, enum: [building, ready, qualified, rejected] }
+        quality_tier: { type: string, enum: [unclassified, tier_a] }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: { type: string, enum: [binance, bybit] }
+        coverage_start: { $ref: "#/components/schemas/Timestamp" }
+        coverage_end: { $ref: "#/components/schemas/Timestamp" }
+        segment_count: { type: integer, minimum: 0 }
+        known_gap_count: { type: integer, minimum: 0 }
+        manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        supported_modes:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [backtest, replay, shadow] }
     SystemStatus:
       type: object
       additionalProperties: false

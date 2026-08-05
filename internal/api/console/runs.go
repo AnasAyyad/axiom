@@ -36,3 +36,17 @@ func (handler *handler) run(
 	value, err := handler.options.Runs.Run(request.Context(), request.PathValue("id"))
 	handler.writeRead(writer, request, value, err)
 }
+
+func (handler *handler) dataCatalogue(
+	writer http.ResponseWriter,
+	request *http.Request,
+	_ authentication.Principal,
+) {
+	if handler.options.DataCatalogue == nil {
+		handler.writeError(writer, request, http.StatusServiceUnavailable,
+			"data_catalogue_unavailable", "Protected data catalogue unavailable")
+		return
+	}
+	value, err := handler.options.DataCatalogue.DataCatalogue(request.Context())
+	handler.writeRead(writer, request, value, err)
+}

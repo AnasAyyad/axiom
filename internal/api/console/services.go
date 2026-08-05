@@ -58,6 +58,12 @@ type RunReadService interface {
 	Run(context.Context, string) (generated.RunResource, error)
 }
 
+// DataCatalogueReadService exposes only server-registered immutable dataset
+// evidence. It intentionally has no browser upload or raw storage path.
+type DataCatalogueReadService interface {
+	DataCatalogue(context.Context) (generated.DataCataloguePage, error)
+}
+
 // CommandService persists audited, idempotent commands and durable jobs.
 type CommandService interface {
 	RiskCommand(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)

@@ -20,11 +20,30 @@ func (row ownerRunRow) Scan(destinations ...any) error {
 			*target = row.values[index].(string)
 		case *int64:
 			*target = row.values[index].(int64)
+		case *int:
+			*target = int(row.values[index].(int64))
 		case *time.Time:
 			*target = row.values[index].(time.Time)
+		case *[]string:
+			*target = row.values[index].([]string)
 		}
 	}
 	return nil
+}
+
+func TestOwnerDataCatalogueUsesReadableNamesInsteadOfStorageIdentifiers(t *testing.T) {
+	now := time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
+	item, err := scanOwnerDataCatalogue(ownerRunRow{values: []any{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"decision_inputs", "qualified", "A", now.Add(-time.Hour), now, int64(4), int64(0), []string{"binance"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Name == "" || item.Source != "approved_historical_data" || item.QualityTier == nil ||
+		*item.QualityTier != "tier_a" || len(item.SupportedModes) != 2 {
+		t.Fatalf("owner data catalogue=%+v", item)
+	}
 }
 
 func TestOwnerRunProjectionUsesSemanticLabelsAndWaitingReasons(t *testing.T) {

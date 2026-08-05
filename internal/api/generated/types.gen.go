@@ -470,6 +470,105 @@ func (e CommandAcceptedState) Valid() bool {
 	}
 }
 
+// Defines values for DataCatalogueItemExchanges.
+const (
+	DataCatalogueItemExchangesBinance DataCatalogueItemExchanges = "binance"
+	DataCatalogueItemExchangesBybit   DataCatalogueItemExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemExchanges enum.
+func (e DataCatalogueItemExchanges) Valid() bool {
+	switch e {
+	case DataCatalogueItemExchangesBinance:
+		return true
+	case DataCatalogueItemExchangesBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemQualityTier.
+const (
+	TierA        DataCatalogueItemQualityTier = "tier_a"
+	Unclassified DataCatalogueItemQualityTier = "unclassified"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemQualityTier enum.
+func (e DataCatalogueItemQualityTier) Valid() bool {
+	switch e {
+	case TierA:
+		return true
+	case Unclassified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemSource.
+const (
+	ApprovedHistoricalData DataCatalogueItemSource = "approved_historical_data"
+	RecordedPublicData     DataCatalogueItemSource = "recorded_public_data"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemSource enum.
+func (e DataCatalogueItemSource) Valid() bool {
+	switch e {
+	case ApprovedHistoricalData:
+		return true
+	case RecordedPublicData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemState.
+const (
+	DataCatalogueItemStateBuilding  DataCatalogueItemState = "building"
+	DataCatalogueItemStateQualified DataCatalogueItemState = "qualified"
+	DataCatalogueItemStateReady     DataCatalogueItemState = "ready"
+	DataCatalogueItemStateRejected  DataCatalogueItemState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemState enum.
+func (e DataCatalogueItemState) Valid() bool {
+	switch e {
+	case DataCatalogueItemStateBuilding:
+		return true
+	case DataCatalogueItemStateQualified:
+		return true
+	case DataCatalogueItemStateReady:
+		return true
+	case DataCatalogueItemStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemSupportedModes.
+const (
+	DataCatalogueItemSupportedModesBacktest DataCatalogueItemSupportedModes = "backtest"
+	DataCatalogueItemSupportedModesReplay   DataCatalogueItemSupportedModes = "replay"
+	DataCatalogueItemSupportedModesShadow   DataCatalogueItemSupportedModes = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemSupportedModes enum.
+func (e DataCatalogueItemSupportedModes) Valid() bool {
+	switch e {
+	case DataCatalogueItemSupportedModesBacktest:
+		return true
+	case DataCatalogueItemSupportedModesReplay:
+		return true
+	case DataCatalogueItemSupportedModesShadow:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DetailedHealthResponseLifecycleState.
 const (
 	DetailedHealthResponseLifecycleStateDEGRADED    DetailedHealthResponseLifecycleState = "DEGRADED"
@@ -2272,16 +2371,16 @@ func (e RiskStatusState) Valid() bool {
 
 // Defines values for RunChoiceExchanges.
 const (
-	Binance RunChoiceExchanges = "binance"
-	Bybit   RunChoiceExchanges = "bybit"
+	RunChoiceExchangesBinance RunChoiceExchanges = "binance"
+	RunChoiceExchangesBybit   RunChoiceExchanges = "bybit"
 )
 
 // Valid indicates whether the value is a known member of the RunChoiceExchanges enum.
 func (e RunChoiceExchanges) Valid() bool {
 	switch e {
-	case Binance:
+	case RunChoiceExchangesBinance:
 		return true
-	case Bybit:
+	case RunChoiceExchangesBybit:
 		return true
 	default:
 		return false
@@ -3760,28 +3859,28 @@ func (e ListActivityParamsSide) Valid() bool {
 
 // Defines values for ListActivityParamsMode.
 const (
-	ListActivityParamsModeBacktest ListActivityParamsMode = "backtest"
-	ListActivityParamsModeDemo     ListActivityParamsMode = "demo"
-	ListActivityParamsModePaper    ListActivityParamsMode = "paper"
-	ListActivityParamsModeReplay   ListActivityParamsMode = "replay"
-	ListActivityParamsModeShadow   ListActivityParamsMode = "shadow"
-	ListActivityParamsModeTestnet  ListActivityParamsMode = "testnet"
+	Backtest ListActivityParamsMode = "backtest"
+	Demo     ListActivityParamsMode = "demo"
+	Paper    ListActivityParamsMode = "paper"
+	Replay   ListActivityParamsMode = "replay"
+	Shadow   ListActivityParamsMode = "shadow"
+	Testnet  ListActivityParamsMode = "testnet"
 )
 
 // Valid indicates whether the value is a known member of the ListActivityParamsMode enum.
 func (e ListActivityParamsMode) Valid() bool {
 	switch e {
-	case ListActivityParamsModeBacktest:
+	case Backtest:
 		return true
-	case ListActivityParamsModeDemo:
+	case Demo:
 		return true
-	case ListActivityParamsModePaper:
+	case Paper:
 		return true
-	case ListActivityParamsModeReplay:
+	case Replay:
 		return true
-	case ListActivityParamsModeShadow:
+	case Shadow:
 		return true
-	case ListActivityParamsModeTestnet:
+	case Testnet:
 		return true
 	default:
 		return false
@@ -3910,16 +4009,16 @@ func (e ListShadowSessionsParamsState) Valid() bool {
 
 // Defines values for ListTrendDecisionsParamsOutcome.
 const (
-	Accepted ListTrendDecisionsParamsOutcome = "accepted"
-	Rejected ListTrendDecisionsParamsOutcome = "rejected"
+	ListTrendDecisionsParamsOutcomeAccepted ListTrendDecisionsParamsOutcome = "accepted"
+	ListTrendDecisionsParamsOutcomeRejected ListTrendDecisionsParamsOutcome = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the ListTrendDecisionsParamsOutcome enum.
 func (e ListTrendDecisionsParamsOutcome) Valid() bool {
 	switch e {
-	case Accepted:
+	case ListTrendDecisionsParamsOutcomeAccepted:
 		return true
-	case Rejected:
+	case ListTrendDecisionsParamsOutcomeRejected:
 		return true
 	default:
 		return false
@@ -4298,6 +4397,44 @@ type D1ResourcePage struct {
 	NextCursor       *string      `json:"next_cursor,omitempty"`
 	Revision         Revision     `json:"revision"`
 	SnapshotRevision Revision     `json:"snapshot_revision"`
+}
+
+// DataCatalogueItem defines model for DataCatalogueItem.
+type DataCatalogueItem struct {
+	// CoverageEnd RFC 3339 timestamp with an explicit UTC offset.
+	CoverageEnd Timestamp `json:"coverage_end"`
+
+	// CoverageStart RFC 3339 timestamp with an explicit UTC offset.
+	CoverageStart  Timestamp                         `json:"coverage_start"`
+	Exchanges      []DataCatalogueItemExchanges      `json:"exchanges"`
+	KnownGapCount  int                               `json:"known_gap_count"`
+	ManifestHash   string                            `json:"manifest_hash"`
+	Name           string                            `json:"name"`
+	QualityTier    *DataCatalogueItemQualityTier     `json:"quality_tier,omitempty"`
+	SegmentCount   int                               `json:"segment_count"`
+	Source         DataCatalogueItemSource           `json:"source"`
+	State          DataCatalogueItemState            `json:"state"`
+	SupportedModes []DataCatalogueItemSupportedModes `json:"supported_modes"`
+}
+
+// DataCatalogueItemExchanges defines model for DataCatalogueItem.Exchanges.
+type DataCatalogueItemExchanges string
+
+// DataCatalogueItemQualityTier defines model for DataCatalogueItem.QualityTier.
+type DataCatalogueItemQualityTier string
+
+// DataCatalogueItemSource defines model for DataCatalogueItem.Source.
+type DataCatalogueItemSource string
+
+// DataCatalogueItemState defines model for DataCatalogueItem.State.
+type DataCatalogueItemState string
+
+// DataCatalogueItemSupportedModes defines model for DataCatalogueItem.SupportedModes.
+type DataCatalogueItemSupportedModes string
+
+// DataCataloguePage defines model for DataCataloguePage.
+type DataCataloguePage struct {
+	Items []DataCatalogueItem `json:"items"`
 }
 
 // Decimal defines model for Decimal.
