@@ -1255,6 +1255,57 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /api/v1/sandbox/strategy-sessions/{id}/start:
+    post:
+      operationId: startSandboxStrategySession
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SandboxStrategySessionStartRequest" }
+      responses:
+        "202":
+          description: Audited durable sandbox strategy-session command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/sandbox/strategy-sessions/{id}/stop:
+    post:
+      operationId: stopSandboxStrategySession
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses:
+        "202":
+          description: Audited durable sandbox strategy-session command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/sandbox/arms/{id}/revoke:
     post:
       operationId: revokeSandboxArm
@@ -4836,6 +4887,14 @@ components:
           maxItems: 2
           uniqueItems: true
           items: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    SandboxStrategySessionStartRequest:
+      type: object
+      additionalProperties: false
+      required: [authorization_token, expected_revision, reason]
+      properties:
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }
     SandboxUnlockRequest:
       type: object

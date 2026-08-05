@@ -6252,6 +6252,13 @@ type SandboxSLOSummary struct {
 	UnknownOrders            int64 `json:"unknown_orders"`
 }
 
+// SandboxStrategySessionStartRequest defines model for SandboxStrategySessionStartRequest.
+type SandboxStrategySessionStartRequest struct {
+	AuthorizationToken string   `json:"authorization_token"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	Reason             string   `json:"reason"`
+}
+
 // SandboxTestOrderRequest defines model for SandboxTestOrderRequest.
 type SandboxTestOrderRequest struct {
 	AccountId        string                            `json:"account_id"`
@@ -7262,6 +7269,20 @@ type CreateSandboxArmParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// StartSandboxStrategySessionParams defines parameters for StartSandboxStrategySession.
+type StartSandboxStrategySessionParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StopSandboxStrategySessionParams defines parameters for StopSandboxStrategySession.
+type StopSandboxStrategySessionParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // LoginSessionParams defines parameters for LoginSession.
 type LoginSessionParams struct {
 	Origin Origin `json:"Origin"`
@@ -7462,6 +7483,12 @@ type QuerySandboxOrderJSONRequestBody = RevisionCommandRequest
 
 // CreateSandboxArmJSONRequestBody defines body for CreateSandboxArm for application/json ContentType.
 type CreateSandboxArmJSONRequestBody = SandboxArmRequest
+
+// StartSandboxStrategySessionJSONRequestBody defines body for StartSandboxStrategySession for application/json ContentType.
+type StartSandboxStrategySessionJSONRequestBody = SandboxStrategySessionStartRequest
+
+// StopSandboxStrategySessionJSONRequestBody defines body for StopSandboxStrategySession for application/json ContentType.
+type StopSandboxStrategySessionJSONRequestBody = RevisionCommandRequest
 
 // LoginSessionJSONRequestBody defines body for LoginSession for application/json ContentType.
 type LoginSessionJSONRequestBody = LoginRequest
