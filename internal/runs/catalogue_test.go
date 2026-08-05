@@ -2,7 +2,7 @@ package runs
 
 import "testing"
 
-func TestDefaultCatalogueAdvertisesEveryStrategyAndRejectsLive(t *testing.T) {
+func TestDefaultCatalogueAdvertisesOnlyInstalledRuntimesAndRejectsLive(t *testing.T) {
 	registry, err := DefaultRegistry()
 	if err != nil {
 		t.Fatal(err)
@@ -15,9 +15,14 @@ func TestDefaultCatalogueAdvertisesEveryStrategyAndRejectsLive(t *testing.T) {
 	for _, choice := range choices {
 		seen[choice.StrategyID] = true
 	}
-	for _, strategy := range []string{"trend-following", "mean-reversion", "triangular-arbitrage", "cross-exchange-arbitrage", "inventory-rebalancing"} {
+	for _, strategy := range []string{"trend-following", "mean-reversion"} {
 		if !seen[strategy] {
 			t.Fatalf("missing strategy %s", strategy)
+		}
+	}
+	for _, unavailable := range []string{"triangular-arbitrage", "cross-exchange-arbitrage", "inventory-rebalancing"} {
+		if seen[unavailable] {
+			t.Fatalf("uninstalled strategy %s was offered", unavailable)
 		}
 	}
 	if _, blocker = registry.Catalogue(Selection{Mode: "live"}); blocker == nil || blocker.Code != "LIVE_MODE_FORBIDDEN" {
@@ -30,18 +35,17 @@ func TestCatalogueReturnsPlainBlockersAndDoesNotSubstituteSelection(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, blocker := registry.Catalogue(Selection{StrategyID: "inventory-rebalancing", Mode: ModeDemo}); blocker == nil || blocker.Code != "MODE_UNSUPPORTED" {
+	if _, blocker := registry.Catalogue(Selection{StrategyID: "mean-reversion", Mode: ModeShadow}); blocker == nil || blocker.Code != "MODE_UNSUPPORTED" {
 		t.Fatalf("mode blocker=%+v", blocker)
 	}
 	if _, blocker := registry.Catalogue(Selection{StrategyID: "trend-following", Instrument: "SOL/USDT"}); blocker == nil || blocker.Code != "INSTRUMENT_UNSUPPORTED" {
 		t.Fatalf("instrument blocker=%+v", blocker)
 	}
-	if _, blocker := registry.Catalogue(Selection{StrategyID: "trend-following", Mode: ModeTestnet, Exchanges: []Exchange{ExchangeBybit}}); blocker == nil || blocker.Code != "EXCHANGE_UNSUPPORTED" {
+	if _, blocker := registry.Catalogue(Selection{StrategyID: "trend-following", Mode: ModeShadow, Exchanges: []Exchange{ExchangeBybit}}); blocker == nil || blocker.Code != "EXCHANGE_UNSUPPORTED" {
 		t.Fatalf("sandbox-exchange blocker=%+v", blocker)
 	}
-	choices, blocker := registry.Catalogue(Selection{StrategyID: "cross-exchange-arbitrage", Mode: ModeShadow, Exchanges: []Exchange{ExchangeBinance, ExchangeBybit}, Instrument: "BTC/USDT"})
-	if blocker != nil || len(choices) != 1 || choices[0].StrategyVersion != "cross-exchange-arbitrage@1.0.0" {
-		t.Fatalf("choices=%+v blocker=%+v", choices, blocker)
+	if _, blocker := registry.Catalogue(Selection{StrategyID: "cross-exchange-arbitrage", Mode: ModeShadow, Exchanges: []Exchange{ExchangeBinance, ExchangeBybit}, Instrument: "BTC/USDT"}); blocker == nil || blocker.Code != "STRATEGY_UNKNOWN" {
+		t.Fatalf("uninstalled strategy blocker=%+v", blocker)
 	}
 }
 

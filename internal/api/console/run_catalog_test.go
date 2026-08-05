@@ -27,20 +27,20 @@ func TestRunCatalogueUsesSemanticStrategiesWithoutRawIdentifiers(t *testing.T) {
 	if len(catalogue.Choices) == 0 {
 		t.Fatal("catalogue has no approved choices")
 	}
-	seenTrend, seenRebalancing := false, false
+	seenTrend, seenMeanReversion := false, false
 	for _, choice := range catalogue.Choices {
 		if choice.StrategyId == "trend-following" && choice.StrategyVersion == "trend-following@1.0.0" {
 			seenTrend = true
 		}
-		if choice.StrategyId == "inventory-rebalancing" && !choice.OrderCapable {
-			seenRebalancing = true
+		if choice.StrategyId == "mean-reversion" && choice.StrategyVersion == "mean-reversion@1.0.0" {
+			seenMeanReversion = true
 		}
 		if choice.Mode == "live" {
 			t.Fatal("catalogue exposed forbidden live mode")
 		}
 	}
-	if !seenTrend || !seenRebalancing {
-		t.Fatalf("catalogue required strategies trend=%t rebalancing=%t", seenTrend, seenRebalancing)
+	if !seenTrend || !seenMeanReversion {
+		t.Fatalf("catalogue required runtimes trend=%t mean-reversion=%t", seenTrend, seenMeanReversion)
 	}
 }
 
