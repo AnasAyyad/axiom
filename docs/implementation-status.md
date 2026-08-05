@@ -50,9 +50,11 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
 - The sandbox qualification API now uses semantic public contract names for
   sandbox status, chaos, and service-level objectives. Its retained evidence
   window and endpoint are unchanged.
-- The owner UI includes those catalogue/history projections and explicitly
-  marks guided demonstrations unavailable until deterministic immutable bundles
-  are actually installed.
+- A deterministic, synthetic Trend Following walkthrough now exercises the
+  same strategy, allocation, risk, planning, virtual-execution, portfolio, and
+  journal pipeline as the credential-free offline runtime. It is backend
+  groundwork only: the owner UI still marks guided demonstrations unavailable
+  until the protected catalogue and result views are installed.
 
 Remaining implementation includes shared materialization for the remaining
 strategy families and live shadows, deterministic demonstration bundles,
