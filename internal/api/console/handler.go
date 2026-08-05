@@ -39,6 +39,7 @@ type Options struct {
 	D4Read                D4ReadService
 	RunRegistry           *runs.Registry
 	Runs                  RunReadService
+	RunCommands           RunCommandService
 	DataCatalogue         DataCatalogueReadService
 }
 
@@ -53,6 +54,7 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("GET /api/v1/session/me", handler.authorized(handler.me, ""))
 	mux.HandleFunc("GET /api/v1/run-catalog", handler.authorized(handler.runCatalog, ""))
 	mux.HandleFunc("GET /api/v1/runs", handler.authorized(handler.runs, ""))
+	mux.HandleFunc("POST /api/v1/runs", handler.authorizedMutation(handler.createRun, ""))
 	mux.HandleFunc("GET /api/v1/runs/{id}", handler.authorized(handler.run, ""))
 	mux.HandleFunc("GET /api/v1/data-catalogue", handler.authorized(handler.dataCatalogue, ""))
 	handler.registerReads(mux)

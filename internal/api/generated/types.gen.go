@@ -2417,6 +2417,69 @@ func (e RunChoiceMode) Valid() bool {
 	}
 }
 
+// Defines values for RunCreateRequestExchanges.
+const (
+	Binance RunCreateRequestExchanges = "binance"
+	Bybit   RunCreateRequestExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunCreateRequestExchanges enum.
+func (e RunCreateRequestExchanges) Valid() bool {
+	switch e {
+	case Binance:
+		return true
+	case Bybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunCreateRequestMode.
+const (
+	RunCreateRequestModeBacktest      RunCreateRequestMode = "backtest"
+	RunCreateRequestModeDemo          RunCreateRequestMode = "demo"
+	RunCreateRequestModeDemonstration RunCreateRequestMode = "demonstration"
+	RunCreateRequestModeReplay        RunCreateRequestMode = "replay"
+	RunCreateRequestModeShadow        RunCreateRequestMode = "shadow"
+	RunCreateRequestModeTestnet       RunCreateRequestMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the RunCreateRequestMode enum.
+func (e RunCreateRequestMode) Valid() bool {
+	switch e {
+	case RunCreateRequestModeBacktest:
+		return true
+	case RunCreateRequestModeDemo:
+		return true
+	case RunCreateRequestModeDemonstration:
+		return true
+	case RunCreateRequestModeReplay:
+		return true
+	case RunCreateRequestModeShadow:
+		return true
+	case RunCreateRequestModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunCreateRequestPreset.
+const (
+	LatestQualifiedInputs RunCreateRequestPreset = "latest-qualified-inputs"
+)
+
+// Valid indicates whether the value is a known member of the RunCreateRequestPreset enum.
+func (e RunCreateRequestPreset) Valid() bool {
+	switch e {
+	case LatestQualifiedInputs:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RunResourceEnvironment.
 const (
 	ProductionPublic RunResourceEnvironment = "production_public"
@@ -3859,28 +3922,28 @@ func (e ListActivityParamsSide) Valid() bool {
 
 // Defines values for ListActivityParamsMode.
 const (
-	Backtest ListActivityParamsMode = "backtest"
-	Demo     ListActivityParamsMode = "demo"
-	Paper    ListActivityParamsMode = "paper"
-	Replay   ListActivityParamsMode = "replay"
-	Shadow   ListActivityParamsMode = "shadow"
-	Testnet  ListActivityParamsMode = "testnet"
+	ListActivityParamsModeBacktest ListActivityParamsMode = "backtest"
+	ListActivityParamsModeDemo     ListActivityParamsMode = "demo"
+	ListActivityParamsModePaper    ListActivityParamsMode = "paper"
+	ListActivityParamsModeReplay   ListActivityParamsMode = "replay"
+	ListActivityParamsModeShadow   ListActivityParamsMode = "shadow"
+	ListActivityParamsModeTestnet  ListActivityParamsMode = "testnet"
 )
 
 // Valid indicates whether the value is a known member of the ListActivityParamsMode enum.
 func (e ListActivityParamsMode) Valid() bool {
 	switch e {
-	case Backtest:
+	case ListActivityParamsModeBacktest:
 		return true
-	case Demo:
+	case ListActivityParamsModeDemo:
 		return true
-	case Paper:
+	case ListActivityParamsModePaper:
 		return true
-	case Replay:
+	case ListActivityParamsModeReplay:
 		return true
-	case Shadow:
+	case ListActivityParamsModeShadow:
 		return true
-	case Testnet:
+	case ListActivityParamsModeTestnet:
 		return true
 	default:
 		return false
@@ -5636,6 +5699,25 @@ type RunChoiceExchanges string
 // RunChoiceMode defines model for RunChoice.Mode.
 type RunChoiceMode string
 
+// RunCreateRequest defines model for RunCreateRequest.
+type RunCreateRequest struct {
+	Exchanges       []RunCreateRequestExchanges `json:"exchanges"`
+	Instrument      string                      `json:"instrument"`
+	Mode            RunCreateRequestMode        `json:"mode"`
+	Preset          RunCreateRequestPreset      `json:"preset"`
+	StrategyId      string                      `json:"strategy_id"`
+	StrategyVersion string                      `json:"strategy_version"`
+}
+
+// RunCreateRequestExchanges defines model for RunCreateRequest.Exchanges.
+type RunCreateRequestExchanges string
+
+// RunCreateRequestMode defines model for RunCreateRequest.Mode.
+type RunCreateRequestMode string
+
+// RunCreateRequestPreset defines model for RunCreateRequest.Preset.
+type RunCreateRequestPreset string
+
 // RunPage defines model for RunPage.
 type RunPage struct {
 	Items []RunResource `json:"items"`
@@ -6872,6 +6954,13 @@ type ResumeRiskParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// CreateRunParams defines parameters for CreateRun.
+type CreateRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // ReconcileSandboxAccountParams defines parameters for ReconcileSandboxAccount.
 type ReconcileSandboxAccountParams struct {
 	Origin         Origin         `json:"Origin"`
@@ -7103,6 +7192,9 @@ type PauseRiskJSONRequestBody = RevisionCommandRequest
 
 // ResumeRiskJSONRequestBody defines body for ResumeRisk for application/json ContentType.
 type ResumeRiskJSONRequestBody = RevisionCommandRequest
+
+// CreateRunJSONRequestBody defines body for CreateRun for application/json ContentType.
+type CreateRunJSONRequestBody = RunCreateRequest
 
 // ReconcileSandboxAccountJSONRequestBody defines body for ReconcileSandboxAccount for application/json ContentType.
 type ReconcileSandboxAccountJSONRequestBody = RevisionCommandRequest

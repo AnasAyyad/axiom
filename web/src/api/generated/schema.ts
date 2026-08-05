@@ -915,6 +915,14 @@ export interface components {
       "strategy_version": string;
       "warmup": string;
     };
+    "RunCreateRequest": {
+      "exchanges": Array<"binance" | "bybit">;
+      "instrument": string;
+      "mode": "backtest" | "replay" | "shadow" | "testnet" | "demo" | "demonstration";
+      "preset": "latest-qualified-inputs";
+      "strategy_id": string;
+      "strategy_version": string;
+    };
     "RunPage": {
       "items": Array<components["schemas"]["RunResource"]>;
     };
@@ -1336,6 +1344,7 @@ export interface operations {
   "getCurrentSession": { responses: { "200": components["schemas"]["SessionMe"]; "401": components["schemas"]["Error"]; }; };
   "getRunCatalog": { responses: { "200": components["schemas"]["RunCatalog"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listRuns": { responses: { "200": components["schemas"]["RunPage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "createRun": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RunCreateRequest"]; responses: { "202": components["schemas"]["RunResource"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getRun": { path: { "id": string; }; responses: { "200": components["schemas"]["RunResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "listDataCatalogue": { responses: { "200": components["schemas"]["DataCataloguePage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getVersion": { responses: { "200": components["schemas"]["VersionResponse"]; }; };

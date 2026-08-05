@@ -138,6 +138,33 @@ paths:
               schema: { $ref: "#/components/schemas/RunPage" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503": { $ref: "#/components/responses/Unavailable" }
+    post:
+      operationId: createRun
+      tags: [Research]
+      summary: Start one server-resolved durable owner run
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunCreateRequest" }
+      responses:
+        "202":
+          description: A durable run was created from server-resolved immutable inputs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/runs/{id}:
     get:
       operationId: getRun
@@ -1960,6 +1987,22 @@ components:
         waiting_reason: { type: string, maxLength: 500 }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    RunCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [strategy_id, strategy_version, mode, exchanges, instrument, preset]
+      properties:
+        strategy_id: { type: string, minLength: 3, maxLength: 64, pattern: "^[a-z0-9-]+$" }
+        strategy_version: { type: string, minLength: 3, maxLength: 128 }
+        mode: { type: string, enum: [backtest, replay, shadow, testnet, demo, demonstration] }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: { type: string, enum: [binance, bybit] }
+        instrument: { type: string, minLength: 3, maxLength: 32 }
+        preset: { type: string, enum: [latest-qualified-inputs] }
     DataCataloguePage:
       type: object
       additionalProperties: false

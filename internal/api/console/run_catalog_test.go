@@ -1,6 +1,7 @@
 package console
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -40,5 +41,24 @@ func TestRunCatalogueUsesSemanticStrategiesWithoutRawIdentifiers(t *testing.T) {
 	}
 	if !seenTrend || !seenRebalancing {
 		t.Fatalf("catalogue required strategies trend=%t rebalancing=%t", seenTrend, seenRebalancing)
+	}
+}
+
+func TestUnifiedRunCreationRequiresAnAvailableDurableCommandService(t *testing.T) {
+	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
+	session, csrf := a11HTTPLogin(t, handler)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/runs", bytes.NewBufferString(`{
+"strategy_id":"trend-following","strategy_version":"trend-following@1.0.0","mode":"backtest",
+"exchanges":["binance"],"instrument":"BTC/USDT","preset":"latest-qualified-inputs"}`))
+	request.Header.Set("Origin", "http://localhost:4173")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "unified-run-create-0001")
+	request.Header.Set("X-CSRF-Token", csrf.Value)
+	request.AddCookie(session)
+	request.AddCookie(csrf)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unavailable run command status=%d body=%s", response.Code, response.Body.String())
 	}
 }

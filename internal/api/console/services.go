@@ -58,6 +58,12 @@ type RunReadService interface {
 	Run(context.Context, string) (generated.RunResource, error)
 }
 
+// RunCommandService creates a run only after it resolves the owner-facing
+// semantic selection to immutable server-side inputs.
+type RunCommandService interface {
+	CreateRun(context.Context, authentication.Principal, string, generated.RunCreateRequest) (generated.RunResource, error)
+}
+
 // DataCatalogueReadService exposes only server-registered immutable dataset
 // evidence. It intentionally has no browser upload or raw storage path.
 type DataCatalogueReadService interface {
