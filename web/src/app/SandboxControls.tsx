@@ -30,7 +30,7 @@ export function SandboxControls({ accounts, orders, reconciliations }: Props) {
   const [highRiskReason, setHighRiskReason] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [lowRiskReason, setLowRiskReason] = useState(
-    "Operator requested safe recovery from C6 console",
+    "Owner requested safe sandbox recovery",
   );
   const [instrument, setInstrument] = useState<"BTCUSDT" | "ETHUSDT">(
     "BTCUSDT",

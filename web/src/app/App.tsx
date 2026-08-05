@@ -67,7 +67,7 @@ const queryClient = new QueryClient({
   },
 });
 
-/** App composes the authenticated A11 console and authoritative server-state cache. */
+/** App composes the authenticated owner console and authoritative server-state cache. */
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>

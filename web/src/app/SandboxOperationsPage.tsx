@@ -56,7 +56,7 @@ export function SandboxOperationsPage() {
   return (
     <Page
       title="Sandbox Operations"
-      eyebrow="V1C · C6 controlled execution"
+      eyebrow="Controlled Testnet and Demo execution"
       description="Authoritative redacted Testnet and Demo state. Every value comes from the durable account, order, reconciliation, and qualification stores."
     >
       <section className={styles.environment} aria-label="Execution boundary">
@@ -94,7 +94,7 @@ export function SandboxOperationsPage() {
           }
         />
         <MetricCard
-          label="Formal C6 soak"
+          label="Formal sandbox soak"
           value={
             qualification.data.formal_soak_pending
               ? "PENDING"

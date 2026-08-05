@@ -33,9 +33,9 @@ export function QualificationCenterPage() {
       description="Start only registered qualifications, inspect fail-closed preflight and progress, abort safely, and preserve exact-source evidence and terminal verdicts."
     >
       <p className={styles.notice} role="note">
-        C6 remains its own exact 72-hour sandbox qualification. D5 remains a
-        separate seven-day readiness soak, and B2 keeps its market-data verdict.
-        A smoke pass cannot become a formal pass.
+        Sandbox qualification, operational readiness, and market-data quality
+        each retain their own evidence window and verdict. A smoke pass cannot
+        become a formal pass.
       </p>
       {query.data.items.length === 0 ? (
         <StatePanel

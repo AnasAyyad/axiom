@@ -46,7 +46,7 @@ export function HealthPage() {
         REAL TRADING DISABLED
       </div>
       <header className={styles.header}>
-        <p className={styles.eyebrow}>Axiom V1A · Phase A1</p>
+        <p className={styles.eyebrow}>Axiom application status</p>
         <h1>System health</h1>
         <p>Public-data research and simulation skeleton</p>
       </header>
