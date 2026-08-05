@@ -31,8 +31,9 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
 - The server supplies a semantic strategy/run catalogue and a unified,
   read-only run history over durable backtest, replay, and public-data shadow
   records. Trend Following and Mean Reversion now share the credential-free
-  durable backtest/replay worker; all other strategy/mode combinations remain
-  explicit blockers until their real shared runtime is installed.
+  durable backtest/replay worker through a semantic runtime registry; all
+  other strategy/mode combinations remain explicit blockers until their real
+  shared runtime is installed.
 - Each listed run has one semantic detail route with immutable timeline,
   decision, planned-order, simulated-execution, latest portfolio, risk
   availability, and safe reproducibility-evidence projections. A missing

@@ -38,7 +38,7 @@ func newA11WorkerRoleWork(
 	if err != nil {
 		return nil, err
 	}
-	worker, err := backtest.NewWorker(store, newA11OperationalProcessor, replay.RealPacer{})
+	worker, err := backtest.NewWorker(store, newOfflineOperationalProcessor, replay.RealPacer{})
 	if err != nil {
 		return nil, err
 	}
@@ -55,15 +55,43 @@ func newA11WorkerRoleWork(
 	return newWorkerRoleWork(orderedOfflineWorkers{lifecycleWorker, reportWorker, worker}, time.Second)
 }
 
-func newA11OperationalProcessor(claim backtest.JobClaim) (backtest.Processor, error) {
-	switch claim.Manifest.StrategyVersion {
-	case "trend.v1a.1":
-		return newA11OperationalProcessorWithPortfolio(claim, nil)
-	case "mean-reversion.v1b.1":
-		return newA11MeanReversionOperationalProcessor(claim)
-	default:
-		return nil, fmt.Errorf("a11_worker_strategy_runtime_unavailable")
+// offlineStrategyRuntime binds one semantic strategy identity to the exact
+// shared offline processor that interprets its immutable manifest. New
+// strategy families are registered here only after their real allocator,
+// risk, execution, accounting, and reconciliation pipeline exists.
+type offlineStrategyRuntime struct {
+	ID              string
+	SemanticVersion string
+	ManifestVersion string
+	NewProcessor    func(backtest.JobClaim) (backtest.Processor, error)
+}
+
+func installedOfflineStrategyRuntimes() []offlineStrategyRuntime {
+	return []offlineStrategyRuntime{
+		{
+			ID:              "trend-following",
+			SemanticVersion: "trend-following@1.0.0",
+			ManifestVersion: "trend.v1a.1",
+			NewProcessor: func(claim backtest.JobClaim) (backtest.Processor, error) {
+				return newA11OperationalProcessorWithPortfolio(claim, nil)
+			},
+		},
+		{
+			ID:              "mean-reversion",
+			SemanticVersion: "mean-reversion@1.0.0",
+			ManifestVersion: "mean-reversion.v1b.1",
+			NewProcessor:    newA11MeanReversionOperationalProcessor,
+		},
 	}
+}
+
+func newOfflineOperationalProcessor(claim backtest.JobClaim) (backtest.Processor, error) {
+	for _, runtime := range installedOfflineStrategyRuntimes() {
+		if runtime.ManifestVersion == claim.Manifest.StrategyVersion {
+			return runtime.NewProcessor(claim)
+		}
+	}
+	return nil, fmt.Errorf("offline_strategy_runtime_unavailable")
 }
 
 func newA11OperationalProcessorWithPortfolio(claim backtest.JobClaim,
