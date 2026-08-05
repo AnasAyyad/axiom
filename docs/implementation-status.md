@@ -70,6 +70,14 @@ actual run-scoped risk/P&L projections, automated armed Testnet/Demo strategy
 sessions, and the full historical terminology cleanup. These items are not
 represented as operational capability today.
 
+The sandbox domain now has a closed strategy-session lifecycle contract for
+automatic spot strategies. It requires a live owner arm that covers every
+account, rejects expired or revoked arms, preserves an unconditional stop path,
+and rejects Inventory Rebalancing because it remains advisory-only. This is a
+tested domain prerequisite only; persistence, API commands, and a worker have
+not yet been installed, so no automatic sandbox strategy session is currently
+operational.
+
 ## V1D D6 repository certification
 
 The `v1d-d6-certification` worktree adds cumulative exact-identity evidence,
