@@ -42,10 +42,19 @@ func (store *A11ConsoleStore) CreateRun(
 	// Do not route another strategy's input into it merely because its semantic
 	// metadata is visible in the catalogue.
 	if request.StrategyId != "trend-following" || request.StrategyVersion != "trend-following@1.0.0" {
-		return generated.RunResource{}, console.ErrPrecondition
+		return generated.RunResource{}, console.NewWorkflowBlocker("STRATEGY_RUNTIME_UNAVAILABLE",
+			"That strategy is not runnable in this build yet.",
+			"Its semantic catalogue record exists, but its shared durable materializer has not been installed.",
+			"No run was created and no order-capable path was reached.",
+			"Choose Trend Following or wait for this strategy's shared runtime to be installed.",
+			"runtime not installed", "shared materializer installed", "strategy runtime")
 	}
 	if len(request.Exchanges) != 1 {
-		return generated.RunResource{}, console.ErrPrecondition
+		return generated.RunResource{}, console.NewWorkflowBlocker("EXCHANGE_SELECTION_UNSUPPORTED",
+			"Choose one exchange for this run.",
+			"The currently installed durable Trend workflow evaluates one exchange at a time.",
+			"No run was created.", "Choose one exchange shown by the catalogue.",
+			"multiple exchanges", "one approved exchange", "single-venue runtime")
 	}
 	exchange := string(request.Exchanges[0])
 	switch request.Mode {
@@ -78,7 +87,11 @@ func (store *A11ConsoleStore) CreateRun(
 		return store.Run(ctx, job.Id)
 	case generated.RunCreateRequestModeShadow:
 		if exchange != "binance" {
-			return generated.RunResource{}, console.ErrPrecondition
+			return generated.RunResource{}, console.NewWorkflowBlocker("PUBLIC_SHADOW_EXCHANGE_UNAVAILABLE",
+				"Public shadow is currently available on Binance only.",
+				"The active shadow worker has a Binance public-data boundary and does not substitute another exchange.",
+				"No shadow session was created.", "Choose Binance or wait for the Bybit shadow worker.",
+				"Bybit selected", "Binance selected or Bybit worker installed", "public-data worker")
 		}
 		portfolioID, configurationID, resolveErr := store.resolveOwnerShadowInputs(ctx, request.Instrument)
 		if resolveErr != nil {
@@ -93,7 +106,11 @@ func (store *A11ConsoleStore) CreateRun(
 		}
 		return store.Run(ctx, session.Id)
 	default:
-		return generated.RunResource{}, console.ErrPrecondition
+		return generated.RunResource{}, console.NewWorkflowBlocker("RUN_MODE_UNAVAILABLE",
+			"That run mode is not installed yet.",
+			"This request cannot be mapped to a durable worker without bypassing the product pipeline.",
+			"No run was created and no sandbox command was issued.",
+			"Choose backtest, replay, or Binance public shadow.", string(request.Mode), "installed run mode", "durable worker")
 	}
 }
 
@@ -142,7 +159,11 @@ WHERE strategy.id='trend-v1a-1'
 ORDER BY generation.registered_at DESC,generation.id DESC LIMIT 1`, base, quote, exchange).
 		Scan(&configurationID, &datasetID, &generationID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", "", console.ErrPrecondition
+		return "", "", "", console.NewWorkflowBlocker("QUALIFIED_INPUTS_UNAVAILABLE",
+			"No qualified recorded inputs match this selection.",
+			"A durable backtest or replay needs one qualified decision-input dataset and its matching immutable configuration and research registration.",
+			"No run was created.", "Register and qualify matching protected data, then try again.",
+			"qualified inputs unavailable", "qualified matching inputs", "dataset", "configuration", "research registration")
 	}
 	if err != nil {
 		return "", "", "", err
@@ -171,7 +192,11 @@ WHERE strategy.id='trend-v1a-1'
   )
 ORDER BY portfolio.id,configuration.id LIMIT 1`, base, quote).Scan(&portfolioID, &configurationID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", console.ErrPrecondition
+		return "", "", console.NewWorkflowBlocker("SHADOW_INPUTS_UNAVAILABLE",
+			"No approved shadow configuration is available for this instrument.",
+			"A public-data shadow session needs an immutable matching configuration and virtual portfolio before its existing readiness checks can run.",
+			"No shadow session was created.", "Register a matching configuration and virtual portfolio, then try again.",
+			"shadow inputs unavailable", "approved configuration and portfolio", "configuration", "portfolio")
 	}
 	if err != nil {
 		return "", "", err

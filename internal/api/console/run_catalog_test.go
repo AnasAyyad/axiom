@@ -62,3 +62,22 @@ func TestUnifiedRunCreationRequiresAnAvailableDurableCommandService(t *testing.T
 		t.Fatalf("unavailable run command status=%d body=%s", response.Code, response.Body.String())
 	}
 }
+
+func TestWorkflowBlockerIncludesOwnerActionableFields(t *testing.T) {
+	handler := &handler{}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/runs", nil)
+	response := httptest.NewRecorder()
+	blocker := NewWorkflowBlocker("QUALIFIED_INPUTS_UNAVAILABLE", "No qualified inputs are available.",
+		"A matching immutable dataset is required.", "No run was created.", "Register protected data.",
+		"missing", "qualified", "dataset")
+	handler.writeServiceError(response, request, blocker)
+	if response.Code != http.StatusPreconditionFailed {
+		t.Fatalf("workflow blocker status=%d", response.Code)
+	}
+	var body generated.Error
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || body.Code != "QUALIFIED_INPUTS_UNAVAILABLE" ||
+		body.Detail == nil || body.Impact == nil || body.SuggestedAction == nil || body.BlockingPrerequisites == nil ||
+		body.CorrelationId == "" {
+		t.Fatalf("workflow blocker=%+v err=%v", body, err)
+	}
+}

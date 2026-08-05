@@ -4523,10 +4523,17 @@ type DetailedHealthResponseStatus string
 
 // Error defines model for Error.
 type Error struct {
-	Code          string             `json:"code"`
-	CorrelationId string             `json:"correlation_id"`
-	FieldDetails  *map[string]string `json:"field_details,omitempty"`
-	Message       string             `json:"message"`
+	BlockingPrerequisites *[]string          `json:"blocking_prerequisites,omitempty"`
+	Code                  string             `json:"code"`
+	CorrelationId         string             `json:"correlation_id"`
+	CurrentState          *string            `json:"current_state,omitempty"`
+	Detail                *string            `json:"detail,omitempty"`
+	FieldDetails          *map[string]string `json:"field_details,omitempty"`
+	Impact                *string            `json:"impact,omitempty"`
+	Message               string             `json:"message"`
+	RequiredState         *string            `json:"required_state,omitempty"`
+	SuggestedAction       *string            `json:"suggested_action,omitempty"`
+	Summary               *string            `json:"summary,omitempty"`
 }
 
 // EvidenceBundleRequest defines model for EvidenceBundleRequest.
@@ -6961,6 +6968,34 @@ type CreateRunParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// PauseRunParams defines parameters for PauseRun.
+type PauseRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ResumeRunParams defines parameters for ResumeRun.
+type ResumeRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StepRunParams defines parameters for StepRun.
+type StepRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StopRunParams defines parameters for StopRun.
+type StopRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // ReconcileSandboxAccountParams defines parameters for ReconcileSandboxAccount.
 type ReconcileSandboxAccountParams struct {
 	Origin         Origin         `json:"Origin"`
@@ -7195,6 +7230,18 @@ type ResumeRiskJSONRequestBody = RevisionCommandRequest
 
 // CreateRunJSONRequestBody defines body for CreateRun for application/json ContentType.
 type CreateRunJSONRequestBody = RunCreateRequest
+
+// PauseRunJSONRequestBody defines body for PauseRun for application/json ContentType.
+type PauseRunJSONRequestBody = RevisionCommandRequest
+
+// ResumeRunJSONRequestBody defines body for ResumeRun for application/json ContentType.
+type ResumeRunJSONRequestBody = RevisionCommandRequest
+
+// StepRunJSONRequestBody defines body for StepRun for application/json ContentType.
+type StepRunJSONRequestBody = RevisionCommandRequest
+
+// StopRunJSONRequestBody defines body for StopRun for application/json ContentType.
+type StopRunJSONRequestBody = RevisionCommandRequest
 
 // ReconcileSandboxAccountJSONRequestBody defines body for ReconcileSandboxAccount for application/json ContentType.
 type ReconcileSandboxAccountJSONRequestBody = RevisionCommandRequest

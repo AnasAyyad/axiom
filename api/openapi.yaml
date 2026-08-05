@@ -1904,6 +1904,16 @@ components:
         code: { type: string, minLength: 1, maxLength: 80 }
         message: { type: string, minLength: 1, maxLength: 240 }
         correlation_id: { type: string, minLength: 1, maxLength: 160 }
+        summary: { type: string, minLength: 1, maxLength: 240 }
+        detail: { type: string, minLength: 1, maxLength: 2000 }
+        impact: { type: string, minLength: 1, maxLength: 500 }
+        suggested_action: { type: string, minLength: 1, maxLength: 500 }
+        blocking_prerequisites:
+          type: array
+          maxItems: 16
+          items: { type: string, minLength: 1, maxLength: 240 }
+        current_state: { type: string, minLength: 1, maxLength: 160 }
+        required_state: { type: string, minLength: 1, maxLength: 160 }
         field_details:
           type: object
           additionalProperties: { type: string, maxLength: 160 }

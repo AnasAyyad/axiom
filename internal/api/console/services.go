@@ -22,6 +22,37 @@ var (
 	ErrInvalidRequest      = errors.New("invalid_request")
 )
 
+// WorkflowBlocker turns a fail-closed domain precondition into an
+// owner-actionable response without exposing storage IDs, credentials, or raw
+// exchange payloads.
+type WorkflowBlocker struct {
+	Cause                                                                       error
+	Code, Summary, Detail, Impact, SuggestedAction, CurrentState, RequiredState string
+	Prerequisites                                                               []string
+}
+
+func (blocker *WorkflowBlocker) Error() string {
+	if blocker == nil || blocker.Code == "" {
+		return "workflow_blocked"
+	}
+	return blocker.Code
+}
+
+func (blocker *WorkflowBlocker) Unwrap() error {
+	if blocker == nil || blocker.Cause == nil {
+		return ErrPrecondition
+	}
+	return blocker.Cause
+}
+
+// NewWorkflowBlocker records the exact safe remediation associated with a
+// fail-closed workflow state.
+func NewWorkflowBlocker(code, summary, detail, impact, action, current, required string, prerequisites ...string) error {
+	return &WorkflowBlocker{Cause: ErrPrecondition, Code: code, Summary: summary, Detail: detail,
+		Impact: impact, SuggestedAction: action, CurrentState: current, RequiredState: required,
+		Prerequisites: append([]string(nil), prerequisites...)}
+}
+
 // ReadService returns authoritative storage projections for the console.
 type ReadService interface {
 	SystemStatus(context.Context) (generated.SystemStatus, error)

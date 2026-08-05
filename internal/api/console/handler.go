@@ -175,11 +175,35 @@ func (handler *handler) writeJSON(writer http.ResponseWriter, status int, value 
 }
 
 func (handler *handler) writeError(writer http.ResponseWriter, request *http.Request, status int, code, message string) {
+	handler.writeErrorResponse(writer, request, status, generated.Error{Code: code, Message: message})
+}
+
+func (handler *handler) writeWorkflowBlocker(writer http.ResponseWriter, request *http.Request, blocker *WorkflowBlocker) {
+	if blocker == nil {
+		handler.writeError(writer, request, http.StatusPreconditionFailed, "precondition_failed", "Safety prerequisites are not satisfied")
+		return
+	}
+	response := generated.Error{Code: blocker.Code, Message: blocker.Summary, Summary: &blocker.Summary,
+		Detail: &blocker.Detail, Impact: &blocker.Impact, SuggestedAction: &blocker.SuggestedAction}
+	if blocker.CurrentState != "" {
+		response.CurrentState = &blocker.CurrentState
+	}
+	if blocker.RequiredState != "" {
+		response.RequiredState = &blocker.RequiredState
+	}
+	if len(blocker.Prerequisites) > 0 {
+		response.BlockingPrerequisites = &blocker.Prerequisites
+	}
+	handler.writeErrorResponse(writer, request, http.StatusPreconditionFailed, response)
+}
+
+func (handler *handler) writeErrorResponse(writer http.ResponseWriter, request *http.Request, status int, response generated.Error) {
 	correlation := request.Header.Get("X-Correlation-ID")
 	if correlation == "" || len(correlation) > 128 || strings.ContainsAny(correlation, "\r\n") {
 		correlation = randomCorrelationID()
 	}
-	handler.writeJSON(writer, status, generated.Error{Code: code, Message: message, CorrelationId: correlation})
+	response.CorrelationId = correlation
+	handler.writeJSON(writer, status, response)
 }
 
 func randomCorrelationID() string {

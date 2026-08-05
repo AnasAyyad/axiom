@@ -235,6 +235,11 @@ func (handler *handler) writeRead(writer http.ResponseWriter, request *http.Requ
 }
 
 func (handler *handler) writeServiceError(writer http.ResponseWriter, request *http.Request, err error) {
+	var blocker *WorkflowBlocker
+	if errors.As(err, &blocker) {
+		handler.writeWorkflowBlocker(writer, request, blocker)
+		return
+	}
 	switch {
 	case errors.Is(err, ErrNotFound):
 		handler.writeError(writer, request, http.StatusNotFound, "not_found", "Resource not found")
