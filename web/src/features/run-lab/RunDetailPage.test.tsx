@@ -29,9 +29,9 @@ describe("RunDetailPage", () => {
                     friendly_name: "Trend Following backtest",
                     strategy_id: "trend-following",
                     strategy_version: "trend-following@1.0.0",
-                    mode: "backtest",
+                    mode: "replay",
                     environment: "recorded_data",
-                    state: "QUEUED",
+                    state: "PAUSED",
                     order_capable: true,
                     revision: "1",
                     created_at: "2026-08-05T00:00:00Z",
@@ -56,5 +56,8 @@ describe("RunDetailPage", () => {
     expect(screen.getByText(/No reducer-owned portfolio snapshot/i)).toBeInTheDocument();
     expect(screen.getAllByText("0 recorded item(s).")).toHaveLength(4);
     expect(screen.getByText("Advanced reproducibility identity")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Safe controls" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "resume" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "step" })).toBeInTheDocument();
   });
 });

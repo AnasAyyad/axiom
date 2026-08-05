@@ -1,6 +1,7 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
+import { newIdempotencyKey, postAPI } from "../../api/client";
 import {
   runEvidenceQuery,
   runOutputsQuery,
@@ -9,6 +10,7 @@ import {
   runRiskProjectionQuery,
 } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
+import { ConfirmAction } from "../../components/ConfirmAction";
 import { StatePanel } from "../../components/StatePanel";
 import styles from "../shared/D2.module.css";
 
@@ -19,14 +21,63 @@ const outputViews = [
   ["fills", "Fills"],
 ] as const;
 
+type RunAction = "pause" | "resume" | "step" | "stop";
+
+function availableRunActions(run: {
+  mode: string;
+  state: string;
+}): RunAction[] {
+  if (run.mode === "replay") {
+    if (run.state === "RUNNING") return ["pause"];
+    if (run.state === "PAUSED") return ["resume", "step"];
+    return [];
+  }
+  if (
+    run.mode === "shadow" &&
+    (run.state === "QUEUED" || run.state === "RUNNING" || run.state === "PAUSED")
+  ) {
+    return ["stop"];
+  }
+  return [];
+}
+
+function actionDescription(action: RunAction) {
+  switch (action) {
+    case "pause":
+      return "The worker will pause at its next safe event boundary.";
+    case "resume":
+      return "The recorded-data worker will continue from its durable checkpoint.";
+    case "step":
+      return "The recorded-data worker will process one deterministic event, then pause again.";
+    case "stop":
+      return "The public-data session will stop safely and reconcile any recorded work.";
+  }
+}
+
 export function RunDetailPage() {
   const { id = "" } = useParams();
+  const queryClient = useQueryClient();
   const run = useQuery(runQuery(id));
   const portfolio = useQuery(runPortfolioProjectionQuery(id));
   const risk = useQuery(runRiskProjectionQuery(id));
   const evidence = useQuery(runEvidenceQuery(id));
   const outputs = useQueries({
     queries: outputViews.map(([view]) => runOutputsQuery(id, view)),
+  });
+  const control = useMutation({
+    mutationFn: (action: RunAction) =>
+      postAPI<"CommandAccepted">(
+        `/api/v1/runs/${encodeURIComponent(id)}/${action}`,
+        {
+          expected_revision: run.data?.revision ?? "",
+          reason: `owner requested ${action} from the run detail page`,
+        },
+        newIdempotencyKey(`run-${action}`),
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["run", id] });
+      await run.refetch();
+    },
   });
 
   if (run.isLoading) return <StatePanel state="loading" />;
@@ -37,6 +88,7 @@ export function RunDetailPage() {
         detail="This run is unavailable or you no longer have a safe projection for it."
       />
     );
+  const actions = availableRunActions(run.data);
   return (
     <Page
       title={run.data.friendly_name}
@@ -66,6 +118,42 @@ export function RunDetailPage() {
           <p className={styles.notice}>{run.data.waiting_reason}</p>
         )}
       </section>
+      {actions.length > 0 && (
+        <section className={styles.card} aria-labelledby="run-controls">
+          <h2 id="run-controls">Safe controls</h2>
+          <p>
+            Controls are shown only when this run’s current lifecycle can
+            accept them. Each command is revision-checked, durable, and
+            audited.
+          </p>
+          <div className={styles.actions}>
+            {actions.map((action) => (
+              <ConfirmAction
+                key={action}
+                trigger={
+                  <button
+                    type="button"
+                    className={action === "stop" ? styles.danger : styles.secondary}
+                    disabled={control.isPending}
+                  >
+                    {action}
+                  </button>
+                }
+                title={`${action} this run?`}
+                description={actionDescription(action)}
+                confirmLabel={action}
+                onConfirm={() => control.mutate(action)}
+              />
+            ))}
+          </div>
+          {control.isError && (
+            <p className={styles.error} role="alert">
+              The command was not accepted. Refresh the run and try again if
+              the current state still allows it.
+            </p>
+          )}
+        </section>
+      )}
       <section className={styles.section} aria-labelledby="run-records">
         <h2 id="run-records">Recorded workflow</h2>
         <p>
