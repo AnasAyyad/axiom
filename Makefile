@@ -53,6 +53,7 @@ semantic-naming-check: ## Reject newly introduced delivery-stage terminology in 
 	@$(NODE) scripts/check-semantic-naming.mjs
 
 docs-check: ## Validate local documentation links and requirement-matrix consistency.
+	@$(MAKE) semantic-naming-check NODE="$(NODE)"
 	@$(NODE) scripts/check-doc-links.mjs
 	@$(NODE) scripts/check-a0-traceability.mjs $(if $(wildcard $(PLAN_FILE)),$(PLAN_FILE))
 	@$(NODE) scripts/check-a2-config-reference.mjs
