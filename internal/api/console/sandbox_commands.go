@@ -123,6 +123,54 @@ func (handler *handler) createSandboxArm(
 	handler.writeJSON(writer, http.StatusCreated, value)
 }
 
+func (handler *handler) startSandboxStrategySession(
+	writer http.ResponseWriter,
+	request *http.Request,
+	principal authentication.Principal,
+) {
+	key, ok := handler.idempotencyKey(writer, request)
+	if !ok {
+		return
+	}
+	var body generated.SandboxStrategySessionStartRequest
+	if !handler.decode(writer, request, &body) || !validSandboxReason(body.Reason) ||
+		!validPositiveRevision(body.ExpectedRevision) || handler.sandboxCommandUnavailable(writer, request) {
+		return
+	}
+	consumed, ok := handler.consumeSandboxAuthorization(writer, request, principal,
+		body.AuthorizationToken, authentication.PurposeSandboxArm, body.Reason)
+	if !ok {
+		return
+	}
+	value, err := handler.options.SandboxCommands.StartSandboxStrategySession(
+		request.Context(), principal, request.PathValue("id"), key, body, consumed,
+	)
+	if err != nil {
+		handler.writeServiceError(writer, request, err)
+		return
+	}
+	handler.writeJSON(writer, http.StatusAccepted, value)
+}
+
+func (handler *handler) stopSandboxStrategySession(
+	writer http.ResponseWriter,
+	request *http.Request,
+	principal authentication.Principal,
+) {
+	key, body, ok := handler.sandboxRevisionCommand(writer, request)
+	if !ok || handler.sandboxCommandUnavailable(writer, request) {
+		return
+	}
+	value, err := handler.options.SandboxCommands.StopSandboxStrategySession(
+		request.Context(), principal, request.PathValue("id"), key, body,
+	)
+	if err != nil {
+		handler.writeServiceError(writer, request, err)
+		return
+	}
+	handler.writeJSON(writer, http.StatusAccepted, value)
+}
+
 func (handler *handler) consumeSandboxAuthorization(
 	writer http.ResponseWriter,
 	request *http.Request,

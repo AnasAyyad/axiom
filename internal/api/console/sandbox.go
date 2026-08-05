@@ -33,6 +33,14 @@ func (handler *handler) registerSandbox(mux *http.ServeMux) {
 		handler.authorizedMutation(handler.createSandboxArm, authentication.PermissionSandboxArm),
 	)
 	mux.HandleFunc(
+		"POST /api/v1/sandbox/strategy-sessions/{id}/start",
+		handler.authorizedMutation(handler.startSandboxStrategySession, authentication.PermissionSandboxArm),
+	)
+	mux.HandleFunc(
+		"POST /api/v1/sandbox/strategy-sessions/{id}/stop",
+		handler.authorizedMutation(handler.stopSandboxStrategySession, authentication.PermissionSandboxArm),
+	)
+	mux.HandleFunc(
 		"POST /api/v1/sandbox/arms/{id}/revoke",
 		handler.authorizedMutation(handler.revokeSandboxArm, authentication.PermissionSandboxArm),
 	)

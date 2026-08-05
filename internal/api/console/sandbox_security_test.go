@@ -126,6 +126,24 @@ func TestC6OneUseAuthorizationRejectsReasonTamperingAndReplay(t *testing.T) {
 	}
 }
 
+func TestSandboxStrategyStartRequiresItsOwnBoundOneUseAuthorization(t *testing.T) {
+	now := time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
+	seed := []byte("12345678901234567890")
+	mux, commands := newC6AuthorizationHTTPFixture(t, now, seed)
+	session, csrf := a11HTTPLogin(t, mux)
+	reason := "start bounded strategy session"
+	token := issueC6Authorization(t, mux, session, csrf,
+		c6TOTPCode(seed, uint64(now.Unix()/30)), reason)
+	status, body := submitSandboxStrategyStart(t, mux, session, csrf, token, reason, "strategy-start-key-0001")
+	if status != http.StatusAccepted || commands.strategyStartCalls != 1 {
+		t.Fatalf("strategy start = %d %s calls=%d", status, body, commands.strategyStartCalls)
+	}
+	status, body = submitSandboxStrategyStart(t, mux, session, csrf, token, reason, "strategy-start-key-0002")
+	if status != http.StatusForbidden || !bytes.Contains(body, []byte("authorization_invalid")) || commands.strategyStartCalls != 1 {
+		t.Fatalf("strategy start replay = %d %s calls=%d", status, body, commands.strategyStartCalls)
+	}
+}
+
 func newC6AuthorizationHTTPFixture(
 	t *testing.T,
 	now time.Time,
@@ -264,6 +282,30 @@ func submitC6Arm(
 	return response.Code, response.Body.Bytes()
 }
 
+func submitSandboxStrategyStart(
+	t *testing.T,
+	handler http.Handler,
+	session, csrf *http.Cookie,
+	token, reason, key string,
+) (int, []byte) {
+	t.Helper()
+	payload, _ := json.Marshal(generated.SandboxStrategySessionStartRequest{
+		AuthorizationToken: token, ExpectedRevision: "1", Reason: reason,
+	})
+	request := httptest.NewRequest(http.MethodPost,
+		"/api/v1/sandbox/strategy-sessions/strategy-session-1/start", bytes.NewReader(payload))
+	request.RemoteAddr = "127.0.0.1:51515"
+	request.Header.Set("Origin", "http://localhost:4173")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-CSRF-Token", csrf.Value)
+	request.Header.Set("Idempotency-Key", key)
+	request.AddCookie(session)
+	request.AddCookie(csrf)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response.Code, response.Body.Bytes()
+}
+
 type c6HTTPAuthorizationStore struct {
 	*a11HTTPStore
 	grants  map[string]authentication.NewSandboxAuthorization
@@ -324,7 +366,7 @@ func (*c6HTTPAuthorizationStore) AppendHighRiskAudit(
 	return nil
 }
 
-type c6HTTPCommands struct{ armCalls int }
+type c6HTTPCommands struct{ armCalls, strategyStartCalls, strategyStopCalls int }
 
 func (commands *c6HTTPCommands) CreateSandboxArm(
 	context.Context,
@@ -336,6 +378,29 @@ func (commands *c6HTTPCommands) CreateSandboxArm(
 ) (generated.SandboxArm, error) {
 	commands.armCalls++
 	return generated.SandboxArm{}, nil
+}
+
+func (commands *c6HTTPCommands) StartSandboxStrategySession(
+	context.Context,
+	authentication.Principal,
+	string,
+	string,
+	generated.SandboxStrategySessionStartRequest,
+	authentication.ConsumedAuthorization,
+) (generated.CommandAccepted, error) {
+	commands.strategyStartCalls++
+	return generated.CommandAccepted{}, nil
+}
+
+func (commands *c6HTTPCommands) StopSandboxStrategySession(
+	context.Context,
+	authentication.Principal,
+	string,
+	string,
+	generated.RevisionCommandRequest,
+) (generated.CommandAccepted, error) {
+	commands.strategyStopCalls++
+	return generated.CommandAccepted{}, nil
 }
 
 func (*c6HTTPCommands) RevokeSandboxArm(

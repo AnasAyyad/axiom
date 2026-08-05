@@ -142,6 +142,8 @@ type SandboxReadService interface {
 // machines. It owns no exchange client and cannot perform network I/O.
 type SandboxCommandService interface {
 	CreateSandboxArm(context.Context, authentication.Principal, string, string, generated.SandboxArmRequest, authentication.ConsumedAuthorization) (generated.SandboxArm, error)
+	StartSandboxStrategySession(context.Context, authentication.Principal, string, string, generated.SandboxStrategySessionStartRequest, authentication.ConsumedAuthorization) (generated.CommandAccepted, error)
+	StopSandboxStrategySession(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
 	RevokeSandboxArm(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
 	UnlockSandboxAccount(context.Context, authentication.Principal, string, string, generated.SandboxUnlockRequest, authentication.ConsumedAuthorization) (generated.CommandAccepted, error)
 	CreateSandboxTestOrder(context.Context, authentication.Principal, string, generated.SandboxTestOrderRequest) (generated.CommandAccepted, error)
