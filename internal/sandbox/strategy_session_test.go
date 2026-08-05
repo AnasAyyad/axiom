@@ -54,4 +54,8 @@ func TestStrategySessionCommandRejectsAdvisoryAndInvalidVenueTopology(t *testing
 	if err := command.Validate(); err == nil {
 		t.Fatal("cross-exchange command accepted a single venue")
 	}
+	command.Exchanges, command.StrategySetHash = []Exchange{ExchangeBinance, ExchangeBybit}, strings.Repeat("z", 64)
+	if err := command.Validate(); err == nil {
+		t.Fatal("non-hex strategy hash was accepted")
+	}
 }

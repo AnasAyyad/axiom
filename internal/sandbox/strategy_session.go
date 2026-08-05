@@ -44,7 +44,7 @@ func (command StrategySessionCommand) Validate() error {
 	if command.ID == "" || command.ConfigurationID == "" || command.CreatedBy == "" ||
 		command.CreatedAt.IsZero() || command.CreatedAt.Location() != time.UTC ||
 		(command.Instrument != "BTCUSDT" && command.Instrument != "ETHUSDT") ||
-		len(command.StrategySetHash) != 64 {
+		!hash256(command.StrategySetHash) {
 		return contractError("strategy_session_command_invalid")
 	}
 	exchanges := append([]Exchange(nil), command.Exchanges...)
