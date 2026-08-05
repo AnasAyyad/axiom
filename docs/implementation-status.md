@@ -38,6 +38,10 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
   availability, and safe reproducibility-evidence projections. A missing
   snapshot or run-scoped risk record is presented as `not_recorded`; the
   product never substitutes current global state or fabricates evidence.
+- The run detail page exposes only lifecycle controls that the current durable
+  run can accept: replay pause, resume, and one-event step, plus safe public
+  shadow stop. Each uses the existing revision-checked, audited command path;
+  unsupported run types expose no control.
 - The protected Data Catalogue lists registered immutable manifests, coverage,
   gaps, quality tier, and hashes. It accepts no browser upload or raw storage
   path.
