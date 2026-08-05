@@ -56,6 +56,14 @@ shared runtime is installed.
   behavior releases an allocation on rejected risk/planning and quarantines it
   after uncertain execution/reduction. Concrete adapters are still absent, so
   this contract has not enabled any catalogue item or automatic order flow.
+- Triangular now supplies the first two concrete saga stages. It decodes the
+  canonical replay input, exhaustively evaluates every eligible exact cycle
+  and size, ranks candidates by worst-case then expected return and immutable
+  ID, and atomically claims the selected candidate's real shared balance, fee,
+  liquidity, and recovery resources. A resource conflict may select the next
+  fully claimable candidate; missing capacity creates no partial hold. The
+  central-risk, plan, simulation, journal-reduction, and worker stages remain
+  intentionally unavailable, so this has not enabled a run or order flow.
 - Each listed run has one semantic detail route with immutable timeline,
   decision, planned-order, simulated-execution, latest portfolio, risk
   availability, and safe reproducibility-evidence projections. A missing
