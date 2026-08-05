@@ -23,6 +23,27 @@ Implementation, local validation, review, merge, formal qualification, and
 release certification are reported separately. In particular, this program
 does not start, replace, or certify B2, C6, D5, or D6 evidence.
 
+### Implemented owner-console slices
+
+- One active owner is enforced by the current authentication path and a
+  fail-closed database migration; legacy authorization evidence remains
+  historical only.
+- The server supplies a semantic strategy/run catalogue and a unified,
+  read-only run history over durable backtest, replay, and public-data shadow
+  records. It does not yet claim a common launcher for every strategy family.
+- The protected Data Catalogue lists registered immutable manifests, coverage,
+  gaps, quality tier, and hashes. It accepts no browser upload or raw storage
+  path.
+- The owner UI includes those catalogue/history projections and explicitly
+  marks guided demonstrations unavailable until deterministic immutable bundles
+  are actually installed.
+
+Remaining implementation includes shared materialization for every strategy,
+deterministic demonstration bundles, semantic run creation and all run action
+and evidence projections, automated armed Testnet/Demo sessions, and the
+full historical terminology cleanup. These items are not represented as
+operational capability today.
+
 ## V1D D6 repository certification
 
 The `v1d-d6-certification` worktree adds cumulative exact-identity evidence,
