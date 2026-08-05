@@ -41,6 +41,14 @@ shared runtime is installed.
   missing snapshot identity or a mismatched replay envelope. This is a
   backtest/replay input foundation only: it does not yet materialize a run,
   allocate inventory, invoke central risk, plan orders, or submit anything.
+- Cross-Exchange Arbitrage now has the corresponding canonical recorded input:
+  two executable snapshots with filters and publication evidence, the exact
+  coherent-view identity/policy/member vector, venue inventory, fee balances,
+  and recovery economics. Replaying the JSON input restores the coherent view
+  before the evaluator verifies every reconstructed book member; a changed
+  book is rejected rather than treated as equivalent market evidence. This is
+  likewise an input foundation, not a durable run, planner, sandbox worker, or
+  automatic execution capability.
 - Each listed run has one semantic detail route with immutable timeline,
   decision, planned-order, simulated-execution, latest portfolio, risk
   availability, and safe reproducibility-evidence projections. A missing
