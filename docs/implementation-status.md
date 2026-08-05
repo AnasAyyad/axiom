@@ -32,8 +32,15 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
   read-only run history over durable backtest, replay, and public-data shadow
   records. Trend Following and Mean Reversion now share the credential-free
   durable backtest/replay worker through a semantic runtime registry; all
-  other strategy/mode combinations remain explicit blockers until their real
-  shared runtime is installed.
+other strategy/mode combinations remain explicit blockers until their real
+shared runtime is installed.
+- Triangular Arbitrage now has a canonical recorded-decision input that
+  rebuilds its exact three recorded book snapshots, publication evidence, and
+  exchange filters entirely in process before invoking the existing evaluator.
+  JSON round-trip coverage proves it preserves candidate identity and rejects
+  missing snapshot identity or a mismatched replay envelope. This is a
+  backtest/replay input foundation only: it does not yet materialize a run,
+  allocate inventory, invoke central risk, plan orders, or submit anything.
 - Each listed run has one semantic detail route with immutable timeline,
   decision, planned-order, simulated-execution, latest portfolio, risk
   availability, and safe reproducibility-evidence projections. A missing
