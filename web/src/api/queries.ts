@@ -15,6 +15,12 @@ export const runCatalogQuery = queryOptions({
   staleTime: 30_000,
 });
 
+export const runsQuery = queryOptions({
+  queryKey: ["runs"],
+  queryFn: () => getAPI<"RunPage">("/api/v1/runs"),
+  refetchInterval: 5_000,
+});
+
 export const systemQuery = queryOptions({
   queryKey: ["system"],
   queryFn: () => getAPI<"SystemStatus">("/api/v1/system/status"),

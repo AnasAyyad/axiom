@@ -38,6 +38,10 @@ import { ResourceCollectionPage } from "../features/operations/ResourceCollectio
 import { QualificationCenterPage } from "../features/qualifications/QualificationCenterPage";
 import { RiskControlsPage } from "../features/risk/RiskControlsPage";
 import { RunLabPage } from "../features/run-lab/RunLabPage";
+import {
+  GettingStartedPage,
+  GuidedDemonstrationsPage,
+} from "../features/run-lab/OwnerGuidancePages";
 import { StrategyCenterPage } from "../features/strategies/StrategyCenterPage";
 
 const BacktestLab = lazy(() =>
@@ -77,6 +81,7 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route element={<AuthenticatedShell />}>
               <Route index element={<CommandCenter />} />
+              <Route path="getting-started" element={<GettingStartedPage />} />
               <Route path="exchanges" element={<ExchangesPage />} />
               <Route path="exchanges/binance" element={<BinancePage />} />
               <Route
@@ -112,6 +117,10 @@ export function App() {
                 element={<ActivityPage view="system_events" />}
               />
               <Route path="run-lab" element={<RunLabPage />} />
+              <Route
+                path="guided-demonstrations"
+                element={<GuidedDemonstrationsPage />}
+              />
               <Route path="backtests" element={<BacktestLab />} />
               <Route path="backtests/:id" element={<BacktestLab />} />
               <Route path="replays" element={<ReplayLab />} />

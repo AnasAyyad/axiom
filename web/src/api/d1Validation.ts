@@ -99,6 +99,25 @@ const runCatalog = z
   })
   .loose();
 
+const run = z
+  .object({
+    id: z.string().min(1),
+    friendly_name: z.string().min(1),
+    strategy_id: z.string().min(1),
+    strategy_version: z.string().min(1),
+    mode: z.enum(["backtest", "replay", "shadow"]),
+    environment: z.enum(["recorded_data", "production_public"]),
+    state: z.string().min(1),
+    order_capable: z.boolean(),
+    revision,
+    waiting_reason: z.string().min(1).optional(),
+    created_at: timestamp,
+    updated_at: timestamp.optional(),
+  })
+  .loose();
+
+const runPage = z.object({ items: z.array(run) }).loose();
+
 const command = z
   .object({
     id: z.string().min(1),
@@ -160,6 +179,8 @@ export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [/^GET \/api\/v1\/activity(?:\?.*)?$/, activityPage],
   [/^GET \/api\/v1\/activity\/[^/?]+$/, activity],
   [/^GET \/api\/v1\/run-catalog$/, runCatalog],
+  [/^GET \/api\/v1\/runs$/, runPage],
+  [/^GET \/api\/v1\/runs\/[^/?]+$/, run],
   [/^POST \/api\/v1\/authorizations$/, authorization],
   [/^POST \/api\/v1\/exports$/, exportArtifact],
   [/^POST \/api\/v1\/incidents\/[^/?]+\/evidence-bundles$/, exportArtifact],

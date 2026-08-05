@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
-import { runCatalogQuery } from "../../api/queries";
+import { runCatalogQuery, runsQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import styles from "../shared/D2.module.css";
@@ -25,6 +25,7 @@ function modeLabel(mode: string) {
 
 export function RunLabPage() {
   const catalog = useQuery(runCatalogQuery);
+  const history = useQuery(runsQuery);
   if (catalog.isLoading) return <StatePanel state="loading" />;
   if (catalog.isError || !catalog.data)
     return (
@@ -101,6 +102,47 @@ export function RunLabPage() {
           );
         })}
       </div>
+      <section className={styles.section} aria-labelledby="recent-runs-heading">
+        <h2 id="recent-runs-heading">Recent runs</h2>
+        <p>
+          This is the durable history of recorded-data and public-data shadow
+          work. A run can wait safely when no worker or fresh public input is
+          ready.
+        </p>
+        {history.isLoading && <StatePanel state="loading" />}
+        {history.isError && (
+          <StatePanel
+            state="error"
+            detail="Run history is temporarily unavailable."
+          />
+        )}
+        {history.data?.items.length === 0 && (
+          <StatePanel
+            state="empty"
+            detail="No durable runs have been created yet."
+          />
+        )}
+        {history.data?.items.map((run) => (
+          <article className={styles.card} key={run.id}>
+            <div className={styles.cardHeader}>
+              <h3>{run.friendly_name}</h3>
+              <span>{run.state}</span>
+            </div>
+            <p>
+              {run.strategy_version} · {run.environment.replace("_", " ")}
+            </p>
+            {run.waiting_reason && (
+              <p className={styles.notice}>{run.waiting_reason}</p>
+            )}
+            <Link
+              className={styles.linkButton}
+              to={`/${run.mode === "shadow" ? "shadow" : `${run.mode}s`}/${encodeURIComponent(run.id)}`}
+            >
+              View run evidence
+            </Link>
+          </article>
+        ))}
+      </section>
     </Page>
   );
 }
