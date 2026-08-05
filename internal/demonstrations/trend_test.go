@@ -30,15 +30,33 @@ func TestTrendFollowingWalkthroughUsesTheSharedPipelineDeterministically(t *test
 
 func TestCatalogueOnlyExposesExecutableDemonstrations(t *testing.T) {
 	items := Catalogue()
-	if len(items) != 4 || items[0].ID != TrendFollowingID ||
+	if len(items) != 5 || items[0].ID != TrendFollowingID ||
 		items[0].StrategyID != "trend-following" || items[1].ID != MeanReversionID ||
 		items[1].StrategyID != "mean-reversion" || items[2].ID != RebalancingID ||
 		items[2].StrategyID != "inventory-rebalancing" || items[3].ID != TriangularArbitrageID ||
-		items[3].StrategyID != "triangular-arbitrage" || len(items[1].ExpectedOutcomes) < 5 {
+		items[3].StrategyID != "triangular-arbitrage" || items[4].ID != CrossExchangeArbitrageID ||
+		items[4].StrategyID != "cross-exchange-arbitrage" || len(items[1].ExpectedOutcomes) < 5 {
 		t.Fatalf("catalogue=%+v", items)
 	}
 	if _, err := Run(context.Background(), "unknown-demo"); err == nil {
 		t.Fatal("unknown demonstration was accepted")
+	}
+}
+
+func TestCrossExchangeWalkthroughUsesCoherentReadOnlyEvidence(t *testing.T) {
+	first, err := RunCrossExchangeArbitrage(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Run(context.Background(), CrossExchangeArbitrageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !first.AdvisoryOnly || first.ResultHash == "" || first.ResultHash != second.ResultHash ||
+		string(first.Accepted.Orders) != "[]" || string(first.Accepted.ExecutionEvents) != "[]" ||
+		!strings.Contains(string(first.AdvisoryEvidence), "buy_binance_sell_bybit") ||
+		!strings.Contains(string(first.AdvisoryEvidence), "no_eligible_direction") {
+		t.Fatalf("cross exchange result=%+v", first)
 	}
 }
 

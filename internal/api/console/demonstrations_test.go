@@ -25,14 +25,16 @@ func TestGuidedDemonstrationsOnlyExposeExecutableSyntheticWalkthroughs(t *testin
 	if err := json.Unmarshal(response.Body.Bytes(), &catalogue); err != nil {
 		t.Fatal(err)
 	}
-	if len(catalogue.Items) != 4 || catalogue.Items[0].Id != demonstrations.TrendFollowingID ||
+	if len(catalogue.Items) != 5 || catalogue.Items[0].Id != demonstrations.TrendFollowingID ||
 		!catalogue.Items[0].Synthetic || catalogue.Items[0].StrategyId != "trend-following" ||
 		catalogue.Items[1].Id != demonstrations.MeanReversionID ||
 		catalogue.Items[1].StrategyId != "mean-reversion" ||
 		catalogue.Items[2].Id != demonstrations.RebalancingID ||
 		catalogue.Items[2].StrategyId != "inventory-rebalancing" ||
 		catalogue.Items[3].Id != demonstrations.TriangularArbitrageID ||
-		catalogue.Items[3].StrategyId != "triangular-arbitrage" {
+		catalogue.Items[3].StrategyId != "triangular-arbitrage" ||
+		catalogue.Items[4].Id != demonstrations.CrossExchangeArbitrageID ||
+		catalogue.Items[4].StrategyId != "cross-exchange-arbitrage" {
 		t.Fatalf("catalogue=%+v", catalogue)
 	}
 }
@@ -72,6 +74,7 @@ func TestGuidedAdvisoryDemonstrationsReturnEvidenceWithoutOrders(t *testing.T) {
 	}{
 		{"rebalancing", demonstrations.RebalancingID, "natural_reverse_arbitrage", "route_unavailable"},
 		{"triangular", demonstrations.TriangularArbitrageID, "USDT-BTC-ETH-USDT", "no_eligible_cycle"},
+		{"cross exchange", demonstrations.CrossExchangeArbitrageID, "buy_binance_sell_bybit", "no_eligible_direction"},
 	} {
 		t.Run(demonstration.name, func(t *testing.T) {
 			handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})

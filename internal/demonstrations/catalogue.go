@@ -43,6 +43,8 @@ func Catalogue() []Scenario {
 		ID: RebalancingID, Title: "Inventory Rebalancing basics", Description: "A synthetic advisory walkthrough that prefers a reviewed natural reversal and rejects a stale route fact.", StrategyID: "inventory-rebalancing", StrategyVersion: "inventory-rebalancing@1.0.0", ExpectedOutcomes: []string{"Advisory natural-reversal recommendation", "Exact reviewed route costs and diagnostics", "Stale-fact rejection", "No order, transfer, or exchange submission"},
 	}, {
 		ID: TriangularArbitrageID, Title: "Triangular Arbitrage basics", Description: "A synthetic advisory walkthrough that evaluates a reviewed three-conversion candidate and rejects insufficient fee capacity.", StrategyID: "triangular-arbitrage", StrategyVersion: "triangular-arbitrage@1.0.0", ExpectedOutcomes: []string{"Exact three-conversion candidate", "Reviewed depth, fee, and safety-margin evidence", "Insufficient-fee-capacity rejection", "No order, transfer, or exchange submission"},
+	}, {
+		ID: CrossExchangeArbitrageID, Title: "Cross-Exchange Arbitrage basics", Description: "A synthetic advisory walkthrough that evaluates a coherent two-venue closed cycle and rejects uneconomic restoration costs.", StrategyID: "cross-exchange-arbitrage", StrategyVersion: "cross-exchange-arbitrage@1.0.0", ExpectedOutcomes: []string{"Coherent two-venue closed-cycle candidate", "Exact inventory, fee, and restoration evidence", "Uneconomic-restoration rejection", "No order, transfer, or exchange submission"},
 	}}
 }
 
@@ -58,6 +60,8 @@ func Run(ctx context.Context, id string) (Result, error) {
 		return RunInventoryRebalancing(ctx)
 	case TriangularArbitrageID:
 		return RunTriangularArbitrage(ctx)
+	case CrossExchangeArbitrageID:
+		return RunCrossExchangeArbitrage(ctx)
 	default:
 		return Result{}, ErrNotFound
 	}

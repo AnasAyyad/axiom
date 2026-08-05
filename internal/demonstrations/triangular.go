@@ -125,7 +125,7 @@ func guidedTriangularMarket(base, quote string, bids, asks [][2]string, feeAsset
 		ConnectionID: "guided-triangular", ConnectionGeneration: 1, SourceSequence: 1,
 		IngestOrdinal: 1, ReceivedOffsetNanos: 100, ProcessedOffsetNanos: 101, PublishedOffsetNanos: 102,
 	}
-	snapshot, err := guidedSnapshot(instrument, bids, asks, observation)
+	snapshot, err := guidedSnapshot("binance", instrument, bids, asks, observation)
 	if err != nil {
 		return triangular.Market{}, err
 	}
@@ -165,7 +165,7 @@ func guidedTriangularMarket(base, quote string, bids, asks [][2]string, feeAsset
 	}}, nil
 }
 
-func guidedSnapshot(instrument domain.Instrument, bids, asks [][2]string, observed marketdata.Observation) (exchangecontracts.BookSnapshot, error) {
+func guidedSnapshot(exchange string, instrument domain.Instrument, bids, asks [][2]string, observed marketdata.Observation) (exchangecontracts.BookSnapshot, error) {
 	levels := func(values [][2]string) ([]exchangecontracts.PriceLevel, error) {
 		result := make([]exchangecontracts.PriceLevel, 0, len(values))
 		for _, value := range values {
@@ -186,7 +186,7 @@ func guidedSnapshot(instrument domain.Instrument, bids, asks [][2]string, observ
 	if err != nil {
 		return exchangecontracts.BookSnapshot{}, err
 	}
-	return exchangecontracts.BookSnapshot{Exchange: "binance", Instrument: instrument, LastSequence: 1,
+	return exchangecontracts.BookSnapshot{Exchange: exchangecontracts.ExchangeID(exchange), Instrument: instrument, LastSequence: observed.SourceSequence,
 		ReceivedAt: observed.ReceivedAt, Bids: parsedBids, Asks: parsedAsks, RawPayloadHash: "sha256:guided-triangular"}, nil
 }
 
