@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -127,6 +128,37 @@ func TestOwnerMutationStillValidatesBoundaries(t *testing.T) {
 	handler.ServeHTTP(viewerResponse, viewerRequest)
 	if viewerResponse.Code != http.StatusBadRequest {
 		t.Fatalf("invalid owner mutation = %d", viewerResponse.Code)
+	}
+}
+
+func TestOwnerSessionNeverExposesRolesPermissionsOrUserManagementRoutes(t *testing.T) {
+	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
+	session, _ := a11HTTPLogin(t, handler)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/session/me", nil)
+	request.AddCookie(session)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("owner session status=%d body=%s", response.Code, response.Body.String())
+	}
+	var projection map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &projection); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := projection["roles"]; exists {
+		t.Fatalf("owner session exposed roles: %s", response.Body.String())
+	}
+	if _, exists := projection["permissions"]; exists {
+		t.Fatalf("owner session exposed permissions: %s", response.Body.String())
+	}
+	for _, path := range []string{"/api/v1/users", "/api/v1/users/owner/roles"} {
+		userRequest := httptest.NewRequest(http.MethodGet, path, nil)
+		userRequest.AddCookie(session)
+		userResponse := httptest.NewRecorder()
+		handler.ServeHTTP(userResponse, userRequest)
+		if userResponse.Code != http.StatusNotFound {
+			t.Fatalf("legacy user route %s status=%d", path, userResponse.Code)
+		}
 	}
 }
 
