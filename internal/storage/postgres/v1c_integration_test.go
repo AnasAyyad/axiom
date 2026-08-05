@@ -44,6 +44,7 @@ func TestV1CPostgresCleanInstallQualification(t *testing.T) {
 	assertV1CAuditChainSerialization(t, ctx, pool)
 	assertV1CAuthorizationSessionBinding(t, ctx, pool)
 	assertV1CCanarySessionPersistence(t, ctx, pool)
+	assertV1CStrategySessionPersistence(t, ctx, pool)
 	assertV1CDispatcherCrashRecovery(t, ctx, pool)
 	assertV1CControlRecoveryAndReset(t, ctx, pool)
 	assertV1CC6QualificationBoundary(t, ctx, pool)

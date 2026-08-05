@@ -73,10 +73,14 @@ represented as operational capability today.
 The sandbox domain now has a closed strategy-session lifecycle contract for
 automatic spot strategies. It requires a live owner arm that covers every
 account, rejects expired or revoked arms, preserves an unconditional stop path,
-and rejects Inventory Rebalancing because it remains advisory-only. This is a
-tested domain prerequisite only; persistence, API commands, and a worker have
-not yet been installed, so no automatic sandbox strategy session is currently
-operational.
+and rejects Inventory Rebalancing because it remains advisory-only. The durable
+creator atomically resolves only fresh, reconciled, leased, correctly
+environment-scoped account epochs, then writes the armable parent and immutable
+strategy-account topology together; single-venue and paired Binance/Bybit
+topologies are covered by the dedicated PostgreSQL qualification path. The
+owner-facing start/stop commands are persisted separately and never contact an
+exchange. A server-resolved creation API and the strategy worker are not yet
+installed, so no automatic sandbox strategy session is currently operational.
 
 ## V1D D6 repository certification
 
