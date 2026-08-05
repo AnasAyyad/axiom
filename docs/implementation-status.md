@@ -53,9 +53,12 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
 - Deterministic, synthetic Trend Following and Mean Reversion walkthroughs now
   exercise the same strategy, allocation, risk, planning, virtual-execution,
   portfolio, and journal pipelines as their credential-free offline runtimes.
-  The protected owner catalogue and result view expose only those installed scenarios and their
-  canonical evidence; it does not create a durable run, contact an exchange,
-  or establish historical-performance or profitability evidence.
+  The protected owner catalogue also includes an Inventory Rebalancing advisory
+  walkthrough that uses the reviewed route optimizer to show a natural reversal
+  and stale-fact rejection. It can never create a transfer, exchange order, or
+  fill. The result view exposes only installed scenarios and canonical evidence;
+  it does not create a durable run, contact an exchange, or establish
+  historical-performance or profitability evidence.
 
 Remaining implementation includes shared materialization for the remaining
 strategy families and live shadows, deterministic demonstration bundles,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"axiom/internal/api/generated"
@@ -24,10 +25,12 @@ func TestGuidedDemonstrationsOnlyExposeExecutableSyntheticWalkthroughs(t *testin
 	if err := json.Unmarshal(response.Body.Bytes(), &catalogue); err != nil {
 		t.Fatal(err)
 	}
-	if len(catalogue.Items) != 2 || catalogue.Items[0].Id != demonstrations.TrendFollowingID ||
+	if len(catalogue.Items) != 3 || catalogue.Items[0].Id != demonstrations.TrendFollowingID ||
 		!catalogue.Items[0].Synthetic || catalogue.Items[0].StrategyId != "trend-following" ||
 		catalogue.Items[1].Id != demonstrations.MeanReversionID ||
-		catalogue.Items[1].StrategyId != "mean-reversion" {
+		catalogue.Items[1].StrategyId != "mean-reversion" ||
+		catalogue.Items[2].Id != demonstrations.RebalancingID ||
+		catalogue.Items[2].StrategyId != "inventory-rebalancing" {
 		t.Fatalf("catalogue=%+v", catalogue)
 	}
 }
@@ -58,5 +61,28 @@ func TestGuidedDemonstrationReturnsCanonicalPipelineEvidence(t *testing.T) {
 	handler.ServeHTTP(missingResponse, missing)
 	if missingResponse.Code != http.StatusNotFound {
 		t.Fatalf("missing status=%d body=%s", missingResponse.Code, missingResponse.Body.String())
+	}
+}
+
+func TestGuidedInventoryRebalancingReturnsAdvisoryEvidenceOnly(t *testing.T) {
+	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
+	session, _ := a11HTTPLogin(t, handler)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/demonstrations/"+demonstrations.RebalancingID, nil)
+	request.AddCookie(session)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("result status=%d body=%s", response.Code, response.Body.String())
+	}
+	var result generated.GuidedDemonstrationResult
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.Synthetic || !result.AdvisoryOnly || result.AdvisoryEvidence == nil ||
+		!strings.Contains(*result.AdvisoryEvidence, "natural_reverse_arbitrage") ||
+		!strings.Contains(*result.AdvisoryEvidence, "route_unavailable") ||
+		result.Accepted.Orders != "[]" || result.Accepted.ExecutionEvents != "[]" ||
+		result.Rejected.Orders != "[]" || result.Rejected.ExecutionEvents != "[]" {
+		t.Fatalf("advisory result=%+v", result)
 	}
 }

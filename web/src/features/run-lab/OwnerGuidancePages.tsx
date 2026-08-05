@@ -225,14 +225,24 @@ export function GuidedDemonstrationsPage() {
               <dd>{result.data.result_hash}</dd>
             </div>
           </dl>
-          <DemonstrationEventEvidence
-            label="Accepted shared-pipeline event"
-            event={result.data.accepted}
-          />
-          <DemonstrationEventEvidence
-            label="Market-health rejection"
-            event={result.data.rejected}
-          />
+          {result.data.advisory_only && result.data.advisory_evidence ? (
+            <EvidenceDetails
+              summary="This walkthrough is read-only. It does not create a transfer, exchange order, or fill."
+              title="Advisory recommendation evidence"
+              value={formatCanonical(result.data.advisory_evidence)}
+            />
+          ) : (
+            <>
+              <DemonstrationEventEvidence
+                label="Accepted shared-pipeline event"
+                event={result.data.accepted}
+              />
+              <DemonstrationEventEvidence
+                label="Market-health rejection"
+                event={result.data.rejected}
+              />
+            </>
+          )}
           <EvidenceDetails
             summary="One-event synthetic metrics. These are not profitability metrics."
             title="Metric payload"

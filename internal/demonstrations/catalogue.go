@@ -39,6 +39,8 @@ func Catalogue() []Scenario {
 		Description: "A synthetic dual-timeframe walkthrough that shows one accepted entry through virtual execution and one market-health rejection.",
 		StrategyID:  "mean-reversion", StrategyVersion: "mean-reversion@1.0.0",
 		ExpectedOutcomes: []string{"Accepted strategy decision", "Allocator and central-risk approval", "Virtual order and partial simulated fill", "Portfolio and journal update", "Rejected decision when market health is unavailable"},
+	}, {
+		ID: RebalancingID, Title: "Inventory Rebalancing basics", Description: "A synthetic advisory walkthrough that prefers a reviewed natural reversal and rejects a stale route fact.", StrategyID: "inventory-rebalancing", StrategyVersion: "inventory-rebalancing@1.0.0", ExpectedOutcomes: []string{"Advisory natural-reversal recommendation", "Exact reviewed route costs and diagnostics", "Stale-fact rejection", "No order, transfer, or exchange submission"},
 	}}
 }
 
@@ -50,6 +52,8 @@ func Run(ctx context.Context, id string) (Result, error) {
 		return RunTrendFollowing(ctx)
 	case MeanReversionID:
 		return RunMeanReversion(ctx)
+	case RebalancingID:
+		return RunInventoryRebalancing(ctx)
 	default:
 		return Result{}, ErrNotFound
 	}
