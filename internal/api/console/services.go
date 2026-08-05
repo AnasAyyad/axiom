@@ -135,7 +135,7 @@ type SandboxReadService interface {
 	SandboxOverview(context.Context) (generated.SandboxOverview, error)
 	SandboxOrders(context.Context, string, int, string, string) (generated.SandboxOrderPage, error)
 	SandboxReconciliations(context.Context, string, int, string) (generated.SandboxReconciliationPage, error)
-	C6Qualification(context.Context) (generated.C6QualificationStatus, error)
+	SandboxQualification(context.Context) (generated.SandboxQualificationStatus, error)
 }
 
 // SandboxCommandService persists C6 controls through existing V1C state

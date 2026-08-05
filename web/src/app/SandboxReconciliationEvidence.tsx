@@ -91,7 +91,7 @@ export function SandboxResetGrid({
 export function SandboxQualificationPanel({
   qualification,
 }: {
-  readonly qualification: APIModel<"C6QualificationStatus">;
+  readonly qualification: APIModel<"SandboxQualificationStatus">;
 }) {
   return (
     <section className={styles.card} aria-labelledby="sandbox-qualification-heading">

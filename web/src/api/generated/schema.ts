@@ -131,50 +131,6 @@ export interface components {
       "go_version": string;
       "version": string;
     };
-    "C6ChaosSummary": {
-      "failed": number;
-      "last_observed_at": components["schemas"]["Timestamp"];
-      "passed": number;
-      "status": "not_run" | "passed" | "failed";
-    };
-    "C6QualificationStatus": {
-      "audit_url": string;
-      "build_hash"?: string;
-      "chaos": components["schemas"]["C6ChaosSummary"];
-      "commit_sha"?: string;
-      "configuration_hash"?: string;
-      "ended_at"?: components["schemas"]["Timestamp"];
-      "evidence_hash"?: string;
-      "executable_hash"?: string;
-      "failures": Array<string>;
-      "formal_soak_pending": boolean;
-      "id"?: string;
-      "image_hash"?: string;
-      "mode": "none" | "smoke" | "formal";
-      "observed_duration_seconds": number;
-      "profitability_evidence": false;
-      "qualified": boolean;
-      "required_duration_seconds": number;
-      "slo": components["schemas"]["C6SLOSummary"];
-      "started_at"?: components["schemas"]["Timestamp"];
-      "state": "not_started" | "PENDING" | "RUNNING" | "SMOKE_PASSED" | "PASSED" | "FAILED";
-    };
-    "C6SLOSummary": {
-      "critical_alert_latency_ms": number;
-      "double_posted_fills": number;
-      "duplicate_creates": number;
-      "lost_fills": number;
-      "passing": boolean;
-      "positive_memory_leak_trend": boolean;
-      "reconciliation_mismatches": number;
-      "reconnects": number;
-      "recovery_duration_ms": number;
-      "resident_memory_delta_bytes": number;
-      "restarts": number;
-      "samples": number;
-      "suspense_items": number;
-      "unknown_orders": number;
-    };
     "ChampionChallengerPage": components["schemas"]["Page"] & {
       "items": Array<components["schemas"]["ChampionChallengerReport"]>;
       "snapshot_revision": components["schemas"]["Revision"];
@@ -1042,6 +998,12 @@ export interface components {
       "per_order_limit": components["schemas"]["NonnegativeDecimal"];
       "utc_day": string;
     };
+    "SandboxChaosSummary": {
+      "failed": number;
+      "last_observed_at": components["schemas"]["Timestamp"];
+      "passed": number;
+      "status": "not_run" | "passed" | "failed";
+    };
     "SandboxDifference": {
       "asset"?: "USDT" | "BTC" | "ETH";
       "audit_url": string;
@@ -1097,12 +1059,34 @@ export interface components {
       "environment_label": "BINANCE SPOT TESTNET + BYBIT DEMO / VIRTUAL";
       "observed_at": components["schemas"]["Timestamp"];
       "orders": Array<components["schemas"]["SandboxOrder"]>;
-      "qualification": components["schemas"]["C6QualificationStatus"];
+      "qualification": components["schemas"]["SandboxQualificationStatus"];
       "real_trading_enabled": false;
       "reconciliations": Array<components["schemas"]["SandboxReconciliation"]>;
       "reset_incidents": Array<components["schemas"]["SandboxResetIncident"]>;
       "risk_state": "NORMAL" | "CAUTIOUS" | "PAUSED" | "LOCKED";
       "stale": boolean;
+    };
+    "SandboxQualificationStatus": {
+      "audit_url": string;
+      "build_hash"?: string;
+      "chaos": components["schemas"]["SandboxChaosSummary"];
+      "commit_sha"?: string;
+      "configuration_hash"?: string;
+      "ended_at"?: components["schemas"]["Timestamp"];
+      "evidence_hash"?: string;
+      "executable_hash"?: string;
+      "failures": Array<string>;
+      "formal_soak_pending": boolean;
+      "id"?: string;
+      "image_hash"?: string;
+      "mode": "none" | "smoke" | "formal";
+      "observed_duration_seconds": number;
+      "profitability_evidence": false;
+      "qualified": boolean;
+      "required_duration_seconds": number;
+      "slo": components["schemas"]["SandboxSLOSummary"];
+      "started_at"?: components["schemas"]["Timestamp"];
+      "state": "not_started" | "PENDING" | "RUNNING" | "SMOKE_PASSED" | "PASSED" | "FAILED";
     };
     "SandboxReconciliation": {
       "account_epoch": number;
@@ -1136,6 +1120,22 @@ export interface components {
       "prior_epoch": number;
       "resolved_at"?: components["schemas"]["Timestamp"];
       "state": "OPEN" | "RECONCILING" | "RESOLVED" | "QUARANTINED";
+    };
+    "SandboxSLOSummary": {
+      "critical_alert_latency_ms": number;
+      "double_posted_fills": number;
+      "duplicate_creates": number;
+      "lost_fills": number;
+      "passing": boolean;
+      "positive_memory_leak_trend": boolean;
+      "reconciliation_mismatches": number;
+      "reconnects": number;
+      "recovery_duration_ms": number;
+      "resident_memory_delta_bytes": number;
+      "restarts": number;
+      "samples": number;
+      "suspense_items": number;
+      "unknown_orders": number;
     };
     "SandboxTestOrderRequest": {
       "account_id": string;
@@ -1440,7 +1440,7 @@ export interface operations {
   "listSandboxOrders": { query: { "cursor"?: string; "page_size"?: number; "exchange"?: components["schemas"]["SandboxExchange"]; "state"?: string; }; responses: { "200": components["schemas"]["SandboxOrderPage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
   "createSandboxTestOrder": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["SandboxTestOrderRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "listSandboxReconciliations": { query: { "cursor"?: string; "page_size"?: number; "exchange"?: components["schemas"]["SandboxExchange"]; }; responses: { "200": components["schemas"]["SandboxReconciliationPage"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
-  "getC6QualificationStatus": { responses: { "200": components["schemas"]["C6QualificationStatus"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
+  "getSandboxQualificationStatus": { responses: { "200": components["schemas"]["SandboxQualificationStatus"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
   "createSandboxAuthorization": { header: { "Origin": string; "X-CSRF-Token": string; }; requestBody: components["schemas"]["SandboxAuthorizationRequest"]; responses: { "201": components["schemas"]["SandboxAuthorizationGrant"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "createSandboxArm": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["SandboxArmRequest"]; responses: { "201": components["schemas"]["SandboxArm"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
   "revokeSandboxArm": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };

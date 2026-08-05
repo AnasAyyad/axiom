@@ -247,10 +247,10 @@ export const sandboxReconciliationsQuery = queryOptions({
   refetchInterval: 5_000,
 });
 
-export const c6QualificationQuery = queryOptions({
+export const sandboxQualificationQuery = queryOptions({
   queryKey: ["sandbox", "qualification"],
   queryFn: () =>
-    getAPI<"C6QualificationStatus">("/api/v1/sandbox/qualification"),
+    getAPI<"SandboxQualificationStatus">("/api/v1/sandbox/qualification"),
   refetchInterval: 5_000,
 });
 

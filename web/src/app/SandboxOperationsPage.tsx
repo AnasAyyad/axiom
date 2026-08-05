@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { APIError } from "../api/client";
 import {
-  c6QualificationQuery,
+  sandboxQualificationQuery,
   sandboxOrdersQuery,
   sandboxOverviewQuery,
   sandboxReconciliationsQuery,
@@ -23,7 +23,7 @@ export function SandboxOperationsPage() {
   const overview = useQuery(sandboxOverviewQuery);
   const orders = useQuery(sandboxOrdersQuery);
   const reconciliations = useQuery(sandboxReconciliationsQuery);
-  const qualification = useQuery(c6QualificationQuery);
+  const qualification = useQuery(sandboxQualificationQuery);
   if (
     overview.isLoading ||
     orders.isLoading ||

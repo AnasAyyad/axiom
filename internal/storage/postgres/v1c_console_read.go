@@ -90,7 +90,7 @@ func (store *A11ConsoleStore) SandboxOverview(
 	if err != nil {
 		return generated.SandboxOverview{}, err
 	}
-	qualification, err := store.C6Qualification(ctx)
+	qualification, err := store.SandboxQualification(ctx)
 	if err != nil {
 		return generated.SandboxOverview{}, err
 	}

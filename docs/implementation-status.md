@@ -46,6 +46,9 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
 - The protected Data Catalogue lists registered immutable manifests, coverage,
   gaps, quality tier, and hashes. It accepts no browser upload or raw storage
   path.
+- The sandbox qualification API now uses semantic public contract names for
+  sandbox status, chaos, and service-level objectives. Its retained evidence
+  window and endpoint are unchanged.
 - The owner UI includes those catalogue/history projections and explicitly
   marks guided demonstrations unavailable until deterministic immutable bundles
   are actually installed.

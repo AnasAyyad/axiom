@@ -22,7 +22,7 @@ func (handler *handler) registerSandbox(mux *http.ServeMux) {
 	)
 	mux.HandleFunc(
 		"GET /api/v1/sandbox/qualification",
-		handler.authorized(handler.c6Qualification, authentication.PermissionSandboxRead),
+		handler.authorized(handler.sandboxQualification, authentication.PermissionSandboxRead),
 	)
 	mux.HandleFunc(
 		"POST /api/v1/sandbox/authorizations",
@@ -157,7 +157,7 @@ func validSandboxExchangeFilter(value string) bool {
 	return value == "" || value == "binance" || value == "bybit"
 }
 
-func (handler *handler) c6Qualification(
+func (handler *handler) sandboxQualification(
 	writer http.ResponseWriter,
 	request *http.Request,
 	_ authentication.Principal,
@@ -165,6 +165,6 @@ func (handler *handler) c6Qualification(
 	if handler.sandboxReadUnavailable(writer, request) {
 		return
 	}
-	value, err := handler.options.SandboxRead.C6Qualification(request.Context())
+	value, err := handler.options.SandboxRead.SandboxQualification(request.Context())
 	handler.writeRead(writer, request, value, err)
 }

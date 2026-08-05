@@ -359,93 +359,6 @@ func (e BinanceHealthWebsocketState) Valid() bool {
 	}
 }
 
-// Defines values for C6ChaosSummaryStatus.
-const (
-	C6ChaosSummaryStatusFailed C6ChaosSummaryStatus = "failed"
-	C6ChaosSummaryStatusNotRun C6ChaosSummaryStatus = "not_run"
-	C6ChaosSummaryStatusPassed C6ChaosSummaryStatus = "passed"
-)
-
-// Valid indicates whether the value is a known member of the C6ChaosSummaryStatus enum.
-func (e C6ChaosSummaryStatus) Valid() bool {
-	switch e {
-	case C6ChaosSummaryStatusFailed:
-		return true
-	case C6ChaosSummaryStatusNotRun:
-		return true
-	case C6ChaosSummaryStatusPassed:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6QualificationStatusMode.
-const (
-	C6QualificationStatusModeFormal C6QualificationStatusMode = "formal"
-	C6QualificationStatusModeNone   C6QualificationStatusMode = "none"
-	C6QualificationStatusModeSmoke  C6QualificationStatusMode = "smoke"
-)
-
-// Valid indicates whether the value is a known member of the C6QualificationStatusMode enum.
-func (e C6QualificationStatusMode) Valid() bool {
-	switch e {
-	case C6QualificationStatusModeFormal:
-		return true
-	case C6QualificationStatusModeNone:
-		return true
-	case C6QualificationStatusModeSmoke:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6QualificationStatusProfitabilityEvidence.
-const (
-	C6QualificationStatusProfitabilityEvidenceFalse C6QualificationStatusProfitabilityEvidence = false
-)
-
-// Valid indicates whether the value is a known member of the C6QualificationStatusProfitabilityEvidence enum.
-func (e C6QualificationStatusProfitabilityEvidence) Valid() bool {
-	switch e {
-	case C6QualificationStatusProfitabilityEvidenceFalse:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6QualificationStatusState.
-const (
-	C6QualificationStatusStateFailed      C6QualificationStatusState = "FAILED"
-	C6QualificationStatusStateNotStarted  C6QualificationStatusState = "not_started"
-	C6QualificationStatusStatePassed      C6QualificationStatusState = "PASSED"
-	C6QualificationStatusStatePending     C6QualificationStatusState = "PENDING"
-	C6QualificationStatusStateRunning     C6QualificationStatusState = "RUNNING"
-	C6QualificationStatusStateSmokePassed C6QualificationStatusState = "SMOKE_PASSED"
-)
-
-// Valid indicates whether the value is a known member of the C6QualificationStatusState enum.
-func (e C6QualificationStatusState) Valid() bool {
-	switch e {
-	case C6QualificationStatusStateFailed:
-		return true
-	case C6QualificationStatusStateNotStarted:
-		return true
-	case C6QualificationStatusStatePassed:
-		return true
-	case C6QualificationStatusStatePending:
-		return true
-	case C6QualificationStatusStateRunning:
-		return true
-	case C6QualificationStatusStateSmokePassed:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for CommandAcceptedState.
 const (
 	CommandAcceptedStateApplied  CommandAcceptedState = "applied"
@@ -2762,6 +2675,27 @@ func (e SandboxCapUsageGlobalOpenLimit) Valid() bool {
 	}
 }
 
+// Defines values for SandboxChaosSummaryStatus.
+const (
+	SandboxChaosSummaryStatusFailed SandboxChaosSummaryStatus = "failed"
+	SandboxChaosSummaryStatusNotRun SandboxChaosSummaryStatus = "not_run"
+	SandboxChaosSummaryStatusPassed SandboxChaosSummaryStatus = "passed"
+)
+
+// Valid indicates whether the value is a known member of the SandboxChaosSummaryStatus enum.
+func (e SandboxChaosSummaryStatus) Valid() bool {
+	switch e {
+	case SandboxChaosSummaryStatusFailed:
+		return true
+	case SandboxChaosSummaryStatusNotRun:
+		return true
+	case SandboxChaosSummaryStatusPassed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxDifferenceAsset.
 const (
 	SandboxDifferenceAssetBTC  SandboxDifferenceAsset = "BTC"
@@ -3065,6 +2999,72 @@ func (e SandboxOverviewRiskState) Valid() bool {
 	case SandboxOverviewRiskStateNormal:
 		return true
 	case SandboxOverviewRiskStatePaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxQualificationStatusMode.
+const (
+	SandboxQualificationStatusModeFormal SandboxQualificationStatusMode = "formal"
+	SandboxQualificationStatusModeNone   SandboxQualificationStatusMode = "none"
+	SandboxQualificationStatusModeSmoke  SandboxQualificationStatusMode = "smoke"
+)
+
+// Valid indicates whether the value is a known member of the SandboxQualificationStatusMode enum.
+func (e SandboxQualificationStatusMode) Valid() bool {
+	switch e {
+	case SandboxQualificationStatusModeFormal:
+		return true
+	case SandboxQualificationStatusModeNone:
+		return true
+	case SandboxQualificationStatusModeSmoke:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxQualificationStatusProfitabilityEvidence.
+const (
+	SandboxQualificationStatusProfitabilityEvidenceFalse SandboxQualificationStatusProfitabilityEvidence = false
+)
+
+// Valid indicates whether the value is a known member of the SandboxQualificationStatusProfitabilityEvidence enum.
+func (e SandboxQualificationStatusProfitabilityEvidence) Valid() bool {
+	switch e {
+	case SandboxQualificationStatusProfitabilityEvidenceFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxQualificationStatusState.
+const (
+	SandboxQualificationStatusStateFailed      SandboxQualificationStatusState = "FAILED"
+	SandboxQualificationStatusStateNotStarted  SandboxQualificationStatusState = "not_started"
+	SandboxQualificationStatusStatePassed      SandboxQualificationStatusState = "PASSED"
+	SandboxQualificationStatusStatePending     SandboxQualificationStatusState = "PENDING"
+	SandboxQualificationStatusStateRunning     SandboxQualificationStatusState = "RUNNING"
+	SandboxQualificationStatusStateSmokePassed SandboxQualificationStatusState = "SMOKE_PASSED"
+)
+
+// Valid indicates whether the value is a known member of the SandboxQualificationStatusState enum.
+func (e SandboxQualificationStatusState) Valid() bool {
+	switch e {
+	case SandboxQualificationStatusStateFailed:
+		return true
+	case SandboxQualificationStatusStateNotStarted:
+		return true
+	case SandboxQualificationStatusStatePassed:
+		return true
+	case SandboxQualificationStatusStatePending:
+		return true
+	case SandboxQualificationStatusStateRunning:
+		return true
+	case SandboxQualificationStatusStateSmokePassed:
 		return true
 	default:
 		return false
@@ -4411,74 +4411,6 @@ type BuildInformation struct {
 	Dirty     bool   `json:"dirty"`
 	GoVersion string `json:"go_version"`
 	Version   string `json:"version"`
-}
-
-// C6ChaosSummary defines model for C6ChaosSummary.
-type C6ChaosSummary struct {
-	Failed int `json:"failed"`
-
-	// LastObservedAt RFC 3339 timestamp with an explicit UTC offset.
-	LastObservedAt Timestamp            `json:"last_observed_at"`
-	Passed         int                  `json:"passed"`
-	Status         C6ChaosSummaryStatus `json:"status"`
-}
-
-// C6ChaosSummaryStatus defines model for C6ChaosSummary.Status.
-type C6ChaosSummaryStatus string
-
-// C6QualificationStatus defines model for C6QualificationStatus.
-type C6QualificationStatus struct {
-	AuditUrl          string         `json:"audit_url"`
-	BuildHash         *string        `json:"build_hash,omitempty"`
-	Chaos             C6ChaosSummary `json:"chaos"`
-	CommitSha         *string        `json:"commit_sha,omitempty"`
-	ConfigurationHash *string        `json:"configuration_hash,omitempty"`
-
-	// EndedAt RFC 3339 timestamp with an explicit UTC offset.
-	EndedAt                 *Timestamp                                 `json:"ended_at,omitempty"`
-	EvidenceHash            *string                                    `json:"evidence_hash,omitempty"`
-	ExecutableHash          *string                                    `json:"executable_hash,omitempty"`
-	Failures                []string                                   `json:"failures"`
-	FormalSoakPending       bool                                       `json:"formal_soak_pending"`
-	Id                      *string                                    `json:"id,omitempty"`
-	ImageHash               *string                                    `json:"image_hash,omitempty"`
-	Mode                    C6QualificationStatusMode                  `json:"mode"`
-	ObservedDurationSeconds int64                                      `json:"observed_duration_seconds"`
-	ProfitabilityEvidence   C6QualificationStatusProfitabilityEvidence `json:"profitability_evidence"`
-	Qualified               bool                                       `json:"qualified"`
-	RequiredDurationSeconds int64                                      `json:"required_duration_seconds"`
-	Slo                     C6SLOSummary                               `json:"slo"`
-
-	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
-	StartedAt *Timestamp                 `json:"started_at,omitempty"`
-	State     C6QualificationStatusState `json:"state"`
-}
-
-// C6QualificationStatusMode defines model for C6QualificationStatus.Mode.
-type C6QualificationStatusMode string
-
-// C6QualificationStatusProfitabilityEvidence defines model for C6QualificationStatus.ProfitabilityEvidence.
-type C6QualificationStatusProfitabilityEvidence bool
-
-// C6QualificationStatusState defines model for C6QualificationStatus.State.
-type C6QualificationStatusState string
-
-// C6SLOSummary defines model for C6SLOSummary.
-type C6SLOSummary struct {
-	CriticalAlertLatencyMs   int64 `json:"critical_alert_latency_ms"`
-	DoublePostedFills        int64 `json:"double_posted_fills"`
-	DuplicateCreates         int64 `json:"duplicate_creates"`
-	LostFills                int64 `json:"lost_fills"`
-	Passing                  bool  `json:"passing"`
-	PositiveMemoryLeakTrend  bool  `json:"positive_memory_leak_trend"`
-	ReconciliationMismatches int64 `json:"reconciliation_mismatches"`
-	Reconnects               int64 `json:"reconnects"`
-	RecoveryDurationMs       int64 `json:"recovery_duration_ms"`
-	ResidentMemoryDeltaBytes int64 `json:"resident_memory_delta_bytes"`
-	Restarts                 int64 `json:"restarts"`
-	Samples                  int64 `json:"samples"`
-	SuspenseItems            int64 `json:"suspense_items"`
-	UnknownOrders            int64 `json:"unknown_orders"`
 }
 
 // ChampionChallengerPage defines model for ChampionChallengerPage.
@@ -6012,6 +5944,19 @@ type SandboxCapUsageAccountOpenLimit int
 // SandboxCapUsageGlobalOpenLimit defines model for SandboxCapUsage.GlobalOpenLimit.
 type SandboxCapUsageGlobalOpenLimit int
 
+// SandboxChaosSummary defines model for SandboxChaosSummary.
+type SandboxChaosSummary struct {
+	Failed int `json:"failed"`
+
+	// LastObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	LastObservedAt Timestamp                 `json:"last_observed_at"`
+	Passed         int                       `json:"passed"`
+	Status         SandboxChaosSummaryStatus `json:"status"`
+}
+
+// SandboxChaosSummaryStatus defines model for SandboxChaosSummary.Status.
+type SandboxChaosSummaryStatus string
+
 // SandboxDifference defines model for SandboxDifference.
 type SandboxDifference struct {
 	Asset          *SandboxDifferenceAsset `json:"asset,omitempty"`
@@ -6122,7 +6067,7 @@ type SandboxOverview struct {
 	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
 	ObservedAt         Timestamp                         `json:"observed_at"`
 	Orders             []SandboxOrder                    `json:"orders"`
-	Qualification      C6QualificationStatus             `json:"qualification"`
+	Qualification      SandboxQualificationStatus        `json:"qualification"`
 	RealTradingEnabled SandboxOverviewRealTradingEnabled `json:"real_trading_enabled"`
 	Reconciliations    []SandboxReconciliation           `json:"reconciliations"`
 	ResetIncidents     []SandboxResetIncident            `json:"reset_incidents"`
@@ -6138,6 +6083,43 @@ type SandboxOverviewRealTradingEnabled bool
 
 // SandboxOverviewRiskState defines model for SandboxOverview.RiskState.
 type SandboxOverviewRiskState string
+
+// SandboxQualificationStatus defines model for SandboxQualificationStatus.
+type SandboxQualificationStatus struct {
+	AuditUrl          string              `json:"audit_url"`
+	BuildHash         *string             `json:"build_hash,omitempty"`
+	Chaos             SandboxChaosSummary `json:"chaos"`
+	CommitSha         *string             `json:"commit_sha,omitempty"`
+	ConfigurationHash *string             `json:"configuration_hash,omitempty"`
+
+	// EndedAt RFC 3339 timestamp with an explicit UTC offset.
+	EndedAt                 *Timestamp                                      `json:"ended_at,omitempty"`
+	EvidenceHash            *string                                         `json:"evidence_hash,omitempty"`
+	ExecutableHash          *string                                         `json:"executable_hash,omitempty"`
+	Failures                []string                                        `json:"failures"`
+	FormalSoakPending       bool                                            `json:"formal_soak_pending"`
+	Id                      *string                                         `json:"id,omitempty"`
+	ImageHash               *string                                         `json:"image_hash,omitempty"`
+	Mode                    SandboxQualificationStatusMode                  `json:"mode"`
+	ObservedDurationSeconds int64                                           `json:"observed_duration_seconds"`
+	ProfitabilityEvidence   SandboxQualificationStatusProfitabilityEvidence `json:"profitability_evidence"`
+	Qualified               bool                                            `json:"qualified"`
+	RequiredDurationSeconds int64                                           `json:"required_duration_seconds"`
+	Slo                     SandboxSLOSummary                               `json:"slo"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt *Timestamp                      `json:"started_at,omitempty"`
+	State     SandboxQualificationStatusState `json:"state"`
+}
+
+// SandboxQualificationStatusMode defines model for SandboxQualificationStatus.Mode.
+type SandboxQualificationStatusMode string
+
+// SandboxQualificationStatusProfitabilityEvidence defines model for SandboxQualificationStatus.ProfitabilityEvidence.
+type SandboxQualificationStatusProfitabilityEvidence bool
+
+// SandboxQualificationStatusState defines model for SandboxQualificationStatus.State.
+type SandboxQualificationStatusState string
 
 // SandboxReconciliation defines model for SandboxReconciliation.
 type SandboxReconciliation struct {
@@ -6200,6 +6182,24 @@ type SandboxResetIncidentAdjustmentsPnlEffect bool
 
 // SandboxResetIncidentState defines model for SandboxResetIncident.State.
 type SandboxResetIncidentState string
+
+// SandboxSLOSummary defines model for SandboxSLOSummary.
+type SandboxSLOSummary struct {
+	CriticalAlertLatencyMs   int64 `json:"critical_alert_latency_ms"`
+	DoublePostedFills        int64 `json:"double_posted_fills"`
+	DuplicateCreates         int64 `json:"duplicate_creates"`
+	LostFills                int64 `json:"lost_fills"`
+	Passing                  bool  `json:"passing"`
+	PositiveMemoryLeakTrend  bool  `json:"positive_memory_leak_trend"`
+	ReconciliationMismatches int64 `json:"reconciliation_mismatches"`
+	Reconnects               int64 `json:"reconnects"`
+	RecoveryDurationMs       int64 `json:"recovery_duration_ms"`
+	ResidentMemoryDeltaBytes int64 `json:"resident_memory_delta_bytes"`
+	Restarts                 int64 `json:"restarts"`
+	Samples                  int64 `json:"samples"`
+	SuspenseItems            int64 `json:"suspense_items"`
+	UnknownOrders            int64 `json:"unknown_orders"`
+}
 
 // SandboxTestOrderRequest defines model for SandboxTestOrderRequest.
 type SandboxTestOrderRequest struct {

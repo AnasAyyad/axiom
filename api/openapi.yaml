@@ -1134,15 +1134,15 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
   /api/v1/sandbox/qualification:
     get:
-      operationId: getC6QualificationStatus
+      operationId: getSandboxQualificationStatus
       tags: [Sandbox]
       security: [{ sessionCookie: [] }]
       responses:
         "200":
-          description: Current deterministic chaos and C6 soak state
+          description: Current deterministic sandbox chaos and soak state
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/C6QualificationStatus" }
+              schema: { $ref: "#/components/schemas/SandboxQualificationStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
   /api/v1/sandbox/authorizations:
@@ -4412,7 +4412,7 @@ components:
             reset_incidents:
               type: array
               items: { $ref: "#/components/schemas/SandboxResetIncident" }
-    C6ChaosSummary:
+    SandboxChaosSummary:
       type: object
       additionalProperties: false
       required: [status, passed, failed, last_observed_at]
@@ -4422,14 +4422,14 @@ components:
           enum: [not_run, passed, failed]
           x-enum-varnames:
             [
-              C6ChaosSummaryStatusNotRun,
-              C6ChaosSummaryStatusPassed,
-              C6ChaosSummaryStatusFailed,
+              SandboxChaosSummaryStatusNotRun,
+              SandboxChaosSummaryStatusPassed,
+              SandboxChaosSummaryStatusFailed,
             ]
         passed: { type: integer, minimum: 0 }
         failed: { type: integer, minimum: 0 }
         last_observed_at: { $ref: "#/components/schemas/Timestamp" }
-    C6SLOSummary:
+    SandboxSLOSummary:
       type: object
       additionalProperties: false
       required:
@@ -4464,7 +4464,7 @@ components:
         resident_memory_delta_bytes: { type: integer, format: int64 }
         positive_memory_leak_trend: { type: boolean }
         passing: { type: boolean }
-    C6QualificationStatus:
+    SandboxQualificationStatus:
       type: object
       additionalProperties: false
       required:
@@ -4488,21 +4488,21 @@ components:
           enum: [not_started, PENDING, RUNNING, SMOKE_PASSED, PASSED, FAILED]
           x-enum-varnames:
             [
-              C6QualificationStatusStateNotStarted,
-              C6QualificationStatusStatePending,
-              C6QualificationStatusStateRunning,
-              C6QualificationStatusStateSmokePassed,
-              C6QualificationStatusStatePassed,
-              C6QualificationStatusStateFailed,
+              SandboxQualificationStatusStateNotStarted,
+              SandboxQualificationStatusStatePending,
+              SandboxQualificationStatusStateRunning,
+              SandboxQualificationStatusStateSmokePassed,
+              SandboxQualificationStatusStatePassed,
+              SandboxQualificationStatusStateFailed,
             ]
         mode:
           type: string
           enum: [none, smoke, formal]
           x-enum-varnames:
             [
-              C6QualificationStatusModeNone,
-              C6QualificationStatusModeSmoke,
-              C6QualificationStatusModeFormal,
+              SandboxQualificationStatusModeNone,
+              SandboxQualificationStatusModeSmoke,
+              SandboxQualificationStatusModeFormal,
             ]
         commit_sha: { type: string, pattern: "^[0-9a-f]{40}$" }
         build_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
@@ -4519,8 +4519,8 @@ components:
         failures:
           type: array
           items: { type: string, maxLength: 80 }
-        chaos: { $ref: "#/components/schemas/C6ChaosSummary" }
-        slo: { $ref: "#/components/schemas/C6SLOSummary" }
+        chaos: { $ref: "#/components/schemas/SandboxChaosSummary" }
+        slo: { $ref: "#/components/schemas/SandboxSLOSummary" }
         formal_soak_pending: { type: boolean }
         audit_url: { type: string, pattern: "^/api/v1/audit-events" }
     SandboxOverview:
@@ -4574,7 +4574,7 @@ components:
               SandboxOverviewRiskStatePaused,
               SandboxOverviewRiskStateLocked,
             ]
-        qualification: { $ref: "#/components/schemas/C6QualificationStatus" }
+        qualification: { $ref: "#/components/schemas/SandboxQualificationStatus" }
         audit_url: { type: string, pattern: "^/api/v1/audit-events" }
     SandboxAuthorizationRequest:
       type: object

@@ -20,10 +20,10 @@ ORDER BY created_at DESC,id DESC LIMIT 1`
 
 // C6Qualification exposes the latest immutable runner and chaos state. A
 // smoke pass remains explicitly non-qualified and leaves the formal soak open.
-func (store *A11ConsoleStore) C6Qualification(
+func (store *A11ConsoleStore) SandboxQualification(
 	ctx context.Context,
-) (generated.C6QualificationStatus, error) {
-	status := defaultC6QualificationStatus(store.clock.Now().UTC)
+) (generated.SandboxQualificationStatus, error) {
+	status := defaultSandboxQualificationStatus(store.clock.Now().UTC)
 	row, err := store.loadC6Qualification(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
 		chaos, chaosErr := store.v1cConsoleChaos(ctx, "")
@@ -31,12 +31,12 @@ func (store *A11ConsoleStore) C6Qualification(
 		return status, chaosErr
 	}
 	if err != nil {
-		return generated.C6QualificationStatus{}, err
+		return generated.SandboxQualificationStatus{}, err
 	}
-	applyC6QualificationRow(&status, row)
+	applySandboxQualificationRow(&status, row)
 	status.Failures, err = store.v1cConsoleQualificationFailures(ctx, row.id)
 	if err != nil {
-		return generated.C6QualificationStatus{}, err
+		return generated.SandboxQualificationStatus{}, err
 	}
 	status.Chaos, err = store.v1cConsoleChaos(ctx, row.id)
 	if err == nil {
@@ -53,10 +53,10 @@ type c6QualificationRow struct {
 	started, ended                                            *time.Time
 }
 
-func defaultC6QualificationStatus(now time.Time) generated.C6QualificationStatus {
-	return generated.C6QualificationStatus{
-		State:                   generated.C6QualificationStatusStateNotStarted,
-		Mode:                    generated.C6QualificationStatusModeNone,
+func defaultSandboxQualificationStatus(now time.Time) generated.SandboxQualificationStatus {
+	return generated.SandboxQualificationStatus{
+		State:                   generated.SandboxQualificationStatusStateNotStarted,
+		Mode:                    generated.SandboxQualificationStatusModeNone,
 		RequiredDurationSeconds: 259200,
 		ObservedDurationSeconds: 0,
 		ProfitabilityEvidence:   false,
@@ -64,13 +64,13 @@ func defaultC6QualificationStatus(now time.Time) generated.C6QualificationStatus
 		Failures:                []string{},
 		FormalSoakPending:       true,
 		AuditUrl:                "/api/v1/audit-events?event_type=v1c_c6",
-		Chaos: generated.C6ChaosSummary{
-			Status:         generated.C6ChaosSummaryStatusNotRun,
+		Chaos: generated.SandboxChaosSummary{
+			Status:         generated.SandboxChaosSummaryStatusNotRun,
 			Passed:         0,
 			Failed:         0,
 			LastObservedAt: now,
 		},
-		Slo: generated.C6SLOSummary{},
+		Slo: generated.SandboxSLOSummary{},
 	}
 }
 
@@ -87,13 +87,13 @@ func (store *A11ConsoleStore) loadC6Qualification(
 	return row, err
 }
 
-func applyC6QualificationRow(
-	status *generated.C6QualificationStatus,
+func applySandboxQualificationRow(
+	status *generated.SandboxQualificationStatus,
 	row c6QualificationRow,
 ) {
 	status.Id = &row.id
-	status.Mode = generated.C6QualificationStatusMode(row.mode)
-	status.State = generated.C6QualificationStatusState(row.state)
+	status.Mode = generated.SandboxQualificationStatusMode(row.mode)
+	status.State = generated.SandboxQualificationStatusState(row.state)
 	status.CommitSha = &row.commit
 	status.BuildHash = &row.build
 	status.ExecutableHash = &row.executable
@@ -102,7 +102,7 @@ func applyC6QualificationRow(
 	status.RequiredDurationSeconds = row.required
 	status.ObservedDurationSeconds = row.observed
 	status.ProfitabilityEvidence =
-		generated.C6QualificationStatusProfitabilityEvidence(row.profitability)
+		generated.SandboxQualificationStatusProfitabilityEvidence(row.profitability)
 	status.Qualified = row.qualified
 	status.StartedAt = utcPointer(row.started)
 	status.EndedAt = utcPointer(row.ended)
@@ -135,7 +135,7 @@ WHERE run_id=$1 ORDER BY occurred_at,id`, runID)
 func (store *A11ConsoleStore) v1cConsoleChaos(
 	ctx context.Context,
 	runID string,
-) (generated.C6ChaosSummary, error) {
+) (generated.SandboxChaosSummary, error) {
 	var passed, failed int
 	var observed *time.Time
 	err := store.pool.QueryRow(ctx, `
@@ -145,7 +145,7 @@ SELECT count(*) FILTER (WHERE outcome='PASSED')::integer,
 FROM v1c_c6_chaos_events
 WHERE ($1='' OR run_id=$1)`, runID).Scan(&passed, &failed, &observed)
 	if err != nil {
-		return generated.C6ChaosSummary{}, err
+		return generated.SandboxChaosSummary{}, err
 	}
 	status := "not_run"
 	if failed > 0 {
@@ -157,8 +157,8 @@ WHERE ($1='' OR run_id=$1)`, runID).Scan(&passed, &failed, &observed)
 	if observed != nil {
 		last = observed.UTC()
 	}
-	return generated.C6ChaosSummary{
-		Status:         generated.C6ChaosSummaryStatus(status),
+	return generated.SandboxChaosSummary{
+		Status:         generated.SandboxChaosSummaryStatus(status),
 		Passed:         passed,
 		Failed:         failed,
 		LastObservedAt: last,

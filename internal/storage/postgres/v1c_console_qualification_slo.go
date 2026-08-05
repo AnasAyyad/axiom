@@ -49,8 +49,8 @@ type c6SLOFacts struct {
 func (store *A11ConsoleStore) v1cConsoleQualificationSLO(
 	ctx context.Context,
 	runID string,
-) (generated.C6SLOSummary, error) {
-	var result generated.C6SLOSummary
+) (generated.SandboxSLOSummary, error) {
+	var result generated.SandboxSLOSummary
 	var facts c6SLOFacts
 	err := store.pool.QueryRow(ctx, v1cConsoleQualificationSLOSQL, runID).Scan(
 		&result.Samples,
@@ -71,7 +71,7 @@ func (store *A11ConsoleStore) v1cConsoleQualificationSLO(
 		&facts.accountOpen, &facts.globalOpen,
 	)
 	if err != nil {
-		return generated.C6SLOSummary{}, err
+		return generated.SandboxSLOSummary{}, err
 	}
 	result.ResidentMemoryDeltaBytes = facts.lastMemory - facts.firstMemory
 	result.PositiveMemoryLeakTrend = facts.firstMemory > 0 &&
@@ -81,7 +81,7 @@ func (store *A11ConsoleStore) v1cConsoleQualificationSLO(
 	return result, nil
 }
 
-func c6SLOPassing(result generated.C6SLOSummary, facts c6SLOFacts) bool {
+func c6SLOPassing(result generated.SandboxSLOSummary, facts c6SLOFacts) bool {
 	return result.Samples > 0 &&
 		result.CriticalAlertLatencyMs <= 5000 &&
 		result.RecoveryDurationMs <= 600000 &&
