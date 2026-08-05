@@ -24,6 +24,44 @@ type StrategySessionAccount struct {
 	Exchange Exchange
 }
 
+// StrategySessionCommand requests only a prepared parent context. Account
+// selection, engine health, lease, and reconciliation checks remain storage
+// responsibilities; this command cannot carry executable order values.
+type StrategySessionCommand struct {
+	ID              SessionID
+	Strategy        string
+	Exchanges       []Exchange
+	Instrument      string
+	ConfigurationID string
+	StrategySetHash string
+	CreatedBy       string
+	CreatedAt       time.Time
+}
+
+// Validate checks the closed topology requested before storage resolves exact
+// current account epochs. Inventory rebalancing remains advisory-only.
+func (command StrategySessionCommand) Validate() error {
+	if command.ID == "" || command.ConfigurationID == "" || command.CreatedBy == "" ||
+		command.CreatedAt.IsZero() || command.CreatedAt.Location() != time.UTC ||
+		(command.Instrument != "BTCUSDT" && command.Instrument != "ETHUSDT") ||
+		len(command.StrategySetHash) != 64 {
+		return contractError("strategy_session_command_invalid")
+	}
+	exchanges := append([]Exchange(nil), command.Exchanges...)
+	sort.Slice(exchanges, func(left, right int) bool { return exchanges[left] < exchanges[right] })
+	for index, exchange := range exchanges {
+		if (exchange != ExchangeBinance && exchange != ExchangeBybit) ||
+			(index > 0 && exchanges[index-1] == exchange) {
+			return contractError("strategy_session_command_invalid")
+		}
+	}
+	if (command.Strategy == StrategyCrossExchangeArbitrage && len(exchanges) == 2) ||
+		((command.Strategy == StrategyTrend || command.Strategy == StrategyMeanReversion || command.Strategy == StrategyTriangular) && len(exchanges) == 1) {
+		return nil
+	}
+	return contractError("strategy_session_command_invalid")
+}
+
 // StrategySession is the strategy-owned control state. Admission still
 // requires central risk, reservation, dispatcher, and reconciliation checks.
 type StrategySession struct {

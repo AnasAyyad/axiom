@@ -37,3 +37,21 @@ func TestStrategySessionStopsAndCannotStartAfterArmExpiry(t *testing.T) {
 		t.Fatalf("stop=%+v err=%v", stopped, err)
 	}
 }
+
+func TestStrategySessionCommandRejectsAdvisoryAndInvalidVenueTopology(t *testing.T) {
+	command := StrategySessionCommand{ID: "session", Strategy: StrategyCrossExchangeArbitrage,
+		Exchanges: []Exchange{ExchangeBinance, ExchangeBybit}, Instrument: "BTCUSDT",
+		ConfigurationID: "configuration", StrategySetHash: strings.Repeat("c", 64),
+		CreatedBy: "owner", CreatedAt: time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC)}
+	if err := command.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	command.Strategy, command.Exchanges = "inventory-rebalancing", []Exchange{ExchangeBinance}
+	if err := command.Validate(); err == nil {
+		t.Fatal("advisory strategy command was accepted")
+	}
+	command.Strategy, command.Exchanges = StrategyCrossExchangeArbitrage, []Exchange{ExchangeBinance}
+	if err := command.Validate(); err == nil {
+		t.Fatal("cross-exchange command accepted a single venue")
+	}
+}
