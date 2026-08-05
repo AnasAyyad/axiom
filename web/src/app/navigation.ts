@@ -23,7 +23,8 @@ export const navigationGroups: readonly NavigationGroup[] = [
     label: "Explore",
     items: [
       { to: "/strategies", label: "Strategies" },
-      { to: "/exchanges", label: "Exchanges & Data" },
+      { to: "/exchanges", label: "Exchanges" },
+      { to: "/data-catalogue", label: "Data Catalogue" },
       { to: "/opportunities", label: "Opportunities" },
     ],
   },

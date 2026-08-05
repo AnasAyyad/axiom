@@ -118,6 +118,33 @@ const run = z
 
 const runPage = z.object({ items: z.array(run) }).loose();
 
+const dataCatalogue = z
+  .object({
+    items: z.array(
+      z
+        .object({
+          name: z.string().min(1),
+          source: z.enum(["recorded_public_data", "approved_historical_data"]),
+          state: z.enum(["building", "ready", "qualified", "rejected"]),
+          quality_tier: z.enum(["unclassified", "tier_a"]).optional(),
+          exchanges: z
+            .array(z.enum(["binance", "bybit"]))
+            .min(1)
+            .max(2),
+          coverage_start: timestamp,
+          coverage_end: timestamp,
+          segment_count: z.number().int().nonnegative(),
+          known_gap_count: z.number().int().nonnegative(),
+          manifest_hash: z.string().regex(/^[0-9a-f]{64}$/),
+          supported_modes: z
+            .array(z.enum(["backtest", "replay", "shadow"]))
+            .min(1),
+        })
+        .loose(),
+    ),
+  })
+  .loose();
+
 const command = z
   .object({
     id: z.string().min(1),
@@ -181,6 +208,7 @@ export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [/^GET \/api\/v1\/run-catalog$/, runCatalog],
   [/^GET \/api\/v1\/runs$/, runPage],
   [/^GET \/api\/v1\/runs\/[^/?]+$/, run],
+  [/^GET \/api\/v1\/data-catalogue$/, dataCatalogue],
   [/^POST \/api\/v1\/authorizations$/, authorization],
   [/^POST \/api\/v1\/exports$/, exportArtifact],
   [/^POST \/api\/v1\/incidents\/[^/?]+\/evidence-bundles$/, exportArtifact],

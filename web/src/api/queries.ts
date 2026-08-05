@@ -21,6 +21,12 @@ export const runsQuery = queryOptions({
   refetchInterval: 5_000,
 });
 
+export const dataCatalogueQuery = queryOptions({
+  queryKey: ["data-catalogue"],
+  queryFn: () => getAPI<"DataCataloguePage">("/api/v1/data-catalogue"),
+  staleTime: 30_000,
+});
+
 export const systemQuery = queryOptions({
   queryKey: ["system"],
   queryFn: () => getAPI<"SystemStatus">("/api/v1/system/status"),

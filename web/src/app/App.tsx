@@ -38,6 +38,7 @@ import { ResourceCollectionPage } from "../features/operations/ResourceCollectio
 import { QualificationCenterPage } from "../features/qualifications/QualificationCenterPage";
 import { RiskControlsPage } from "../features/risk/RiskControlsPage";
 import { RunLabPage } from "../features/run-lab/RunLabPage";
+import { DataCataloguePage } from "../features/run-lab/DataCataloguePage";
 import {
   GettingStartedPage,
   GuidedDemonstrationsPage,
@@ -83,6 +84,7 @@ export function App() {
               <Route index element={<CommandCenter />} />
               <Route path="getting-started" element={<GettingStartedPage />} />
               <Route path="exchanges" element={<ExchangesPage />} />
+              <Route path="data-catalogue" element={<DataCataloguePage />} />
               <Route path="exchanges/binance" element={<BinancePage />} />
               <Route
                 path="assets"
