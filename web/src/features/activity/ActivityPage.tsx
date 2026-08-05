@@ -11,7 +11,7 @@ import { StatusBadge } from "../shared/StatusBadge";
 import { ActivityDetailPanel } from "./ActivityDetailPanel";
 import { ActivityFilters } from "./ActivityFilters";
 import { emptyActivityFilters, localDateTimeToUTC } from "./activityModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 interface ActivityPageProps {
   readonly view: "decisions_orders" | "system_events";

@@ -4,7 +4,7 @@ import { reportSchedulesQuery } from "../../api/queries";
 import { StatePanel } from "../../components/StatePanel";
 import { CreateReportSchedule } from "./ReportScheduleCreate";
 import { ReportScheduleCard } from "./ReportScheduleCard";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function ReportSchedulePanel({
   canControl,

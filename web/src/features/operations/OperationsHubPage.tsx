@@ -5,7 +5,7 @@ import { d1CollectionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { StatusBadge } from "../shared/StatusBadge";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 const destinations = [
   [

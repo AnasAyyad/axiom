@@ -6,7 +6,7 @@ import { alertRoutesQuery } from "../../api/queries";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function AlertRoutePanel({ canTest }: { readonly canTest: boolean }) {
   const query = useQuery(alertRoutesQuery);

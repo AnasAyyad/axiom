@@ -12,7 +12,7 @@ import {
 import { Page } from "../../app/OperationalShared";
 import { ConfirmAction } from "../../components/ConfirmAction";
 import { StatePanel } from "../../components/StatePanel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 const outputViews = [
   ["timeline", "Timeline"],

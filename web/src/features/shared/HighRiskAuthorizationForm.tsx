@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { postAPI, type APIModel } from "../../api/client";
-import styles from "./D2.module.css";
+import styles from "./ConsoleSurface.module.css";
 
 type Purpose = APIModel<"HighRiskAuthorizationRequest">["purpose"];
 

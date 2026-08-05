@@ -13,7 +13,7 @@ import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { HighRiskAuthorizationForm } from "../shared/HighRiskAuthorizationForm";
 import { StatusBadge } from "../shared/StatusBadge";
 import { stringAttribute } from "../strategies/strategyModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function ConfigurationCenterPage() {
   const session = useQuery(sessionQuery);

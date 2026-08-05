@@ -4,7 +4,7 @@ import { APIError } from "../../api/client";
 import { d1CollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 import { QualificationCard } from "./QualificationCard";
 
 export function QualificationCenterPage() {

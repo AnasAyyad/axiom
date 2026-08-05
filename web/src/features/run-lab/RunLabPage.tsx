@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { runCatalogQuery, runsQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 const destinations: Record<string, string> = {
   backtest: "/backtests",

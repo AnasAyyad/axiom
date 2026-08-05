@@ -10,7 +10,7 @@ import { StatusBadge } from "../shared/StatusBadge";
 import { hasAccess } from "../shared/access";
 import { stringAttribute } from "../strategies/strategyModel";
 import { AlertRoutePanel } from "./AlertRoutePanel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function AlertCenterPage() {
   const session = useQuery(sessionQuery);

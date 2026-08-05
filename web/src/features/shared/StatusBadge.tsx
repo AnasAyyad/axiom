@@ -1,4 +1,4 @@
-import styles from "./D2.module.css";
+import styles from "./ConsoleSurface.module.css";
 
 function tone(value: string) {
   const normalized = value.toLowerCase();

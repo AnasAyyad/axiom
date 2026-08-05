@@ -16,7 +16,7 @@ import { MetricCard } from "../../components/MetricCard";
 import { StatePanel } from "../../components/StatePanel";
 import { emptyActivityFilters } from "../activity/activityModel";
 import { StatusBadge } from "../shared/StatusBadge";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function CommandCenterPage() {
   const system = useQuery(systemQuery);

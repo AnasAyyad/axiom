@@ -7,7 +7,7 @@ import { ConfirmAction } from "../../components/ConfirmAction";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
 import { stringAttribute } from "../strategies/strategyModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 import { QualificationStart } from "./QualificationStart";
 
 interface QualificationCardProps {

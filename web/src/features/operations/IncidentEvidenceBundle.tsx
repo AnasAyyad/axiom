@@ -5,7 +5,7 @@ import { newIdempotencyKey, postAPI, type APIModel } from "../../api/client";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { HighRiskAuthorizationForm } from "../shared/HighRiskAuthorizationForm";
 import { downloadArtifact } from "./artifactDownload";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function IncidentEvidenceBundle({
   incident,

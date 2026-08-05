@@ -17,7 +17,7 @@ import { hasAccess } from "../shared/access";
 import { stringAttribute } from "../strategies/strategyModel";
 import { ReportSchedulePanel } from "./ReportSchedulePanel";
 import { reportLabel, reportTypes } from "./reportModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function ReportCenterPage() {
   const session = useQuery(sessionQuery);

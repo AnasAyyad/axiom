@@ -17,7 +17,7 @@ import {
   IncidentRelations,
   IncidentReplayFacts,
 } from "./IncidentEvidenceSummary";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function IncidentWorkspacePage() {
   const { id = "" } = useParams();

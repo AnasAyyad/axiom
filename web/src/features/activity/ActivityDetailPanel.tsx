@@ -4,7 +4,7 @@ import { newIdempotencyKey, postAPI, type APIModel } from "../../api/client";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
 import { safeDownloadName } from "./activityModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 interface ActivityDetailPanelProps {
   readonly activity: APIModel<"ActivityResource">;

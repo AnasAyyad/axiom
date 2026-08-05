@@ -10,7 +10,7 @@ import { StatusBadge } from "../shared/StatusBadge";
 import { hasAccess } from "../shared/access";
 import { downloadArtifact } from "./artifactDownload";
 import { reportLabel } from "./reportModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function ReportDetailPage() {
   const { id = "" } = useParams();

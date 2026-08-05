@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { dataCatalogueQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 function displayDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {

@@ -20,7 +20,7 @@ import {
   stringAttribute,
   stringListAttribute,
 } from "./strategyModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function StrategyCenterPage() {
   const [selectedID, setSelectedID] = useState("");

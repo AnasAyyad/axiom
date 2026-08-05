@@ -5,7 +5,7 @@ import { ConfirmAction } from "../../components/ConfirmAction";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
 import { reportLabel } from "./reportModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function ReportScheduleCard({
   schedule,

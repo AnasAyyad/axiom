@@ -8,7 +8,7 @@ import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export type D1Collection = Parameters<typeof d1CollectionQuery>[0];
 

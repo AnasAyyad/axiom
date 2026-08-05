@@ -8,7 +8,7 @@ import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { StatusBadge } from "../shared/StatusBadge";
 import { hasAccess } from "../shared/access";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function IncidentCenterPage() {
   const [state, setState] = useState("");

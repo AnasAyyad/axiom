@@ -1,4 +1,4 @@
-import styles from "./D2.module.css";
+import styles from "./ConsoleSurface.module.css";
 
 interface EvidenceDetailsProps {
   readonly title?: string;

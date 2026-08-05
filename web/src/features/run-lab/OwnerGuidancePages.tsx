@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 
 import { Page } from "../../app/OperationalShared";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function GettingStartedPage() {
   return (

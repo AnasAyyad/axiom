@@ -14,7 +14,7 @@ import { StatePanel } from "../../components/StatePanel";
 import { HighRiskAuthorizationForm } from "../shared/HighRiskAuthorizationForm";
 import { StatusBadge } from "../shared/StatusBadge";
 import { stringAttribute } from "../strategies/strategyModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function RiskControlsPage() {
   const session = useQuery(sessionQuery);
