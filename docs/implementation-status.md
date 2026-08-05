@@ -49,6 +49,13 @@ shared runtime is installed.
   book is rejected rather than treated as equivalent market evidence. This is
   likewise an input foundation, not a durable run, planner, sandbox worker, or
   automatic execution capability.
+- The generic multi-leg saga pipeline now provides the same mandatory stage
+  order for future Triangular and Cross-Exchange runtimes: strategy evaluation,
+  atomic allocation, central risk, plan, simulation or sandbox broker, then
+  reduction of execution, accounting, and reconciliation evidence. Its cleanup
+  behavior releases an allocation on rejected risk/planning and quarantines it
+  after uncertain execution/reduction. Concrete adapters are still absent, so
+  this contract has not enabled any catalogue item or automatic order flow.
 - Each listed run has one semantic detail route with immutable timeline,
   decision, planned-order, simulated-execution, latest portfolio, risk
   availability, and safe reproducibility-evidence projections. A missing
