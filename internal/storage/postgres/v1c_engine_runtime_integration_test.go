@@ -362,12 +362,20 @@ SELECT state,instrument FROM sandbox_strategy_sessions WHERE id=$1`, command.ID)
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM sandbox_strategy_session_accounts WHERE strategy_session_id=$1`, command.ID).Scan(&childMembers); err != nil || childMembers != 1 {
 		t.Fatalf("strategy child members=%d error=%v", childMembers, err)
 	}
+	assertV1CActiveStrategySessionWork(t, ctx, pool, store, command, session.Accounts[0], createdAt)
 	command.ID = "sandbox-strategy-runtime-session-duplicate"
 	if _, err = store.CreateStrategySession(ctx, command); err == nil {
 		t.Fatal("second active strategy session reused one account epoch")
 	}
 	if err = store.StopCanarySession(ctx, session.ID, session.Accounts[0].ID, false, createdAt.Add(50*time.Millisecond)); err != nil {
 		t.Fatalf("strategy session stop error=%v", err)
+	}
+	if work, workErr := store.ActiveStrategySessionWork(ctx, session.Accounts[0].ID, session.Accounts[0].Epoch,
+		"v1c-engine-runtime-worker", 1, createdAt.Add(time.Second), 1); workErr != nil || len(work) != 0 {
+		t.Fatalf("revoked strategy work=%#v error=%v", work, workErr)
+	}
+	if err = store.SetEngineAccountState(ctx, session.Accounts[0].ID, sandbox.EngineReadyPaused, createdAt.Add(60*time.Millisecond)); err != nil {
+		t.Fatalf("strategy account ready state error=%v", err)
 	}
 	bybit := V1CEngineAccount{
 		AccountID: "v1c-engine-runtime-bybit-account", Exchange: sandbox.ExchangeBybit,
@@ -432,5 +440,68 @@ WHERE id=$1`, cross.ID, cross.CreatedAt); err != nil {
 	if err = pool.QueryRow(ctx, `
 SELECT state,blocking_reason FROM sandbox_strategy_sessions WHERE id=$1`, cross.ID).Scan(&childState, &blockingReason); err != nil || childState != "blocked" || blockingReason != "arm_expired_or_revoked" {
 		t.Fatalf("expired strategy state=%q reason=%q error=%v", childState, blockingReason, err)
+	}
+}
+
+func assertV1CActiveStrategySessionWork(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	store *V1CDispatcherStore,
+	command sandbox.StrategySessionCommand,
+	account sandbox.StrategySessionAccount,
+	createdAt time.Time,
+) {
+	t.Helper()
+	var actorSession string
+	if err := pool.QueryRow(ctx, `
+SELECT id FROM sessions
+WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>$2
+ORDER BY id LIMIT 1`, command.CreatedBy, createdAt).Scan(&actorSession); err != nil {
+		t.Fatalf("strategy work actor session error=%v", err)
+	}
+	armAt := createdAt.Add(10 * time.Millisecond).Truncate(time.Microsecond)
+	if _, err := pool.Exec(ctx, `
+INSERT INTO v1c_sandbox_authorizations(
+ id,token_hash,user_id,session_id,purpose,totp_counter,session_revision,
+ source_hash,reason_hash,created_at,expires_at,consumed_at
+) VALUES (
+ 'sandbox-strategy-work-auth',$1,$2,$3,'sandbox_arm',77,
+ (SELECT revision FROM sessions WHERE id=$3),$4,$5,$6,$7,$6
+)`, strings.Repeat("1", 64), command.CreatedBy, actorSession,
+		strings.Repeat("2", 64), strings.Repeat("3", 64), armAt,
+		armAt.Add(2*time.Minute)); err != nil {
+		t.Fatalf("strategy work authorization error=%v", err)
+	}
+	arm := sandbox.Arm{
+		ID: "sandbox-strategy-work-arm", SessionID: command.ID,
+		AccountIDs: []sandbox.AccountID{account.ID}, AuthorizationHash: strings.Repeat("4", 64),
+		ActorUserID: command.CreatedBy, ActorSessionID: actorSession,
+		ReasonHash: strings.Repeat("3", 64), CreatedAt: armAt,
+		ExpiresAt: armAt.Add(sandbox.ArmLifetime), Revision: 1,
+	}
+	if _, err := store.CreateSandboxArm(ctx, sandbox.ArmCommand{
+		Arm: arm, AuthorizationID: "sandbox-strategy-work-auth",
+		SourceHash: strings.Repeat("2", 64), ExpectedSessionRevision: 1,
+	}); err != nil {
+		t.Fatalf("strategy work arm error=%v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+UPDATE sandbox_strategy_sessions
+SET state='running',started_at=$2,revision=revision+1
+WHERE id=$1`, command.ID, armAt); err != nil {
+		t.Fatalf("strategy work start error=%v", err)
+	}
+	now := armAt.Add(time.Second)
+	work, err := store.ActiveStrategySessionWork(ctx, account.ID, account.Epoch,
+		"v1c-engine-runtime-worker", 1, now, 1)
+	if err != nil || len(work) != 1 || work[0].SessionID != sandbox.SessionID(command.ID) ||
+		work[0].Strategy != sandbox.StrategyTrend || work[0].Instrument != "BTCUSDT" ||
+		work[0].Account != account || work[0].ArmExpiresAt != arm.ExpiresAt {
+		t.Fatalf("strategy work=%#v error=%v", work, err)
+	}
+	if _, err = store.ActiveStrategySessionWork(ctx, account.ID, account.Epoch,
+		"v1c-engine-runtime-worker", 2, now, 1); err == nil {
+		t.Fatal("strategy work was readable with the wrong fence")
 	}
 }
