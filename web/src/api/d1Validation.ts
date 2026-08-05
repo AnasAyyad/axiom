@@ -109,6 +109,7 @@ const run = z
     environment: z.enum(["recorded_data", "production_public"]),
     state: z.string().min(1),
     order_capable: z.boolean(),
+    available_actions: z.array(z.enum(["pause", "resume", "step", "stop"])).max(4),
     revision,
     waiting_reason: z.string().min(1).optional(),
     created_at: timestamp,

@@ -33,6 +33,7 @@ describe("RunDetailPage", () => {
                     environment: "recorded_data",
                     state: "PAUSED",
                     order_capable: true,
+                    available_actions: ["resume", "step"],
                     revision: "1",
                     created_at: "2026-08-05T00:00:00Z",
                   };

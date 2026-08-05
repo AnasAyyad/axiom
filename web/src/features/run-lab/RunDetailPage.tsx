@@ -23,24 +23,6 @@ const outputViews = [
 
 type RunAction = "pause" | "resume" | "step" | "stop";
 
-function availableRunActions(run: {
-  mode: string;
-  state: string;
-}): RunAction[] {
-  if (run.mode === "replay") {
-    if (run.state === "RUNNING") return ["pause"];
-    if (run.state === "PAUSED") return ["resume", "step"];
-    return [];
-  }
-  if (
-    run.mode === "shadow" &&
-    (run.state === "QUEUED" || run.state === "RUNNING" || run.state === "PAUSED")
-  ) {
-    return ["stop"];
-  }
-  return [];
-}
-
 function actionDescription(action: RunAction) {
   switch (action) {
     case "pause":
@@ -88,7 +70,7 @@ export function RunDetailPage() {
         detail="This run is unavailable or you no longer have a safe projection for it."
       />
     );
-  const actions = availableRunActions(run.data);
+  const actions = run.data.available_actions as RunAction[];
   return (
     <Page
       title={run.data.friendly_name}

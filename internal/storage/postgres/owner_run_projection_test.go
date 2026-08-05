@@ -61,4 +61,34 @@ func TestOwnerRunProjectionUsesSemanticLabelsAndWaitingReasons(t *testing.T) {
 	if item.Id == "" || item.Revision != "7" || !item.OrderCapable {
 		t.Fatalf("durable run fields missing=%+v", item)
 	}
+	if len(item.AvailableActions) != 2 || item.AvailableActions[0] != "resume" ||
+		item.AvailableActions[1] != "step" {
+		t.Fatalf("safe run controls=%+v", item.AvailableActions)
+	}
+}
+
+func TestOwnerRunActionsFollowTheDurableControlPolicy(t *testing.T) {
+	tests := []struct {
+		mode, state string
+		want        []string
+	}{
+		{mode: "backtest", state: "RUNNING", want: []string{}},
+		{mode: "replay", state: "RUNNING", want: []string{"pause"}},
+		{mode: "replay", state: "PAUSED", want: []string{"resume", "step"}},
+		{mode: "shadow", state: "QUEUED", want: []string{"stop"}},
+		{mode: "shadow", state: "CANCEL_REQUESTED", want: []string{}},
+	}
+	for _, test := range tests {
+		t.Run(test.mode+"_"+test.state, func(t *testing.T) {
+			got := ownerRunActions(test.mode, test.state)
+			if len(got) != len(test.want) {
+				t.Fatalf("actions=%v want=%v", got, test.want)
+			}
+			for index := range got {
+				if string(got[index]) != test.want[index] {
+					t.Fatalf("actions=%v want=%v", got, test.want)
+				}
+			}
+		})
+	}
 }

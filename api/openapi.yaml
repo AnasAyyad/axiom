@@ -2120,7 +2120,7 @@ components:
     RunResource:
       type: object
       additionalProperties: false
-      required: [id, friendly_name, strategy_id, strategy_version, mode, environment, state, order_capable, revision, created_at]
+      required: [id, friendly_name, strategy_id, strategy_version, mode, environment, state, order_capable, available_actions, revision, created_at]
       properties:
         id: { type: string, minLength: 1 }
         friendly_name: { type: string, minLength: 1 }
@@ -2130,10 +2130,18 @@ components:
         environment: { type: string, enum: [recorded_data, production_public] }
         state: { type: string, minLength: 1 }
         order_capable: { type: boolean }
+        available_actions:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/RunAction" }
         revision: { $ref: "#/components/schemas/Revision" }
         waiting_reason: { type: string, maxLength: 500 }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+    RunAction:
+      type: string
+      enum: [pause, resume, step, stop]
     RunOutput:
       type: object
       additionalProperties: false

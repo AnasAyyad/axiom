@@ -899,6 +899,7 @@ export interface components {
       "unresolved_critical"?: number;
       "updated_at": components["schemas"]["Timestamp"];
     };
+    "RunAction": "pause" | "resume" | "step" | "stop";
     "RunBlocker": {
       "code": string;
       "detail": string;
@@ -957,6 +958,7 @@ export interface components {
       "waiting_reason"?: string;
     };
     "RunResource": {
+      "available_actions": Array<components["schemas"]["RunAction"]>;
       "created_at": components["schemas"]["Timestamp"];
       "environment": "recorded_data" | "production_public";
       "friendly_name": string;

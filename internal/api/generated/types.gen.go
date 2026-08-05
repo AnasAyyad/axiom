@@ -2357,6 +2357,30 @@ func (e RiskStatusState) Valid() bool {
 	}
 }
 
+// Defines values for RunAction.
+const (
+	RunActionPause  RunAction = "pause"
+	RunActionResume RunAction = "resume"
+	RunActionStep   RunAction = "step"
+	RunActionStop   RunAction = "stop"
+)
+
+// Valid indicates whether the value is a known member of the RunAction enum.
+func (e RunAction) Valid() bool {
+	switch e {
+	case RunActionPause:
+		return true
+	case RunActionResume:
+		return true
+	case RunActionStep:
+		return true
+	case RunActionStop:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RunChoiceExchanges.
 const (
 	RunChoiceExchangesBinance RunChoiceExchanges = "binance"
@@ -4042,22 +4066,22 @@ func (e ListIncidentsParamsState) Valid() bool {
 
 // Defines values for ControlLabRunParamsAction.
 const (
-	Cancel    ControlLabRunParamsAction = "cancel"
-	Pause     ControlLabRunParamsAction = "pause"
-	Reproduce ControlLabRunParamsAction = "reproduce"
-	Resume    ControlLabRunParamsAction = "resume"
+	ControlLabRunParamsActionCancel    ControlLabRunParamsAction = "cancel"
+	ControlLabRunParamsActionPause     ControlLabRunParamsAction = "pause"
+	ControlLabRunParamsActionReproduce ControlLabRunParamsAction = "reproduce"
+	ControlLabRunParamsActionResume    ControlLabRunParamsAction = "resume"
 )
 
 // Valid indicates whether the value is a known member of the ControlLabRunParamsAction enum.
 func (e ControlLabRunParamsAction) Valid() bool {
 	switch e {
-	case Cancel:
+	case ControlLabRunParamsActionCancel:
 		return true
-	case Pause:
+	case ControlLabRunParamsActionPause:
 		return true
-	case Reproduce:
+	case ControlLabRunParamsActionReproduce:
 		return true
-	case Resume:
+	case ControlLabRunParamsActionResume:
 		return true
 	default:
 		return false
@@ -5737,6 +5761,9 @@ type RiskStatus struct {
 // RiskStatusState defines model for RiskStatus.State.
 type RiskStatusState string
 
+// RunAction defines model for RunAction.
+type RunAction string
+
 // RunBlocker defines model for RunBlocker.
 type RunBlocker struct {
 	Code            string `json:"code"`
@@ -5841,6 +5868,8 @@ type RunPortfolioProjectionState string
 
 // RunResource defines model for RunResource.
 type RunResource struct {
+	AvailableActions []RunAction `json:"available_actions"`
+
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
 	CreatedAt       Timestamp              `json:"created_at"`
 	Environment     RunResourceEnvironment `json:"environment"`

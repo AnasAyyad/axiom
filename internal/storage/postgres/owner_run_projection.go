@@ -79,7 +79,8 @@ func scanOwnerRun(scanner ownerRunScanner) (generated.RunResource, error) {
 	}
 	item := generated.RunResource{Id: id, Mode: generated.RunResourceMode(mode), State: state,
 		Revision: strconv.FormatInt(revision, 10), CreatedAt: created.UTC(), UpdatedAt: ptr(updated.UTC()),
-		StrategyId: strategyID, StrategyVersion: strategyVersion, OrderCapable: true}
+		StrategyId: strategyID, StrategyVersion: strategyVersion, OrderCapable: true,
+		AvailableActions: ownerRunActions(mode, state)}
 	switch mode {
 	case "backtest":
 		item.FriendlyName, item.Environment = strategyName+" backtest", generated.RunResourceEnvironment("recorded_data")
@@ -94,6 +95,27 @@ func scanOwnerRun(scanner ownerRunScanner) (generated.RunResource, error) {
 		item.WaitingReason = &reason
 	}
 	return item, nil
+}
+
+// ownerRunActions is the sole projection of the durable lifecycle commands
+// that are safe for the run's current state. The browser must not infer this
+// from mode names or offer a command that the owner command service rejects.
+func ownerRunActions(mode, state string) []generated.RunAction {
+	switch mode {
+	case "replay":
+		switch state {
+		case "RUNNING":
+			return []generated.RunAction{generated.RunActionPause}
+		case "PAUSED":
+			return []generated.RunAction{generated.RunActionResume, generated.RunActionStep}
+		}
+	case "shadow":
+		switch state {
+		case "QUEUED", "RUNNING", "PAUSED":
+			return []generated.RunAction{generated.RunActionStop}
+		}
+	}
+	return []generated.RunAction{}
 }
 
 func ownerRunStrategy(value string) (id, version, name string, ok bool) {
