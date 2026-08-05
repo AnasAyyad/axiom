@@ -2,8 +2,11 @@ package demonstrations
 
 import (
 	"context"
-	"fmt"
+	"errors"
 )
+
+// ErrNotFound is returned only when a requested demonstration is not installed.
+var ErrNotFound = errors.New("demonstration_not_found")
 
 // Scenario is the server-owned description of one executable synthetic
 // walkthrough. It intentionally contains no storage path, account identity,
@@ -41,6 +44,6 @@ func Run(ctx context.Context, id string) (Result, error) {
 	case TrendFollowingID:
 		return RunTrendFollowing(ctx)
 	default:
-		return Result{}, fmt.Errorf("demonstration_not_found")
+		return Result{}, ErrNotFound
 	}
 }

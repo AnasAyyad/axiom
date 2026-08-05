@@ -53,6 +53,8 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("POST /api/v1/session/logout", handler.authorizedMutation(handler.logout, ""))
 	mux.HandleFunc("GET /api/v1/session/me", handler.authorized(handler.me, ""))
 	mux.HandleFunc("GET /api/v1/run-catalog", handler.authorized(handler.runCatalog, ""))
+	mux.HandleFunc("GET /api/v1/demonstrations", handler.authorized(handler.guidedDemonstrations, ""))
+	mux.HandleFunc("GET /api/v1/demonstrations/{id}", handler.authorized(handler.guidedDemonstration, ""))
 	mux.HandleFunc("GET /api/v1/runs", handler.authorized(handler.runs, ""))
 	mux.HandleFunc("POST /api/v1/runs", handler.authorizedMutation(handler.createRun, ""))
 	mux.HandleFunc("GET /api/v1/runs/{id}", handler.authorized(handler.run, ""))

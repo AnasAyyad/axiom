@@ -99,6 +99,48 @@ const runCatalog = z
   })
   .loose();
 
+const guidedDemonstrationEvent = z
+  .object({
+    ordinal: z.number().int().nonnegative(),
+    decision: z.string().min(2),
+    orders: z.string().min(2),
+    execution_events: z.string().min(2),
+    balances: z.string().min(2),
+  })
+  .loose();
+
+const guidedDemonstrationPage = z
+  .object({
+    items: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          title: z.string().min(1),
+          description: z.string().min(1),
+          strategy_id: z.string().min(1),
+          strategy_version: z.string().min(1),
+          synthetic: z.literal(true),
+          expected_outcomes: z.array(z.string().min(1)).min(1),
+        })
+        .loose(),
+    ),
+  })
+  .loose();
+
+const guidedDemonstrationResult = z
+  .object({
+    id: z.string().min(1),
+    strategy_id: z.string().min(1),
+    strategy_version: z.string().min(1),
+    synthetic: z.literal(true),
+    configuration_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    accepted: guidedDemonstrationEvent,
+    rejected: guidedDemonstrationEvent,
+    metrics: z.string().min(2),
+    result_hash: z.string().regex(/^[0-9a-f]{64}$/),
+  })
+  .loose();
+
 const run = z
   .object({
     id: z.string().min(1),
@@ -109,7 +151,9 @@ const run = z
     environment: z.enum(["recorded_data", "production_public"]),
     state: z.string().min(1),
     order_capable: z.boolean(),
-    available_actions: z.array(z.enum(["pause", "resume", "step", "stop"])).max(4),
+    available_actions: z
+      .array(z.enum(["pause", "resume", "step", "stop"]))
+      .max(4),
     revision,
     waiting_reason: z.string().min(1).optional(),
     created_at: timestamp,
@@ -138,7 +182,10 @@ const runPortfolioProjection = z
   .object({
     state: z.enum(["recorded", "not_recorded"]),
     ordinal: revision.optional(),
-    content_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    content_hash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
     canonical_payload: z.string().min(2).max(1_048_576).optional(),
     waiting_reason: z.string().min(1).max(500).optional(),
   })
@@ -154,10 +201,22 @@ const runRiskProjection = z
 const runEvidence = z
   .object({
     state: z.enum(["recorded", "not_recorded"]),
-    manifest_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
-    source_commit: z.string().regex(/^[0-9a-f]{40,64}$/).optional(),
-    configuration_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
-    dataset_manifest_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    manifest_hash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
+    source_commit: z
+      .string()
+      .regex(/^[0-9a-f]{40,64}$/)
+      .optional(),
+    configuration_hash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
+    dataset_manifest_hash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
     model_namespace: z.string().min(1).max(200).optional(),
     confidence_tier: z.enum(["A", "B", "C", "D"]).optional(),
   })
@@ -251,9 +310,14 @@ export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [/^GET \/api\/v1\/activity(?:\?.*)?$/, activityPage],
   [/^GET \/api\/v1\/activity\/[^/?]+$/, activity],
   [/^GET \/api\/v1\/run-catalog$/, runCatalog],
+  [/^GET \/api\/v1\/demonstrations$/, guidedDemonstrationPage],
+  [/^GET \/api\/v1\/demonstrations\/[^/?]+$/, guidedDemonstrationResult],
   [/^GET \/api\/v1\/runs$/, runPage],
   [/^GET \/api\/v1\/runs\/[^/?]+$/, run],
-  [/^GET \/api\/v1\/runs\/[^/?]+\/(timeline|decisions|orders|fills)$/, runOutputPage],
+  [
+    /^GET \/api\/v1\/runs\/[^/?]+\/(timeline|decisions|orders|fills)$/,
+    runOutputPage,
+  ],
   [/^GET \/api\/v1\/runs\/[^/?]+\/portfolio$/, runPortfolioProjection],
   [/^GET \/api\/v1\/runs\/[^/?]+\/risk$/, runRiskProjection],
   [/^GET \/api\/v1\/runs\/[^/?]+\/evidence$/, runEvidence],

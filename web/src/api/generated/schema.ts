@@ -273,6 +273,36 @@ export interface components {
       "resource_id": string;
       "resource_type": "activity" | "report" | "incident" | "audit" | "qualification" | "lab_run";
     };
+    "GuidedDemonstration": {
+      "description": string;
+      "expected_outcomes": Array<string>;
+      "id": string;
+      "strategy_id": string;
+      "strategy_version": string;
+      "synthetic": boolean;
+      "title": string;
+    };
+    "GuidedDemonstrationEvent": {
+      "balances": string;
+      "decision": string;
+      "execution_events": string;
+      "orders": string;
+      "ordinal": number;
+    };
+    "GuidedDemonstrationPage": {
+      "items": Array<components["schemas"]["GuidedDemonstration"]>;
+    };
+    "GuidedDemonstrationResult": {
+      "accepted": components["schemas"]["GuidedDemonstrationEvent"];
+      "configuration_hash": string;
+      "id": string;
+      "metrics": string;
+      "rejected": components["schemas"]["GuidedDemonstrationEvent"];
+      "result_hash": string;
+      "strategy_id": string;
+      "strategy_version": string;
+      "synthetic": boolean;
+    };
     "HealthComponent": {
       "name": "postgres" | "authentication" | "outbox" | "public_binance" | "disk" | "recovery";
       "reason_code"?: "required_dependency_unavailable" | "bootstrap_required" | "stale" | "locked";
@@ -1380,6 +1410,8 @@ export interface operations {
   "logoutSession": { header: { "Origin": string; "X-CSRF-Token": string; }; responses: { "204": never; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
   "getCurrentSession": { responses: { "200": components["schemas"]["SessionMe"]; "401": components["schemas"]["Error"]; }; };
   "getRunCatalog": { responses: { "200": components["schemas"]["RunCatalog"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "listGuidedDemonstrations": { responses: { "200": components["schemas"]["GuidedDemonstrationPage"]; "401": components["schemas"]["Error"]; }; };
+  "getGuidedDemonstration": { path: { "id": string; }; responses: { "200": components["schemas"]["GuidedDemonstrationResult"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "listRuns": { responses: { "200": components["schemas"]["RunPage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "createRun": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RunCreateRequest"]; responses: { "202": components["schemas"]["RunResource"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "429": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
   "getRun": { path: { "id": string; }; responses: { "200": components["schemas"]["RunResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };

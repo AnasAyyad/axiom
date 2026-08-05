@@ -52,9 +52,10 @@ does not start, replace, or certify B2, C6, D5, or D6 evidence.
   window and endpoint are unchanged.
 - A deterministic, synthetic Trend Following walkthrough now exercises the
   same strategy, allocation, risk, planning, virtual-execution, portfolio, and
-  journal pipeline as the credential-free offline runtime. It is backend
-  groundwork only: the owner UI still marks guided demonstrations unavailable
-  until the protected catalogue and result views are installed.
+  journal pipeline as the credential-free offline runtime. The protected owner
+  catalogue and result view expose that one installed scenario and its
+  canonical evidence; it does not create a durable run, contact an exchange,
+  or establish historical-performance or profitability evidence.
 
 Remaining implementation includes shared materialization for the remaining
 strategy families and live shadows, deterministic demonstration bundles,

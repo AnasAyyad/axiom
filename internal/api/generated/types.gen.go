@@ -4667,6 +4667,53 @@ type ExportRequestFormat string
 // ExportRequestResourceType defines model for ExportRequest.ResourceType.
 type ExportRequestResourceType string
 
+// GuidedDemonstration defines model for GuidedDemonstration.
+type GuidedDemonstration struct {
+	Description      string   `json:"description"`
+	ExpectedOutcomes []string `json:"expected_outcomes"`
+	Id               string   `json:"id"`
+	StrategyId       string   `json:"strategy_id"`
+	StrategyVersion  string   `json:"strategy_version"`
+	Synthetic        bool     `json:"synthetic"`
+	Title            string   `json:"title"`
+}
+
+// GuidedDemonstrationEvent defines model for GuidedDemonstrationEvent.
+type GuidedDemonstrationEvent struct {
+	// Balances Canonical JSON portfolio payload
+	Balances string `json:"balances"`
+
+	// Decision Canonical JSON decision payload
+	Decision string `json:"decision"`
+
+	// ExecutionEvents Canonical JSON simulated-execution payload
+	ExecutionEvents string `json:"execution_events"`
+
+	// Orders Canonical JSON planned-order payload
+	Orders  string `json:"orders"`
+	Ordinal uint64 `json:"ordinal"`
+}
+
+// GuidedDemonstrationPage defines model for GuidedDemonstrationPage.
+type GuidedDemonstrationPage struct {
+	Items []GuidedDemonstration `json:"items"`
+}
+
+// GuidedDemonstrationResult defines model for GuidedDemonstrationResult.
+type GuidedDemonstrationResult struct {
+	Accepted          GuidedDemonstrationEvent `json:"accepted"`
+	ConfigurationHash string                   `json:"configuration_hash"`
+	Id                string                   `json:"id"`
+
+	// Metrics Canonical JSON metric payload; not profitability evidence
+	Metrics         string                   `json:"metrics"`
+	Rejected        GuidedDemonstrationEvent `json:"rejected"`
+	ResultHash      string                   `json:"result_hash"`
+	StrategyId      string                   `json:"strategy_id"`
+	StrategyVersion string                   `json:"strategy_version"`
+	Synthetic       bool                     `json:"synthetic"`
+}
+
 // HealthComponent defines model for HealthComponent.
 type HealthComponent struct {
 	Name       HealthComponentName        `json:"name"`
