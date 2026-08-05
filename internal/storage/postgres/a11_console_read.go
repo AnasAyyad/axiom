@@ -68,7 +68,7 @@ func (store *A11ConsoleStore) SystemStatus(ctx context.Context) (generated.Syste
 	var trendCount int
 	_ = store.pool.QueryRow(ctx, `SELECT count(*) FROM strategy_versions WHERE id='trend-v1a-1'`).Scan(&trendCount)
 	if trendCount == 1 {
-		strategy = generated.SystemStatusStrategyActivation("trend.v1a.1")
+		strategy = generated.SystemStatusStrategyActivation("trend-following@1.0.0")
 	}
 	binance, _ := store.BinanceHealth(ctx)
 	binanceState, engineState := string(binance.WebsocketState), shadowState
@@ -186,7 +186,7 @@ func (store *A11ConsoleStore) Trend(ctx context.Context) (generated.TrendStatus,
 		parameters = append(parameters, item)
 	}
 	_ = promotion
-	return generated.TrendStatus{Version: generated.TrendV1a1, Revision: strconv.FormatInt(version, 10),
+	return generated.TrendStatus{Version: generated.TrendStatusVersionTrendV1a1, Revision: strconv.FormatInt(version, 10),
 		Timeframe: generated.N4h, Health: generated.Paused, Parameters: parameters,
 		EvidenceMaturity: generated.TrendStatusEvidenceMaturityLocalTierB,
 		Viability:        ptr(generated.TrendStatusViabilityUndetermined)}, rows.Err()

@@ -68,7 +68,7 @@ export async function getStatus(): Promise<SystemStatus> {
   if (
     value.real_trading_enabled !== false ||
     !["ready", "blocked", "degraded"].includes(readiness) ||
-    !["unavailable", "trend.v1a.1"].includes(activation) ||
+    !["unavailable", "trend-following@1.0.0"].includes(activation) ||
     (lifecycle !== "STARTING" &&
       lifecycle !== "READY_PAUSED" &&
       lifecycle !== "STOPPING" &&

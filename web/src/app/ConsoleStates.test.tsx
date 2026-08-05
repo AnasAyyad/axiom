@@ -193,7 +193,7 @@ function a11FetchFixture(input: RequestInfo | URL) {
         configuration_identity: "test-configuration",
         readiness_state: "ready",
         lifecycle_state: "READY_PAUSED",
-        strategy_activation: "trend.v1a.1",
+        strategy_activation: "trend-following@1.0.0",
         real_trading_enabled: false,
         execution_mode: "shadow",
         environment: "production_public",

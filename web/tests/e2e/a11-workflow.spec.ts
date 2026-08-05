@@ -775,11 +775,12 @@ async function routeAPI(route: Route, state: FixtureState) {
     body = sandboxQualificationFixture();
   else if (path === "/api/v1/system/status")
     body = {
-      release: "V1A",
-      phase: "A11",
-      role: "api",
+      application_version: "test",
+      build_commit: "test-commit",
+      configuration_identity: "test-configuration",
+      readiness_state: "ready",
       lifecycle_state: "RUNNING",
-      strategy_activation: "trend.v1a.1",
+      strategy_activation: "trend-following@1.0.0",
       real_trading_enabled: false,
       environment: "production_public",
       execution_mode: "shadow",

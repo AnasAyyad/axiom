@@ -2114,7 +2114,7 @@ components:
             type: string,
             enum: [STARTING, READY_PAUSED, RUNNING, DEGRADED, STOPPING],
           }
-        strategy_activation: { type: string, enum: [unavailable, trend.v1a.1] }
+        strategy_activation: { type: string, enum: [unavailable, trend-following@1.0.0] }
         real_trading_enabled: { type: boolean, enum: [false] }
         environment: { type: string }
         execution_mode:

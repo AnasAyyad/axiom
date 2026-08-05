@@ -1291,7 +1291,7 @@ export interface components {
       "revision"?: components["schemas"]["Revision"];
       "risk_state"?: "PAUSED" | "RESUMED" | "LOCKED";
       "server_time"?: components["schemas"]["Timestamp"];
-      "strategy_activation": "unavailable" | "trend.v1a.1";
+      "strategy_activation": "unavailable" | "trend-following@1.0.0";
     };
     "TimelineEvent": {
       "actor"?: string;

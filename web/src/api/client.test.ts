@@ -16,7 +16,7 @@ it("rejects an unsafe or structurally invalid system response", async () => {
             configuration_identity: "test-configuration",
             readiness_state: "ready",
             lifecycle_state: "RUNNING",
-            strategy_activation: "trend.v1a.1",
+            strategy_activation: "trend-following@1.0.0",
             real_trading_enabled: true,
           }),
           { status: 200 },

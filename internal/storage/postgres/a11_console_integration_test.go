@@ -45,7 +45,7 @@ func TestA11PostgresAuthenticationCommandsAndConsoleQualification(t *testing.T) 
 		t.Fatal(err)
 	}
 	trendStatus, err := consoleStore.Trend(ctx)
-	if err != nil || trendStatus.Version != generated.TrendV1a1 || len(trendStatus.Parameters) != 16 {
+	if err != nil || trendStatus.Version != generated.TrendStatusVersionTrendV1a1 || len(trendStatus.Parameters) != 16 {
 		t.Fatalf("registered Trend projection = %#v %v", trendStatus, err)
 	}
 	assertA11StablePagination(t, ctx, pool, consoleStore, now)

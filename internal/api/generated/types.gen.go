@@ -3703,14 +3703,14 @@ func (e SystemStatusRiskState) Valid() bool {
 
 // Defines values for SystemStatusStrategyActivation.
 const (
-	SystemStatusStrategyActivationTrendV1a1   SystemStatusStrategyActivation = "trend.v1a.1"
-	SystemStatusStrategyActivationUnavailable SystemStatusStrategyActivation = "unavailable"
+	SystemStatusStrategyActivationTrendFollowing100 SystemStatusStrategyActivation = "trend-following@1.0.0"
+	SystemStatusStrategyActivationUnavailable       SystemStatusStrategyActivation = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the SystemStatusStrategyActivation enum.
 func (e SystemStatusStrategyActivation) Valid() bool {
 	switch e {
-	case SystemStatusStrategyActivationTrendV1a1:
+	case SystemStatusStrategyActivationTrendFollowing100:
 		return true
 	case SystemStatusStrategyActivationUnavailable:
 		return true
@@ -3820,13 +3820,13 @@ func (e TrendStatusTimeframe) Valid() bool {
 
 // Defines values for TrendStatusVersion.
 const (
-	TrendV1a1 TrendStatusVersion = "trend.v1a.1"
+	TrendStatusVersionTrendV1a1 TrendStatusVersion = "trend.v1a.1"
 )
 
 // Valid indicates whether the value is a known member of the TrendStatusVersion enum.
 func (e TrendStatusVersion) Valid() bool {
 	switch e {
-	case TrendV1a1:
+	case TrendStatusVersionTrendV1a1:
 		return true
 	default:
 		return false
