@@ -17,6 +17,7 @@ export const navigationGroups: readonly NavigationGroup[] = [
     items: [
       { to: "/", label: "Dashboard" },
       { to: "/getting-started", label: "Getting Started" },
+      { to: "/glossary", label: "Glossary" },
     ],
   },
   {

@@ -42,6 +42,7 @@ import { RunDetailPage } from "../features/run-lab/RunDetailPage";
 import { DataCataloguePage } from "../features/run-lab/DataCataloguePage";
 import {
   GettingStartedPage,
+  GlossaryPage,
   GuidedDemonstrationsPage,
 } from "../features/run-lab/OwnerGuidancePages";
 import { StrategyCenterPage } from "../features/strategies/StrategyCenterPage";
@@ -84,6 +85,7 @@ export function App() {
             <Route element={<AuthenticatedShell />}>
               <Route index element={<CommandCenter />} />
               <Route path="getting-started" element={<GettingStartedPage />} />
+              <Route path="glossary" element={<GlossaryPage />} />
               <Route path="exchanges" element={<ExchangesPage />} />
               <Route path="data-catalogue" element={<DataCataloguePage />} />
               <Route path="exchanges/binance" element={<BinancePage />} />
