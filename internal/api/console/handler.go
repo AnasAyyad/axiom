@@ -38,6 +38,7 @@ type Options struct {
 	D1Commands            D1CommandService
 	D4Read                D4ReadService
 	RunRegistry           *runs.Registry
+	Runs                  RunReadService
 }
 
 // Register installs all authenticated A11 routes on one mux.
@@ -50,6 +51,8 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("POST /api/v1/session/logout", handler.authorizedMutation(handler.logout, ""))
 	mux.HandleFunc("GET /api/v1/session/me", handler.authorized(handler.me, ""))
 	mux.HandleFunc("GET /api/v1/run-catalog", handler.authorized(handler.runCatalog, ""))
+	mux.HandleFunc("GET /api/v1/runs", handler.authorized(handler.runs, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}", handler.authorized(handler.run, ""))
 	handler.registerReads(mux)
 	handler.registerCommands(mux)
 	handler.registerSandbox(mux)

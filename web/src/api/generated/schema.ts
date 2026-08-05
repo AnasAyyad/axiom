@@ -899,6 +899,23 @@ export interface components {
       "strategy_version": string;
       "warmup": string;
     };
+    "RunPage": {
+      "items": Array<components["schemas"]["RunResource"]>;
+    };
+    "RunResource": {
+      "created_at": components["schemas"]["Timestamp"];
+      "environment": "recorded_data" | "production_public";
+      "friendly_name": string;
+      "id": string;
+      "mode": "backtest" | "replay" | "shadow";
+      "order_capable": boolean;
+      "revision": components["schemas"]["Revision"];
+      "state": string;
+      "strategy_id": string;
+      "strategy_version": string;
+      "updated_at"?: components["schemas"]["Timestamp"];
+      "waiting_reason"?: string;
+    };
     "RuntimeControlRequest": {
       "expected_revision": components["schemas"]["Revision"];
       "reason": string;
@@ -1302,6 +1319,8 @@ export interface operations {
   "logoutSession": { header: { "Origin": string; "X-CSRF-Token": string; }; responses: { "204": never; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; }; };
   "getCurrentSession": { responses: { "200": components["schemas"]["SessionMe"]; "401": components["schemas"]["Error"]; }; };
   "getRunCatalog": { responses: { "200": components["schemas"]["RunCatalog"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "listRuns": { responses: { "200": components["schemas"]["RunPage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "getRun": { path: { "id": string; }; responses: { "200": components["schemas"]["RunResource"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "getVersion": { responses: { "200": components["schemas"]["VersionResponse"]; }; };
   "getBuildInformation": { responses: { "200": components["schemas"]["BuildInformation"]; }; };
   "getSystemStatus": { responses: { "200": components["schemas"]["SystemStatus"]; "401": components["schemas"]["Error"]; }; };

@@ -50,6 +50,14 @@ type ReadService interface {
 	Audit(context.Context, string, int, string, bool) (generated.AuditEventPage, error)
 }
 
+// RunReadService exposes the semantic owner-facing projection over durable
+// research and shadow records. It deliberately never exposes configuration,
+// portfolio, dataset, or model identifiers as browser inputs.
+type RunReadService interface {
+	Runs(context.Context) (generated.RunPage, error)
+	Run(context.Context, string) (generated.RunResource, error)
+}
+
 // CommandService persists audited, idempotent commands and durable jobs.
 type CommandService interface {
 	RiskCommand(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)

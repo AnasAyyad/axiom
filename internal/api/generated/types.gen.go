@@ -2318,6 +2318,45 @@ func (e RunChoiceMode) Valid() bool {
 	}
 }
 
+// Defines values for RunResourceEnvironment.
+const (
+	ProductionPublic RunResourceEnvironment = "production_public"
+	RecordedData     RunResourceEnvironment = "recorded_data"
+)
+
+// Valid indicates whether the value is a known member of the RunResourceEnvironment enum.
+func (e RunResourceEnvironment) Valid() bool {
+	switch e {
+	case ProductionPublic:
+		return true
+	case RecordedData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunResourceMode.
+const (
+	RunResourceModeBacktest RunResourceMode = "backtest"
+	RunResourceModeReplay   RunResourceMode = "replay"
+	RunResourceModeShadow   RunResourceMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the RunResourceMode enum.
+func (e RunResourceMode) Valid() bool {
+	switch e {
+	case RunResourceModeBacktest:
+		return true
+	case RunResourceModeReplay:
+		return true
+	case RunResourceModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeControlRequestState.
 const (
 	RuntimeControlRequestStatePaused  RuntimeControlRequestState = "paused"
@@ -3721,28 +3760,28 @@ func (e ListActivityParamsSide) Valid() bool {
 
 // Defines values for ListActivityParamsMode.
 const (
-	Backtest ListActivityParamsMode = "backtest"
-	Demo     ListActivityParamsMode = "demo"
-	Paper    ListActivityParamsMode = "paper"
-	Replay   ListActivityParamsMode = "replay"
-	Shadow   ListActivityParamsMode = "shadow"
-	Testnet  ListActivityParamsMode = "testnet"
+	ListActivityParamsModeBacktest ListActivityParamsMode = "backtest"
+	ListActivityParamsModeDemo     ListActivityParamsMode = "demo"
+	ListActivityParamsModePaper    ListActivityParamsMode = "paper"
+	ListActivityParamsModeReplay   ListActivityParamsMode = "replay"
+	ListActivityParamsModeShadow   ListActivityParamsMode = "shadow"
+	ListActivityParamsModeTestnet  ListActivityParamsMode = "testnet"
 )
 
 // Valid indicates whether the value is a known member of the ListActivityParamsMode enum.
 func (e ListActivityParamsMode) Valid() bool {
 	switch e {
-	case Backtest:
+	case ListActivityParamsModeBacktest:
 		return true
-	case Demo:
+	case ListActivityParamsModeDemo:
 		return true
-	case Paper:
+	case ListActivityParamsModePaper:
 		return true
-	case Replay:
+	case ListActivityParamsModeReplay:
 		return true
-	case Shadow:
+	case ListActivityParamsModeShadow:
 		return true
-	case Testnet:
+	case ListActivityParamsModeTestnet:
 		return true
 	default:
 		return false
@@ -5459,6 +5498,36 @@ type RunChoiceExchanges string
 
 // RunChoiceMode defines model for RunChoice.Mode.
 type RunChoiceMode string
+
+// RunPage defines model for RunPage.
+type RunPage struct {
+	Items []RunResource `json:"items"`
+}
+
+// RunResource defines model for RunResource.
+type RunResource struct {
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt       Timestamp              `json:"created_at"`
+	Environment     RunResourceEnvironment `json:"environment"`
+	FriendlyName    string                 `json:"friendly_name"`
+	Id              string                 `json:"id"`
+	Mode            RunResourceMode        `json:"mode"`
+	OrderCapable    bool                   `json:"order_capable"`
+	Revision        Revision               `json:"revision"`
+	State           string                 `json:"state"`
+	StrategyId      string                 `json:"strategy_id"`
+	StrategyVersion string                 `json:"strategy_version"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt     *Timestamp `json:"updated_at,omitempty"`
+	WaitingReason *string    `json:"waiting_reason,omitempty"`
+}
+
+// RunResourceEnvironment defines model for RunResource.Environment.
+type RunResourceEnvironment string
+
+// RunResourceMode defines model for RunResource.Mode.
+type RunResourceMode string
 
 // RuntimeControlRequest defines model for RuntimeControlRequest.
 type RuntimeControlRequest struct {

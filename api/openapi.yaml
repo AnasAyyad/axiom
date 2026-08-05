@@ -124,6 +124,36 @@ paths:
               schema: { $ref: "#/components/schemas/RunCatalog" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/runs:
+    get:
+      operationId: listRuns
+      tags: [Research]
+      summary: List durable owner-facing run records
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Durable runs in reverse creation order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/runs/{id}:
+    get:
+      operationId: getRun
+      tags: [Research]
+      summary: Get one owner-facing run record
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Semantic durable run projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/system/version:
     get:
       operationId: getVersion
@@ -1890,6 +1920,32 @@ components:
         summary: { type: string }
         detail: { type: string }
         suggested_action: { type: string }
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/RunResource" }
+    RunResource:
+      type: object
+      additionalProperties: false
+      required: [id, friendly_name, strategy_id, strategy_version, mode, environment, state, order_capable, revision, created_at]
+      properties:
+        id: { type: string, minLength: 1 }
+        friendly_name: { type: string, minLength: 1 }
+        strategy_id: { type: string, minLength: 1 }
+        strategy_version: { type: string, minLength: 1 }
+        mode: { type: string, enum: [backtest, replay, shadow] }
+        environment: { type: string, enum: [recorded_data, production_public] }
+        state: { type: string, minLength: 1 }
+        order_capable: { type: boolean }
+        revision: { $ref: "#/components/schemas/Revision" }
+        waiting_reason: { type: string, maxLength: 500 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
     SystemStatus:
       type: object
       additionalProperties: false
