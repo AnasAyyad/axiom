@@ -61,6 +61,44 @@ const activityPage = page(activity)
   .extend({ snapshot_revision: revision })
   .loose();
 
+const runCatalog = z
+  .object({
+    choices: z.array(
+      z
+        .object({
+          strategy_id: z.string().min(1),
+          strategy_name: z.string().min(1),
+          strategy_version: z.string().min(1),
+          mode: z.enum([
+            "demonstration",
+            "backtest",
+            "replay",
+            "shadow",
+            "testnet",
+            "demo",
+          ]),
+          exchanges: z
+            .array(z.enum(["binance", "bybit"]))
+            .min(1)
+            .max(2),
+          instrument: z.string().min(1),
+          cadence: z.string().min(1),
+          warmup: z.string().min(1),
+          order_capable: z.boolean(),
+        })
+        .loose(),
+    ),
+    blocker: z
+      .object({
+        code: z.string().min(1),
+        summary: z.string().min(1),
+        detail: z.string().min(1),
+        suggested_action: z.string().min(1),
+      })
+      .optional(),
+  })
+  .loose();
+
 const command = z
   .object({
     id: z.string().min(1),
@@ -109,11 +147,11 @@ const exportArtifact = z
   .loose();
 
 const d1ListPaths =
-  /^GET \/api\/v1\/(?:assets|risk\/controls|orders|fills|alerts|reports|configuration-revisions|lab-runs|qualifications|users)(?:\?.*)?$/;
+  /^GET \/api\/v1\/(?:assets|risk\/controls|orders|fills|alerts|reports|configuration-revisions|lab-runs|qualifications)(?:\?.*)?$/;
 const d1DetailPaths =
   /^GET \/api\/v1\/(?:strategies\/(?!trend$)[^/?]+|orders\/[^/?]+|commands\/[^/?]+)$/;
 const d1CommandPaths =
-  /^(?:POST|DELETE) \/api\/v1\/(?:strategies\/[^/?]+\/(?:configuration|runtime)|risk\/controls\/[^/?]+\/[^/?]+|alerts\/[^/?]+\/(?:acknowledge|escalate)|alert-routes\/[^/?]+\/test|reports|report-schedules(?:\/[^/?]+\/transitions)?|exports\/[^/?]+(?:\/holds)?|incidents(?:\/[^/?]+\/(?:transitions|updates))?|configuration-revisions|lab-runs\/[^/?]+\/[^/?]+|qualifications(?:\/[^/?]+\/abort)?|users\/[^/?]+\/roles)$/;
+  /^(?:POST|DELETE) \/api\/v1\/(?:strategies\/[^/?]+\/(?:configuration|runtime)|risk\/controls\/[^/?]+\/[^/?]+|alerts\/[^/?]+\/(?:acknowledge|escalate)|alert-routes\/[^/?]+\/test|reports|report-schedules(?:\/[^/?]+\/transitions)?|exports\/[^/?]+(?:\/holds)?|incidents(?:\/[^/?]+\/(?:transitions|updates))?|configuration-revisions|lab-runs\/[^/?]+\/[^/?]+|qualifications(?:\/[^/?]+\/abort)?)$/;
 
 export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [d1ListPaths, resourcePage],
@@ -121,6 +159,7 @@ export const d1ResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
   [/^GET \/api\/v1\/strategies\/[^/?]+\/versions(?:\?.*)?$/, resourcePage],
   [/^GET \/api\/v1\/activity(?:\?.*)?$/, activityPage],
   [/^GET \/api\/v1\/activity\/[^/?]+$/, activity],
+  [/^GET \/api\/v1\/run-catalog$/, runCatalog],
   [/^POST \/api\/v1\/authorizations$/, authorization],
   [/^POST \/api\/v1\/exports$/, exportArtifact],
   [/^POST \/api\/v1\/incidents\/[^/?]+\/evidence-bundles$/, exportArtifact],

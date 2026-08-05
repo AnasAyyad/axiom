@@ -12,6 +12,7 @@ interface StatePanelProps {
     | "forbidden"
     | "validation"
     | "partial"
+    | "blocked"
     | "error";
   readonly detail?: string | undefined;
 }
@@ -29,6 +30,7 @@ export function StatePanel({ state, detail }: StatePanelProps) {
     forbidden: "You do not have permission to view this evidence",
     validation: "Review the highlighted values",
     partial: "Some authoritative data is unavailable",
+    blocked: "A prerequisite is blocking this workflow",
     error: "Authoritative state is unavailable",
   };
   return (

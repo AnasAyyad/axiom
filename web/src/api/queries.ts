@@ -9,6 +9,12 @@ export const sessionQuery = queryOptions({
   staleTime: 30_000,
 });
 
+export const runCatalogQuery = queryOptions({
+  queryKey: ["run-catalog"],
+  queryFn: () => getAPI<"RunCatalog">("/api/v1/run-catalog"),
+  staleTime: 30_000,
+});
+
 export const systemQuery = queryOptions({
   queryKey: ["system"],
   queryFn: () => getAPI<"SystemStatus">("/api/v1/system/status"),
