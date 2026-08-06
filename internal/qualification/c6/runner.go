@@ -73,6 +73,13 @@ func (runner Runner) collect(
 	configuration Config,
 	evidence *Evidence,
 ) {
+	// Let the first reconciliation cycle complete after the run is durably
+	// started. The probe requires runtime evidence newer than the run start;
+	// sampling immediately would turn a healthy startup into stale_data.
+	if err := runner.Clock.Wait(ctx, configuration.SampleInterval); err != nil {
+		appendFailure(evidence, "operator_abort", runner.Clock.Now())
+		return
+	}
 	var ordinal uint64
 	for {
 		ordinal++

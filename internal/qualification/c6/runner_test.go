@@ -136,7 +136,7 @@ func TestC6SmokeProducesNonQualifiedImmutableEvidence(t *testing.T) {
 	}
 	if evidence.State != StateSmokePassed || evidence.Qualified ||
 		evidence.ProfitabilityEvidence || evidence.ObservedDurationSeconds != 2 ||
-		store.samples != 3 || store.finished.EvidenceHash == "" {
+		store.samples != 2 || store.finished.EvidenceHash == "" {
 		t.Fatalf("unsafe smoke verdict: %+v", evidence)
 	}
 	info, err := os.Stat(configuration.EvidencePath)
@@ -147,6 +147,20 @@ func TestC6SmokeProducesNonQualifiedImmutableEvidence(t *testing.T) {
 		configuration.EvidencePath, evidence,
 	); !os.IsExist(err) {
 		t.Fatalf("evidence overwrite was not rejected: %v", err)
+	}
+}
+
+func TestC6WaitsForFirstPostStartReconciliationSample(t *testing.T) {
+	at := time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)
+	clock := &testClock{now: at}
+	store := &testStore{}
+	evidence, err := (Runner{
+		Clock: clock, Probe: testProbe{sample: healthySample()},
+		Store: store, Chaos: testChaos{},
+	}).Run(context.Background(), validTestConfig(t, ModeSmoke, 2*time.Second))
+	if err != nil || evidence.State != StateSmokePassed ||
+		evidence.ObservedDurationSeconds != 2 || store.samples != 2 {
+		t.Fatalf("first post-start sample was not delayed safely: state=%s duration=%d samples=%d err=%v", evidence.State, evidence.ObservedDurationSeconds, store.samples, err)
 	}
 }
 
@@ -186,7 +200,7 @@ func TestC6FailsClosedOnPositiveMemoryLeakTrend(t *testing.T) {
 		Chaos: testChaos{},
 	}).Run(
 		context.Background(),
-		validTestConfig(t, ModeSmoke, time.Second),
+		validTestConfig(t, ModeSmoke, 2*time.Second),
 	)
 	if err == nil || evidence.Qualified ||
 		!evidence.SLO.PositiveMemoryLeakTrend ||
