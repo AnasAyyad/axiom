@@ -195,6 +195,27 @@ const qualificationSlo = z
     passing: z.boolean(),
   })
   .loose();
+const recoveryIncident = z
+  .object({
+    account_id: z.string().min(1),
+    exchange: sandboxExchange,
+    environment: sandboxEnvironment,
+    state: z.enum([
+      "active",
+      "recovered",
+      "expired",
+      "repeated",
+      "unrecoverable",
+    ]),
+    reason_category: z.string().max(64),
+    cause_code: z.string().regex(/^[a-z0-9_]{1,64}$/),
+    deadline_at: timestamp,
+    clean_check_count: z.number().int().min(0).max(2),
+    detected_at: timestamp,
+    recovery_timestamp: timestamp.optional(),
+    evidence_hash: z.string().length(64),
+  })
+  .loose();
 const qualification = z
   .object({
     state: z.enum([
@@ -213,6 +234,7 @@ const qualification = z
     failures: z.array(z.string()),
     chaos,
     slo: qualificationSlo,
+    recovery_incidents: z.array(recoveryIncident),
     formal_soak_pending: z.boolean(),
     audit_url: z.string().startsWith("/api/v1/audit-events"),
   })

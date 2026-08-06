@@ -203,6 +203,69 @@ func (e C6QualificationStatusState) Valid() bool {
 	}
 }
 
+// Defines values for C6RecoveryIncidentEnvironment.
+const (
+	C6RecoveryIncidentEnvironmentDemo        C6RecoveryIncidentEnvironment = "demo"
+	C6RecoveryIncidentEnvironmentSpotTestnet C6RecoveryIncidentEnvironment = "spot_testnet"
+)
+
+// Valid indicates whether the value is a known member of the C6RecoveryIncidentEnvironment enum.
+func (e C6RecoveryIncidentEnvironment) Valid() bool {
+	switch e {
+	case C6RecoveryIncidentEnvironmentDemo:
+		return true
+	case C6RecoveryIncidentEnvironmentSpotTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for C6RecoveryIncidentExchange.
+const (
+	C6RecoveryIncidentExchangeBinance C6RecoveryIncidentExchange = "binance"
+	C6RecoveryIncidentExchangeBybit   C6RecoveryIncidentExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the C6RecoveryIncidentExchange enum.
+func (e C6RecoveryIncidentExchange) Valid() bool {
+	switch e {
+	case C6RecoveryIncidentExchangeBinance:
+		return true
+	case C6RecoveryIncidentExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for C6RecoveryIncidentState.
+const (
+	C6RecoveryIncidentStateActive        C6RecoveryIncidentState = "active"
+	C6RecoveryIncidentStateExpired       C6RecoveryIncidentState = "expired"
+	C6RecoveryIncidentStateRecovered     C6RecoveryIncidentState = "recovered"
+	C6RecoveryIncidentStateRepeated      C6RecoveryIncidentState = "repeated"
+	C6RecoveryIncidentStateUnrecoverable C6RecoveryIncidentState = "unrecoverable"
+)
+
+// Valid indicates whether the value is a known member of the C6RecoveryIncidentState enum.
+func (e C6RecoveryIncidentState) Valid() bool {
+	switch e {
+	case C6RecoveryIncidentStateActive:
+		return true
+	case C6RecoveryIncidentStateExpired:
+		return true
+	case C6RecoveryIncidentStateRecovered:
+		return true
+	case C6RecoveryIncidentStateRepeated:
+		return true
+	case C6RecoveryIncidentStateUnrecoverable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CommandAcceptedState.
 const (
 	CommandAcceptedStateApplied  CommandAcceptedState = "applied"
@@ -2718,6 +2781,7 @@ type C6QualificationStatus struct {
 	ObservedDurationSeconds int64                                      `json:"observed_duration_seconds"`
 	ProfitabilityEvidence   C6QualificationStatusProfitabilityEvidence `json:"profitability_evidence"`
 	Qualified               bool                                       `json:"qualified"`
+	RecoveryIncidents       []C6RecoveryIncident                       `json:"recovery_incidents"`
 	RequiredDurationSeconds int64                                      `json:"required_duration_seconds"`
 	Slo                     C6SLOSummary                               `json:"slo"`
 
@@ -2734,6 +2798,36 @@ type C6QualificationStatusProfitabilityEvidence bool
 
 // C6QualificationStatusState defines model for C6QualificationStatus.State.
 type C6QualificationStatusState string
+
+// C6RecoveryIncident defines model for C6RecoveryIncident.
+type C6RecoveryIncident struct {
+	AccountId       string `json:"account_id"`
+	CauseCode       string `json:"cause_code"`
+	CleanCheckCount int    `json:"clean_check_count"`
+
+	// DeadlineAt RFC 3339 timestamp with an explicit UTC offset.
+	DeadlineAt Timestamp `json:"deadline_at"`
+
+	// DetectedAt RFC 3339 timestamp with an explicit UTC offset.
+	DetectedAt     Timestamp                     `json:"detected_at"`
+	Environment    C6RecoveryIncidentEnvironment `json:"environment"`
+	EvidenceHash   string                        `json:"evidence_hash"`
+	Exchange       C6RecoveryIncidentExchange    `json:"exchange"`
+	ReasonCategory string                        `json:"reason_category"`
+
+	// RecoveryTimestamp RFC 3339 timestamp with an explicit UTC offset.
+	RecoveryTimestamp *Timestamp              `json:"recovery_timestamp,omitempty"`
+	State             C6RecoveryIncidentState `json:"state"`
+}
+
+// C6RecoveryIncidentEnvironment defines model for C6RecoveryIncident.Environment.
+type C6RecoveryIncidentEnvironment string
+
+// C6RecoveryIncidentExchange defines model for C6RecoveryIncident.Exchange.
+type C6RecoveryIncidentExchange string
+
+// C6RecoveryIncidentState defines model for C6RecoveryIncident.State.
+type C6RecoveryIncidentState string
 
 // C6SLOSummary defines model for C6SLOSummary.
 type C6SLOSummary struct {

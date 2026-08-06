@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
@@ -18,6 +19,7 @@ type V1CC6QualificationStore struct {
 	pool             *pgxpool.Pool
 	mutex            sync.Mutex
 	started          time.Time
+	runID            string
 	baselineRestarts int64
 }
 
@@ -109,6 +111,7 @@ func (store *V1CC6QualificationStore) Begin(
 	}
 	store.mutex.Lock()
 	store.started = started
+	store.runID = identity.RunID
 	store.baselineRestarts = baselineRestarts
 	store.mutex.Unlock()
 	return nil
@@ -120,7 +123,15 @@ func (store *V1CC6QualificationStore) AppendSample(
 	runID string,
 	sample c6.Sample,
 ) error {
-	_, err := store.pool.Exec(ctx, c6InsertSampleSQL,
+	accounts := sample.Accounts
+	if accounts == nil {
+		accounts = []c6.AccountObservation{}
+	}
+	encodedAccounts, err := json.Marshal(accounts)
+	if err != nil {
+		return fmt.Errorf("c6_account_observations_encode_failed")
+	}
+	_, err = store.pool.Exec(ctx, c6InsertSampleSQL,
 		runID, sample.Ordinal, sample.ObservedAt, sample.OrdersAcknowledged,
 		sample.DuplicateCreates, sample.LostFills,
 		sample.DoublePostedFills, sample.UnknownOrders,
@@ -131,7 +142,34 @@ func (store *V1CC6QualificationStore) AppendSample(
 		sample.LargestOrderMicrounits, sample.MaximumAccountOpen,
 		sample.GlobalOpen, sample.AllAccountsFresh, sample.AllLeasesHeld,
 		sample.PersistenceHealthy, sample.RestartSafe, sample.EntrySafe,
-		sample.ProductionTargetObserved,
+		sample.ProductionTargetObserved, encodedAccounts,
+	)
+	return err
+}
+
+// AppendRecoveryEvent persists one immutable redacted recovery lifecycle fact.
+func (store *V1CC6QualificationStore) AppendRecoveryEvent(
+	ctx context.Context,
+	event c6.RecoveryEvent,
+) error {
+	if event.RunID == "" || event.AccountID == "" || event.AccountEpoch == 0 ||
+		event.Exchange == "" || event.Environment == "" || event.Event == "" ||
+		event.State == "" || event.FailureKind == "" || event.CauseCode == "" ||
+		event.DeadlineAt.IsZero() || event.OccurredAt.IsZero() ||
+		event.OccurredAt.Location() != time.UTC || len(event.EvidenceHash) != 64 {
+		return fmt.Errorf("c6_recovery_event_invalid")
+	}
+	_, err := store.pool.Exec(ctx, `
+INSERT INTO v1c_c6_recovery_events(
+ id,run_id,account_id,exchange,environment,account_epoch,event,state,
+ failure_kind,cause_code,deadline_at,clean_check_count,recovery_timestamp,
+ evidence_hash,occurred_at
+) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		event.EvidenceHash, event.RunID, event.AccountID, event.Exchange,
+		event.Environment, event.AccountEpoch, event.Event, event.State,
+		event.FailureKind, event.CauseCode, event.DeadlineAt,
+		event.CleanCheckCount, event.RecoveryTimestamp, event.EvidenceHash,
+		event.OccurredAt,
 	)
 	return err
 }
@@ -245,6 +283,12 @@ func (store *V1CC6QualificationStore) observeC6Accounts(
 	sample.AllAccountsFresh = total == 2 && fresh == total
 	sample.AllLeasesHeld = total == 2 && leases == total
 	sample.EntrySafe = sample.AllAccountsFresh && sample.AllLeasesHeld
+	store.mutex.Lock()
+	runID := store.runID
+	store.mutex.Unlock()
+	if err := store.observeC6AccountDetails(ctx, now, runID, sample); err != nil {
+		return err
+	}
 	if cycles > baselineRestarts {
 		sample.Restarts = uint64(cycles - baselineRestarts)
 	}
@@ -258,6 +302,134 @@ func (store *V1CC6QualificationStore) observeC6Accounts(
 		return err
 	}
 	sample.RestartSafe = runtimeHealthy
+	return nil
+}
+
+func (store *V1CC6QualificationStore) observeC6AccountDetails(
+	ctx context.Context,
+	now time.Time,
+	runID string,
+	sample *c6.Sample,
+) error {
+	store.mutex.Lock()
+	started := store.started
+	store.mutex.Unlock()
+	rows, err := store.pool.Query(ctx, c6ObserveAccountDetailsSQL, now, runID, started)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	accounts := make([]c6.AccountObservation, 0, 2)
+	allFresh, allLeases, allSafe := true, true, true
+	active := 0
+	for rows.Next() {
+		var account c6.AccountObservation
+		var runtimeSucceeded bool
+		var runtimeFailureKind, runtimeCause string
+		var runtimeAt *time.Time
+		var latestFailureKind, latestFailureCause string
+		var latestFailureAt *time.Time
+		var runtimeFailureCount int
+		var runtimeHasTerminalFailure bool
+		var recoveryEvent, recoveryState string
+		var recoveryFailureKind, recoveryCause string
+		var recoveryDeadline, recoveryAt *time.Time
+		var cleanChecks int
+		if err = rows.Scan(
+			&account.ID, &account.Exchange, &account.Environment, &account.Epoch,
+			&account.State, &account.StreamHealthy, &account.EvidenceHealthy,
+			&account.LeaseHeld, &account.ReconciliationClean,
+			&runtimeSucceeded, &runtimeFailureKind, &runtimeCause, &runtimeAt,
+			&latestFailureKind, &latestFailureCause, &latestFailureAt,
+			&runtimeFailureCount, &runtimeHasTerminalFailure,
+			&recoveryEvent, &recoveryState, &recoveryFailureKind,
+			&recoveryCause, &recoveryDeadline, &cleanChecks, &recoveryAt,
+		); err != nil {
+			return err
+		}
+		if latestFailureKind == "" && runtimeFailureCount > 0 {
+			latestFailureKind = "validation_rejected"
+		}
+		if latestFailureCause == "" && runtimeFailureCount > 0 {
+			latestFailureCause = "untyped_failure"
+		}
+		account.RecoveryState = "not_required"
+		if runtimeHasTerminalFailure {
+			account.RecoveryState = "unrecoverable"
+			account.RecoveryEvent = "unrecoverable"
+			account.FailureKind = latestFailureKind
+			account.CauseCode = latestFailureCause
+			if latestFailureAt != nil {
+				deadline := latestFailureAt.UTC().Add(2 * time.Minute)
+				account.DeadlineAt = &deadline
+			}
+		} else if runtimeFailureCount > 1 {
+			account.RecoveryState = "repeated"
+			account.RecoveryEvent = "repeated"
+			account.FailureKind = latestFailureKind
+			account.CauseCode = latestFailureCause
+			if latestFailureAt != nil {
+				deadline := latestFailureAt.UTC().Add(2 * time.Minute)
+				account.DeadlineAt = &deadline
+			}
+		} else if recoveryState != "" {
+			account.RecoveryState = recoveryState
+			account.RecoveryEvent = recoveryEvent
+			account.FailureKind = recoveryFailureKind
+			account.CauseCode = recoveryCause
+			account.DeadlineAt = recoveryDeadline
+			account.CleanCheckCount = uint8(cleanChecks)
+			account.RecoveryTimestamp = recoveryAt
+		} else if !runtimeSucceeded {
+			account.FailureKind = latestFailureKind
+			account.CauseCode = latestFailureCause
+			if runtimeFailureCount == 1 &&
+				(latestFailureKind == "transient_outage" ||
+					latestFailureKind == "maintenance") &&
+				account.State == "DEGRADED" && latestFailureAt != nil {
+				account.RecoveryState = "active"
+				account.RecoveryEvent = "detected"
+				deadline := latestFailureAt.UTC().Add(2 * time.Minute)
+				account.DeadlineAt = &deadline
+			} else {
+				account.RecoveryState = "unrecoverable"
+				account.RecoveryEvent = "unrecoverable"
+				if latestFailureAt != nil {
+					deadline := latestFailureAt.UTC().Add(2 * time.Minute)
+					account.DeadlineAt = &deadline
+				}
+			}
+		}
+		account.AccountSafe = account.State == "DEGRADED" ||
+			account.State == "READY_PAUSED"
+		allowedActive := account.RecoveryState == "active" &&
+			account.State == "DEGRADED" && account.StreamHealthy &&
+			account.EvidenceHealthy && account.LeaseHeld && account.AccountSafe &&
+			(account.FailureKind == "transient_outage" ||
+				account.FailureKind == "maintenance")
+		fresh := account.State == "READY_PAUSED" &&
+			account.StreamHealthy && account.EvidenceHealthy &&
+			account.LeaseHeld && account.ReconciliationClean &&
+			runtimeSucceeded && runtimeAt != nil &&
+			now.Sub(runtimeAt.UTC()) <= 2*time.Minute
+		if allowedActive {
+			active++
+			fresh = true
+		}
+		allFresh = allFresh && fresh
+		allLeases = allLeases && account.LeaseHeld
+		allSafe = allSafe && account.AccountSafe && account.StreamHealthy &&
+			account.EvidenceHealthy && account.LeaseHeld
+		accounts = append(accounts, account)
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	sample.Accounts = accounts
+	sample.RecoveryActive = active == 1
+	sample.AllAccountsFresh = len(accounts) == 2 && allFresh
+	sample.AllLeasesHeld = len(accounts) == 2 && allLeases
+	sample.EntrySafe = len(accounts) == 2 && allSafe
 	return nil
 }
 

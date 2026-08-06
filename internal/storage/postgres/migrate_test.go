@@ -281,14 +281,27 @@ func TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
 	v1cExecution := migrationForVersion(migrations, "000022")
 	v1cBinanceStream := migrationForVersion(migrations, "000023")
 	v1cC6 := migrationForVersion(migrations, "000024")
+	v1cRecovery := migrationForVersion(migrations, "000025")
 	if v1cAuth.SQL == "" || v1cExecution.SQL == "" ||
-		v1cBinanceStream.SQL == "" || v1cC6.SQL == "" {
+		v1cBinanceStream.SQL == "" || v1cC6.SQL == "" || v1cRecovery.SQL == "" {
 		t.Fatal("V1C migrations are missing")
 	}
 	assertV1CBinanceStreamMigration(t, v1cBinanceStream)
 	assertV1CAuthMigration(t, v1cAuth)
 	assertV1CExecutionMigration(t, v1cExecution)
 	assertV1CC6Migration(t, v1cC6)
+	assertV1CC6RecoveryMigration(t, v1cRecovery)
+}
+
+func assertV1CC6RecoveryMigration(t *testing.T, migration Migration) {
+	t.Helper()
+	assertMigrationContains(t, migration, "V1C C6 bounded recovery", []string{
+		"failure_kind text",
+		"cause_code text",
+		"account_observations jsonb",
+		"create table v1c_c6_recovery_events",
+		"v1c_c6_recovery_events_immutable",
+	})
 }
 
 func assertV1CBinanceStreamMigration(t *testing.T, migration Migration) {

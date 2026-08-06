@@ -3003,6 +3003,7 @@ components:
           failures,
           chaos,
           slo,
+          recovery_incidents,
           formal_soak_pending,
           audit_url,
         ]
@@ -3046,8 +3047,60 @@ components:
           items: { type: string, maxLength: 80 }
         chaos: { $ref: "#/components/schemas/C6ChaosSummary" }
         slo: { $ref: "#/components/schemas/C6SLOSummary" }
+        recovery_incidents:
+          type: array
+          items: { $ref: "#/components/schemas/C6RecoveryIncident" }
         formal_soak_pending: { type: boolean }
         audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    C6RecoveryIncident:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          account_id,
+          exchange,
+          environment,
+          state,
+          reason_category,
+          cause_code,
+          deadline_at,
+          clean_check_count,
+          detected_at,
+          evidence_hash,
+        ]
+      properties:
+        account_id: { type: string, minLength: 1 }
+        exchange:
+          type: string
+          enum: [binance, bybit]
+          x-enum-varnames:
+            [C6RecoveryIncidentExchangeBinance, C6RecoveryIncidentExchangeBybit]
+        environment:
+          type: string
+          enum: [spot_testnet, demo]
+          x-enum-varnames:
+            [
+              C6RecoveryIncidentEnvironmentSpotTestnet,
+              C6RecoveryIncidentEnvironmentDemo,
+            ]
+        state:
+          type: string
+          enum: [active, recovered, expired, repeated, unrecoverable]
+          x-enum-varnames:
+            [
+              C6RecoveryIncidentStateActive,
+              C6RecoveryIncidentStateRecovered,
+              C6RecoveryIncidentStateExpired,
+              C6RecoveryIncidentStateRepeated,
+              C6RecoveryIncidentStateUnrecoverable,
+            ]
+        reason_category: { type: string, maxLength: 64 }
+        cause_code: { type: string, pattern: "^[a-z0-9_]{1,64}$" }
+        deadline_at: { $ref: "#/components/schemas/Timestamp" }
+        clean_check_count: { type: integer, minimum: 0, maximum: 2 }
+        detected_at: { $ref: "#/components/schemas/Timestamp" }
+        recovery_timestamp: { $ref: "#/components/schemas/Timestamp" }
+        evidence_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
     SandboxOverview:
       type: object
       additionalProperties: false

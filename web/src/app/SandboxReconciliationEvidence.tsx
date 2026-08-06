@@ -159,6 +159,24 @@ export function SandboxQualificationPanel({
           value={qualification.failures.join(", ") || "none"}
         />
       </dl>
+      <div aria-label="C6 bounded recovery incidents">
+        <h3>Bounded reconciliation recovery</h3>
+        {qualification.recovery_incidents.length === 0 ? (
+          <p>No permitted recovery incident observed.</p>
+        ) : (
+          qualification.recovery_incidents.map((incident) => (
+            <p key={`${incident.account_id}-${incident.detected_at}`}>
+              {incident.account_id} · {incident.exchange} /{" "}
+              {incident.environment} · {incident.state} ·{" "}
+              {incident.reason_category} / {incident.cause_code} · clean checks{" "}
+              {incident.clean_check_count} · deadline {incident.deadline_at}
+              {incident.recovery_timestamp
+                ? ` · recovered ${incident.recovery_timestamp}`
+                : ""}
+            </p>
+          ))
+        )}
+      </div>
       <p className={styles.disclaimer}>
         A smoke pass is never a 72-hour pass and test/demo liquidity is never
         profitability evidence.

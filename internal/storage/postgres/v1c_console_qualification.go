@@ -42,6 +42,9 @@ func (store *A11ConsoleStore) C6Qualification(
 	if err == nil {
 		status.Slo, err = store.v1cConsoleQualificationSLO(ctx, row.id)
 	}
+	if err == nil {
+		status.RecoveryIncidents, err = store.v1cConsoleRecoveryIncidents(ctx, row.id)
+	}
 	return status, err
 }
 
@@ -62,6 +65,7 @@ func defaultC6QualificationStatus(now time.Time) generated.C6QualificationStatus
 		ProfitabilityEvidence:   false,
 		Qualified:               false,
 		Failures:                []string{},
+		RecoveryIncidents:       []generated.C6RecoveryIncident{},
 		FormalSoakPending:       true,
 		AuditUrl:                "/api/v1/audit-events?event_type=v1c_c6",
 		Chaos: generated.C6ChaosSummary{
@@ -72,6 +76,65 @@ func defaultC6QualificationStatus(now time.Time) generated.C6QualificationStatus
 		},
 		Slo: generated.C6SLOSummary{},
 	}
+}
+
+func (store *A11ConsoleStore) v1cConsoleRecoveryIncidents(
+	ctx context.Context,
+	runID string,
+) ([]generated.C6RecoveryIncident, error) {
+	rows, err := store.pool.Query(ctx, `
+WITH latest AS (
+ SELECT DISTINCT ON (account_id)
+   account_id,exchange,environment,state,failure_kind,cause_code,
+   deadline_at,clean_check_count,recovery_timestamp,evidence_hash
+ FROM v1c_c6_recovery_events
+ WHERE run_id=$1
+ ORDER BY account_id,occurred_at DESC,id DESC
+)
+SELECT latest.account_id,latest.exchange,latest.environment,latest.state,
+       latest.failure_kind,latest.cause_code,latest.deadline_at,
+       latest.clean_check_count,detected.occurred_at,
+       latest.recovery_timestamp,latest.evidence_hash
+FROM latest
+JOIN LATERAL (
+ SELECT occurred_at FROM v1c_c6_recovery_events event
+ WHERE event.run_id=$1 AND event.account_id=latest.account_id
+ ORDER BY occurred_at,id LIMIT 1
+) detected ON true
+ORDER BY latest.exchange,latest.account_id`, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]generated.C6RecoveryIncident, 0)
+	for rows.Next() {
+		var item generated.C6RecoveryIncident
+		var state, reasonCategory, causeCode, accountID, exchange, environment string
+		var deadline, detected time.Time
+		var recoveryAt *time.Time
+		var cleanChecks int
+		if err = rows.Scan(
+			&accountID, &exchange, &environment, &state, &reasonCategory,
+			&causeCode, &deadline, &cleanChecks, &detected, &recoveryAt,
+			&item.EvidenceHash,
+		); err != nil {
+			return nil, err
+		}
+		item.AccountId = accountID
+		item.Exchange = generated.C6RecoveryIncidentExchange(exchange)
+		item.Environment = generated.C6RecoveryIncidentEnvironment(environment)
+		item.State = generated.C6RecoveryIncidentState(state)
+		item.ReasonCategory = reasonCategory
+		item.CauseCode = causeCode
+		item.DeadlineAt = deadline
+		item.CleanCheckCount = cleanChecks
+		item.DetectedAt = detected
+		if recoveryAt != nil {
+			item.RecoveryTimestamp = recoveryAt
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
 }
 
 func (store *A11ConsoleStore) loadC6Qualification(

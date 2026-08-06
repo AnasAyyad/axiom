@@ -18,7 +18,8 @@ var (
 		"stale_data", "lease_loss", "persistence_failure",
 		"unsafe_restart", "production_target", "cap_violation",
 		"memory_leak", "critical_alert_slo", "operator_abort",
-		"evidence_failure",
+		"evidence_failure", "recovery_expired", "recovery_repeated",
+		"recovery_unrecoverable",
 	}
 )
 
@@ -217,6 +218,20 @@ func (metrics *Metrics) RecordC6Failure(reason string) error {
 		return fmt.Errorf("metric_label_rejected:c6_failure")
 	}
 	metrics.c6SoakFailures.WithLabelValues(reason).Inc()
+	return nil
+}
+
+// SetC6Recovery publishes one bounded recovery state per exchange. State is a
+// closed enum so incident cardinality cannot grow with account or error data.
+func (metrics *Metrics) SetC6Recovery(exchange, state string, count int) error {
+	if !slices.Contains(metrics.catalog.Exchanges, exchange) ||
+		!slices.Contains([]string{
+			"active", "recovered", "expired", "repeated", "unrecoverable",
+		}, state) || count < 0 {
+		return fmt.Errorf("metric_label_rejected:c6_recovery")
+	}
+	metrics.c6RecoveryIncidents.WithLabelValues(exchange, state).
+		Set(float64(count))
 	return nil
 }
 

@@ -91,6 +91,7 @@ func (runner Runner) collect(
 			appendFailure(evidence, "persistence_failure", observed)
 			break
 		}
+		runner.appendRecoveryEvents(ctx, configuration, evidence, sample)
 		evaluateSample(evidence, sample)
 		if len(evidence.Failures) > 0 ||
 			observed.Sub(evidence.StartedAt).Truncate(time.Second) >=
@@ -102,6 +103,69 @@ func (runner Runner) collect(
 			break
 		}
 	}
+}
+
+// RecoveryEventStore is optional so the deterministic runner remains usable
+// with small in-memory test stores while the PostgreSQL observer persists the
+// immutable recovery lifecycle.
+type RecoveryEventStore interface {
+	AppendRecoveryEvent(context.Context, RecoveryEvent) error
+}
+
+func (runner Runner) appendRecoveryEvents(
+	ctx context.Context,
+	configuration Config,
+	evidence *Evidence,
+	sample Sample,
+) {
+	store, ok := runner.Store.(RecoveryEventStore)
+	if !ok {
+		return
+	}
+	seen := make(map[string]struct{}, len(evidence.RecoveryEvents))
+	for _, existing := range evidence.RecoveryEvents {
+		seen[recoveryEventKey(existing)] = struct{}{}
+	}
+	for _, account := range sample.Accounts {
+		if account.RecoveryEvent == "" || account.ID == "" ||
+			sample.ObservedAt.IsZero() {
+			continue
+		}
+		deadline := sample.ObservedAt.UTC()
+		if account.DeadlineAt != nil {
+			deadline = account.DeadlineAt.UTC()
+		}
+		event := RecoveryEvent{
+			RunID: configuration.Identity.RunID, AccountID: account.ID,
+			Exchange: account.Exchange, Environment: account.Environment,
+			AccountEpoch: account.Epoch, Event: account.RecoveryEvent,
+			State: account.RecoveryState, FailureKind: account.FailureKind,
+			CauseCode: account.CauseCode, DeadlineAt: deadline,
+			CleanCheckCount:   account.CleanCheckCount,
+			RecoveryTimestamp: account.RecoveryTimestamp,
+			OccurredAt:        sample.ObservedAt.UTC(),
+		}
+		event.EvidenceHash = hashValues(
+			configuration.Identity.RunID, event.AccountID, event.Exchange,
+			event.Event, event.State, event.FailureKind, event.CauseCode,
+			event.DeadlineAt.Format(time.RFC3339Nano),
+			fmt.Sprint(event.CleanCheckCount), event.OccurredAt.Format(time.RFC3339Nano),
+		)
+		if _, duplicate := seen[recoveryEventKey(event)]; duplicate {
+			continue
+		}
+		if store.AppendRecoveryEvent(ctx, event) != nil {
+			appendFailure(evidence, "persistence_failure", sample.ObservedAt)
+			continue
+		}
+		evidence.RecoveryEvents = append(evidence.RecoveryEvents, event)
+		seen[recoveryEventKey(event)] = struct{}{}
+	}
+}
+
+func recoveryEventKey(event RecoveryEvent) string {
+	return event.AccountID + "\x00" + event.Event + "\x00" +
+		fmt.Sprint(event.CleanCheckCount)
 }
 
 func (runner Runner) finish(
@@ -168,7 +232,8 @@ func newEvidence(configuration Config, started time.Time) Evidence {
 			CriticalAlertLatencyMillis: uint64(AlertSLO.Milliseconds()),
 			RecoveryDurationMillis:     uint64(RecoveryRTO.Milliseconds()),
 		},
-		Samples: []Sample{}, Chaos: []ChaosEvent{}, Failures: []Failure{},
+		Samples: []Sample{}, RecoveryEvents: []RecoveryEvent{},
+		Chaos: []ChaosEvent{}, Failures: []Failure{},
 	}
 }
 
@@ -184,7 +249,8 @@ func evaluateSample(evidence *Evidence, sample Sample) {
 			"unresolved_unknown"},
 		{sample.ReconciliationMismatches > 0, "reconciliation_mismatch"},
 		{sample.SuspenseItems > 0, "suspense"},
-		{!sample.AllAccountsFresh || !sample.EntrySafe, "stale_data"},
+		{(!sample.AllAccountsFresh || !sample.EntrySafe) &&
+			!sampleAllowsActiveRecovery(sample), "stale_data"},
 		{!sample.AllLeasesHeld, "lease_loss"},
 		{!sample.PersistenceHealthy, "persistence_failure"},
 		{!sample.RestartSafe ||
@@ -201,6 +267,52 @@ func evaluateSample(evidence *Evidence, sample Sample) {
 	for _, check := range checks {
 		if check.failed {
 			appendFailure(evidence, check.reason, sample.ObservedAt)
+		}
+	}
+	evaluateRecovery(evidence, sample)
+}
+
+func sampleAllowsActiveRecovery(sample Sample) bool {
+	if !sample.RecoveryActive || len(sample.Accounts) == 0 {
+		return false
+	}
+	active := 0
+	for _, account := range sample.Accounts {
+		if account.RecoveryState != "active" {
+			if (account.RecoveryState != "not_required" &&
+				account.RecoveryState != "recovered") ||
+				account.State != "READY_PAUSED" ||
+				!account.StreamHealthy || !account.EvidenceHealthy ||
+				!account.LeaseHeld || !account.AccountSafe ||
+				!account.ReconciliationClean {
+				return false
+			}
+			continue
+		}
+		active++
+		if account.State != "DEGRADED" || !account.StreamHealthy ||
+			!account.EvidenceHealthy || !account.LeaseHeld || !account.AccountSafe ||
+			(account.FailureKind != "transient_outage" && account.FailureKind != "maintenance") ||
+			account.DeadlineAt == nil || account.CleanCheckCount > 1 {
+			return false
+		}
+	}
+	return active == 1
+}
+
+func evaluateRecovery(evidence *Evidence, sample Sample) {
+	for _, account := range sample.Accounts {
+		switch account.RecoveryState {
+		case "expired":
+			appendFailure(evidence, "recovery_expired", sample.ObservedAt)
+		case "repeated":
+			appendFailure(evidence, "recovery_repeated", sample.ObservedAt)
+		case "unrecoverable":
+			appendFailure(evidence, "recovery_unrecoverable", sample.ObservedAt)
+		case "active":
+			if !sampleAllowsActiveRecovery(sample) {
+				appendFailure(evidence, "recovery_unrecoverable", sample.ObservedAt)
+			}
 		}
 	}
 }

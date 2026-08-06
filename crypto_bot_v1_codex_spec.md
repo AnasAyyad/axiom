@@ -3537,6 +3537,31 @@ Deliver test/demo orders, fills, unknown states, reconciliation/suspense, arm ex
 
 Acceptance: long-running sandbox canaries meet caps and SLOs; UI cannot arm production or bypass reconciliation/risk; all actions are auditable.
 
+#### C6 bounded reconciliation recovery
+
+The formal C6 observer may tolerate one and only one reconciliation incident
+per account during one 72-hour run, and only when the existing typed exchange
+error class is `transient_outage` or `maintenance`. The incident is redacted
+to its stable failure kind and sanitized cause code. Rate limits,
+authentication/timestamp errors, account, order, or balance mismatches,
+persistence failures, lease loss, stale or unsafe fills/orders, and any second
+incident are terminal C6 failures.
+
+The permitted incident enters `DEGRADED` and pauses that account. Its recovery
+deadline is two minutes and the formal 72-hour clock continues. Recovery needs
+two consecutive fully clean authoritative reconciliation checks at least 30
+seconds apart, with stream, evidence, lease, and account-safety health all
+true. During recovery dispatch is disabled; a successful recovery can return
+only to `READY_PAUSED`, never to `ARMED`.
+
+Recovery evidence is append-only and bound to the run, account, epoch,
+timestamp, stable failure class/cause, and evidence hash. Its event vocabulary
+is `detected`, `first_clean_check`, `recovered`, `expired`, `repeated`, and
+`unrecoverable`. Payloads, URLs, secrets, signatures, and raw exchange errors
+are never retained. A prior failed run remains sealed and disqualified; it
+cannot be resumed or relabeled. A future run uses a new run ID and fresh
+immutable evidence.
+
 ### V1C release gate
 
 - Outbound-request capture proves production-private submission impossible.

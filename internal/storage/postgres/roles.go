@@ -69,7 +69,7 @@ var runtimeReadTables = []string{
 	"v1c_engine_runtime_events", "v1c_c6_order_observations",
 	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
 	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
-	"v1c_c6_chaos_events",
+	"v1c_c6_chaos_events", "v1c_c6_recovery_events",
 }
 
 var recorderReadTables = []string{
@@ -119,12 +119,13 @@ var c6QualificationReadTables = []string{
 	"v1c_engine_runtime_events", "v1c_c6_order_observations",
 	"v1c_exchange_accounts", "v1c_account_leases",
 	"v1c_reconciliation_differences",
+	"v1c_c6_recovery_events",
 }
 
 var c6QualificationAppendTables = []string{
 	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
 	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
-	"v1c_c6_chaos_events",
+	"v1c_c6_chaos_events", "v1c_c6_recovery_events",
 }
 
 var readOnlyTables = []string{
@@ -156,7 +157,7 @@ var readOnlyTables = []string{
 	"v1c_engine_runtime_events", "v1c_c6_order_observations",
 	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
 	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
-	"v1c_c6_chaos_events",
+	"v1c_c6_chaos_events", "v1c_c6_recovery_events",
 	"circuit_breaker_events", "exchanges", "execution_plan_legs", "execution_plans", "fill_journal_postings", "fills", "incidents", "instrument_metadata_versions",
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
 	"public_clock_samples", "public_connection_events",

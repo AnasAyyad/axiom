@@ -64,10 +64,24 @@ export interface components {
       "observed_duration_seconds": number;
       "profitability_evidence": false;
       "qualified": boolean;
+      "recovery_incidents": Array<components["schemas"]["C6RecoveryIncident"]>;
       "required_duration_seconds": number;
       "slo": components["schemas"]["C6SLOSummary"];
       "started_at"?: components["schemas"]["Timestamp"];
       "state": "not_started" | "PENDING" | "RUNNING" | "SMOKE_PASSED" | "PASSED" | "FAILED";
+    };
+    "C6RecoveryIncident": {
+      "account_id": string;
+      "cause_code": string;
+      "clean_check_count": number;
+      "deadline_at": components["schemas"]["Timestamp"];
+      "detected_at": components["schemas"]["Timestamp"];
+      "environment": "spot_testnet" | "demo";
+      "evidence_hash": string;
+      "exchange": "binance" | "bybit";
+      "reason_category": string;
+      "recovery_timestamp"?: components["schemas"]["Timestamp"];
+      "state": "active" | "recovered" | "expired" | "repeated" | "unrecoverable";
     };
     "C6SLOSummary": {
       "critical_alert_latency_ms": number;

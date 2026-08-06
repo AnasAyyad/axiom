@@ -127,7 +127,7 @@ func assertV1CSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 		"v1c_engine_runtime_events", "v1c_c6_order_observations",
 		"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
 		"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
-		"v1c_c6_chaos_events",
+		"v1c_c6_chaos_events", "v1c_c6_recovery_events",
 	}
 	for _, table := range tables {
 		var count int

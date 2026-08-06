@@ -110,20 +110,21 @@ func TestC6MetricsExposeCompleteBoundedContract(t *testing.T) {
 func recordC6MetricFixtures(t *testing.T, metrics *Metrics) {
 	t.Helper()
 	checkMetricCalls(t, map[string]error{
-		"order":          metrics.RecordSandboxOrder("binance", "UNKNOWN"),
-		"anomaly":        metrics.RecordSandboxOrderAnomaly("binance", "duplicate_create"),
-		"unknown":        metrics.SetSandboxUnknown("binance", 1, 2*time.Second),
-		"reconciliation": metrics.SetSandboxReconciliation("binance", 1, 2),
-		"arm":            metrics.SetSandboxArms("binance", "active", 1, time.Minute),
-		"cap":            metrics.SetSandboxCap("daily", 5_000_000, 45_000_000, 50_000_000),
-		"cap rejection":  metrics.RecordSandboxCapRejection("daily"),
-		"reset":          metrics.RecordSandboxReset("binance", "OPEN"),
-		"engine":         metrics.SetSandboxEngine("binance", true, "reconnect"),
-		"recovery":       metrics.ObserveSandboxRecovery("binance", "unknown", time.Second),
-		"alert":          metrics.ObserveCriticalAlert(ReasonRisk, 2*time.Second),
-		"soak":           metrics.SetC6Soak("smoke", "SMOKE_PASSED", 2*time.Second),
-		"failure":        metrics.RecordC6Failure("unresolved_unknown"),
-		"memory":         metrics.SetC6MemoryTrend("run", -1024),
+		"order":             metrics.RecordSandboxOrder("binance", "UNKNOWN"),
+		"anomaly":           metrics.RecordSandboxOrderAnomaly("binance", "duplicate_create"),
+		"unknown":           metrics.SetSandboxUnknown("binance", 1, 2*time.Second),
+		"reconciliation":    metrics.SetSandboxReconciliation("binance", 1, 2),
+		"arm":               metrics.SetSandboxArms("binance", "active", 1, time.Minute),
+		"cap":               metrics.SetSandboxCap("daily", 5_000_000, 45_000_000, 50_000_000),
+		"cap rejection":     metrics.RecordSandboxCapRejection("daily"),
+		"reset":             metrics.RecordSandboxReset("binance", "OPEN"),
+		"engine":            metrics.SetSandboxEngine("binance", true, "reconnect"),
+		"recovery":          metrics.ObserveSandboxRecovery("binance", "unknown", time.Second),
+		"alert":             metrics.ObserveCriticalAlert(ReasonRisk, 2*time.Second),
+		"soak":              metrics.SetC6Soak("smoke", "SMOKE_PASSED", 2*time.Second),
+		"failure":           metrics.RecordC6Failure("unresolved_unknown"),
+		"recovery incident": metrics.SetC6Recovery("binance", "active", 1),
+		"memory":            metrics.SetC6MemoryTrend("run", -1024),
 	})
 }
 
@@ -161,6 +162,7 @@ func assertC6MetricNames(t *testing.T, metrics *Metrics) {
 		"axiom_c6_soak_duration_seconds",
 		"axiom_c6_soak_failures_total",
 		"axiom_c6_memory_trend_bytes",
+		"axiom_c6_recovery_incidents",
 	} {
 		if !strings.Contains(encoded, required) {
 			t.Fatalf("missing C6 metric %q", required)
@@ -171,10 +173,11 @@ func assertC6MetricNames(t *testing.T, metrics *Metrics) {
 func assertC6MetricLabelsRejected(t *testing.T, metrics *Metrics) {
 	t.Helper()
 	for name, err := range map[string]error{
-		"exchange":      metrics.RecordSandboxOrder("order-id-unbounded", "UNKNOWN"),
-		"state":         metrics.RecordSandboxOrder("binance", "native-private-payload"),
-		"failure":       metrics.RecordC6Failure("raw database error"),
-		"memory window": metrics.SetC6MemoryTrend("run-id-123", 1),
+		"exchange":       metrics.RecordSandboxOrder("order-id-unbounded", "UNKNOWN"),
+		"state":          metrics.RecordSandboxOrder("binance", "native-private-payload"),
+		"failure":        metrics.RecordC6Failure("raw database error"),
+		"memory window":  metrics.SetC6MemoryTrend("run-id-123", 1),
+		"recovery state": metrics.SetC6Recovery("binance", "raw-error", 1),
 	} {
 		if err == nil {
 			t.Fatalf("unbounded C6 %s label accepted", name)

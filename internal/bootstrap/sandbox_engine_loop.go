@@ -159,18 +159,20 @@ func (loop sandboxEngineLoop) run(
 			}
 		case <-tickers.lease.C:
 			if err := loop.renewLease(ctx); err != nil {
+				health.leaseHeld = false
 				if ctx.Err() != nil {
 					return nil
 				}
 				return err
 			}
+			health.leaseHeld = true
 		case <-tickers.dispatch.C:
-			err := loop.dispatch(ctx, health.ready)
+			err := loop.dispatch(ctx, health.dispatchAllowed)
 			if err = health.observeRuntime(ctx, loop, err); err != nil {
 				return err
 			}
 		case <-tickers.recovery.C:
-			err := loop.recover(ctx, health.ready)
+			err := loop.recover(ctx, health.exchangeEligible && health.privateHealthy)
 			if err = health.observeRuntime(ctx, loop, err); err != nil {
 				return err
 			}
@@ -280,16 +282,23 @@ func (loop sandboxEngineLoop) reconcile(
 	result, err := loop.work.reconcile(
 		ctx, loop.store, loop.adapter, loop.account,
 	)
+	if err == nil && result.State != "clean" {
+		err = fmt.Errorf(
+			"sandbox_engine_reconciliation_state_%s", result.State,
+		)
+	}
 	occurredAt := time.Now().UTC()
-	recordErr := loop.store.RecordEngineRuntimeEvent(
+	failureKind, causeCode := sandbox.ClassifyReconciliationFailure(err)
+	recordErr := loop.store.RecordEngineRuntimeReconciliationEvent(
 		ctx,
 		loop.account.AccountID,
 		loop.account.Epoch,
 		loop.work.exchange,
 		loop.fence,
-		"RECONCILIATION",
 		time.Since(started),
 		err == nil && result.State == "clean",
+		failureKind,
+		causeCode,
 		occurredAt,
 	)
 	if recordErr != nil {
@@ -297,12 +306,6 @@ func (loop sandboxEngineLoop) reconcile(
 	}
 	if err != nil {
 		return fmt.Errorf("sandbox_engine_reconciliation_failed: %w", err)
-	}
-	if result.State != "clean" {
-		return fmt.Errorf(
-			"sandbox_engine_reconciliation_state_%s",
-			result.State,
-		)
 	}
 	return nil
 }

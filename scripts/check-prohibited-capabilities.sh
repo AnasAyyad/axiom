@@ -270,6 +270,7 @@ is_v1c_sandbox_boundary_literal() {
     later-release-sandbox:internal/observability/metrics.go | \
     later-release-sandbox:internal/qualification/c6/model.go | \
     later-release-sandbox:internal/storage/postgres/migrations/000024_v1c_c6_console_qualification.sql | \
+    later-release-sandbox:internal/storage/postgres/migrations/000025_v1c_c6_bounded_recovery.sql | \
     later-release-sandbox:monitoring/alerts.yml | \
     later-release-sandbox:monitoring/grafana/dashboards/axiom-operations.json | \
     later-release-sandbox:web/src/api/c6Validation.ts | \

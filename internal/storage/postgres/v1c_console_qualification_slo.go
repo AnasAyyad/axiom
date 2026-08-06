@@ -84,7 +84,7 @@ func (store *A11ConsoleStore) v1cConsoleQualificationSLO(
 func c6SLOPassing(result generated.C6SLOSummary, facts c6SLOFacts) bool {
 	return result.Samples > 0 &&
 		result.CriticalAlertLatencyMs <= 5000 &&
-		result.RecoveryDurationMs <= 600000 &&
+		result.RecoveryDurationMs <= 120000 &&
 		result.DuplicateCreates == 0 &&
 		result.LostFills == 0 &&
 		result.DoublePostedFills == 0 &&

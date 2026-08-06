@@ -80,6 +80,7 @@ Prometheus `job` target label are bounded by the four deployed roles.
 | `axiom_c6_soak_duration_seconds` | gauge / seconds | mode, service | Observed C6 run duration |
 | `axiom_c6_soak_failures_total` | counter / failures | reason, service | Closed terminal failure reason |
 | `axiom_c6_memory_trend_bytes` | gauge / bytes | window, service | Signed resident-memory change for bounded review windows |
+| `axiom_c6_recovery_incidents` | gauge / incidents | exchange, state, service | Fixed-cardinality bounded reconciliation recovery states |
 | `go_*`, `process_*` | runtime/process | collector-defined bounded runtime labels | Go runtime, CPU, resident memory, and file descriptors |
 
 Allowed queue values are `market`, `persistence`, `strategy`, `alerts`, and
@@ -111,6 +112,8 @@ and `queues`. Storage values are `market_data`, `postgres`, `backups`, and
 | `AxiomSandboxCapRejected` | any fixed-cap refusal | warning; never loosen automatically | [sandbox cap/arm](incident-response.md#v1c-sandbox-cap-or-arm-refusal) |
 | `AxiomSandboxAccountReset` | reset enters open or quarantined state | critical; lock epoch and reconcile | [sandbox reconciliation/reset](incident-response.md#v1c-sandbox-reconciliation-or-account-reset) |
 | `AxiomC6QualificationFailed` | smoke/formal state becomes failed | critical; preserve terminal evidence | [C6 qualification](incident-response.md#v1c-c6-qualification-failure) |
+| `AxiomC6RecoveryActive` | any active bounded reconciliation recovery | warning; keep the account degraded and dispatch-disabled | [C6 recovery](incident-response.md#v1c-c6-bounded-reconciliation-recovery) |
+| `AxiomC6RecoveryTerminal` | expired, repeated, or unrecoverable recovery | critical; fail the C6 run and preserve evidence | [C6 recovery](incident-response.md#v1c-c6-bounded-reconciliation-recovery) |
 | `AxiomCriticalAlertLatencySLO` | critical alert p95 exceeds 5 seconds for 5 minutes | critical; qualification fails | [C6 qualification](incident-response.md#v1c-c6-qualification-failure) |
 | `AxiomC6MemoryTrend` | run-window increase exceeds 64 MiB for 15 minutes | warning; investigate and fail formal evidence if leak rule fires | [C6 qualification](incident-response.md#v1c-c6-qualification-failure) |
 

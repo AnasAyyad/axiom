@@ -12,7 +12,7 @@ import (
 const (
 	FormalDuration = 72 * time.Hour
 	AlertSLO       = 5 * time.Second
-	RecoveryRTO    = 10 * time.Minute
+	RecoveryRTO    = 2 * time.Minute
 )
 
 // Mode distinguishes the bounded smoke runner from the exact formal observer.
@@ -40,6 +40,7 @@ var failureReasons = []string{
 	"stale_data", "lease_loss", "persistence_failure", "unsafe_restart",
 	"production_target", "cap_violation", "memory_leak",
 	"critical_alert_slo", "operator_abort", "evidence_failure",
+	"recovery_expired", "recovery_repeated", "recovery_unrecoverable",
 }
 
 // AccountIdentity binds one observed sandbox account to its immutable epoch,
@@ -78,31 +79,72 @@ type Config struct {
 
 // Sample is one bounded, redacted observation of C6 safety and SLO state.
 type Sample struct {
-	Ordinal                    uint64    `json:"ordinal"`
-	ObservedAt                 time.Time `json:"observed_at"`
-	OrdersAcknowledged         uint64    `json:"orders_acknowledged"`
-	DuplicateCreates           uint64    `json:"duplicate_creates"`
-	LostFills                  uint64    `json:"lost_fills"`
-	DoublePostedFills          uint64    `json:"double_posted_fills"`
-	UnknownOrders              uint64    `json:"unknown_orders"`
-	OldestUnknownSeconds       uint64    `json:"oldest_unknown_seconds"`
-	ReconciliationMismatches   uint64    `json:"reconciliation_mismatches"`
-	SuspenseItems              uint64    `json:"suspense_items"`
-	Reconnects                 uint64    `json:"reconnects"`
-	Restarts                   uint64    `json:"restarts"`
-	RecoveryDurationMillis     uint64    `json:"recovery_duration_ms"`
-	CriticalAlertLatencyMillis uint64    `json:"critical_alert_latency_ms"`
-	ResidentMemoryBytes        uint64    `json:"resident_memory_bytes"`
-	DailySubmittedMicrounits   uint64    `json:"daily_submitted_microunits"`
-	LargestOrderMicrounits     uint64    `json:"largest_order_microunits"`
-	MaximumAccountOpen         uint64    `json:"maximum_account_open"`
-	GlobalOpen                 uint64    `json:"global_open"`
-	AllAccountsFresh           bool      `json:"all_accounts_fresh"`
-	AllLeasesHeld              bool      `json:"all_leases_held"`
-	PersistenceHealthy         bool      `json:"persistence_healthy"`
-	RestartSafe                bool      `json:"restart_safe"`
-	EntrySafe                  bool      `json:"entry_safe"`
-	ProductionTargetObserved   bool      `json:"production_target_observed"`
+	Ordinal                    uint64               `json:"ordinal"`
+	ObservedAt                 time.Time            `json:"observed_at"`
+	OrdersAcknowledged         uint64               `json:"orders_acknowledged"`
+	DuplicateCreates           uint64               `json:"duplicate_creates"`
+	LostFills                  uint64               `json:"lost_fills"`
+	DoublePostedFills          uint64               `json:"double_posted_fills"`
+	UnknownOrders              uint64               `json:"unknown_orders"`
+	OldestUnknownSeconds       uint64               `json:"oldest_unknown_seconds"`
+	ReconciliationMismatches   uint64               `json:"reconciliation_mismatches"`
+	SuspenseItems              uint64               `json:"suspense_items"`
+	Reconnects                 uint64               `json:"reconnects"`
+	Restarts                   uint64               `json:"restarts"`
+	RecoveryDurationMillis     uint64               `json:"recovery_duration_ms"`
+	CriticalAlertLatencyMillis uint64               `json:"critical_alert_latency_ms"`
+	ResidentMemoryBytes        uint64               `json:"resident_memory_bytes"`
+	DailySubmittedMicrounits   uint64               `json:"daily_submitted_microunits"`
+	LargestOrderMicrounits     uint64               `json:"largest_order_microunits"`
+	MaximumAccountOpen         uint64               `json:"maximum_account_open"`
+	GlobalOpen                 uint64               `json:"global_open"`
+	AllAccountsFresh           bool                 `json:"all_accounts_fresh"`
+	AllLeasesHeld              bool                 `json:"all_leases_held"`
+	PersistenceHealthy         bool                 `json:"persistence_healthy"`
+	RestartSafe                bool                 `json:"restart_safe"`
+	EntrySafe                  bool                 `json:"entry_safe"`
+	ProductionTargetObserved   bool                 `json:"production_target_observed"`
+	RecoveryActive             bool                 `json:"recovery_active"`
+	Accounts                   []AccountObservation `json:"accounts,omitempty"`
+}
+
+// AccountObservation is the redacted per-account C6 recovery projection.
+type AccountObservation struct {
+	ID                  string     `json:"id"`
+	Exchange            string     `json:"exchange"`
+	Environment         string     `json:"environment"`
+	Epoch               uint64     `json:"epoch"`
+	State               string     `json:"state"`
+	StreamHealthy       bool       `json:"stream_healthy"`
+	EvidenceHealthy     bool       `json:"evidence_healthy"`
+	LeaseHeld           bool       `json:"lease_held"`
+	AccountSafe         bool       `json:"account_safe"`
+	ReconciliationClean bool       `json:"reconciliation_clean"`
+	RecoveryState       string     `json:"recovery_state"`
+	RecoveryEvent       string     `json:"recovery_event,omitempty"`
+	FailureKind         string     `json:"failure_kind,omitempty"`
+	CauseCode           string     `json:"cause_code,omitempty"`
+	DeadlineAt          *time.Time `json:"deadline_at,omitempty"`
+	CleanCheckCount     uint8      `json:"clean_check_count"`
+	RecoveryTimestamp   *time.Time `json:"recovery_timestamp,omitempty"`
+}
+
+// RecoveryEvent is one immutable, redacted C6 recovery lifecycle fact.
+type RecoveryEvent struct {
+	RunID             string     `json:"run_id"`
+	AccountID         string     `json:"account_id"`
+	Exchange          string     `json:"exchange"`
+	Environment       string     `json:"environment"`
+	AccountEpoch      uint64     `json:"account_epoch"`
+	Event             string     `json:"event"`
+	State             string     `json:"state"`
+	FailureKind       string     `json:"failure_kind"`
+	CauseCode         string     `json:"cause_code"`
+	DeadlineAt        time.Time  `json:"deadline_at"`
+	CleanCheckCount   uint8      `json:"clean_check_count"`
+	RecoveryTimestamp *time.Time `json:"recovery_timestamp,omitempty"`
+	EvidenceHash      string     `json:"evidence_hash"`
+	OccurredAt        time.Time  `json:"occurred_at"`
 }
 
 // Failure records one stable fail-closed reason and its evidence identity.
@@ -123,21 +165,22 @@ type ChaosEvent struct {
 
 // Evidence is the immutable terminal C6 qualification document.
 type Evidence struct {
-	SchemaVersion           string        `json:"schema_version"`
-	Identity                Identity      `json:"identity"`
-	State                   TerminalState `json:"state"`
-	StartedAt               time.Time     `json:"started_at"`
-	EndedAt                 time.Time     `json:"ended_at"`
-	RequiredDurationSeconds int64         `json:"required_duration_seconds"`
-	ObservedDurationSeconds int64         `json:"observed_duration_seconds"`
-	ProfitabilityEvidence   bool          `json:"profitability_evidence"`
-	Qualified               bool          `json:"qualified"`
-	Caps                    Caps          `json:"caps"`
-	SLO                     SLO           `json:"slo"`
-	Samples                 []Sample      `json:"samples"`
-	Chaos                   []ChaosEvent  `json:"chaos"`
-	Failures                []Failure     `json:"failures"`
-	EvidenceHash            string        `json:"evidence_hash"`
+	SchemaVersion           string          `json:"schema_version"`
+	Identity                Identity        `json:"identity"`
+	State                   TerminalState   `json:"state"`
+	StartedAt               time.Time       `json:"started_at"`
+	EndedAt                 time.Time       `json:"ended_at"`
+	RequiredDurationSeconds int64           `json:"required_duration_seconds"`
+	ObservedDurationSeconds int64           `json:"observed_duration_seconds"`
+	ProfitabilityEvidence   bool            `json:"profitability_evidence"`
+	Qualified               bool            `json:"qualified"`
+	Caps                    Caps            `json:"caps"`
+	SLO                     SLO             `json:"slo"`
+	Samples                 []Sample        `json:"samples"`
+	RecoveryEvents          []RecoveryEvent `json:"recovery_events"`
+	Chaos                   []ChaosEvent    `json:"chaos"`
+	Failures                []Failure       `json:"failures"`
+	EvidenceHash            string          `json:"evidence_hash"`
 }
 
 // Caps records the fixed sandbox notional, concurrency, and arm-duration

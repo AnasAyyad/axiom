@@ -78,6 +78,16 @@ func TestSandboxEngineRequiresBothSubmissionSwitchLayers(t *testing.T) {
 	}
 }
 
+func TestSandboxEngineRecoveryBlocksDispatchAndUnknownRecovery(t *testing.T) {
+	loop := sandboxEngineLoop{}
+	if err := loop.dispatch(context.Background(), false); err != nil {
+		t.Fatalf("dispatch was not safely blocked: %v", err)
+	}
+	if err := loop.recover(context.Background(), false); err != nil {
+		t.Fatalf("unknown recovery was not safely blocked: %v", err)
+	}
+}
+
 type sandboxPrivateReconnectFixture struct {
 	attempts  int
 	succeedAt int
