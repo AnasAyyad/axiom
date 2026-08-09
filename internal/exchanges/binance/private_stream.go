@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/sandbox"
 
 	"golang.org/x/net/websocket"
@@ -104,8 +105,9 @@ func newPrivateEventSource(
 	return source, nil
 }
 
-// Receive returns one normalized event and reconnects once after a transport
-// loss. Backfilled durable client IDs are emitted before new stream frames.
+// Receive returns one normalized event. Transport loss is returned as one
+// typed, sanitized failure so the engine owns the bounded reconnect,
+// reconciliation, and readiness transition as one state machine.
 func (source *BinancePrivateEventSource) Receive(
 	ctx context.Context,
 ) (sandbox.PrivateEvent, error) {
@@ -150,25 +152,9 @@ func (source *BinancePrivateEventSource) receivePrivateBody(
 
 	body, err := connection.Receive(ctx)
 	if err != nil {
-		source.mutex.Lock()
-		if source.closed {
-			source.mutex.Unlock()
-			return nil, nil, ErrSandboxPrivateEvent
-		}
-		if err = source.reconnectLocked(ctx); err != nil {
-			source.mutex.Unlock()
-			return nil, nil, ErrSandboxPrivateEvent
-		}
-		if event, ok := source.popPending(); ok {
-			source.mutex.Unlock()
-			return nil, &event, nil
-		}
-		connection = source.connection
-		source.mutex.Unlock()
-		body, err = connection.Receive(ctx)
-		if err != nil {
-			return nil, nil, ErrSandboxPrivateEvent
-		}
+		return nil, nil, binancePrivateTransportFailure(
+			"private_stream_receive_failed",
+		)
 	}
 	return body, nil, nil
 }
@@ -211,7 +197,9 @@ func (source *BinancePrivateEventSource) connectAndBackfillLocked(
 ) error {
 	connection, err := source.connector.Connect(ctx)
 	if err != nil {
-		return ErrSandboxPrivateEvent
+		return binancePrivateTransportFailure(
+			"private_stream_connect_failed",
+		)
 	}
 	if err = source.subscribe(ctx, connection); err != nil {
 		_ = connection.Close()
@@ -224,6 +212,16 @@ func (source *BinancePrivateEventSource) connectAndBackfillLocked(
 		return err
 	}
 	return nil
+}
+
+func binancePrivateTransportFailure(cause string) error {
+	return exchangecontracts.NewDetailedError(
+		exchangecontracts.ErrorTransient,
+		exchangecontracts.OperationStream,
+		0,
+		0,
+		cause,
+	)
 }
 
 func (source *BinancePrivateEventSource) reconnectLocked(

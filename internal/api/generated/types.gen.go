@@ -239,6 +239,24 @@ func (e C6RecoveryIncidentExchange) Valid() bool {
 	}
 }
 
+// Defines values for C6RecoveryIncidentIncidentSource.
+const (
+	C6RecoveryIncidentIncidentSourcePrivateStream  C6RecoveryIncidentIncidentSource = "private_stream"
+	C6RecoveryIncidentIncidentSourceReconciliation C6RecoveryIncidentIncidentSource = "reconciliation"
+)
+
+// Valid indicates whether the value is a known member of the C6RecoveryIncidentIncidentSource enum.
+func (e C6RecoveryIncidentIncidentSource) Valid() bool {
+	switch e {
+	case C6RecoveryIncidentIncidentSourcePrivateStream:
+		return true
+	case C6RecoveryIncidentIncidentSourceReconciliation:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for C6RecoveryIncidentState.
 const (
 	C6RecoveryIncidentStateActive        C6RecoveryIncidentState = "active"
@@ -2809,11 +2827,12 @@ type C6RecoveryIncident struct {
 	DeadlineAt Timestamp `json:"deadline_at"`
 
 	// DetectedAt RFC 3339 timestamp with an explicit UTC offset.
-	DetectedAt     Timestamp                     `json:"detected_at"`
-	Environment    C6RecoveryIncidentEnvironment `json:"environment"`
-	EvidenceHash   string                        `json:"evidence_hash"`
-	Exchange       C6RecoveryIncidentExchange    `json:"exchange"`
-	ReasonCategory string                        `json:"reason_category"`
+	DetectedAt     Timestamp                        `json:"detected_at"`
+	Environment    C6RecoveryIncidentEnvironment    `json:"environment"`
+	EvidenceHash   string                           `json:"evidence_hash"`
+	Exchange       C6RecoveryIncidentExchange       `json:"exchange"`
+	IncidentSource C6RecoveryIncidentIncidentSource `json:"incident_source"`
+	ReasonCategory string                           `json:"reason_category"`
 
 	// RecoveryTimestamp RFC 3339 timestamp with an explicit UTC offset.
 	RecoveryTimestamp *Timestamp              `json:"recovery_timestamp,omitempty"`
@@ -2825,6 +2844,9 @@ type C6RecoveryIncidentEnvironment string
 
 // C6RecoveryIncidentExchange defines model for C6RecoveryIncident.Exchange.
 type C6RecoveryIncidentExchange string
+
+// C6RecoveryIncidentIncidentSource defines model for C6RecoveryIncident.IncidentSource.
+type C6RecoveryIncidentIncidentSource string
 
 // C6RecoveryIncidentState defines model for C6RecoveryIncident.State.
 type C6RecoveryIncidentState string

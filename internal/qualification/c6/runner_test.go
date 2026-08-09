@@ -59,6 +59,16 @@ func (store *testStore) Finish(_ context.Context, evidence Evidence) error {
 	return nil
 }
 
+type recoveryTestStore struct {
+	testStore
+	events []RecoveryEvent
+}
+
+func (store *recoveryTestStore) AppendRecoveryEvent(_ context.Context, event RecoveryEvent) error {
+	store.events = append(store.events, event)
+	return nil
+}
+
 type testChaos struct{ failed string }
 
 func (chaos testChaos) Events(
@@ -220,7 +230,8 @@ func TestC6ContinuesClockAcrossOnePermittedAccountRecovery(t *testing.T) {
 			Epoch: 1, State: "DEGRADED", StreamHealthy: true, EvidenceHealthy: true,
 			LeaseHeld: true, AccountSafe: true, ReconciliationClean: false,
 			RecoveryState: "active", RecoveryEvent: "detected",
-			FailureKind: "transient_outage", CauseCode: "http_503",
+			IncidentSource: "reconciliation",
+			FailureKind:    "transient_outage", CauseCode: "http_503",
 			DeadlineAt: &deadline,
 		},
 		{ID: "bybit-demo", Exchange: "bybit", Environment: "demo", Epoch: 1,
@@ -247,8 +258,63 @@ func TestC6ContinuesClockAcrossOnePermittedAccountRecovery(t *testing.T) {
 		Store: &testStore{}, Chaos: testChaos{},
 	}).Run(context.Background(), validTestConfig(t, ModeSmoke, 2*time.Second))
 	if err != nil || evidence.State != StateSmokePassed || len(evidence.Failures) != 0 ||
-		evidence.ObservedDurationSeconds != 2 {
+		evidence.ObservedDurationSeconds != 3 {
 		t.Fatalf("permitted recovery poisoned run: state=%s failures=%+v err=%v", evidence.State, evidence.Failures, err)
+	}
+}
+
+func TestC6PersistsRuntimeDerivedRecoveryLifecycleBetweenSamples(t *testing.T) {
+	at := time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)
+	deadline := at.Add(2 * time.Minute)
+	recoveredAt := at.Add(32 * time.Second)
+	configuration := validTestConfig(t, ModeSmoke, time.Minute)
+	store := &recoveryTestStore{}
+	sample := healthySample()
+	sample.ObservedAt = at.Add(33 * time.Second)
+	sample.Accounts = []AccountObservation{{
+		ID: "bybit-demo", Exchange: "bybit", Environment: "demo", Epoch: 1,
+		State: "READY_PAUSED", StreamHealthy: true, EvidenceHealthy: true,
+		LeaseHeld: true, AccountSafe: true, ReconciliationClean: true,
+		RecoveryState: "recovered", RecoveryEvent: "recovered",
+		IncidentSource: "private_stream", FailureKind: "transient_outage",
+		CauseCode: "private_stream_receive_failed", DeadlineAt: &deadline,
+		CleanCheckCount: 2, RecoveryTimestamp: &recoveredAt,
+		RecoveryEvents: []AccountRecoveryEvent{
+			{
+				Event: "detected", State: "active", IncidentSource: "private_stream",
+				FailureKind: "transient_outage", CauseCode: "private_stream_receive_failed",
+				DeadlineAt: deadline, OccurredAt: at.Add(time.Second),
+			},
+			{
+				Event: "first_clean_check", State: "active",
+				IncidentSource: "private_stream", FailureKind: "transient_outage",
+				CauseCode: "private_stream_receive_failed", DeadlineAt: deadline,
+				CleanCheckCount: 1, OccurredAt: at.Add(2 * time.Second),
+			},
+			{
+				Event: "recovered", State: "recovered", IncidentSource: "private_stream",
+				FailureKind: "transient_outage", CauseCode: "private_stream_receive_failed",
+				DeadlineAt: deadline, CleanCheckCount: 2,
+				RecoveryTimestamp: &recoveredAt, OccurredAt: recoveredAt,
+			},
+		},
+	}}
+	evidence := newEvidence(configuration, at)
+	(Runner{Store: store}).appendRecoveryEvents(
+		context.Background(), configuration, &evidence, sample,
+	)
+	if len(store.events) != 3 || len(evidence.RecoveryEvents) != 3 ||
+		store.events[0].Event != "detected" ||
+		store.events[1].Event != "first_clean_check" ||
+		store.events[2].Event != "recovered" ||
+		store.events[2].IncidentSource != "private_stream" {
+		t.Fatalf("recovery lifecycle=%+v", store.events)
+	}
+	for _, event := range store.events {
+		if len(event.EvidenceHash) != 64 || event.FailureKind != "transient_outage" ||
+			event.CauseCode != "private_stream_receive_failed" {
+			t.Fatalf("unredacted or unbound recovery event=%+v", event)
+		}
 	}
 }
 
@@ -284,7 +350,8 @@ func TestC6RecoveryDoesNotMaskAnotherUnsafeAccount(t *testing.T) {
 			ID: "binance-testnet", Exchange: "binance", Environment: "spot_testnet",
 			Epoch: 1, State: "DEGRADED", StreamHealthy: true, EvidenceHealthy: true,
 			LeaseHeld: true, AccountSafe: true, RecoveryState: "active",
-			FailureKind: "transient_outage", CauseCode: "http_503", DeadlineAt: &deadline,
+			IncidentSource: "reconciliation",
+			FailureKind:    "transient_outage", CauseCode: "http_503", DeadlineAt: &deadline,
 		},
 		{
 			ID: "bybit-demo", Exchange: "bybit", Environment: "demo",
@@ -300,6 +367,72 @@ func TestC6RecoveryDoesNotMaskAnotherUnsafeAccount(t *testing.T) {
 	if err == nil || evidence.State != StateFailed ||
 		!hasFailure(evidence, "stale_data") {
 		t.Fatalf("unrelated unsafe account was masked: %+v err=%v", evidence, err)
+	}
+}
+
+func TestC6AllowsDisconnectedStreamOnlyBeforeItsFirstCleanCheck(t *testing.T) {
+	at := time.Date(2026, 7, 30, 10, 0, 1, 0, time.UTC)
+	deadline := at.Add(time.Minute)
+	sample := healthySample()
+	sample.ObservedAt = at
+	sample.AllAccountsFresh, sample.EntrySafe, sample.RecoveryActive = false, false, true
+	sample.Accounts = []AccountObservation{
+		{
+			ID: "binance-testnet", Exchange: "binance", Environment: "spot_testnet",
+			Epoch: 1, State: "DEGRADED", StreamHealthy: false, EvidenceHealthy: true,
+			LeaseHeld: true, AccountSafe: true, ReconciliationClean: false,
+			RecoveryState: "active", IncidentSource: "private_stream",
+			FailureKind: "transient_outage", CauseCode: "private_stream_receive_failed",
+			DeadlineAt: &deadline,
+		},
+		{
+			ID: "bybit-demo", Exchange: "bybit", Environment: "demo", Epoch: 1,
+			State: "READY_PAUSED", StreamHealthy: true, EvidenceHealthy: true,
+			LeaseHeld: true, AccountSafe: true, ReconciliationClean: true,
+			RecoveryState: "not_required",
+		},
+	}
+	if !sampleAllowsActiveRecovery(sample) {
+		t.Fatal("bounded private-stream reconnect was rejected before its first check")
+	}
+	bothAccounts := sample
+	bothAccounts.Accounts = append([]AccountObservation(nil), sample.Accounts...)
+	bothAccounts.Accounts[1] = AccountObservation{
+		ID: "bybit-demo", Exchange: "bybit", Environment: "demo", Epoch: 1,
+		State: "DEGRADED", StreamHealthy: true, EvidenceHealthy: true,
+		LeaseHeld: true, AccountSafe: true, ReconciliationClean: false,
+		RecoveryState: "active", IncidentSource: "reconciliation",
+		FailureKind: "maintenance", CauseCode: "exchange_maintenance",
+		DeadlineAt: &deadline,
+	}
+	if !sampleAllowsActiveRecovery(bothAccounts) {
+		t.Fatal("the per-account policy rejected two independently safe recoveries")
+	}
+	sample.Accounts[0].CleanCheckCount = 1
+	if sampleAllowsActiveRecovery(sample) {
+		t.Fatal("clean check was accepted while the private stream was unhealthy")
+	}
+}
+
+func TestC6ActiveRecoveryPastDeadlineFailsExpired(t *testing.T) {
+	at := time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)
+	deadline := at.Add(500 * time.Millisecond)
+	sample := healthySample()
+	sample.AllAccountsFresh, sample.EntrySafe, sample.RecoveryActive = false, false, true
+	sample.Accounts = []AccountObservation{{
+		ID: "binance-testnet", Exchange: "binance", Environment: "spot_testnet",
+		Epoch: 1, State: "DEGRADED", StreamHealthy: true, EvidenceHealthy: true,
+		LeaseHeld: true, AccountSafe: true, ReconciliationClean: false,
+		RecoveryState: "active", IncidentSource: "reconciliation",
+		FailureKind: "maintenance", CauseCode: "exchange_maintenance",
+		DeadlineAt: &deadline,
+	}}
+	evidence, err := (Runner{
+		Clock: &testClock{now: at}, Probe: testProbe{sample: sample},
+		Store: &testStore{}, Chaos: testChaos{},
+	}).Run(context.Background(), validTestConfig(t, ModeSmoke, time.Second))
+	if err == nil || !hasFailure(evidence, "recovery_expired") {
+		t.Fatalf("expired active recovery did not fail: %+v error=%v", evidence, err)
 	}
 }
 

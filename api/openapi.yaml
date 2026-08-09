@@ -3061,6 +3061,7 @@ components:
           exchange,
           environment,
           state,
+          incident_source,
           reason_category,
           cause_code,
           deadline_at,
@@ -3093,6 +3094,14 @@ components:
               C6RecoveryIncidentStateExpired,
               C6RecoveryIncidentStateRepeated,
               C6RecoveryIncidentStateUnrecoverable,
+            ]
+        incident_source:
+          type: string
+          enum: [reconciliation, private_stream]
+          x-enum-varnames:
+            [
+              C6RecoveryIncidentIncidentSourceReconciliation,
+              C6RecoveryIncidentIncidentSourcePrivateStream,
             ]
         reason_category: { type: string, maxLength: 64 }
         cause_code: { type: string, pattern: "^[a-z0-9_]{1,64}$" }

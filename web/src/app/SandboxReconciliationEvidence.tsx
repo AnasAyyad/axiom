@@ -160,14 +160,15 @@ export function SandboxQualificationPanel({
         />
       </dl>
       <div aria-label="C6 bounded recovery incidents">
-        <h3>Bounded reconciliation recovery</h3>
+        <h3>Bounded read-only recovery</h3>
         {qualification.recovery_incidents.length === 0 ? (
           <p>No permitted recovery incident observed.</p>
         ) : (
           qualification.recovery_incidents.map((incident) => (
             <p key={`${incident.account_id}-${incident.detected_at}`}>
               {incident.account_id} · {incident.exchange} /{" "}
-              {incident.environment} · {incident.state} ·{" "}
+              {incident.environment} · {incident.incident_source} ·{" "}
+              {incident.state} ·{" "}
               {incident.reason_category} / {incident.cause_code} · clean checks{" "}
               {incident.clean_check_count} · deadline {incident.deadline_at}
               {incident.recovery_timestamp

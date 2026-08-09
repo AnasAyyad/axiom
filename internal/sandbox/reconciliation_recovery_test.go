@@ -48,6 +48,30 @@ func TestReconciliationRecoveryRequiresTwoSpacedCleanChecks(t *testing.T) {
 	}
 }
 
+func TestPrivateStreamRecoverySharesTheSingleIncidentBudget(t *testing.T) {
+	started := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	recovery, err := NewReconciliationRecovery(started)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detected, err := recovery.ObserveIncident(
+		started.Add(time.Second), RecoverySourcePrivateStream,
+		exchangecontracts.ErrorTransient, "private_stream_receive_failed",
+	)
+	if err != nil || detected.IncidentSource != RecoverySourcePrivateStream ||
+		detected.State != RecoveryActive || recovery.DispatchAllowed() {
+		t.Fatalf("private stream detection=%+v error=%v", detected, err)
+	}
+	repeated, err := recovery.ObserveIncident(
+		started.Add(2*time.Second), RecoverySourceReconciliation,
+		exchangecontracts.ErrorMaintenance, "exchange_maintenance",
+	)
+	if err != ErrReconciliationRecoveryTerminal ||
+		repeated.State != RecoveryRepeated || repeated.Event != RecoveryRepeatedEvent {
+		t.Fatalf("cross-source repeat=%+v error=%v", repeated, err)
+	}
+}
+
 func TestReconciliationRecoveryExpiresAndRejectsSecondIncident(t *testing.T) {
 	started := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	recovery, err := NewReconciliationRecovery(started)

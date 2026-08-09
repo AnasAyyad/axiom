@@ -53,11 +53,11 @@ func (source *BinancePrivateEventSource) subscribe(
 		)
 	}
 	if err = connection.Send(ctx, request); err != nil {
-		return fmt.Errorf("%w: subscription_send", ErrSandboxPrivateEvent)
+		return binancePrivateTransportFailure("private_stream_send_failed")
 	}
 	body, err := connection.Receive(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: subscription_receive", ErrSandboxPrivateEvent)
+		return binancePrivateTransportFailure("private_stream_receive_failed")
 	}
 	return validateSubscriptionResponse(body, requestID)
 }

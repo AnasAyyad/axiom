@@ -110,23 +110,39 @@ type Sample struct {
 
 // AccountObservation is the redacted per-account C6 recovery projection.
 type AccountObservation struct {
-	ID                  string     `json:"id"`
-	Exchange            string     `json:"exchange"`
-	Environment         string     `json:"environment"`
-	Epoch               uint64     `json:"epoch"`
-	State               string     `json:"state"`
-	StreamHealthy       bool       `json:"stream_healthy"`
-	EvidenceHealthy     bool       `json:"evidence_healthy"`
-	LeaseHeld           bool       `json:"lease_held"`
-	AccountSafe         bool       `json:"account_safe"`
-	ReconciliationClean bool       `json:"reconciliation_clean"`
-	RecoveryState       string     `json:"recovery_state"`
-	RecoveryEvent       string     `json:"recovery_event,omitempty"`
-	FailureKind         string     `json:"failure_kind,omitempty"`
-	CauseCode           string     `json:"cause_code,omitempty"`
-	DeadlineAt          *time.Time `json:"deadline_at,omitempty"`
-	CleanCheckCount     uint8      `json:"clean_check_count"`
-	RecoveryTimestamp   *time.Time `json:"recovery_timestamp,omitempty"`
+	ID                  string                 `json:"id"`
+	Exchange            string                 `json:"exchange"`
+	Environment         string                 `json:"environment"`
+	Epoch               uint64                 `json:"epoch"`
+	State               string                 `json:"state"`
+	StreamHealthy       bool                   `json:"stream_healthy"`
+	EvidenceHealthy     bool                   `json:"evidence_healthy"`
+	LeaseHeld           bool                   `json:"lease_held"`
+	AccountSafe         bool                   `json:"account_safe"`
+	ReconciliationClean bool                   `json:"reconciliation_clean"`
+	RecoveryState       string                 `json:"recovery_state"`
+	RecoveryEvent       string                 `json:"recovery_event,omitempty"`
+	IncidentSource      string                 `json:"incident_source,omitempty"`
+	FailureKind         string                 `json:"failure_kind,omitempty"`
+	CauseCode           string                 `json:"cause_code,omitempty"`
+	DeadlineAt          *time.Time             `json:"deadline_at,omitempty"`
+	CleanCheckCount     uint8                  `json:"clean_check_count"`
+	RecoveryTimestamp   *time.Time             `json:"recovery_timestamp,omitempty"`
+	RecoveryEvents      []AccountRecoveryEvent `json:"recovery_events,omitempty"`
+}
+
+// AccountRecoveryEvent is one runtime-derived lifecycle transition awaiting
+// immutable binding to the formal C6 run. It contains no raw exchange data.
+type AccountRecoveryEvent struct {
+	Event             string     `json:"event"`
+	State             string     `json:"state"`
+	IncidentSource    string     `json:"incident_source"`
+	FailureKind       string     `json:"failure_kind"`
+	CauseCode         string     `json:"cause_code"`
+	DeadlineAt        time.Time  `json:"deadline_at"`
+	CleanCheckCount   uint8      `json:"clean_check_count"`
+	RecoveryTimestamp *time.Time `json:"recovery_timestamp,omitempty"`
+	OccurredAt        time.Time  `json:"occurred_at"`
 }
 
 // RecoveryEvent is one immutable, redacted C6 recovery lifecycle fact.
@@ -138,6 +154,7 @@ type RecoveryEvent struct {
 	AccountEpoch      uint64     `json:"account_epoch"`
 	Event             string     `json:"event"`
 	State             string     `json:"state"`
+	IncidentSource    string     `json:"incident_source"`
 	FailureKind       string     `json:"failure_kind"`
 	CauseCode         string     `json:"cause_code"`
 	DeadlineAt        time.Time  `json:"deadline_at"`

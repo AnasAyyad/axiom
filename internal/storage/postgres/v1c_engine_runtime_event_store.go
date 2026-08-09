@@ -13,9 +13,36 @@ import (
 )
 
 var v1cEngineRuntimeEventKinds = []string{
+	"PRIVATE_STREAM",
 	"PRIVATE_RECONNECT",
 	"UNKNOWN_RECOVERY",
 	"RECONCILIATION",
+}
+
+// RecordEngineRuntimeRecoveryEvent appends one classified, redacted failure
+// or successful recovery event. It is limited to read-only reconciliation and
+// private-stream recovery boundaries.
+func (store *V1CDispatcherStore) RecordEngineRuntimeRecoveryEvent(
+	ctx context.Context,
+	account sandbox.AccountID,
+	epoch uint64,
+	exchange sandbox.Exchange,
+	startupCycle uint64,
+	kind string,
+	duration time.Duration,
+	succeeded bool,
+	failureKind exchangecontracts.ErrorKind,
+	causeCode string,
+	occurredAt time.Time,
+) error {
+	if kind != "RECONCILIATION" && kind != "PRIVATE_STREAM" &&
+		kind != "PRIVATE_RECONNECT" {
+		return fmt.Errorf("v1c_engine_runtime_event_invalid")
+	}
+	return store.recordEngineRuntimeEvent(
+		ctx, account, epoch, exchange, startupCycle, kind, duration,
+		succeeded, failureKind, causeCode, occurredAt,
+	)
 }
 
 var v1cEngineRuntimeCausePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
@@ -92,7 +119,7 @@ func (store *V1CDispatcherStore) recordEngineRuntimeEvent(
 		duration < 0 || occurredAt.IsZero() ||
 		occurredAt.Location() != time.UTC ||
 		(succeeded && (failureKind != "" || causeCode != "")) ||
-		(!succeeded && kind == "RECONCILIATION" &&
+		(!succeeded && kind != "UNKNOWN_RECOVERY" &&
 			(!validRuntimeFailureKind(failureKind) ||
 				!v1cEngineRuntimeCausePattern.MatchString(causeCode))) {
 		return fmt.Errorf("v1c_engine_runtime_event_invalid")

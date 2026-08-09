@@ -221,8 +221,8 @@ func (metrics *Metrics) RecordC6Failure(reason string) error {
 	return nil
 }
 
-// SetC6Recovery publishes one bounded recovery state per exchange. State is a
-// closed enum so incident cardinality cannot grow with account or error data.
+// SetC6Recovery publishes one bounded read-only recovery state per exchange.
+// State is closed so cardinality cannot grow with account or error data.
 func (metrics *Metrics) SetC6Recovery(exchange, state string, count int) error {
 	if !slices.Contains(metrics.catalog.Exchanges, exchange) ||
 		!slices.Contains([]string{

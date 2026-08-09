@@ -905,6 +905,7 @@ function sandboxQualificationFixture() {
     profitability_evidence: false,
     qualified: false,
     failures: [],
+    recovery_incidents: [],
     chaos: {
       status: "passed",
       passed: 14,

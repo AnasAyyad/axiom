@@ -85,14 +85,14 @@ func (store *A11ConsoleStore) v1cConsoleRecoveryIncidents(
 	rows, err := store.pool.Query(ctx, `
 WITH latest AS (
  SELECT DISTINCT ON (account_id)
-   account_id,exchange,environment,state,failure_kind,cause_code,
+   account_id,exchange,environment,state,incident_source,failure_kind,cause_code,
    deadline_at,clean_check_count,recovery_timestamp,evidence_hash
  FROM v1c_c6_recovery_events
  WHERE run_id=$1
  ORDER BY account_id,occurred_at DESC,id DESC
 )
 SELECT latest.account_id,latest.exchange,latest.environment,latest.state,
-       latest.failure_kind,latest.cause_code,latest.deadline_at,
+       latest.incident_source,latest.failure_kind,latest.cause_code,latest.deadline_at,
        latest.clean_check_count,detected.occurred_at,
        latest.recovery_timestamp,latest.evidence_hash
 FROM latest
@@ -109,12 +109,13 @@ ORDER BY latest.exchange,latest.account_id`, runID)
 	result := make([]generated.C6RecoveryIncident, 0)
 	for rows.Next() {
 		var item generated.C6RecoveryIncident
-		var state, reasonCategory, causeCode, accountID, exchange, environment string
+		var state, incidentSource, reasonCategory, causeCode string
+		var accountID, exchange, environment string
 		var deadline, detected time.Time
 		var recoveryAt *time.Time
 		var cleanChecks int
 		if err = rows.Scan(
-			&accountID, &exchange, &environment, &state, &reasonCategory,
+			&accountID, &exchange, &environment, &state, &incidentSource, &reasonCategory,
 			&causeCode, &deadline, &cleanChecks, &detected, &recoveryAt,
 			&item.EvidenceHash,
 		); err != nil {
@@ -124,6 +125,7 @@ ORDER BY latest.exchange,latest.account_id`, runID)
 		item.Exchange = generated.C6RecoveryIncidentExchange(exchange)
 		item.Environment = generated.C6RecoveryIncidentEnvironment(environment)
 		item.State = generated.C6RecoveryIncidentState(state)
+		item.IncidentSource = generated.C6RecoveryIncidentIncidentSource(incidentSource)
 		item.ReasonCategory = reasonCategory
 		item.CauseCode = causeCode
 		item.DeadlineAt = deadline

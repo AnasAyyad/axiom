@@ -282,8 +282,10 @@ func TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
 	v1cBinanceStream := migrationForVersion(migrations, "000023")
 	v1cC6 := migrationForVersion(migrations, "000024")
 	v1cRecovery := migrationForVersion(migrations, "000025")
+	v1cStreamRecovery := migrationForVersion(migrations, "000026")
 	if v1cAuth.SQL == "" || v1cExecution.SQL == "" ||
-		v1cBinanceStream.SQL == "" || v1cC6.SQL == "" || v1cRecovery.SQL == "" {
+		v1cBinanceStream.SQL == "" || v1cC6.SQL == "" ||
+		v1cRecovery.SQL == "" || v1cStreamRecovery.SQL == "" {
 		t.Fatal("V1C migrations are missing")
 	}
 	assertV1CBinanceStreamMigration(t, v1cBinanceStream)
@@ -291,6 +293,17 @@ func TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
 	assertV1CExecutionMigration(t, v1cExecution)
 	assertV1CC6Migration(t, v1cC6)
 	assertV1CC6RecoveryMigration(t, v1cRecovery)
+	assertV1CC6PrivateStreamRecoveryMigration(t, v1cStreamRecovery)
+}
+
+func assertV1CC6PrivateStreamRecoveryMigration(t *testing.T, migration Migration) {
+	t.Helper()
+	assertMigrationContains(t, migration, "V1C C6 private-stream recovery", []string{
+		"'private_stream'",
+		"incident_source text not null",
+		"incident_source in ('reconciliation','private_stream')",
+		"'recovery_expired','recovery_repeated'",
+	})
 }
 
 func assertV1CC6RecoveryMigration(t *testing.T, migration Migration) {

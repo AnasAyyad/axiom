@@ -101,8 +101,8 @@ func (runner Runner) collect(
 		runner.appendRecoveryEvents(ctx, configuration, evidence, sample)
 		evaluateSample(evidence, sample)
 		if len(evidence.Failures) > 0 ||
-			observed.Sub(evidence.StartedAt).Truncate(time.Second) >=
-				configuration.Duration {
+			(observed.Sub(evidence.StartedAt).Truncate(time.Second) >=
+				configuration.Duration && !sample.RecoveryActive) {
 			break
 		}
 		if err = runner.Clock.Wait(ctx, configuration.SampleInterval); err != nil {
@@ -134,44 +134,80 @@ func (runner Runner) appendRecoveryEvents(
 		seen[recoveryEventKey(existing)] = struct{}{}
 	}
 	for _, account := range sample.Accounts {
-		if account.RecoveryEvent == "" || account.ID == "" ||
-			sample.ObservedAt.IsZero() {
+		if account.ID == "" || sample.ObservedAt.IsZero() {
 			continue
 		}
-		deadline := sample.ObservedAt.UTC()
-		if account.DeadlineAt != nil {
-			deadline = account.DeadlineAt.UTC()
+		transitions := account.RecoveryEvents
+		if len(transitions) == 0 && account.RecoveryEvent != "" {
+			transitions = []AccountRecoveryEvent{{
+				Event: account.RecoveryEvent, State: account.RecoveryState,
+				IncidentSource: account.IncidentSource,
+				FailureKind:    account.FailureKind, CauseCode: account.CauseCode,
+				CleanCheckCount:   account.CleanCheckCount,
+				RecoveryTimestamp: account.RecoveryTimestamp,
+				OccurredAt:        sample.ObservedAt.UTC(),
+			}}
 		}
-		event := RecoveryEvent{
-			RunID: configuration.Identity.RunID, AccountID: account.ID,
-			Exchange: account.Exchange, Environment: account.Environment,
-			AccountEpoch: account.Epoch, Event: account.RecoveryEvent,
-			State: account.RecoveryState, FailureKind: account.FailureKind,
-			CauseCode: account.CauseCode, DeadlineAt: deadline,
-			CleanCheckCount:   account.CleanCheckCount,
-			RecoveryTimestamp: account.RecoveryTimestamp,
-			OccurredAt:        sample.ObservedAt.UTC(),
+		for _, transition := range transitions {
+			if transition.Event == "" || transition.State == "" {
+				continue
+			}
+			deadline := transition.DeadlineAt.UTC()
+			if transition.DeadlineAt.IsZero() && account.DeadlineAt != nil {
+				deadline = account.DeadlineAt.UTC()
+			} else if transition.DeadlineAt.IsZero() {
+				deadline = sample.ObservedAt.UTC()
+			}
+			occurredAt := transition.OccurredAt.UTC()
+			if transition.OccurredAt.IsZero() {
+				occurredAt = sample.ObservedAt.UTC()
+			}
+			incidentSource := transition.IncidentSource
+			if incidentSource == "" {
+				incidentSource = account.IncidentSource
+			}
+			failureKind := transition.FailureKind
+			if failureKind == "" {
+				failureKind = account.FailureKind
+			}
+			causeCode := transition.CauseCode
+			if causeCode == "" {
+				causeCode = account.CauseCode
+			}
+			event := RecoveryEvent{
+				RunID: configuration.Identity.RunID, AccountID: account.ID,
+				Exchange: account.Exchange, Environment: account.Environment,
+				AccountEpoch: account.Epoch, Event: transition.Event,
+				State: transition.State, IncidentSource: incidentSource,
+				FailureKind: failureKind, CauseCode: causeCode,
+				DeadlineAt: deadline, CleanCheckCount: transition.CleanCheckCount,
+				RecoveryTimestamp: transition.RecoveryTimestamp,
+				OccurredAt:        occurredAt,
+			}
+			event.EvidenceHash = hashValues(
+				configuration.Identity.RunID, event.AccountID, event.Exchange,
+				event.Environment, fmt.Sprint(event.AccountEpoch),
+				event.Event, event.State, event.IncidentSource,
+				event.FailureKind, event.CauseCode,
+				event.DeadlineAt.Format(time.RFC3339Nano),
+				fmt.Sprint(event.CleanCheckCount), event.OccurredAt.Format(time.RFC3339Nano),
+			)
+			if _, duplicate := seen[recoveryEventKey(event)]; duplicate {
+				continue
+			}
+			if store.AppendRecoveryEvent(ctx, event) != nil {
+				appendFailure(evidence, "persistence_failure", sample.ObservedAt)
+				continue
+			}
+			evidence.RecoveryEvents = append(evidence.RecoveryEvents, event)
+			seen[recoveryEventKey(event)] = struct{}{}
 		}
-		event.EvidenceHash = hashValues(
-			configuration.Identity.RunID, event.AccountID, event.Exchange,
-			event.Event, event.State, event.FailureKind, event.CauseCode,
-			event.DeadlineAt.Format(time.RFC3339Nano),
-			fmt.Sprint(event.CleanCheckCount), event.OccurredAt.Format(time.RFC3339Nano),
-		)
-		if _, duplicate := seen[recoveryEventKey(event)]; duplicate {
-			continue
-		}
-		if store.AppendRecoveryEvent(ctx, event) != nil {
-			appendFailure(evidence, "persistence_failure", sample.ObservedAt)
-			continue
-		}
-		evidence.RecoveryEvents = append(evidence.RecoveryEvents, event)
-		seen[recoveryEventKey(event)] = struct{}{}
 	}
 }
 
 func recoveryEventKey(event RecoveryEvent) string {
-	return event.AccountID + "\x00" + event.Event + "\x00" +
+	return event.AccountID + "\x00" + fmt.Sprint(event.AccountEpoch) + "\x00" +
+		event.IncidentSource + "\x00" + event.Event + "\x00" +
 		fmt.Sprint(event.CleanCheckCount)
 }
 
@@ -297,14 +333,20 @@ func sampleAllowsActiveRecovery(sample Sample) bool {
 			continue
 		}
 		active++
-		if account.State != "DEGRADED" || !account.StreamHealthy ||
+		streamAllowed := account.StreamHealthy ||
+			(account.IncidentSource == "private_stream" &&
+				account.CleanCheckCount == 0)
+		if account.State != "DEGRADED" || !streamAllowed ||
 			!account.EvidenceHealthy || !account.LeaseHeld || !account.AccountSafe ||
+			(account.IncidentSource != "reconciliation" &&
+				account.IncidentSource != "private_stream") ||
 			(account.FailureKind != "transient_outage" && account.FailureKind != "maintenance") ||
-			account.DeadlineAt == nil || account.CleanCheckCount > 1 {
+			account.DeadlineAt == nil || account.CleanCheckCount > 1 ||
+			!sample.ObservedAt.Before(account.DeadlineAt.UTC()) {
 			return false
 		}
 	}
-	return active == 1
+	return active > 0
 }
 
 func evaluateRecovery(evidence *Evidence, sample Sample) {
@@ -317,7 +359,10 @@ func evaluateRecovery(evidence *Evidence, sample Sample) {
 		case "unrecoverable":
 			appendFailure(evidence, "recovery_unrecoverable", sample.ObservedAt)
 		case "active":
-			if !sampleAllowsActiveRecovery(sample) {
+			if account.DeadlineAt != nil &&
+				!sample.ObservedAt.Before(account.DeadlineAt.UTC()) {
+				appendFailure(evidence, "recovery_expired", sample.ObservedAt)
+			} else if !sampleAllowsActiveRecovery(sample) {
 				appendFailure(evidence, "recovery_unrecoverable", sample.ObservedAt)
 			}
 		}

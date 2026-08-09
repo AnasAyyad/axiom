@@ -177,7 +177,7 @@ func initializeC6Metrics(metrics *Metrics, labels prometheus.Labels) {
 	metrics.c6SoakDuration = gauge("axiom_c6_soak_duration_seconds", "Observed C6 qualification duration.", []string{"mode"}, labels)
 	metrics.c6SoakFailures = counter("axiom_c6_soak_failures_total", "C6 qualification failures by closed reason.", []string{"reason"}, labels)
 	metrics.c6MemoryTrend = gauge("axiom_c6_memory_trend_bytes", "Bounded resident-memory trend after warm-up.", []string{"window"}, labels)
-	metrics.c6RecoveryIncidents = gauge("axiom_c6_recovery_incidents", "Current bounded C6 recovery incidents by state.", []string{"exchange", "state"}, labels)
+	metrics.c6RecoveryIncidents = gauge("axiom_c6_recovery_incidents", "Current bounded C6 read-only recovery incidents by state.", []string{"exchange", "state"}, labels)
 }
 
 func (metrics *Metrics) register() {

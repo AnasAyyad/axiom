@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/sandbox"
 )
 
@@ -209,9 +210,15 @@ func TestBinancePrivateDecoderRequiresRESTBackfillForCumulativeFill(t *testing.T
 	}
 }
 
-func TestBinancePrivateStreamSignsSubscribesAndBackfillsAfterReconnect(t *testing.T) {
+func TestBinancePrivateStreamReturnsTypedLossThenExplicitlyReconnects(t *testing.T) {
 	fixture := newBinancePrivateStreamFixture(t)
 	defer fixture.source.Close()
+	if _, err := fixture.source.Receive(context.Background()); exchangecontracts.KindOf(err) != exchangecontracts.ErrorTransient {
+		t.Fatalf("stream loss was not typed: %v", err)
+	}
+	if err := fixture.source.Reconnect(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	event, err := fixture.source.Receive(context.Background())
 	if err != nil || event.Kind != sandbox.PrivateBalanceEvent ||
 		fixture.connector.index != 2 {
@@ -237,7 +244,10 @@ func TestBinancePrivateStreamExplicitReconnectCompletesWithoutEvent(
 ) {
 	fixture := newBinancePrivateStreamFixture(t)
 	defer fixture.source.Close()
-	if _, err := fixture.source.Receive(context.Background()); err != nil {
+	if _, err := fixture.source.Receive(context.Background()); exchangecontracts.KindOf(err) != exchangecontracts.ErrorTransient {
+		t.Fatalf("stream loss was not typed: %v", err)
+	}
+	if err := fixture.source.Reconnect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	ack := []byte(`{"id":"axiom-1699999999100","status":200,"result":{"subscriptionId":0},"rateLimits":[]}`)

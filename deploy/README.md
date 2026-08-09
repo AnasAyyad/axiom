@@ -421,6 +421,20 @@ validation rejects a dirty source, a missing image identity, either missing
 approved account environment, a duration other than 259,200 seconds, or a
 sample interval outside 15 seconds through 5 minutes.
 
+One account may consume at most one bounded read-only recovery during the
+run, shared across authoritative reconciliation and private-stream transport
+disconnects. Only redacted typed `transient_outage` or `maintenance` failures
+are permitted. The engine must enter `DEGRADED`, disable dispatch, reconnect
+and backfill a disconnected private stream, reconcile immediately, then record
+a second clean reconciliation at least 30 seconds later before returning only
+to `READY_PAUSED`. The deadline is two minutes and the 72-hour clock continues.
+Rate-limit, authentication/timestamp, mismatch, persistence, lease, unsafe
+state, untyped, repeated, and expired incidents terminate the run. The sealed
+`c6-f153781-20260806-r1` and `c6-596db28-20260806-r2` runs remain `FAILED`
+and disqualified; neither can be resumed, relabeled, or written to. Never
+remove or replace their evidence. Every retry uses a new run ID and a new
+absent evidence path.
+
 The observer is a standalone committed-source binary, not `go run`. Build it
 and the deterministic controller into a new retained qualification directory,
 then record both SHA-256 values before launch:

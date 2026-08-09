@@ -16,14 +16,30 @@ type sandboxEngineHealth struct {
 	ready                 bool
 	dispatchAllowed       bool
 	recovery              *sandbox.ReconciliationRecovery
+	now                   func() time.Time
+}
+
+type sandboxEngineHealthLoop interface {
+	refreshEligibility(context.Context, bool) (bool, error)
+	reconcile(context.Context, bool) error
+	transitionReadiness(context.Context, bool, bool) (bool, error)
 }
 
 func newSandboxEngineHealth() sandboxEngineHealth {
-	return newSandboxEngineHealthAt(time.Now().UTC())
+	return newSandboxEngineHealthWithClock(func() time.Time {
+		return time.Now().UTC()
+	})
 }
 
 func newSandboxEngineHealthAt(at time.Time) sandboxEngineHealth {
-	recovery, err := sandbox.NewReconciliationRecovery(at)
+	return newSandboxEngineHealthWithClock(func() time.Time { return at })
+}
+
+func newSandboxEngineHealthWithClock(now func() time.Time) sandboxEngineHealth {
+	if now == nil {
+		return sandboxEngineHealth{}
+	}
+	recovery, err := sandbox.NewReconciliationRecovery(now().UTC())
 	if err != nil {
 		return sandboxEngineHealth{}
 	}
@@ -35,31 +51,58 @@ func newSandboxEngineHealthAt(at time.Time) sandboxEngineHealth {
 		ready:                 true,
 		dispatchAllowed:       true,
 		recovery:              recovery,
+		now:                   now,
 	}
 }
 
 func (health *sandboxEngineHealth) observePrivate(
 	ctx context.Context,
-	loop sandboxEngineLoop,
+	loop sandboxEngineHealthLoop,
 	signal sandboxPrivateStreamSignal,
 ) error {
 	if ctx.Err() != nil {
 		return nil
 	}
 	if signal.fatal != nil {
+		health.privateHealthy = false
+		health.reconciliationHealthy = false
+		health.dispatchAllowed = false
+		if err := health.transition(ctx, loop); err != nil {
+			return err
+		}
 		return fmt.Errorf("sandbox_engine_private_stream_failed")
 	}
 	health.privateHealthy = signal.healthy
 	if !signal.healthy {
+		transition, recoveryErr := health.recovery.ObserveIncident(
+			health.nowUTC(), sandbox.RecoverySourcePrivateStream,
+			signal.failureKind, signal.causeCode,
+		)
 		health.reconciliationHealthy = false
 		health.dispatchAllowed = false
+		if err := health.transition(ctx, loop); err != nil {
+			return err
+		}
+		if recoveryErr != nil {
+			return recoveryErr
+		}
+		if transition.State != sandbox.RecoveryActive {
+			return fmt.Errorf("sandbox_private_stream_recovery_state_%s", transition.State)
+		}
+		return nil
 	}
-	return health.transition(ctx, loop)
+	if err := health.transition(ctx, loop); err != nil {
+		return err
+	}
+	if signal.reconcileNow && health.recovery.Active() {
+		return health.reconcile(ctx, loop)
+	}
+	return nil
 }
 
 func (health *sandboxEngineHealth) observeRuntime(
 	ctx context.Context,
-	loop sandboxEngineLoop,
+	loop sandboxEngineHealthLoop,
 	runtimeErr error,
 ) error {
 	if runtimeErr == nil || ctx.Err() != nil {
@@ -72,7 +115,7 @@ func (health *sandboxEngineHealth) observeRuntime(
 
 func (health *sandboxEngineHealth) refreshEligibility(
 	ctx context.Context,
-	loop sandboxEngineLoop,
+	loop sandboxEngineHealthLoop,
 ) error {
 	eligible, err := loop.refreshEligibility(
 		ctx, health.exchangeEligible,
@@ -90,13 +133,13 @@ func (health *sandboxEngineHealth) refreshEligibility(
 
 func (health *sandboxEngineHealth) reconcile(
 	ctx context.Context,
-	loop sandboxEngineLoop,
+	loop sandboxEngineHealthLoop,
 ) error {
 	if !health.exchangeEligible || !health.privateHealthy {
 		return nil
 	}
 	if health.recovery == nil {
-		recovery, recoveryErr := sandbox.NewReconciliationRecovery(time.Now().UTC())
+		recovery, recoveryErr := sandbox.NewReconciliationRecovery(health.nowUTC())
 		if recoveryErr != nil {
 			return recoveryErr
 		}
@@ -107,23 +150,26 @@ func (health *sandboxEngineHealth) reconcile(
 		return nil
 	}
 	if err != nil {
-		kind, cause := sandbox.ClassifyReconciliationFailure(err)
-		transition, recoveryErr := health.recovery.ObserveFailure(
-			time.Now().UTC(), kind, cause,
+		kind, cause := sandbox.ClassifyRecoveryFailure(err)
+		transition, recoveryErr := health.recovery.ObserveIncident(
+			health.nowUTC(), sandbox.RecoverySourceReconciliation, kind, cause,
 		)
 		health.reconciliationHealthy = false
 		health.dispatchAllowed = false
+		if transitionErr := health.transition(ctx, loop); transitionErr != nil {
+			return transitionErr
+		}
 		if recoveryErr != nil {
 			return recoveryErr
 		}
 		if transition.State != sandbox.RecoveryActive {
 			return fmt.Errorf("sandbox_reconciliation_recovery_state_%s", transition.State)
 		}
-		return health.transition(ctx, loop)
+		return nil
 	}
 	if health.recovery.Active() {
 		transition, recoveryErr := health.recovery.ObserveClean(
-			time.Now().UTC(), sandbox.ReconciliationRecoveryHealth{
+			health.nowUTC(), sandbox.ReconciliationRecoveryHealth{
 				StreamHealthy:       health.privateHealthy,
 				EvidenceHealthy:     true,
 				LeaseHeld:           health.leaseHeld,
@@ -132,6 +178,11 @@ func (health *sandboxEngineHealth) reconcile(
 			},
 		)
 		if recoveryErr != nil {
+			health.reconciliationHealthy = false
+			health.dispatchAllowed = false
+			if transitionErr := health.transition(ctx, loop); transitionErr != nil {
+				return transitionErr
+			}
 			return recoveryErr
 		}
 		health.reconciliationHealthy = transition.State == sandbox.RecoveryRecovered
@@ -145,13 +196,21 @@ func (health *sandboxEngineHealth) reconcile(
 
 func (health *sandboxEngineHealth) transition(
 	ctx context.Context,
-	loop sandboxEngineLoop,
+	loop sandboxEngineHealthLoop,
 ) error {
 	target := health.exchangeEligible &&
 		health.privateHealthy &&
 		health.reconciliationHealthy &&
-		health.recovery != nil && !health.recovery.Active()
+		health.dispatchAllowed &&
+		health.recovery != nil && health.recovery.DispatchAllowed()
 	ready, err := loop.transitionReadiness(ctx, health.ready, target)
 	health.ready = ready
 	return err
+}
+
+func (health *sandboxEngineHealth) nowUTC() time.Time {
+	if health == nil || health.now == nil {
+		return time.Time{}
+	}
+	return health.now().UTC()
 }

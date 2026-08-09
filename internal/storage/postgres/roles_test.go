@@ -221,6 +221,7 @@ func assertC6RoleAppendGrants(t *testing.T, appendOnly string) {
 		"v1c_c6_qualification_samples",
 		"v1c_c6_qualification_failures",
 		"v1c_c6_chaos_events",
+		"v1c_c6_recovery_events",
 	} {
 		if !strings.Contains(
 			appendOnly,

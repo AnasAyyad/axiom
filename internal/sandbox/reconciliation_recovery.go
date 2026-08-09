@@ -11,9 +11,9 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-// Bounded reconciliation recovery is deliberately narrower than generic
-// sandbox recovery. It is usable only for one typed upstream outage per
-// account in one C6 run; every other failure remains terminal.
+// Bounded read-only recovery is deliberately narrower than generic sandbox
+// recovery. It is usable only for one typed reconciliation or private-stream
+// outage per account in one C6 run; every other failure remains terminal.
 const (
 	ReconciliationRecoveryWindow   = 72 * time.Hour
 	ReconciliationRecoveryDeadline = 2 * time.Minute
@@ -31,6 +31,15 @@ const (
 	RecoveryExpired       RecoveryState = "expired"
 	RecoveryRepeated      RecoveryState = "repeated"
 	RecoveryUnrecoverable RecoveryState = "unrecoverable"
+)
+
+// RecoveryIncidentSource is the closed, redacted boundary where an incident
+// was detected. It never contains an endpoint, topic, or exchange payload.
+type RecoveryIncidentSource string
+
+const (
+	RecoverySourceReconciliation RecoveryIncidentSource = "reconciliation"
+	RecoverySourcePrivateStream  RecoveryIncidentSource = "private_stream"
 )
 
 // RecoveryEventKind is the immutable lifecycle event vocabulary.
@@ -67,6 +76,7 @@ type RecoveryTransition struct {
 	Changed         bool
 	State           RecoveryState
 	Event           RecoveryEventKind
+	IncidentSource  RecoveryIncidentSource
 	FailureKind     exchangecontracts.ErrorKind
 	CauseCode       string
 	IncidentAt      time.Time
@@ -81,10 +91,10 @@ var ErrReconciliationRecoveryTerminal = errors.New("reconciliation_recovery_term
 
 var recoveryCausePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 
-// ClassifyReconciliationFailure converts an adapter error into the existing
-// typed exchange kind plus one sanitized cause code. Unknown errors are
-// intentionally terminal and never expose their text.
-func ClassifyReconciliationFailure(err error) (exchangecontracts.ErrorKind, string) {
+// ClassifyRecoveryFailure converts an adapter error into the existing typed
+// exchange kind plus one sanitized cause code. Unknown errors are terminal and
+// never expose their text.
+func ClassifyRecoveryFailure(err error) (exchangecontracts.ErrorKind, string) {
 	if err == nil {
 		return "", ""
 	}
@@ -96,6 +106,12 @@ func ClassifyReconciliationFailure(err error) (exchangecontracts.ErrorKind, stri
 	return kind, cause
 }
 
+// ClassifyReconciliationFailure preserves the reconciliation-specific caller
+// contract while sharing the bounded recovery classifier.
+func ClassifyReconciliationFailure(err error) (exchangecontracts.ErrorKind, string) {
+	return ClassifyRecoveryFailure(err)
+}
+
 // ReconciliationRecovery owns one account's bounded recovery lifecycle.
 type ReconciliationRecovery struct {
 	runStarted  time.Time
@@ -105,6 +121,7 @@ type ReconciliationRecovery struct {
 	cleanChecks uint8
 	used        bool
 	state       RecoveryState
+	source      RecoveryIncidentSource
 }
 
 // NewReconciliationRecovery constructs an unused account controller.
@@ -145,22 +162,44 @@ func (recovery *ReconciliationRecovery) ObserveFailure(
 	kind exchangecontracts.ErrorKind,
 	causeCode string,
 ) (RecoveryTransition, error) {
-	if recovery == nil || !recovery.validTime(at) || !validRecoveryCause(causeCode) {
+	return recovery.ObserveIncident(
+		at, RecoverySourceReconciliation, kind, causeCode,
+	)
+}
+
+// ObserveIncident starts the one permitted read-only recovery or returns a
+// terminal transition. Reconciliation and private-stream incidents share one
+// budget, so switching sources cannot create a second allowance.
+func (recovery *ReconciliationRecovery) ObserveIncident(
+	at time.Time,
+	source RecoveryIncidentSource,
+	kind exchangecontracts.ErrorKind,
+	causeCode string,
+) (RecoveryTransition, error) {
+	if recovery == nil || !recovery.validTime(at) ||
+		!validRecoverySource(source) || !validRecoveryCause(causeCode) {
 		return RecoveryTransition{}, ErrReconciliationRecoveryTerminal
 	}
-	if !permittedRecoveryKind(kind) {
-		return recovery.terminal(at, RecoveryUnrecoverableEvent, kind, causeCode)
+	if !PermittedRecoveryKind(kind) {
+		return recovery.terminal(
+			at, RecoveryUnrecoverableEvent, source, kind, causeCode,
+		)
 	}
 	if recovery.used {
-		return recovery.terminal(at, RecoveryRepeatedEvent, kind, causeCode)
+		return recovery.terminal(
+			at, RecoveryRepeatedEvent, source, kind, causeCode,
+		)
 	}
 	recovery.used = true
+	recovery.source = source
 	recovery.incidentAt = at
 	recovery.deadline = at.Add(ReconciliationRecoveryDeadline)
 	recovery.cleanChecks = 0
 	recovery.lastClean = time.Time{}
 	recovery.state = RecoveryActive
-	return recovery.transition(at, RecoveryDetected, kind, causeCode, true), nil
+	return recovery.transition(
+		at, RecoveryDetected, source, kind, causeCode, true,
+	), nil
 }
 
 // ObserveClean records a fully healthy clean reconciliation. Two checks must
@@ -177,11 +216,13 @@ func (recovery *ReconciliationRecovery) ObserveClean(
 	}
 	if !at.Before(recovery.deadline) {
 		return recovery.terminal(at, RecoveryExpiredEvent,
-			exchangecontracts.ErrorTransient, "recovery_deadline_exceeded")
+			recovery.source, exchangecontracts.ErrorTransient,
+			"recovery_deadline_exceeded")
 	}
 	if !health.Safe() {
 		return recovery.terminal(at, RecoveryUnrecoverableEvent,
-			exchangecontracts.ErrorValidation, "recovery_health_not_safe")
+			recovery.source, exchangecontracts.ErrorValidation,
+			"recovery_health_not_safe")
 	}
 	if recovery.cleanChecks > 0 && at.Sub(recovery.lastClean) < ReconciliationCleanInterval {
 		return RecoveryTransition{State: RecoveryActive, Changed: false,
@@ -191,23 +232,27 @@ func (recovery *ReconciliationRecovery) ObserveClean(
 	recovery.cleanChecks++
 	recovery.lastClean = at
 	if recovery.cleanChecks < ReconciliationCleanChecks {
-		return recovery.transition(at, RecoveryFirstClean, "", "", true), nil
+		return recovery.transition(
+			at, RecoveryFirstClean, recovery.source, "", "", true,
+		), nil
 	}
 	recovery.state = RecoveryRecovered
 	recoveredAt := at
-	transition := recovery.transition(at, RecoveryRecoveredEvent, "", "", true)
+	transition := recovery.transition(
+		at, RecoveryRecoveredEvent, recovery.source, "", "", true,
+	)
 	transition.RecoveredAt = &recoveredAt
 	return transition, nil
 }
 
 func (recovery *ReconciliationRecovery) validTime(at time.Time) bool {
-	return at.Location() == time.UTC && !at.Before(recovery.runStarted) &&
-		at.Sub(recovery.runStarted) <= ReconciliationRecoveryWindow
+	return at.Location() == time.UTC && !at.Before(recovery.runStarted)
 }
 
 func (recovery *ReconciliationRecovery) terminal(
 	at time.Time,
 	event RecoveryEventKind,
+	source RecoveryIncidentSource,
 	kind exchangecontracts.ErrorKind,
 	causeCode string,
 ) (RecoveryTransition, error) {
@@ -219,22 +264,25 @@ func (recovery *ReconciliationRecovery) terminal(
 	default:
 		recovery.state = RecoveryUnrecoverable
 	}
-	return recovery.transition(at, event, kind, causeCode, true), ErrReconciliationRecoveryTerminal
+	return recovery.transition(
+		at, event, source, kind, causeCode, true,
+	), ErrReconciliationRecoveryTerminal
 }
 
 func (recovery *ReconciliationRecovery) transition(
 	at time.Time,
 	event RecoveryEventKind,
+	source RecoveryIncidentSource,
 	kind exchangecontracts.ErrorKind,
 	causeCode string,
 	changed bool,
 ) RecoveryTransition {
 	return RecoveryTransition{
 		Changed: changed, State: recovery.state, Event: event,
-		FailureKind: kind, CauseCode: causeCode,
+		IncidentSource: source, FailureKind: kind, CauseCode: causeCode,
 		IncidentAt: recovery.incidentAt, DeadlineAt: recovery.deadline,
 		CleanCheckCount: recovery.cleanChecks,
-		EvidenceHash: recoveryEvidenceHash(at, event, kind, causeCode,
+		EvidenceHash: recoveryEvidenceHash(at, event, source, kind, causeCode,
 			recovery.incidentAt, recovery.deadline, recovery.cleanChecks),
 	}
 }
@@ -242,22 +290,30 @@ func (recovery *ReconciliationRecovery) transition(
 func recoveryEvidenceHash(
 	at time.Time,
 	event RecoveryEventKind,
+	source RecoveryIncidentSource,
 	kind exchangecontracts.ErrorKind,
 	causeCode string,
 	incidentAt, deadline time.Time,
 	cleanChecks uint8,
 ) string {
 	digest := sha256.Sum256([]byte(fmt.Sprintf(
-		"%s\x00%s\x00%s\x00%s\x00%d\x00%d\x00%d\x00%d",
-		event, kind, causeCode, at.UTC().Format(time.RFC3339Nano),
+		"%s\x00%s\x00%s\x00%s\x00%s\x00%d\x00%d\x00%d\x00%d",
+		event, source, kind, causeCode, at.UTC().Format(time.RFC3339Nano),
 		incidentAt.UnixNano(), deadline.UnixNano(), cleanChecks,
 		ReconciliationRecoveryDeadline.Milliseconds(),
 	)))
 	return hex.EncodeToString(digest[:])
 }
 
-func permittedRecoveryKind(kind exchangecontracts.ErrorKind) bool {
+// PermittedRecoveryKind reports whether a typed failure may consume the one
+// bounded C6 recovery allowance.
+func PermittedRecoveryKind(kind exchangecontracts.ErrorKind) bool {
 	return kind == exchangecontracts.ErrorTransient || kind == exchangecontracts.ErrorMaintenance
+}
+
+func validRecoverySource(source RecoveryIncidentSource) bool {
+	return source == RecoverySourceReconciliation ||
+		source == RecoverySourcePrivateStream
 }
 
 func validRecoveryCause(value string) bool {

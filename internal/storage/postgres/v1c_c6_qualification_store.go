@@ -154,7 +154,10 @@ func (store *V1CC6QualificationStore) AppendRecoveryEvent(
 ) error {
 	if event.RunID == "" || event.AccountID == "" || event.AccountEpoch == 0 ||
 		event.Exchange == "" || event.Environment == "" || event.Event == "" ||
-		event.State == "" || event.FailureKind == "" || event.CauseCode == "" ||
+		event.State == "" ||
+		(event.IncidentSource != "reconciliation" &&
+			event.IncidentSource != "private_stream") ||
+		event.FailureKind == "" || event.CauseCode == "" ||
 		event.DeadlineAt.IsZero() || event.OccurredAt.IsZero() ||
 		event.OccurredAt.Location() != time.UTC || len(event.EvidenceHash) != 64 {
 		return fmt.Errorf("c6_recovery_event_invalid")
@@ -162,12 +165,12 @@ func (store *V1CC6QualificationStore) AppendRecoveryEvent(
 	_, err := store.pool.Exec(ctx, `
 INSERT INTO v1c_c6_recovery_events(
  id,run_id,account_id,exchange,environment,account_epoch,event,state,
- failure_kind,cause_code,deadline_at,clean_check_count,recovery_timestamp,
- evidence_hash,occurred_at
-) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+ incident_source,failure_kind,cause_code,deadline_at,clean_check_count,
+ recovery_timestamp,evidence_hash,occurred_at
+) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		event.EvidenceHash, event.RunID, event.AccountID, event.Exchange,
 		event.Environment, event.AccountEpoch, event.Event, event.State,
-		event.FailureKind, event.CauseCode, event.DeadlineAt,
+		event.IncidentSource, event.FailureKind, event.CauseCode, event.DeadlineAt,
 		event.CleanCheckCount, event.RecoveryTimestamp, event.EvidenceHash,
 		event.OccurredAt,
 	)
@@ -283,10 +286,7 @@ func (store *V1CC6QualificationStore) observeC6Accounts(
 	sample.AllAccountsFresh = total == 2 && fresh == total
 	sample.AllLeasesHeld = total == 2 && leases == total
 	sample.EntrySafe = sample.AllAccountsFresh && sample.AllLeasesHeld
-	store.mutex.Lock()
-	runID := store.runID
-	store.mutex.Unlock()
-	if err := store.observeC6AccountDetails(ctx, now, runID, sample); err != nil {
+	if err := store.observeC6AccountDetails(ctx, now, sample); err != nil {
 		return err
 	}
 	if cycles > baselineRestarts {
@@ -308,13 +308,12 @@ func (store *V1CC6QualificationStore) observeC6Accounts(
 func (store *V1CC6QualificationStore) observeC6AccountDetails(
 	ctx context.Context,
 	now time.Time,
-	runID string,
 	sample *c6.Sample,
 ) error {
 	store.mutex.Lock()
 	started := store.started
 	store.mutex.Unlock()
-	rows, err := store.pool.Query(ctx, c6ObserveAccountDetailsSQL, now, runID, started)
+	rows, err := store.pool.Query(ctx, c6ObserveAccountDetailsSQL, now, started)
 	if err != nil {
 		return err
 	}
@@ -325,93 +324,182 @@ func (store *V1CC6QualificationStore) observeC6AccountDetails(
 	for rows.Next() {
 		var account c6.AccountObservation
 		var runtimeSucceeded bool
-		var runtimeFailureKind, runtimeCause string
 		var runtimeAt *time.Time
-		var latestFailureKind, latestFailureCause string
-		var latestFailureAt *time.Time
+		var firstIncidentKind, firstFailureKind, firstCause string
+		var firstIncidentAt *time.Time
+		var latestIncidentKind, latestFailureKind, latestCause string
+		var latestIncidentAt *time.Time
 		var runtimeFailureCount int
 		var runtimeHasTerminalFailure bool
-		var recoveryEvent, recoveryState string
-		var recoveryFailureKind, recoveryCause string
-		var recoveryDeadline, recoveryAt *time.Time
-		var cleanChecks int
+		var terminalKind, terminalFailureKind, terminalCause string
+		var terminalAt, reconnectAt, firstCleanAt, secondCleanAt *time.Time
 		if err = rows.Scan(
 			&account.ID, &account.Exchange, &account.Environment, &account.Epoch,
 			&account.State, &account.StreamHealthy, &account.EvidenceHealthy,
 			&account.LeaseHeld, &account.ReconciliationClean,
-			&runtimeSucceeded, &runtimeFailureKind, &runtimeCause, &runtimeAt,
-			&latestFailureKind, &latestFailureCause, &latestFailureAt,
+			&runtimeSucceeded, &runtimeAt,
+			&firstIncidentKind, &firstFailureKind, &firstCause, &firstIncidentAt,
+			&latestIncidentKind, &latestFailureKind, &latestCause, &latestIncidentAt,
 			&runtimeFailureCount, &runtimeHasTerminalFailure,
-			&recoveryEvent, &recoveryState, &recoveryFailureKind,
-			&recoveryCause, &recoveryDeadline, &cleanChecks, &recoveryAt,
+			&terminalKind, &terminalFailureKind, &terminalCause, &terminalAt,
+			&reconnectAt, &firstCleanAt, &secondCleanAt,
 		); err != nil {
 			return err
 		}
-		if latestFailureKind == "" && runtimeFailureCount > 0 {
-			latestFailureKind = "validation_rejected"
-		}
-		if latestFailureCause == "" && runtimeFailureCount > 0 {
-			latestFailureCause = "untyped_failure"
-		}
+		account.AccountSafe = account.State == "DEGRADED" ||
+			account.State == "READY_PAUSED"
 		account.RecoveryState = "not_required"
-		if runtimeHasTerminalFailure {
-			account.RecoveryState = "unrecoverable"
-			account.RecoveryEvent = "unrecoverable"
-			account.FailureKind = latestFailureKind
-			account.CauseCode = latestFailureCause
-			if latestFailureAt != nil {
-				deadline := latestFailureAt.UTC().Add(2 * time.Minute)
+		if firstIncidentAt != nil &&
+			permittedC6RecoveryFailure(firstFailureKind) {
+			deadline := firstIncidentAt.UTC().Add(2 * time.Minute)
+			account.DeadlineAt = &deadline
+			account.RecoveryEvents = append(account.RecoveryEvents,
+				c6AccountRecoveryEvent(
+					"detected", "active", firstIncidentKind,
+					firstFailureKind, firstCause, deadline, 0,
+					firstIncidentAt.UTC(), nil,
+				),
+			)
+			if firstCleanAt != nil {
+				account.CleanCheckCount = 1
+				account.RecoveryEvents = append(account.RecoveryEvents,
+					c6AccountRecoveryEvent(
+						"first_clean_check", "active", firstIncidentKind,
+						firstFailureKind, firstCause, deadline, 1,
+						firstCleanAt.UTC(), nil,
+					),
+				)
+			}
+		}
+		if runtimeHasTerminalFailure && runtimeFailureCount <= 1 {
+			state, event := "unrecoverable", "unrecoverable"
+			if terminalCause == "recovery_deadline_exceeded" {
+				state, event = "expired", "expired"
+			}
+			account.RecoveryState, account.RecoveryEvent = state, event
+			account.IncidentSource = c6RecoverySource(terminalKind)
+			account.FailureKind = stableC6FailureKind(terminalFailureKind)
+			account.CauseCode = stableC6Cause(terminalCause)
+			deadline := now.UTC()
+			if account.DeadlineAt != nil {
+				deadline = account.DeadlineAt.UTC()
+			} else if terminalAt != nil {
+				deadline = terminalAt.UTC().Add(2 * time.Minute)
 				account.DeadlineAt = &deadline
 			}
+			occurred := now.UTC()
+			if terminalAt != nil {
+				occurred = terminalAt.UTC()
+			}
+			account.RecoveryEvents = append(account.RecoveryEvents,
+				c6AccountRecoveryEvent(
+					event, state, terminalKind, account.FailureKind,
+					account.CauseCode, deadline, account.CleanCheckCount,
+					occurred, nil,
+				),
+			)
 		} else if runtimeFailureCount > 1 {
 			account.RecoveryState = "repeated"
 			account.RecoveryEvent = "repeated"
-			account.FailureKind = latestFailureKind
-			account.CauseCode = latestFailureCause
-			if latestFailureAt != nil {
-				deadline := latestFailureAt.UTC().Add(2 * time.Minute)
+			account.IncidentSource = c6RecoverySource(latestIncidentKind)
+			account.FailureKind = stableC6FailureKind(latestFailureKind)
+			account.CauseCode = stableC6Cause(latestCause)
+			deadline := now.UTC()
+			if account.DeadlineAt != nil {
+				deadline = account.DeadlineAt.UTC()
+			} else if latestIncidentAt != nil {
+				deadline = latestIncidentAt.UTC().Add(2 * time.Minute)
 				account.DeadlineAt = &deadline
 			}
-		} else if recoveryState != "" {
-			account.RecoveryState = recoveryState
-			account.RecoveryEvent = recoveryEvent
-			account.FailureKind = recoveryFailureKind
-			account.CauseCode = recoveryCause
-			account.DeadlineAt = recoveryDeadline
-			account.CleanCheckCount = uint8(cleanChecks)
-			account.RecoveryTimestamp = recoveryAt
-		} else if !runtimeSucceeded {
-			account.FailureKind = latestFailureKind
-			account.CauseCode = latestFailureCause
-			if runtimeFailureCount == 1 &&
-				(latestFailureKind == "transient_outage" ||
-					latestFailureKind == "maintenance") &&
-				account.State == "DEGRADED" && latestFailureAt != nil {
+			occurred := now.UTC()
+			if latestIncidentAt != nil {
+				occurred = latestIncidentAt.UTC()
+			}
+			account.RecoveryEvents = append(account.RecoveryEvents,
+				c6AccountRecoveryEvent(
+					"repeated", "repeated", latestIncidentKind,
+					account.FailureKind, account.CauseCode, deadline,
+					account.CleanCheckCount, occurred, nil,
+				),
+			)
+		} else if runtimeFailureCount == 1 && firstIncidentAt != nil {
+			account.IncidentSource = c6RecoverySource(firstIncidentKind)
+			account.FailureKind = stableC6FailureKind(firstFailureKind)
+			account.CauseCode = stableC6Cause(firstCause)
+			deadline := firstIncidentAt.UTC().Add(2 * time.Minute)
+			account.DeadlineAt = &deadline
+			streamRecovered := account.StreamHealthy &&
+				(account.IncidentSource != "private_stream" || reconnectAt != nil)
+			if secondCleanAt != nil && account.State == "READY_PAUSED" &&
+				streamRecovered && account.EvidenceHealthy &&
+				account.LeaseHeld && account.AccountSafe && runtimeSucceeded {
+				account.RecoveryState, account.RecoveryEvent = "recovered", "recovered"
+				account.CleanCheckCount = 2
+				recoveredAt := secondCleanAt.UTC()
+				account.RecoveryTimestamp = &recoveredAt
+				account.RecoveryEvents = append(account.RecoveryEvents,
+					c6AccountRecoveryEvent(
+						"recovered", "recovered", firstIncidentKind,
+						account.FailureKind, account.CauseCode, deadline, 2,
+						recoveredAt, &recoveredAt,
+					),
+				)
+			} else if !now.Before(deadline) {
+				account.RecoveryState, account.RecoveryEvent = "expired", "expired"
+				if firstCleanAt != nil {
+					account.CleanCheckCount = 1
+				}
+				account.RecoveryEvents = append(account.RecoveryEvents,
+					c6AccountRecoveryEvent(
+						"expired", "expired", firstIncidentKind,
+						account.FailureKind, "recovery_deadline_exceeded",
+						deadline, account.CleanCheckCount, deadline, nil,
+					),
+				)
+			} else if account.State == "DEGRADED" {
 				account.RecoveryState = "active"
 				account.RecoveryEvent = "detected"
-				deadline := latestFailureAt.UTC().Add(2 * time.Minute)
-				account.DeadlineAt = &deadline
-			} else {
-				account.RecoveryState = "unrecoverable"
-				account.RecoveryEvent = "unrecoverable"
-				if latestFailureAt != nil {
-					deadline := latestFailureAt.UTC().Add(2 * time.Minute)
-					account.DeadlineAt = &deadline
+				if firstCleanAt != nil {
+					account.RecoveryEvent = "first_clean_check"
+					account.CleanCheckCount = 1
 				}
+			} else {
+				account.RecoveryState, account.RecoveryEvent = "unrecoverable", "unrecoverable"
+				account.FailureKind = "validation_rejected"
+				account.CauseCode = "recovery_state_not_degraded"
+				account.RecoveryEvents = append(account.RecoveryEvents,
+					c6AccountRecoveryEvent(
+						"unrecoverable", "unrecoverable", firstIncidentKind,
+						account.FailureKind, account.CauseCode, deadline,
+						account.CleanCheckCount, now.UTC(), nil,
+					),
+				)
 			}
 		}
-		account.AccountSafe = account.State == "DEGRADED" ||
-			account.State == "READY_PAUSED"
+		if account.IncidentSource == "private_stream" &&
+			account.RecoveryState == "active" {
+			account.StreamHealthy = reconnectAt != nil
+		}
+		if account.RecoveryState == "active" ||
+			account.RecoveryState == "expired" ||
+			account.RecoveryState == "repeated" ||
+			account.RecoveryState == "unrecoverable" {
+			account.ReconciliationClean = false
+		}
+		streamAllowed := account.StreamHealthy ||
+			(account.IncidentSource == "private_stream" &&
+				account.CleanCheckCount == 0)
 		allowedActive := account.RecoveryState == "active" &&
-			account.State == "DEGRADED" && account.StreamHealthy &&
+			account.State == "DEGRADED" && streamAllowed &&
 			account.EvidenceHealthy && account.LeaseHeld && account.AccountSafe &&
+			now.Before(account.DeadlineAt.UTC()) &&
 			(account.FailureKind == "transient_outage" ||
 				account.FailureKind == "maintenance")
 		fresh := account.State == "READY_PAUSED" &&
 			account.StreamHealthy && account.EvidenceHealthy &&
 			account.LeaseHeld && account.ReconciliationClean &&
 			runtimeSucceeded && runtimeAt != nil &&
-			now.Sub(runtimeAt.UTC()) <= 2*time.Minute
+			!runtimeAt.After(now) && now.Sub(runtimeAt.UTC()) <= 2*time.Minute
 		if allowedActive {
 			active++
 			fresh = true
@@ -426,11 +514,53 @@ func (store *V1CC6QualificationStore) observeC6AccountDetails(
 		return err
 	}
 	sample.Accounts = accounts
-	sample.RecoveryActive = active == 1
+	sample.RecoveryActive = active > 0
 	sample.AllAccountsFresh = len(accounts) == 2 && allFresh
 	sample.AllLeasesHeld = len(accounts) == 2 && allLeases
 	sample.EntrySafe = len(accounts) == 2 && allSafe
 	return nil
+}
+
+func c6RecoverySource(runtimeKind string) string {
+	if runtimeKind == "PRIVATE_STREAM" || runtimeKind == "PRIVATE_RECONNECT" {
+		return "private_stream"
+	}
+	return "reconciliation"
+}
+
+func permittedC6RecoveryFailure(kind string) bool {
+	return kind == "transient_outage" || kind == "maintenance"
+}
+
+func stableC6FailureKind(kind string) string {
+	if kind == "" {
+		return "validation_rejected"
+	}
+	return kind
+}
+
+func stableC6Cause(cause string) string {
+	if cause == "" {
+		return "untyped_failure"
+	}
+	return cause
+}
+
+func c6AccountRecoveryEvent(
+	event, state, runtimeKind, failureKind, causeCode string,
+	deadline time.Time,
+	cleanChecks uint8,
+	occurredAt time.Time,
+	recoveryTimestamp *time.Time,
+) c6.AccountRecoveryEvent {
+	return c6.AccountRecoveryEvent{
+		Event: event, State: state,
+		IncidentSource: c6RecoverySource(runtimeKind),
+		FailureKind:    stableC6FailureKind(failureKind),
+		CauseCode:      stableC6Cause(causeCode), DeadlineAt: deadline.UTC(),
+		CleanCheckCount: cleanChecks, RecoveryTimestamp: recoveryTimestamp,
+		OccurredAt: occurredAt.UTC(),
+	}
 }
 
 func (store *V1CC6QualificationStore) observeC6Reconciliation(

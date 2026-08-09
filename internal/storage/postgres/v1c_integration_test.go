@@ -65,7 +65,7 @@ func TestV1CPostgresB8ToV1CUpgradeQualification(t *testing.T) {
 	}
 	defer connection.Release()
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 24 {
+	if err != nil || len(migrations) != 26 {
 		t.Fatalf("migration catalog=%d error=%v", len(migrations), err)
 	}
 	for _, migration := range migrations[20:] {
@@ -159,15 +159,26 @@ func assertV1CC6ObserverQueryParameters(
 	pool *pgxpool.Pool,
 ) {
 	t.Helper()
+	observedAt := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
 	var total, fresh, leases int
 	var cycles int64
 	err := pool.QueryRow(
 		ctx,
 		c6ObserveAccountsSQL,
-		time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC),
+		observedAt,
 	).Scan(&total, &fresh, &leases, &cycles)
 	if err != nil {
 		t.Fatalf("C6 account observer query parameters rejected: %v", err)
+	}
+	var details int
+	err = pool.QueryRow(
+		ctx,
+		"SELECT count(*) FROM ("+c6ObserveAccountDetailsSQL+") account_details",
+		observedAt,
+		observedAt.Add(-time.Minute),
+	).Scan(&details)
+	if err != nil {
+		t.Fatalf("C6 account recovery observer query parameters rejected: %v", err)
 	}
 }
 

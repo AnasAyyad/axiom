@@ -164,20 +164,22 @@ extend expiry, reuse an authorization, or loosen policy to make a request pass.
 If a new arm is appropriate, require a fresh reason and password/TOTP one-use
 authorization through the normal API.
 
-### V1C C6 bounded reconciliation recovery
+### V1C C6 bounded read-only recovery
 
 One future C6 run may tolerate at most one typed `transient_outage` or
-`maintenance` reconciliation incident per account. The account enters
-`DEGRADED`, remains dispatch-disabled, and has a two-minute deadline. The
-72-hour run clock continues. Recovery requires two fully clean authoritative
-reconciliations at least 30 seconds apart, with the private stream, evidence,
-lease, and account safety gates healthy. The only successful destination is
-`READY_PAUSED`; recovery never arms an account.
+`maintenance` read-only incident per account, shared between reconciliation
+and private-stream transport disconnects. The account enters `DEGRADED`,
+remains dispatch-disabled, and has a two-minute deadline. The 72-hour run clock
+continues. For a stream incident, reconnect and bounded backfill are followed
+by an immediate authoritative reconciliation. Recovery then requires a second
+fully clean reconciliation at least 30 seconds later, with the private stream,
+evidence, lease, and account safety gates healthy. The only successful
+destination is `READY_PAUSED`; recovery never arms an account.
 
 Rate limits, authentication or timestamp errors, account/order/balance
 mismatches, persistence failures, lease loss, unsafe fills/orders, stale
 health, and any second incident are terminal C6 failures. Record only the
-typed stable failure kind and sanitized cause code. Never retain payloads,
+typed stable source, failure kind, and sanitized cause code. Never retain payloads,
 URLs, secrets, signatures, or raw exchange errors. Immutable events are
 recorded as `detected`, `first_clean_check`, `recovered`, `expired`,
 `repeated`, or `unrecoverable` and are bound to the run, account epoch,

@@ -79,6 +79,7 @@ export interface components {
       "environment": "spot_testnet" | "demo";
       "evidence_hash": string;
       "exchange": "binance" | "bybit";
+      "incident_source": "reconciliation" | "private_stream";
       "reason_category": string;
       "recovery_timestamp"?: components["schemas"]["Timestamp"];
       "state": "active" | "recovered" | "expired" | "repeated" | "unrecoverable";
