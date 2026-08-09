@@ -36,7 +36,7 @@ type sandboxCanaryQualificationEvidence struct {
 
 func verifySandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	_ config.Configuration,
 	configurationID string,
 	exchange sandbox.Exchange,
@@ -80,7 +80,7 @@ func verifySandboxCanary(
 
 func loadPreparedSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	canaryID, configurationID string,
 ) (
@@ -108,7 +108,7 @@ func loadPreparedSandboxCanary(
 
 func verifyRestartedSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	canaryID string,
 	status sandbox.CanaryOrderStatus,
@@ -139,7 +139,7 @@ func verifyRestartedSandboxCanary(
 
 func inspectSandboxCanaryCandidate(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	status sandbox.CanaryOrderStatus,
 ) (int64, buildinfo.Info, string, time.Time, error) {
@@ -162,7 +162,7 @@ func inspectSandboxCanaryCandidate(
 
 func recordSandboxCanaryRestart(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	records []sandbox.CanaryEvidenceRecord,
 	status sandbox.CanaryOrderStatus,
 	exchange sandbox.Exchange,
@@ -193,7 +193,7 @@ func recordSandboxCanaryRestart(
 
 func finalizeSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	status sandbox.CanaryOrderStatus,
 	exchange sandbox.Exchange,
 	canaryID string,
@@ -220,7 +220,7 @@ func newSandboxCanaryQualificationEvidence(
 	createCount int64,
 ) sandboxCanaryQualificationEvidence {
 	return sandboxCanaryQualificationEvidence{
-		SchemaVersion: "axiom.v1c.pr2.canary-evidence.v1",
+		SchemaVersion: "axiom.sandbox_runtime.sandbox_connectivity.canary-evidence.v1",
 		CanaryID:      canaryID, Exchange: exchange,
 		AccountID: status.AccountID, AccountEpoch: status.AccountEpoch,
 		ConfigurationID: configurationID, Build: build,
@@ -247,7 +247,7 @@ func currentExecutableSHA256() (string, error) {
 
 func waitCanaryRestart(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	status sandbox.CanaryOrderStatus,
 	priorCycle uint64,
 ) (uint64, error) {

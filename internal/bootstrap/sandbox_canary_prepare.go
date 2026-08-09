@@ -17,7 +17,7 @@ import (
 func prepareSandboxCanary(
 	ctx context.Context,
 	pool *pgxpool.Pool,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	configurationID string,
@@ -38,7 +38,7 @@ func prepareSandboxCanary(
 func prepareSandboxCanaryRequest(
 	ctx context.Context,
 	pool *pgxpool.Pool,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	configurationID string,
@@ -90,7 +90,7 @@ type sandboxCanaryPreparation struct {
 func beginSandboxCanary(
 	ctx context.Context,
 	pool *pgxpool.Pool,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	request sandboxCanaryRequest,
@@ -158,7 +158,7 @@ func loadSandboxCanaryPolicy(
 
 func openSandboxCanarySession(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	configurationID string,
 	exchange sandbox.Exchange,
 	instrument domain.Instrument,
@@ -182,7 +182,7 @@ func openSandboxCanarySession(
 }
 
 func stopFailedSandboxCanary(
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	riskLock bool,
 ) {
@@ -199,7 +199,7 @@ func stopFailedSandboxCanary(
 
 func runArmedSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	principal authentication.Principal,
 	consumed authentication.ConsumedAuthorization,
@@ -247,7 +247,7 @@ func runArmedSandboxCanary(
 
 func buildAndApproveSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	arm sandbox.Arm,
 	configurationID string,

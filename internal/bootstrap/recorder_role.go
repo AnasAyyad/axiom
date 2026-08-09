@@ -37,8 +37,8 @@ type recorderRoleWork struct {
 	bybitClient     *bybit.PublicClient
 	bybitCollectors map[domain.Instrument]*bybit.InstrumentCollector
 	bybitRecorder   *marketrecorder.Recorder
-	catalog         *postgresstore.A11DatasetCatalog
-	metadata        *postgresstore.A11ShadowStore
+	catalog         *postgresstore.RecordedDatasetCatalog
+	metadata        *postgresstore.PublicShadowStore
 	commit          string
 	flush           time.Duration
 	pressurePolicy  pressure.Policy
@@ -96,15 +96,15 @@ func newRecorderRoleWork(ctx context.Context, pool *pgxpool.Pool, runtimeConfig 
 }
 
 func newRecorderStores(pool *pgxpool.Pool, instance string,
-	clock domain.Clock) (*postgresstore.A11DatasetCatalog, *postgresstore.A11ShadowStore, error) {
+	clock domain.Clock) (*postgresstore.RecordedDatasetCatalog, *postgresstore.PublicShadowStore, error) {
 	if pool == nil {
 		return nil, nil, nil
 	}
-	catalog, err := postgresstore.NewA11DatasetCatalog(pool)
+	catalog, err := postgresstore.NewRecordedDatasetCatalog(pool)
 	if err != nil {
 		return nil, nil, err
 	}
-	metadata, err := postgresstore.NewA11ShadowStore(pool, instance, clock)
+	metadata, err := postgresstore.NewPublicShadowStore(pool, instance, clock)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -125,7 +125,7 @@ func (work *recorderRoleWork) addBybit(
 	if err != nil {
 		return err
 	}
-	recorder, err := marketrecorder.NewB2(filepath.Join(runtimeConfig.Root, "bybit"),
+	recorder, err := marketrecorder.NewCoherentMarketData(filepath.Join(runtimeConfig.Root, "bybit"),
 		bybitRecorderDatasetID(session), session+"-bybit", "bybit", ordinals,
 		segmentCommitter(pool, session+"-bybit", "bybit"), nil,
 		marketrecorder.CollectorProfile{Instance: instance,
@@ -144,12 +144,6 @@ func (work *recorderRoleWork) addBybit(
 	}
 	work.bybitClient, work.bybitRecorder, work.bybitCollectors = client, recorder, collectors
 	return nil
-}
-
-func newRecorderCollectors(product config.Configuration, runtimeConfig config.RecorderRuntime,
-	client *binance.PublicClient, sink binance.PublicRecorder, clock domain.Clock,
-) (map[domain.Instrument]*binance.InstrumentCollector, error) {
-	return newBinanceCollectors(product.PublicExchanges()[0], runtimeConfig, client, sink, clock)
 }
 
 func newBinanceCollectors(exchange config.ExchangeConfiguration, runtimeConfig config.RecorderRuntime,
@@ -354,7 +348,7 @@ func recorderSession(instance string, started time.Time) string {
 	return "recorder-" + hex.EncodeToString(digest[:8])
 }
 
-func recorderDatasetID(session string) string { return "binance-public-v1a-" + session }
+func recorderDatasetID(session string) string { return "binance-public-recording-" + session }
 
 func segmentCommitter(
 	pool *pgxpool.Pool,

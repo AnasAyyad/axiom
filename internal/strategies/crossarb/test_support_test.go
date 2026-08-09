@@ -36,7 +36,7 @@ func evaluationFixture(t testing.TB, base string, reverse bool) EvaluationInput 
 			"binance:USDT": balance("10"), "bybit:USDT": balance("10"),
 		},
 		DecisionOffsetNanos: 200, Configuration: DefaultConfiguration(),
-		ConfigurationHash: "config-b5", InstrumentMetadataSetHash: "metadata-b5",
+		ConfigurationHash: "config-cross_exchange_arbitrage", InstrumentMetadataSetHash: "metadata-cross_exchange_arbitrage",
 		Restoration: testRestoration(),
 	}
 }
@@ -113,7 +113,7 @@ func coherentFixture(t testing.TB, markets []Market, decision uint64) runtimecor
 	view, err := views.CoherentAsOf(keys, runtimecore.AsOfTrigger{
 		MonotonicNanos: decision, IngestOrdinal: 100,
 		UTC: time.Unix(10, 0).UTC(),
-	}, runtimecore.InitialB2CoherentPolicy())
+	}, runtimecore.InitialCoherentMarketDataCoherentPolicy())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func testObservation(exchange string, ordinal uint64) marketdata.Observation {
 
 func testInventory(exchange string, baseAsset domain.AssetSymbol, owned string) VenueInventory {
 	return VenueInventory{
-		Owner: "portfolio-b5", Exchange: exchange, BaseAsset: baseAsset,
+		Owner: "portfolio-cross_exchange_arbitrage", Exchange: exchange, BaseAsset: baseAsset,
 		OwnedBase: balance(owned), TotalEligibleBase: balance("100"),
 		OwnedUSDT: balance("100"), TotalEligibleUSDT: balance("200"), Revision: 7,
 	}
@@ -144,9 +144,9 @@ func testInventory(exchange string, baseAsset domain.AssetSymbol, owned string) 
 func testRestoration() RestorationEconomics {
 	return RestorationEconomics{
 		ModelVersion:        "closed-inventory-cycle.v1",
-		LatencyModelVersion: "latency-b5.v1", RecoveryModelVersion: "recovery-b5.v1",
-		InventoryShadowPriceVersion: "shadow-price-b5.v1",
-		ConcentrationModelVersion:   "concentration-b5.v1",
+		LatencyModelVersion: "latency-cross_exchange_arbitrage.v1", RecoveryModelVersion: "recovery-cross_exchange_arbitrage.v1",
+		InventoryShadowPriceVersion: "shadow-price-cross_exchange_arbitrage.v1",
+		ConcentrationModelVersion:   "concentration-cross_exchange_arbitrage.v1",
 		LatencyDeterioration:        money("0.005"), RecoveryAllowance: money("0.005"),
 		MarginalInventoryReplacement: money("0.005"), NaturalReversalCost: money("0.005"),
 		AdvisoryRebalancingCost: money("0.005"), ExchangeConcentrationPenalty: money("0.005"),

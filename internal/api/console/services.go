@@ -31,6 +31,7 @@ type WorkflowBlocker struct {
 	Prerequisites                                                               []string
 }
 
+// Error returns the stable reason code for a blocked owner workflow.
 func (blocker *WorkflowBlocker) Error() string {
 	if blocker == nil || blocker.Code == "" {
 		return "workflow_blocked"
@@ -38,6 +39,7 @@ func (blocker *WorkflowBlocker) Error() string {
 	return blocker.Code
 }
 
+// Unwrap exposes the underlying precondition error for errors.Is checks.
 func (blocker *WorkflowBlocker) Unwrap() error {
 	if blocker == nil || blocker.Cause == nil {
 		return ErrPrecondition
@@ -130,7 +132,7 @@ type StreamService interface {
 	Serve(http.ResponseWriter, *http.Request, authentication.Principal) error
 }
 
-// SandboxReadService exposes only redacted authoritative V1C projections.
+// SandboxReadService exposes only redacted authoritative sandbox runtime projections.
 type SandboxReadService interface {
 	SandboxOverview(context.Context) (generated.SandboxOverview, error)
 	SandboxOrders(context.Context, string, int, string, string) (generated.SandboxOrderPage, error)
@@ -138,9 +140,10 @@ type SandboxReadService interface {
 	SandboxQualification(context.Context) (generated.SandboxQualificationStatus, error)
 }
 
-// SandboxCommandService persists C6 controls through existing V1C state
+// SandboxCommandService persists sandbox qualification controls through existing sandbox runtime state
 // machines. It owns no exchange client and cannot perform network I/O.
 type SandboxCommandService interface {
+	CreateSandboxStrategySession(context.Context, authentication.Principal, string, generated.SandboxStrategySessionCreateRequest) (generated.CommandAccepted, error)
 	CreateSandboxArm(context.Context, authentication.Principal, string, string, generated.SandboxArmRequest, authentication.ConsumedAuthorization) (generated.SandboxArm, error)
 	StartSandboxStrategySession(context.Context, authentication.Principal, string, string, generated.SandboxStrategySessionStartRequest, authentication.ConsumedAuthorization) (generated.CommandAccepted, error)
 	StopSandboxStrategySession(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
@@ -151,8 +154,8 @@ type SandboxCommandService interface {
 	QueueSandboxAccountReconciliation(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
 }
 
-// D1ListQuery is a validated, bounded, deterministic collection request.
-type D1ListQuery struct {
+// OwnerControlListQuery is a validated, bounded, deterministic collection request.
+type OwnerControlListQuery struct {
 	Cursor   string
 	PageSize int
 	From     *time.Time
@@ -160,42 +163,42 @@ type D1ListQuery struct {
 	Filters  map[string]string
 }
 
-// D1ActivityQuery carries only stable documented activity filters.
-type D1ActivityQuery struct {
-	D1ListQuery
+// OwnerControlActivityQuery carries only stable documented activity filters.
+type OwnerControlActivityQuery struct {
+	OwnerControlListQuery
 	View, Strategy, Instrument, Exchange, Side, Outcome, Reason, Mode, CorrelationID string
 }
 
-// D1Command is the closed internal command envelope. Payload contains only
+// OwnerControlCommand is the closed internal command envelope. Payload contains only
 // handler-validated, non-secret values from generated request models.
-type D1Command struct {
+type OwnerControlCommand struct {
 	Kind, TargetID, Action, State, IdempotencyKey, Reason string
 	ExpectedRevision                                      int64
 	Payload                                               map[string]any
 	Authorization                                         *authentication.ConsumedAuthorization
 }
 
-// D1ReadService owns redacted D1 snapshots and authorized artifact reads.
-type D1ReadService interface {
-	D1Resources(context.Context, string, D1ListQuery) (generated.D1ResourcePage, error)
-	D1Resource(context.Context, string, string) (generated.D1Resource, error)
-	D1Activity(context.Context, D1ActivityQuery) (generated.ActivityPage, error)
-	D1ActivityDetail(context.Context, string) (generated.ActivityResource, error)
-	D1Export(context.Context, authentication.Principal, string) (generated.ExportArtifact, error)
+// OwnerControlReadService owns redacted owner control snapshots and authorized artifact reads.
+type OwnerControlReadService interface {
+	OwnerControlResources(context.Context, string, OwnerControlListQuery) (generated.OwnerControlResourcePage, error)
+	OwnerControlResource(context.Context, string, string) (generated.OwnerControlResource, error)
+	OwnerControlActivity(context.Context, OwnerControlActivityQuery) (generated.ActivityPage, error)
+	OwnerControlActivityDetail(context.Context, string) (generated.ActivityResource, error)
+	OwnerControlExport(context.Context, authentication.Principal, string) (generated.ExportArtifact, error)
 }
 
-// D1CommandService persists the closed D1 command set and export artifacts.
-type D1CommandService interface {
-	ExecuteD1(context.Context, authentication.Principal, D1Command) (generated.CommandAccepted, error)
-	CreateD1Export(context.Context, authentication.Principal, string, generated.ExportRequest) (generated.ExportArtifact, error)
+// OwnerControlCommandService persists the closed owner control command set and export artifacts.
+type OwnerControlCommandService interface {
+	ExecuteOwnerControl(context.Context, authentication.Principal, OwnerControlCommand) (generated.CommandAccepted, error)
+	CreateOwnerControlExport(context.Context, authentication.Principal, string, generated.ExportRequest) (generated.ExportArtifact, error)
 }
 
-// D4ReadService exposes provenance-complete operational evidence without raw
+// OperationalEvidenceReadService exposes provenance-complete operational evidence without raw
 // route secrets or unrestricted log payloads.
-type D4ReadService interface {
-	D4Report(context.Context, string) (generated.ReportResource, error)
-	D4ReportSchedules(context.Context, D1ListQuery) (generated.ReportSchedulePage, error)
-	D4Alert(context.Context, string) (generated.AlertDetail, error)
-	D4AlertRoutes(context.Context) (generated.AlertRoutePage, error)
-	D4AuditVerification(context.Context) (generated.AuditVerification, error)
+type OperationalEvidenceReadService interface {
+	OperationalEvidenceReport(context.Context, string) (generated.ReportResource, error)
+	OperationalEvidenceReportSchedules(context.Context, OwnerControlListQuery) (generated.ReportSchedulePage, error)
+	OperationalEvidenceAlert(context.Context, string) (generated.AlertDetail, error)
+	OperationalEvidenceAlertRoutes(context.Context) (generated.AlertRoutePage, error)
+	OperationalEvidenceAuditVerification(context.Context) (generated.AuditVerification, error)
 }

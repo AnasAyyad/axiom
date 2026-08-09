@@ -15,9 +15,13 @@ import (
 
 // RunOutputs returns the immutable evidence already written by the offline
 // reducer. It does not reconstruct an event from a mutable projection.
-func (store *A11ConsoleStore) RunOutputs(ctx context.Context, id, requested string) (generated.RunOutputPage, error) {
-	if _, err := store.Run(ctx, id); err != nil {
+func (store *OwnerConsoleStore) RunOutputs(ctx context.Context, id, requested string) (generated.RunOutputPage, error) {
+	run, err := store.Run(ctx, id)
+	if err != nil {
 		return generated.RunOutputPage{}, err
+	}
+	if run.Mode == generated.RunResourceModeSandbox {
+		return store.sandboxRunOutputs(ctx, id, requested)
 	}
 	kind, exposed, ok := ownerRunOutputKind(requested)
 	if !ok {
@@ -67,13 +71,17 @@ func ownerRunCanonicalPayloadValid(payload string) bool {
 // RunPortfolio returns the newest reducer-owned balance projection. Shadow
 // sessions and queued offline jobs honestly report that a portfolio snapshot is
 // not recorded yet instead of using a current global balance as a substitute.
-func (store *A11ConsoleStore) RunPortfolio(ctx context.Context, id string) (generated.RunPortfolioProjection, error) {
-	if _, err := store.Run(ctx, id); err != nil {
+func (store *OwnerConsoleStore) RunPortfolio(ctx context.Context, id string) (generated.RunPortfolioProjection, error) {
+	run, err := store.Run(ctx, id)
+	if err != nil {
 		return generated.RunPortfolioProjection{}, err
+	}
+	if run.Mode == generated.RunResourceModeSandbox {
+		return store.sandboxRunPortfolio(ctx, run)
 	}
 	var ordinal int64
 	var hash, payload string
-	err := store.pool.QueryRow(ctx, `SELECT ordinal,output_hash::text,convert_from(canonical_payload,'UTF8')
+	err = store.pool.QueryRow(ctx, `SELECT ordinal,output_hash::text,convert_from(canonical_payload,'UTF8')
 	  FROM run_canonical_outputs WHERE run_id=$1 AND output_kind='balance' ORDER BY ordinal DESC LIMIT 1`, id).
 		Scan(&ordinal, &hash, &payload)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -94,18 +102,22 @@ func (store *A11ConsoleStore) RunPortfolio(ctx context.Context, id string) (gene
 // RunRisk makes the current evidence boundary visible. Existing durable output
 // records do not yet contain a run-scoped risk evaluation, so reporting the
 // global risk state here would be misleading.
-func (store *A11ConsoleStore) RunRisk(ctx context.Context, id string) (generated.RunRiskProjection, error) {
-	if _, err := store.Run(ctx, id); err != nil {
+func (store *OwnerConsoleStore) RunRisk(ctx context.Context, id string) (generated.RunRiskProjection, error) {
+	run, err := store.Run(ctx, id)
+	if err != nil {
 		return generated.RunRiskProjection{}, err
 	}
-	return generated.RunRiskProjection{State: generated.NotRecorded,
+	if run.Mode == generated.RunResourceModeSandbox {
+		return store.sandboxRunRisk(ctx, run)
+	}
+	return generated.RunRiskProjection{State: generated.RunRiskProjectionStateNotRecorded,
 		Summary: "This run has no separately recorded run-scoped risk projection yet; global risk state is intentionally not substituted."}, nil
 }
 
 // RunEvidence exposes only reproducibility hashes and identifiers that are
 // safe to display in advanced details. It never returns a filesystem path,
 // dataset ID, configuration ID, credential, or signed request material.
-func (store *A11ConsoleStore) RunEvidence(ctx context.Context, id string) (generated.RunEvidence, error) {
+func (store *OwnerConsoleStore) RunEvidence(ctx context.Context, id string) (generated.RunEvidence, error) {
 	if _, err := store.Run(ctx, id); err != nil {
 		return generated.RunEvidence{}, err
 	}
@@ -129,4 +141,4 @@ func (store *A11ConsoleStore) RunEvidence(ctx context.Context, id string) (gener
 		ModelNamespace: &namespace, ConfidenceTier: &tier}, nil
 }
 
-var _ console.RunReadService = (*A11ConsoleStore)(nil)
+var _ console.RunReadService = (*OwnerConsoleStore)(nil)

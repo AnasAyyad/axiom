@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Fail the V1A build when executable artifacts expose a later-release or
+# Fail the build when executable artifacts expose an unreviewed or
 # real-money exchange capability. Diagnostics deliberately omit matching text:
 # configuration lines may contain credential material even though they should
 # never be committed.
@@ -69,15 +69,16 @@ readonly -a EXCLUDES=(
   --glob '!**/*.spec.jsx'
   --glob '!**/check-prohibited-capabilities.sh'
   --glob '!**/test-check-prohibited-capabilities.sh'
-  --glob '!scripts/check-b1-public-boundary.mjs'
-  --glob '!scripts/check-b6-rebalancing-boundary.mjs'
-  --glob '!scripts/check-b8-console-boundary.mjs'
-  --glob '!scripts/check-b8-binary-boundary.sh'
-  # The D5 observation-only boundary scanner contains denied method tokens as
-  # negative assertions; executable D5 sources remain inside this global scan.
-  --glob '!scripts/check-v1d-d5-boundary.mjs'
-  # V1C authenticated sandbox inputs are governed by the narrower C1 scanner.
-  --glob '!internal/config/v1c*.go'
+  --glob '!scripts/check-exchange-expansion-public-boundary.mjs'
+  --glob '!scripts/check-public-data-public-boundary.mjs'
+  --glob '!scripts/check-inventory-rebalancing-rebalancing-boundary.mjs'
+  --glob '!scripts/check-multi-exchange-console-console-boundary.mjs'
+  --glob '!scripts/check-multi-exchange-console-binary-boundary.sh'
+  # The operational-readiness boundary scanner contains denied method tokens as
+  # negative assertions; executable sources remain inside this global scan.
+  --glob '!scripts/check-operational-readiness-boundary.mjs'
+  # Authenticated sandbox inputs are governed by the narrower sandbox scanner.
+  --glob '!internal/config/sandbox_runtime*.go'
   --glob '!internal/config/schema.go'
   --glob '!internal/config/mode.go'
   --glob '!internal/config/capabilities.go'
@@ -95,18 +96,18 @@ readonly -a EXCLUDES=(
   --glob '!internal/bootstrap/command.go'
   --glob '!internal/storage/postgres/migrations/000021_v1c_auth_control.sql'
   --glob '!internal/storage/postgres/migrations/000022_v1c_sandbox_execution.sql'
-  # V1D D1 exposes reviewed sandbox-mode labels only; its dedicated scanner
+  # Owner control exposes reviewed sandbox-mode labels only; its dedicated scanner
   # proves that no exchange client or production-private capability is present.
-  --glob '!internal/api/console/d1.go'
+  --glob '!internal/api/console/owner_control*.go'
   --glob '!internal/storage/postgres/migrations/000025_v1d_d1_control_plane.sql'
-  --glob '!internal/storage/postgres/v1c_*.go'
+  --glob '!internal/storage/postgres/sandbox_runtime_*.go'
   --glob '!deploy/postgres/init/001-create-roles.sh'
   --glob '!docker-compose.yml'
   --glob '!.env.example'
   --glob '!scripts/check-compose-command-contract.mjs'
   --glob '!scripts/check-compose.sh'
-  --glob '!scripts/check-v1c-security-boundary.sh'
-  --glob '!scripts/check-v1c-pr3-boundary.mjs'
+  --glob '!scripts/check-sandbox-security-boundary.sh'
+  --glob '!scripts/check-sandbox-qualification-boundary.mjs'
 )
 
 readonly -a ALL_INPUT_GLOBS=(
@@ -214,11 +215,11 @@ is_compiled_rejection_literal() {
   esac
 }
 
-# B1 compiles only Bybit's reviewed production-public hosts and explicit
+# Exchange expansion compiles only Bybit's reviewed production-public hosts and explicit
 # credential-header denials. The allowlist is intentionally file- and
 # line-shaped so no arbitrary endpoint, credential input, or capability can
 # become dormant executable configuration.
-is_b1_public_boundary_literal() {
+is_exchange_expansion_public_boundary_literal() {
   local rule_id="$1"
   local file="$2"
   local line_text="$3"
@@ -229,9 +230,9 @@ is_b1_public_boundary_literal() {
     private-endpoint:internal/exchanges/bybit/public_connection.go | \
     private-endpoint:./internal/exchanges/bybit/public_websocket_transport.go | \
     private-endpoint:internal/exchanges/bybit/public_websocket_transport.go | \
-    private-endpoint:./internal/config/v1b.go | private-endpoint:internal/config/v1b.go | \
+    private-endpoint:./internal/config/multi_strategy.go | private-endpoint:internal/config/multi_strategy.go | \
     private-endpoint:./internal/config/validation.go | private-endpoint:internal/config/validation.go | \
-    private-endpoint:./deploy/config/platform-shadow-v1b.json | private-endpoint:deploy/config/platform-shadow-v1b.json)
+    private-endpoint:./deploy/config/platform-research.json | private-endpoint:deploy/config/platform-research.json)
       [[ "${line_text}" == *"https://api.bybit.com"* || "${line_text}" == *"wss://stream.bybit.com/v5/public/spot"* ||
          "${line_text}" == *'api.bybit.com'* || "${line_text}" == *'stream.bybit.com'* ]]
       ;;
@@ -247,11 +248,31 @@ is_b1_public_boundary_literal() {
   esac
 }
 
-# V1C's closed Testnet/Demo boundary is executable by design and is governed
-# by the stricter C1 scanner, fixed route contracts, and binary destination
+# Binance Testnet market-data endpoints are public, read-only sources.
+# Only the fixed reviewed origins and endpoint-set identifiers are accepted;
+# account/order routes and configurable destinations remain rejected.
+is_public_data_testnet_literal() {
+  local rule_id="$1"
+  local file="${2#./}"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    private-endpoint:internal/exchanges/binance/endpoint_policy.go | \
+    later-release-sandbox:internal/exchanges/binance/endpoint_policy.go)
+      [[ "${line_text}" == *'testnetPublicEndpointSet = "testnet-market-data-only-v1"'* ||
+         "${line_text}" == *'testnetPublicRESTOrigin  = "https://testnet.binance.vision"'* ||
+         "${line_text}" == *'testnetPublicWSOrigin    = "wss://stream.testnet.binance.vision"'* ||
+         "${line_text}" == *'case testnetPublicEndpointSet:'* ||
+         "${line_text}" == *'host: "testnet.binance.vision"'* ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+# The closed Testnet/Demo boundary is executable by design and is governed
+# by the stricter sandbox scanner, fixed route contracts, and binary destination
 # scan. This allowlist is rule- and file-specific so production-private hosts,
 # live mode, and forbidden product families remain rejected everywhere.
-is_v1c_sandbox_boundary_literal() {
+is_sandbox_runtime_boundary_literal() {
   local rule_id="$1"
   local file="${2#./}"
   local line_text="$3"
@@ -259,6 +280,8 @@ is_v1c_sandbox_boundary_literal() {
     private-endpoint:internal/exchanges/binance/private_stream.go | \
     private-endpoint:internal/exchanges/binance/private_subscription.go | \
     private-endpoint:internal/exchanges/bybit/private_stream.go | \
+    private-endpoint:internal/storage/postgres/sandbox_qualification_sql.go | \
+    private-endpoint:internal/storage/postgres/sandbox_qualification_store.go | \
     private-endpoint:internal/storage/postgres/migrations/000023_v1c_private_stream_runtime.sql)
       return 0
       ;;
@@ -268,19 +291,42 @@ is_v1c_sandbox_boundary_literal() {
     later-release-sandbox:internal/exchanges/binance/sandbox_reset.go | \
     later-release-sandbox:internal/exchanges/bybit/private_stream.go | \
     later-release-sandbox:internal/exchanges/bybit/sandbox_adapter.go | \
+    later-release-sandbox:internal/exchanges/bybit/sandbox_adapter_orders.go | \
+    later-release-sandbox:internal/bootstrap/sandbox_strategy_pipeline_factory.go | \
+    later-release-sandbox:internal/storage/postgres/sandbox_strategy_session_store.go | \
+    later-release-sandbox:internal/storage/postgres/sandbox_qualification_store.go | \
+    later-release-sandbox:internal/storage/postgres/migrations/000038_sandbox_accounting_journal.sql | \
     later-release-sandbox:internal/bootstrap/sandbox_engine_attestation.go | \
     later-release-sandbox:internal/storage/postgres/migrations/000023_v1c_private_stream_runtime.sql)
       return 0
+      ;;
+    later-release-sandbox:internal/strategies/trend/planner.go | \
+    later-release-sandbox:internal/strategies/meanreversion/planner.go)
+      return 0
+      ;;
+    later-release-sandbox:internal/runs/catalogue.go)
+      [[ "${line_text}" == *'ModeTestnet       Mode = "testnet"'* ||
+         "${line_text}" == *'ModeDemo          Mode = "demo"'* ||
+         "${line_text}" == *'SuggestedAction: "Choose a demonstration, research, shadow, Testnet, or Demo run."'* ]]
+      ;;
+    later-release-sandbox:internal/demonstrations/rebalancing.go)
+      [[ "${line_text}" == *'Source: "guided", Observer: "guided-demo"'* ]]
+      ;;
+    later-release-sandbox:internal/demonstrations/trend.go)
+      [[ "${line_text}" == *'Actor: "guided-demo", Reason: "synthetic walkthrough"'* ]]
+      ;;
+    later-release-sandbox:internal/certification/validate.go)
+      [[ "${line_text}" == *'"binance-testnet", "bybit-demo", "sandbox-qualification"'* ]]
       ;;
     later-release-sandbox:api/openapi.yaml | \
     later-release-sandbox:internal/api/generated/types.gen.go | \
     later-release-sandbox:internal/bootstrap/runtime.go | \
     later-release-sandbox:internal/observability/metrics.go | \
-    later-release-sandbox:internal/qualification/c6/model.go | \
+    later-release-sandbox:internal/qualification/sandboxqualification/model.go | \
     later-release-sandbox:internal/storage/postgres/migrations/000024_v1c_c6_console_qualification.sql | \
     later-release-sandbox:monitoring/alerts.yml | \
     later-release-sandbox:monitoring/grafana/dashboards/axiom-operations.json | \
-    later-release-sandbox:web/src/api/c6Validation.ts | \
+    later-release-sandbox:web/src/api/sandboxQualificationValidation.ts | \
     later-release-sandbox:web/src/api/generated/schema.ts | \
     later-release-sandbox:web/src/app/AppShell.tsx | \
     later-release-sandbox:web/src/app/Sandbox*.tsx | \
@@ -288,13 +334,13 @@ is_v1c_sandbox_boundary_literal() {
       return 0
       ;;
     later-release-sandbox:Makefile)
-      [[ "${line_text}" == *"c4-binance-testnet-qualify"* ||
-         "${line_text}" == *"c5-bybit-demo-qualify"* ||
-         "${line_text}" == *"v1c-pr2-local-qualify"* ]]
+      [[ "${line_text}" == *"binance-testnet-qualify"* ||
+         "${line_text}" == *"bybit-demo-qualify"* ||
+         "${line_text}" == *"sandbox-connectivity"* ]]
       ;;
     later-release-sandbox:deploy/docker/Dockerfile)
-      [[ "${line_text}" == *"/out/platform-binance-testnet-v1c.json"* ||
-         "${line_text}" == *"/out/platform-bybit-demo-v1c.json"* ]]
+      [[ "${line_text}" == *"/out/platform-binance-testnet.json"* ||
+         "${line_text}" == *"/out/platform-bybit-demo.json"* ]]
       ;;
     prohibited-product:internal/exchanges/bybit/sandbox_filters.go)
       [[ "${line_text}" == *'item.MarginTrading != "none"'* ]]
@@ -303,23 +349,25 @@ is_v1c_sandbox_boundary_literal() {
     exchange-order-method:internal/exchanges/binance/private_subscription.go | \
     exchange-order-method:internal/exchanges/binance/sandbox_adapter.go | \
     exchange-order-method:internal/exchanges/bybit/private_stream.go | \
-    exchange-order-method:internal/exchanges/bybit/sandbox_adapter.go)
+    exchange-order-method:internal/exchanges/bybit/sandbox_adapter.go | \
+    exchange-order-method:internal/exchanges/bybit/sandbox_adapter_orders.go)
       return 0
       ;;
     *) return 1 ;;
   esac
 }
 
-# V1D D2 renders reviewed D1/V1C mode labels and explicit safety denials. The
+# Owner experience renders reviewed sandbox-mode labels and explicit safety denials. The
 # allowlist is line-shaped: it cannot introduce an endpoint, credential,
 # configuration toggle, order method, or forbidden product capability.
-is_v1d_d2_ui_literal() {
+is_owner_experience_ui_literal() {
   local rule_id="$1"
   local file="${2#./}"
   local line_text="$3"
   case "${rule_id}:${file}" in
-    later-release-sandbox:web/src/api/d1Validation.ts)
-      [[ "${line_text}" == *'.enum(["backtest", "replay", "paper", "shadow", "testnet", "demo"])'* ]]
+    later-release-sandbox:web/src/api/ownerControlValidation.ts)
+      [[ "${line_text}" == *'.enum(["backtest", "replay", "paper", "shadow", "testnet", "demo"])'* ||
+         "${line_text}" =~ ^[[:space:]]*\"(testnet|demo)\",[[:space:]]*$ ]]
       ;;
     later-release-sandbox:web/src/app/App.tsx)
       [[ "${line_text}" == *'Inspect virtual, testnet, and demo order state without exposing private exchange payloads.'* ]]
@@ -332,8 +380,26 @@ is_v1d_d2_ui_literal() {
          "${line_text}" == *'Capped Binance Spot Testnet and Bybit Demo controls.'* ]]
       ;;
     later-release-sandbox:web/src/features/run-lab/RunLabPage.tsx)
-      [[ "${line_text}" == *'Operate only capped Binance Spot Testnet and Bybit Demo workflows under C6 controls.'* ||
-         "${line_text}" == *'Historical, replay, shadow, demo, and testnet outcomes measure research'* ]]
+      [[ "${line_text}" == *'Historical, replay, shadow, demo, and testnet outcomes measure research'* ||
+         "${line_text}" == *'Testnet, and Demo outcomes are research or integration evidence; they'* ]]
+      ;;
+    later-release-sandbox:web/src/features/run-lab/RunChoiceWizard.tsx)
+      [[ "${line_text}" == *'An explicitly armed Binance Spot Testnet, Bybit Demo, or paired strategy session.'* ||
+         "${line_text}" == *'Uses the shared allocator, central risk, capped spot-order, accounting, and reconciliation pipeline.'* ]]
+      ;;
+    later-release-sandbox:web/src/features/run-lab/runEvidencePresentation.ts)
+      [[ "${line_text}" == *'if (value === "binance") return "Binance Spot Testnet";'* ||
+         "${line_text}" == *'if (value === "bybit") return "Bybit Demo";'* ]]
+      ;;
+    later-release-sandbox:web/src/features/run-lab/OwnerGuidancePages.tsx)
+      [[ "${line_text}" == *'Optionally configure Binance Testnet'* ||
+         "${line_text}" == *'Optionally configure Bybit Demo'* ||
+         "${line_text}" == *'Review the separate Demo account and its public-data prerequisites.'* ]]
+      ;;
+    later-release-sandbox:web/src/features/run-lab/GlossaryPage.tsx)
+      [[ "${line_text}" =~ ^[[:space:]]*\"(Testnet|Demo)\",[[:space:]]*$ ||
+         "${line_text}" == *"Binance's isolated spot test environment; it is not real-money trading."* ||
+         "${line_text}" == *"Bybit's isolated Demo account boundary; it is not real-money trading."* ]]
       ;;
     later-release-sandbox:web/src/features/strategies/StrategyCenterPage.tsx)
       [[ "${line_text}" == *'readiness, and no historical, shadow, demo, or testnet result'* ]]
@@ -345,21 +411,21 @@ is_v1d_d2_ui_literal() {
   esac
 }
 
-# V1D D4 preserves Testnet/Demo only as report provenance and an explicit
+# Operational evidence preserves Testnet/Demo only as report provenance and an explicit
 # non-profitability warning. These line-shaped exceptions cannot add an
 # endpoint, credential, control, or order-submission path.
-is_v1d_d4_evidence_literal() {
+is_operational_evidence_literal() {
   local rule_id="$1"
   local file="${2#./}"
   local line_text="$3"
   case "${rule_id}:${file}" in
-    later-release-sandbox:internal/storage/postgres/d4_report_content.go)
+    later-release-sandbox:internal/storage/postgres/operational_evidence_report_content.go)
       [[ "${line_text}" == *'"Historical, replay, shadow, Testnet, and Demo results do not prove profitability."'* ]]
       ;;
     later-release-sandbox:internal/storage/postgres/migrations/000026_v1d_d4_ops_evidence.sql)
       [[ "${line_text}" == *"'backtest','replay','paper','shadow','testnet','demo','mixed','operational'"* ]]
       ;;
-    later-release-sandbox:scripts/check-v1d-d4-boundary.mjs)
+    later-release-sandbox:scripts/check-operational-evidence-boundary.mjs)
       [[ "${line_text}" == *'"Historical, replay, shadow, Testnet, and Demo results do not prove profitability."'* ]]
       ;;
     later-release-sandbox:web/src/features/operations/ReportCenterPage.tsx)
@@ -369,11 +435,11 @@ is_v1d_d4_evidence_literal() {
   esac
 }
 
-# D6 names the exact already-reviewed V1C signed destinations as certification
+# Release certification names the exact already-reviewed signed destinations as
 # assertions. The allowlist accepts only literal host values in the validator
 # and fail-closed example; it cannot admit a configurable endpoint or runtime
 # client.
-is_v1d_d6_certification_literal() {
+is_release_certification_literal() {
   local rule_id="$1"
   local file="${2#./}"
   local line_text="$3"
@@ -446,23 +512,27 @@ run_rule() {
       continue
     fi
 
-    if is_b1_public_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
+    if is_exchange_expansion_public_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 
-    if is_v1c_sandbox_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
+    if is_public_data_testnet_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 
-    if is_v1d_d2_ui_literal "${rule_id}" "${file}" "${line_text}"; then
+    if is_sandbox_runtime_boundary_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 
-    if is_v1d_d4_evidence_literal "${rule_id}" "${file}" "${line_text}"; then
+    if is_owner_experience_ui_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 
-    if is_v1d_d6_certification_literal "${rule_id}" "${file}" "${line_text}"; then
+    if is_operational_evidence_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
+    if is_release_certification_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 
@@ -485,22 +555,22 @@ readonly PROHIBITED_CONFIG_KEY_RE='(?i)\b(?:margin|futures?|perpetuals?|options[
 readonly FINANCIAL_FLOAT_RE='(?x)(?:\btype[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(?:\[[^]]+\])?[[:space:]]+float(?:32|64)\b|\b(?:var|const)[[:space:]]+[^=\r\n]*\bfloat(?:32|64)\b|^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*(?:[[:space:]]*,[[:space:]]*[A-Za-z_][A-Za-z0-9_]*)*[[:space:]]+(?:\[\])?float(?:32|64)\b|\bfunc\b[^\r\n{]*(?:\([^)]*\bfloat(?:32|64)\b|\)[[:space:]]*(?:\([^)]*\))?[[:space:]]*float(?:32|64)\b)|:=[^\r\n]*\b(?:\[\])?float(?:32|64)\b)'
 
 run_rule 'exchange-credential-key' \
-  'authenticated exchange credential key/reference is forbidden in V1A' \
-  "${EXCHANGE_CREDENTIAL_RE}" 'b1-public' ALL_INPUT_GLOBS .
+  'authenticated exchange credential key/reference is forbidden outside reviewed sandbox boundaries' \
+  "${EXCHANGE_CREDENTIAL_RE}" 'public-exchange-only' ALL_INPUT_GLOBS .
 run_rule 'private-endpoint' \
-  'private, account, order, or later-release exchange endpoint is forbidden in V1A' \
-  "${PRIVATE_ENDPOINT_RE}" 'b1-public' ALL_INPUT_GLOBS .
+  'private, account, order, or unreviewed exchange endpoint is forbidden' \
+  "${PRIVATE_ENDPOINT_RE}" 'public-exchange-only' ALL_INPUT_GLOBS .
 run_rule 'later-release-sandbox' \
-  'testnet/demo executable input is outside the reviewed V1C boundary' \
+  'testnet/demo executable input is outside the reviewed sandbox boundary' \
   "${LATER_SANDBOX_RE}" 'typed-unsupported' ALL_INPUT_GLOBS .
 run_rule 'external-live-mode' \
   'live external execution mode/service is forbidden in every V1 release' \
   "${EXTERNAL_LIVE_MODE_RE}" 'none' ALL_INPUT_GLOBS .
 run_rule 'signer-or-order-interface' \
-  'exchange signer, authenticated transport, or external order interface is forbidden in V1A' \
+  'exchange signer, authenticated transport, or external order interface is forbidden outside reviewed sandbox boundaries' \
   "${SIGNER_INTERFACE_RE}" 'none' ALL_INPUT_GLOBS .
 run_rule 'external-order-method' \
-  'external order submission method is forbidden in V1A' \
+  'external order submission method is forbidden outside reviewed sandbox boundaries' \
   "${GLOBAL_EXTERNAL_ORDER_RE}" 'none' ALL_INPUT_GLOBS .
 run_rule 'prohibited-product' \
   'prohibited product or external capability is present in an executable input' \

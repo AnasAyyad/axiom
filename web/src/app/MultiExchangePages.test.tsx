@@ -22,7 +22,7 @@ const quality = {
 } as const;
 
 const summary = {
-  id: "decision-b8",
+  id: "decision-multi_exchange_console",
   kind: "cross_exchange",
   label: "buy_binance_sell_bybit",
   buy_exchange: "binance",
@@ -89,7 +89,7 @@ beforeEach(() => {
           event_type: "cross_exchange.simulation",
           label: "Simulation outcome recorded",
           occurred_at: "2026-07-24T12:00:00Z",
-          correlation_id: "decision-b8",
+          correlation_id: "decision-multi_exchange_console",
           revision: "4",
         },
       ],
@@ -108,7 +108,7 @@ it("is accessible and exposes opportunity evidence from a keyboard-native row co
     </QueryClientProvider>,
   );
   const row = await screen.findByRole("button", {
-    name: /cross exchange.*decision-b8/i,
+    name: /cross exchange.*decision-multi_exchange_console/i,
   });
   expect(row).toHaveAttribute("aria-expanded", "false");
   fireEvent.click(row);

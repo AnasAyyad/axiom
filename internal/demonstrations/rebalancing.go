@@ -12,68 +12,86 @@ import (
 	"axiom/internal/rebalancing"
 )
 
+// RebalancingID is the stable semantic ID of the bundled advisory scenario.
 const RebalancingID = "inventory-rebalancing-basics"
 
+// RunInventoryRebalancing runs the deterministic advisory-only scenario.
 func RunInventoryRebalancing(ctx context.Context) (Result, error) {
 	if ctx == nil {
 		return Result{}, fmt.Errorf("demonstration_context_invalid")
 	}
 	now := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC)
-	source, err := rebalancingNode("binance", "BTC")
+	evidence, configurationHash, err := guidedRebalancingEvidence(now)
 	if err != nil {
 		return Result{}, err
 	}
-	destination, err := rebalancingNode("bybit", "BTC")
-	if err != nil {
-		return Result{}, err
-	}
-	sell, err := rebalancingTrade("guided-sell", source, rebalancingNodeMust("binance", "USDT"), "BTCUSDT", "2", now)
-	if err != nil {
-		return Result{}, err
-	}
-	buy, err := rebalancingTrade("guided-buy", rebalancingNodeMust("bybit", "USDT"), destination, "BTCUSDT", "3", now)
-	if err != nil {
-		return Result{}, err
-	}
-	transfer, err := rebalancingTransfer("guided-transfer", source, destination, now)
-	if err != nil {
-		return Result{}, err
-	}
-	graph, err := rebalancing.NewGraph([]rebalancing.Edge{transfer, buy, sell})
-	if err != nil {
-		return Result{}, err
-	}
-	request, err := rebalancingRequest(source, destination, now)
-	if err != nil {
-		return Result{}, err
-	}
-	request.NaturalReversals = []rebalancing.NaturalReversalPlan{{ID: "guided-natural", B5DecisionID: "guided-imbalance", Source: source, Destination: destination, SellFactID: sell.ID, BuyFactID: buy.ID}}
-	accepted, acceptedDiagnostics, err := graph.Optimize(request)
-	if err != nil {
-		return Result{}, err
-	}
-	stale := transfer
-	stale.Provenance.ExpiresAt = now
-	stale = rebalancing.SealEdge(stale)
-	rejectedGraph, err := rebalancing.NewGraph([]rebalancing.Edge{stale})
-	if err != nil {
-		return Result{}, err
-	}
-	_, rejectedDiagnostics, rejectedErr := rejectedGraph.Optimize(request)
-	if rejectedErr == nil {
-		return Result{}, fmt.Errorf("demonstration_rejection_incomplete")
-	}
-	evidence, err := json.Marshal(map[string]any{"recommendation": accepted, "diagnostics": acceptedDiagnostics, "rejected_reason": rejectedErr.Error(), "rejected_diagnostics": rejectedDiagnostics})
-	if err != nil {
-		return Result{}, err
-	}
-	result := Result{ID: RebalancingID, StrategyID: "inventory-rebalancing", StrategyVersion: "inventory-rebalancing@1.0.0", Synthetic: true, AdvisoryOnly: true, AdvisoryEvidence: evidence, ConfigurationHash: request.ConfigurationHash, Accepted: advisoryEvent("recommended"), Rejected: advisoryEvent("stale_fact_rejected"), Metrics: backtest.Metrics{TotalNetReturn: "not_applicable"}}
+	result := Result{ID: RebalancingID, StrategyID: "inventory-rebalancing", StrategyVersion: "inventory-rebalancing@1.0.0", Synthetic: true, AdvisoryOnly: true, AdvisoryEvidence: evidence, ConfigurationHash: configurationHash, Accepted: advisoryEvent("recommended"), Rejected: advisoryEvent("stale_fact_rejected"), Metrics: backtest.Metrics{TotalNetReturn: "not_applicable"}}
 	hash, err := resultHash(result)
 	if err != nil {
 		return Result{}, err
 	}
 	result.ResultHash = hash
 	return result, nil
+}
+
+func guidedRebalancingEvidence(now time.Time) (json.RawMessage, string, error) {
+	source, err := rebalancingNode("binance", "BTC")
+	if err != nil {
+		return nil, "", err
+	}
+	destination, err := rebalancingNode("bybit", "BTC")
+	if err != nil {
+		return nil, "", err
+	}
+	sell, err := rebalancingTrade("guided-sell", source, rebalancingNodeMust("binance", "USDT"), "BTCUSDT", "2", now)
+	if err != nil {
+		return nil, "", err
+	}
+	buy, err := rebalancingTrade("guided-buy", rebalancingNodeMust("bybit", "USDT"), destination, "BTCUSDT", "3", now)
+	if err != nil {
+		return nil, "", err
+	}
+	transfer, err := rebalancingTransfer("guided-transfer", source, destination, now)
+	if err != nil {
+		return nil, "", err
+	}
+	graph, err := rebalancing.NewGraph([]rebalancing.Edge{transfer, buy, sell})
+	if err != nil {
+		return nil, "", err
+	}
+	request, err := rebalancingRequest(source, destination, now)
+	if err != nil {
+		return nil, "", err
+	}
+	request.NaturalReversals = []rebalancing.NaturalReversalPlan{{ID: "guided-natural", CrossExchangeArbitrageDecisionID: "guided-imbalance", Source: source, Destination: destination, SellFactID: sell.ID, BuyFactID: buy.ID}}
+	accepted, acceptedDiagnostics, err := graph.Optimize(request)
+	if err != nil {
+		return nil, "", err
+	}
+	rejectedDiagnostics, rejectedErr, err := guidedRebalancingRejection(transfer, request, now)
+	if err != nil {
+		return nil, "", err
+	}
+	evidence, err := json.Marshal(map[string]any{"recommendation": accepted, "diagnostics": acceptedDiagnostics, "rejected_reason": rejectedErr.Error(), "rejected_diagnostics": rejectedDiagnostics})
+	if err != nil {
+		return nil, "", err
+	}
+	return evidence, request.ConfigurationHash, nil
+}
+
+func guidedRebalancingRejection(transfer rebalancing.Edge, request rebalancing.Request,
+	now time.Time,
+) (rebalancing.Diagnostics, error, error) {
+	transfer.Provenance.ExpiresAt = now
+	rejectedGraph, err := rebalancing.NewGraph([]rebalancing.Edge{rebalancing.SealEdge(transfer)})
+	if err != nil {
+		return rebalancing.Diagnostics{}, nil, err
+	}
+	_, diagnostics, rejectedErr := rejectedGraph.Optimize(request)
+	if rejectedErr == nil {
+		return rebalancing.Diagnostics{}, nil, fmt.Errorf("demonstration_rejection_incomplete")
+	}
+	return diagnostics, rejectedErr, nil
 }
 
 func advisoryEvent(outcome string) backtest.EventResult {

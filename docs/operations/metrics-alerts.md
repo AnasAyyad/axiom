@@ -76,10 +76,10 @@ Prometheus `job` target label are bounded by the four deployed roles.
 | `axiom_sandbox_engine_events_total` | counter / events | exchange, kind, service | Reconnect, restart, and lease-loss events |
 | `axiom_sandbox_recovery_duration_seconds` | histogram / seconds | exchange, operation, service | Reconciliation, unknown recovery, and restart duration |
 | `axiom_critical_alert_latency_seconds` | histogram / seconds | reason, service | In-app critical alert creation latency |
-| `axiom_c6_soak_state` | gauge / boolean | mode, state, service | Single bounded smoke/formal qualification state |
-| `axiom_c6_soak_duration_seconds` | gauge / seconds | mode, service | Observed C6 run duration |
-| `axiom_c6_soak_failures_total` | counter / failures | reason, service | Closed terminal failure reason |
-| `axiom_c6_memory_trend_bytes` | gauge / bytes | window, service | Signed resident-memory change for bounded review windows |
+| `axiom_sandbox_qualification_soak_state` | gauge / boolean | mode, state, service | Single bounded smoke/formal qualification state |
+| `axiom_sandbox_qualification_soak_duration_seconds` | gauge / seconds | mode, service | Observed sandbox-qualification duration |
+| `axiom_sandbox_qualification_soak_failures_total` | counter / failures | reason, service | Closed terminal failure reason |
+| `axiom_sandbox_qualification_memory_trend_bytes` | gauge / bytes | window, service | Signed resident-memory change for bounded review windows |
 | `go_*`, `process_*` | runtime/process | collector-defined bounded runtime labels | Go runtime, CPU, resident memory, and file descriptors |
 
 Allowed queue values are `market`, `persistence`, `strategy`, `alerts`, and

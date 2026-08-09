@@ -42,7 +42,9 @@ describe("HealthPage", () => {
     );
 
     const view = render(<HealthPage />);
-    expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
+    expect(
+      screen.getByText("REAL-MONEY TRADING IS NOT AVAILABLE"),
+    ).toBeInTheDocument();
     await screen.findByText("READY_PAUSED");
     const result = await axe.run(view.container);
     expect(result.violations).toHaveLength(0);

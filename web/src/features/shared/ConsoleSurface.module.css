@@ -238,6 +238,11 @@ button.card[aria-pressed="true"] {
   opacity: 0.5;
 }
 
+.linkButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .spanAll {
   grid-column: 1 / -1;
 }

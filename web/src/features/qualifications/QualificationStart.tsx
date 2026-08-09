@@ -3,7 +3,7 @@ import { HighRiskAuthorizationForm } from "../shared/HighRiskAuthorizationForm";
 import styles from "../shared/ConsoleSurface.module.css";
 
 interface QualificationStartProps {
-  readonly qualification: APIModel<"D1Resource">;
+  readonly qualification: APIModel<"OwnerControlResource">;
   readonly sourceSHA: string;
   readonly setSourceSHA: (value: string) => void;
   readonly configurationHash: string;

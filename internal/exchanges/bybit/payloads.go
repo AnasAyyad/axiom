@@ -92,8 +92,8 @@ type tickersResult struct {
 
 type tickerPayload struct {
 	Symbol          string `json:"symbol"`
-	BidPrice        string `json:"bid1Price"`
-	BidSize         string `json:"bid1Size"`
+	BidPrice        string `json:"biownerControlPrice"`
+	BidSize         string `json:"biownerControlSize"`
 	AskPrice        string `json:"ask1Price"`
 	AskSize         string `json:"ask1Size"`
 	LastPrice       string `json:"lastPrice"`

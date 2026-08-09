@@ -171,9 +171,9 @@ func (service *Service) Logout(ctx context.Context, sessionID string) error {
 	return nil
 }
 
-// RequirePermission is retained as a compatibility seam while the owner
-// console is migrated. Every authenticated principal is the one owner, so
-// normal product actions are never role- or permission-gated.
+// RequirePermission is the single-owner compatibility seam. Normal product
+// actions belong to the authenticated owner; high-risk actions retain their
+// separate password, TOTP, reason, and expected-revision checks.
 func RequirePermission(principal Principal, permission string) error {
 	if principal.UserID == "" || permission == "" {
 		return ErrForbidden
@@ -220,7 +220,7 @@ func minTime(left, right time.Time) time.Time {
 }
 
 func fixedDummyHash() (string, error) {
-	salt := []byte("axiom-a11-dummy!")
+	salt := []byte("axiom-owner_console-dummy!")
 	output := argon2Dummy([]byte("not-a-user-password"), salt)
 	return encodePasswordProfile(passwordProfile{CurrentMemoryKiB, CurrentIterations, CurrentParallelism, salt, output}), nil
 }

@@ -78,7 +78,7 @@ func validEvidence(evidence InputEvidence, configuration Configuration) bool {
 		evidence.MarketViewID != "" && evidence.MarketViewRevision > 0 && validHash(evidence.CoherentViewID) &&
 		evidence.CoherentVersionVectorHash == evidence.CoherentViewID && evidence.InstrumentMetadataID != "" &&
 		evidence.AssetEligibilityVersion > 0 && evidence.ConfigurationSnapshotID != "" &&
-		evidence.ConfigurationVersion == "axiom.config.v1b.2" && evidence.ConfigurationHash == configuration.Hash &&
+		evidence.ConfigurationVersion != "" && evidence.ConfigurationHash == configuration.Hash &&
 		evidence.StrategyVersion == configuration.Version && validHash(evidence.StrategyHash) &&
 		evidence.PortfolioRevision > 0 && evidence.PositionRevision > 0 && evidence.RiskPolicyID != "" && evidence.RiskPolicyVersion > 0 &&
 		validHash(evidence.RiskPolicyHash) && evidence.FeeModelID != "" && evidence.LatencyModelID != "" &&

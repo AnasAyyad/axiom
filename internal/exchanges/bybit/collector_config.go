@@ -27,7 +27,7 @@ type CollectorConfig struct {
 	LifecycleEvidence exchangecontracts.LifecycleEvidenceSink
 }
 
-// DefaultCollectorConfig returns conservative B1 public recording defaults.
+// DefaultCollectorConfig returns conservative exchange expansion public recording defaults.
 func DefaultCollectorConfig(instrument domain.Instrument) CollectorConfig {
 	return CollectorConfig{Instrument: instrument, BookDepth: 1000, QueueCapacity: 8192,
 		CandleCapacity: 512, CandleIntervals: []string{"15m", "1h", "4h"},

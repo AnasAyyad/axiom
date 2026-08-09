@@ -6,7 +6,7 @@ import {
   postAPI,
   type APIModel,
 } from "../../api/client";
-import { d1CollectionQuery, sessionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
@@ -17,7 +17,9 @@ import styles from "../shared/ConsoleSurface.module.css";
 
 export function ConfigurationCenterPage() {
   const session = useQuery(sessionQuery);
-  const query = useQuery(d1CollectionQuery("configuration-revisions"));
+  const query = useQuery(
+    ownerControlCollectionQuery("configuration-revisions"),
+  );
   const queryClient = useQueryClient();
   if (session.isLoading || query.isLoading)
     return <StatePanel state="loading" />;
@@ -91,7 +93,7 @@ export function ConfigurationCenterPage() {
                       newIdempotencyKey("configuration-activation"),
                     );
                     await queryClient.invalidateQueries({
-                      queryKey: ["d1", "configuration-revisions"],
+                      queryKey: ["owner_control", "configuration-revisions"],
                     });
                   }}
                 />

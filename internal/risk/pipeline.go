@@ -18,7 +18,7 @@ type ObservationProvider interface {
 	Current() (Observations, []Policy, time.Time, error)
 }
 
-// PipelineEngine adapts real A9 policy to the shared A8 pipeline approval token.
+// PipelineEngine adapts real portfolio and risk policy to the shared strategy execution pipeline approval token.
 type PipelineEngine struct {
 	engine   *Engine
 	vault    *portfolio.ApprovalVault

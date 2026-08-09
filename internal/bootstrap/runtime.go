@@ -86,9 +86,9 @@ func workForRole(
 	case "recorder":
 		return newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
 	case "worker":
-		return newA11WorkerRoleWork(pool, runtimeConfig)
+		return newOwnerConsoleWorkerRoleWork(pool, runtimeConfig)
 	case "engine-shadow":
-		return newA11LiveShadowRoleWork(pool, runtimeConfig)
+		return newOwnerConsoleLiveShadowRoleWork(pool, runtimeConfig)
 	case "engine-binance-sandbox":
 		return newSandboxEngineRoleWork(
 			ctx,
@@ -181,7 +181,7 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	}
 	var consoleOptions *console.Options
 	if role == "api" {
-		setup := setupA11Console(ctx, pool, runtimeConfig)
+		setup := setupOwnerConsole(ctx, pool, runtimeConfig)
 		options.Dependency = setup.dependency
 		consoleOptions = setup.options
 	}

@@ -15,8 +15,8 @@ type sandboxPrivateStreamSignal struct {
 
 func (work *sandboxEngineRoleWork) consumePrivateEvents(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	fence uint64,
 	source sandbox.PrivateEventSource,
 	signals chan<- sandboxPrivateStreamSignal,
@@ -47,8 +47,8 @@ func (work *sandboxEngineRoleWork) consumePrivateEvents(
 
 func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	fence uint64,
 	source sandbox.PrivateEventSource,
 	signals chan<- sandboxPrivateStreamSignal,

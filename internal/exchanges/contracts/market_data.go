@@ -10,7 +10,7 @@ import (
 // Operation identifies a narrow exchange-boundary action for policy and errors.
 type Operation string
 
-// Public operations are callable in V1A. The remaining values exist only for
+// Public operations are callable in initial trend. The remaining values exist only for
 // capability and retry classification and expose no transport methods.
 const (
 	OperationCapability Operation = "capability"
@@ -116,11 +116,12 @@ type Candle struct {
 
 // InstrumentRecord combines canonical metadata with preserved native facts.
 type InstrumentRecord struct {
-	Exchange       ExchangeID                `json:"exchange"`
-	NativeSymbol   string                    `json:"native_symbol"`
-	NativeStatus   string                    `json:"native_status"`
-	Metadata       domain.InstrumentMetadata `json:"metadata"`
-	RawPayloadHash string                    `json:"raw_payload_hash"`
+	Exchange        ExchangeID                `json:"exchange"`
+	NativeSymbol    string                    `json:"native_symbol"`
+	NativeStatus    string                    `json:"native_status"`
+	Metadata        domain.InstrumentMetadata `json:"metadata"`
+	MaximumQuantity domain.Quantity           `json:"maximum_quantity"`
+	RawPayloadHash  string                    `json:"raw_payload_hash"`
 }
 
 // SnapshotRequest asks for one bounded public order-book snapshot.
@@ -153,7 +154,7 @@ type StreamRequest struct {
 // StreamKind is one canonical public stream payload class.
 type StreamKind string
 
-// Supported V1A public stream kinds.
+// Supported initial trend public stream kinds.
 const (
 	StreamDepth     StreamKind = "depth"
 	StreamTrades    StreamKind = "trades"

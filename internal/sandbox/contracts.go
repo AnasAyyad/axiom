@@ -9,13 +9,13 @@ import (
 	"axiom/internal/execution"
 )
 
-// Exchange is one closed V1C authenticated sandbox venue.
+// Exchange is one closed sandbox runtime authenticated sandbox venue.
 type Exchange string
 
 // Environment is one closed virtual external-account environment.
 type Environment string
 
-// Closed V1C exchange and environment values.
+// Closed sandbox runtime exchange and environment values.
 const (
 	ExchangeBinance Exchange = "binance"
 	ExchangeBybit   Exchange = "bybit"
@@ -30,10 +30,10 @@ type AccountID string
 // SessionID is one sandbox execution-session identity.
 type SessionID string
 
-// OrderStyle is one exact V1C spot limit style.
+// OrderStyle is one exact sandbox runtime spot limit style.
 type OrderStyle string
 
-// V1C supports only these exact limit-order styles.
+// sandbox runtime supports only these exact limit-order styles.
 const (
 	OrderStyleLimitGTC OrderStyle = "LIMIT_GTC"
 	OrderStyleLimitIOC OrderStyle = "LIMIT_IOC"
@@ -43,7 +43,7 @@ const (
 // IntentAction is the central-risk action attached to a durable order.
 type IntentAction string
 
-// Closed strategy identifiers accepted by the V1C durable dispatcher.
+// Closed strategy identifiers accepted by the sandbox runtime durable dispatcher.
 const (
 	StrategyTrend                  = "trend"
 	StrategyMeanReversion          = "mean-reversion"
@@ -289,3 +289,12 @@ type SnapshotExpectationReader interface {
 
 // EligibilitySnapshot is the single public book-and-clock admission boundary.
 type EligibilitySnapshot = exchangecontracts.CollectorHealthSnapshot
+
+// StrategyMarketData is the credential-free public-data boundary available to
+// an automatic sandbox strategy worker. It deliberately excludes account,
+// order, and private-stream operations.
+type StrategyMarketData interface {
+	exchangecontracts.MarketDataSource
+	exchangecontracts.HistoricalReader
+	exchangecontracts.InstrumentCatalog
+}

@@ -2,10 +2,14 @@ package crossarb
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
 	exchangecontracts "axiom/internal/exchanges/contracts"
+	"axiom/internal/execution"
+	"axiom/internal/portfolio"
+	"axiom/internal/risk"
 )
 
 func TestInputRebuildsExactCoherentEvaluationAfterJSONRoundTrip(t *testing.T) {
@@ -59,6 +63,148 @@ func TestInputRejectsMissingSnapshotIdentityMismatchedCoherentBookAndEnvelope(t 
 	}
 	if err = input.ValidateEventBinding(input.Ordinal+1, input.LogicalTime); err == nil {
 		t.Fatal("mismatched replay envelope was accepted")
+	}
+}
+
+func TestRecordedSimulationRestoresOnlyExactVenueBooksAndDirectives(t *testing.T) {
+	input := inputFromEvaluation(t, evaluationFixture(t, "BTC", false))
+	input.Simulation = &SimulationInput{Latency: testLatency(), Recovery: RecoveryPolicy{}}
+	for _, offset := range []uint64{input.LogicalTime + 10, input.LogicalTime + 20} {
+		for _, market := range input.Markets {
+			input.Simulation.Markets = append(input.Simulation.Markets, TimedMarketInput{Offset: offset, Market: market})
+		}
+	}
+	input.Simulation.Directives = []TimedDirective{
+		{Exchange: "binance", Phase: PhaseArrival, Offset: input.LogicalTime + 10,
+			Directive: LegDirective{State: execution.OrderFilled}},
+		{Exchange: "bybit", Phase: PhaseArrival, Offset: input.LogicalTime + 20,
+			Directive: LegDirective{State: execution.OrderFilled}},
+	}
+	encoded, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored Input
+	if err = json.Unmarshal(encoded, &restored); err != nil {
+		t.Fatal(err)
+	}
+	timeline, latency, policy, err := RecordedSagaSimulationInputs{}.SimulationInput(restored)
+	if err != nil || !reflect.DeepEqual(latency, testLatency()) || policy != (RecoveryPolicy{}) {
+		t.Fatalf("timeline=%#v latency=%#v policy=%#v error=%v", timeline, latency, policy, err)
+	}
+	evaluation, err := restored.EvaluationInput()
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := Evaluate(evaluation)
+	if err != nil || len(candidates) == 0 {
+		t.Fatalf("candidates=%#v error=%v", candidates, err)
+	}
+	result, err := Simulate(candidates[0], timeline, latency, policy)
+	if err != nil || result.Outcome != OutcomeBothFilled {
+		t.Fatalf("result=%#v error=%v", result, err)
+	}
+	missing := restored
+	missing.Simulation.Directives = missing.Simulation.Directives[:1]
+	missingTimeline, missingLatency, missingPolicy, err := missing.RecordedSimulation()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = Simulate(candidates[0], missingTimeline, missingLatency, missingPolicy); err == nil {
+		t.Fatal("simulation accepted a missing recorded venue directive")
+	}
+}
+
+func TestRecordedRiskInputRestoresOnlyCapturedCentralRiskEvidence(t *testing.T) {
+	input := inputFromEvaluation(t, evaluationFixture(t, "BTC", false))
+	input.CentralRisk = &RiskInput{Policies: []risk.Policy{{ID: "crossarb-recorded-risk", Version: 1,
+		Scope: risk.Scope{Kind: risk.ScopeStrategy, ID: "crossarb"}, State: risk.StateNormal}},
+		EvaluatedAt: input.Now}
+	encoded, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored Input
+	if err = json.Unmarshal(encoded, &restored); err != nil {
+		t.Fatal(err)
+	}
+	riskInput, err := RecordedSagaRiskInputs{}.RiskInput(restored)
+	if err != nil || len(riskInput.Policies) != 1 || riskInput.Policies[0].ID != "crossarb-recorded-risk" {
+		t.Fatalf("risk input=%#v error=%v", riskInput, err)
+	}
+	riskInput.Policies[0].ID = "mutated"
+	if restored.CentralRisk.Policies[0].ID != "crossarb-recorded-risk" {
+		t.Fatal("recorded central-risk evidence was returned by reference")
+	}
+	missing := restored
+	missing.CentralRisk = nil
+	if _, err = missing.RecordedRiskInput(); err == nil {
+		t.Fatal("missing recorded central-risk evidence was accepted")
+	}
+}
+
+func TestRecordedReductionRestoresOnlyCapturedAttributionAndReconciliationEvidence(t *testing.T) {
+	input := inputFromEvaluation(t, evaluationFixture(t, "BTC", false))
+	state := matchingSagaReconciliationState()
+	input.Reduction = &ReductionInput{Attribution: PortfolioAttribution{Fees: balance("0.01")},
+		Reconciliation: ReconciliationInput{Scope: "crossarb/recorded", Expected: state, Actual: state, At: input.Now}}
+	encoded, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored Input
+	if err = json.Unmarshal(encoded, &restored); err != nil {
+		t.Fatal(err)
+	}
+	reduction, err := restored.RecordedReduction()
+	if err != nil || reduction.Reconciliation.Scope != "crossarb/recorded" ||
+		reduction.Attribution.Fees.String() != "0.01" {
+		t.Fatalf("reduction=%#v error=%v", reduction, err)
+	}
+	reduction.Reconciliation.Expected.Duplicates = append(reduction.Reconciliation.Expected.Duplicates, "mutated")
+	if len(restored.Reduction.Reconciliation.Expected.Duplicates) != 0 {
+		t.Fatal("recorded reconciliation evidence was returned by reference")
+	}
+	missing := restored
+	missing.Reduction = nil
+	if _, err = missing.RecordedReduction(); err == nil {
+		t.Fatal("missing recorded reduction evidence was accepted")
+	}
+}
+
+func TestRecordedSagaClaimSetDerivesCapacityFromRecordedOwnershipAndDepth(t *testing.T) {
+	input := inputFromEvaluation(t, evaluationFixture(t, "BTC", false))
+	claims, err := NewRecordedSagaClaimSet(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := input.Inventory[0]
+	settlement, found := claims.Resource(portfolio.ClaimKey{Kind: portfolio.ClaimBalance, Owner: first.Owner,
+		Exchange: first.Exchange, Resource: "usdt"})
+	if !found || settlement.Available != first.OwnedUSDT {
+		t.Fatalf("recorded USDT capacity=%#v found=%t", settlement, found)
+	}
+	liquidity, found := claims.Resource(portfolio.ClaimKey{Kind: portfolio.ClaimLiquidity, Owner: first.Owner,
+		Exchange: "binance", Resource: "btcusdt-ask-v1"})
+	if !found || liquidity.Available.String() != "100" {
+		t.Fatalf("recorded ask depth=%#v found=%t", liquidity, found)
+	}
+	invalid := input
+	invalid.Inventory = append([]VenueInventory(nil), input.Inventory...)
+	invalid.Inventory[0].Owner = "other-owner"
+	if _, err = NewRecordedSagaClaimSet(invalid); err == nil {
+		t.Fatal("inconsistent recorded ownership was accepted")
+	}
+	sparse := input
+	sparse.Inventory = append([]VenueInventory(nil), input.Inventory...)
+	sparse.Inventory[0].OwnedBase = balance("0")
+	claims, err = NewRecordedSagaClaimSet(sparse)
+	if err != nil {
+		t.Fatalf("zero unused capacity rejected every direction: %v", err)
+	}
+	if _, found = claims.Resource(portfolio.ClaimKey{Kind: portfolio.ClaimBalance, Owner: first.Owner,
+		Exchange: first.Exchange, Resource: string(first.BaseAsset)}); found {
+		t.Fatal("zero capacity was registered as claimable")
 	}
 }
 

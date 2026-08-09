@@ -1,88 +1,15 @@
-import { lazy, Suspense, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 
 import type { APIModel } from "../api/client";
 import { MetricCard } from "../components/MetricCard";
 import { StatePanel } from "../components/StatePanel";
 import styles from "./Page.module.css";
 import { RegisteredResearchReport } from "./RegisteredResearchReport";
-import { emptyRun } from "./researchLabModel";
 const EvidenceChart = lazy(() =>
   import("../components/EvidenceChart").then((module) => ({
     default: module.EvidenceChart,
   })),
 );
-
-export function RunForm({
-  form,
-  setForm,
-  label,
-  pending,
-  submit,
-}: {
-  readonly form: typeof emptyRun;
-  readonly setForm: (value: typeof emptyRun) => void;
-  readonly label: string;
-  readonly pending: boolean;
-  readonly submit: () => void;
-}) {
-  function handle(event: FormEvent) {
-    event.preventDefault();
-    submit();
-  }
-  return (
-    <form className={`${styles.card} ${styles.form}`} onSubmit={handle}>
-      <Field
-        label="Configuration ID"
-        value={form.configuration}
-        set={(configuration) => setForm({ ...form, configuration })}
-      />
-      <Field
-        label="Dataset ID"
-        value={form.dataset}
-        set={(dataset) => setForm({ ...form, dataset })}
-      />
-      <Field
-        label="Research generation ID"
-        value={form.researchGeneration}
-        set={(researchGeneration) => setForm({ ...form, researchGeneration })}
-      />
-      <Field
-        label="Strategy version"
-        value={form.strategy}
-        set={(strategy) => setForm({ ...form, strategy })}
-      />
-      <Field
-        label="Root seed hash"
-        value={form.seed}
-        set={(seed) => setForm({ ...form, seed })}
-      />
-      <button type="submit" disabled={pending}>
-        {pending ? "Persisting…" : label}
-      </button>
-    </form>
-  );
-}
-
-export function Field({
-  label,
-  value,
-  set,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly set: (value: string) => void;
-}) {
-  return (
-    <label>
-      {label}
-      <input
-        required
-        value={value}
-        onChange={(event) => set(event.target.value)}
-      />
-    </label>
-  );
-}
 
 export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
   return (
@@ -117,7 +44,7 @@ export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
         ) : (
           <StatePanel
             state="partial"
-            detail="The legacy run has no projected input manifest. Its result remains visible, but comparison is incomplete."
+            detail="This historical run has no projected input manifest. Its result remains visible, but comparison is incomplete."
           />
         )}
       </section>

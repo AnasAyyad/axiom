@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const integratedBaseURL =
-  process.env.AXIOM_A11_E2E_BASE_URL?.trim() || undefined;
+  process.env.AXIOM_OWNER_CONSOLE_E2E_BASE_URL?.trim() || undefined;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -12,8 +12,8 @@ export default defineConfig({
   reporter: "line",
   testMatch:
     integratedBaseURL === undefined
-      ? "a11-workflow.spec.ts"
-      : "a11-integrated-workflow.spec.ts",
+      ? "owner-console-workflow.spec.ts"
+      : "owner-console-integrated-workflow.spec.ts",
   use: {
     baseURL: integratedBaseURL ?? "http://127.0.0.1:4173",
     trace: "retain-on-failure",

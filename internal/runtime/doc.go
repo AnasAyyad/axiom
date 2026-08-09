@@ -1,2 +1,2 @@
-// Package runtimecore implements deterministic, bounded, fail-closed V1A runtime primitives.
+// Package runtimecore implements deterministic, bounded, fail-closed initial trend runtime primitives.
 package runtimecore

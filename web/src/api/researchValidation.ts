@@ -33,7 +33,7 @@ const labInputManifest = z
     configuration_id: z.string().min(1),
     dataset_id: z.string().min(1),
     research_generation_id: z.string().min(1),
-    strategy_version: z.literal("trend.v1a.1"),
+    strategy_version: z.literal("trend-following@1.0.0"),
     root_seed_hash: z.string().regex(/^[0-9a-f]{64}$/),
     speed: z.enum(["original", "accelerated", "maximum"]).optional(),
     incident_id: z.string().min(1).optional(),

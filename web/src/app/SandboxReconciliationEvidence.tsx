@@ -94,7 +94,10 @@ export function SandboxQualificationPanel({
   readonly qualification: APIModel<"SandboxQualificationStatus">;
 }) {
   return (
-    <section className={styles.card} aria-labelledby="sandbox-qualification-heading">
+    <section
+      className={styles.card}
+      aria-labelledby="sandbox-qualification-heading"
+    >
       <header>
         <div>
           <span>Sandbox chaos and soak</span>

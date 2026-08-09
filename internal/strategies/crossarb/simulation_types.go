@@ -73,7 +73,7 @@ type RecoveryResult struct {
 	Loss                  domain.Money
 }
 
-// SimulationResult is the deterministic restart-comparable B5 saga evidence.
+// SimulationResult is the deterministic restart-comparable cross-exchange arbitrage saga evidence.
 type SimulationResult struct {
 	CandidateID    string
 	Outcome        SimulationOutcome

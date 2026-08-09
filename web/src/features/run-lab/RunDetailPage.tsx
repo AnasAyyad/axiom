@@ -1,4 +1,10 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { newIdempotencyKey, postAPI } from "../../api/client";
@@ -13,6 +19,7 @@ import { Page } from "../../app/OperationalShared";
 import { ConfirmAction } from "../../components/ConfirmAction";
 import { StatePanel } from "../../components/StatePanel";
 import styles from "../shared/ConsoleSurface.module.css";
+import { RunEvidenceTabs } from "./RunEvidenceTabs";
 
 const outputViews = [
   ["timeline", "Timeline"],
@@ -22,6 +29,26 @@ const outputViews = [
 ] as const;
 
 type RunAction = "pause" | "resume" | "step" | "stop";
+type RunTab =
+  | "overview"
+  | "timeline"
+  | "decisions"
+  | "orders"
+  | "portfolio"
+  | "risk"
+  | "data"
+  | "evidence";
+
+const runTabs: ReadonlyArray<readonly [RunTab, string]> = [
+  ["overview", "Overview"],
+  ["timeline", "Timeline"],
+  ["decisions", "Decisions"],
+  ["orders", "Orders & Fills"],
+  ["portfolio", "Portfolio & P&L"],
+  ["risk", "Risk"],
+  ["data", "Data & Models"],
+  ["evidence", "Evidence"],
+];
 
 function actionDescription(action: RunAction) {
   switch (action) {
@@ -38,6 +65,7 @@ function actionDescription(action: RunAction) {
 
 export function RunDetailPage() {
   const { id = "" } = useParams();
+  const [activeTab, setActiveTab] = useState<RunTab>("overview");
   const queryClient = useQueryClient();
   const run = useQuery(runQuery(id));
   const portfolio = useQuery(runPortfolioProjectionQuery(id));
@@ -80,123 +108,115 @@ export function RunDetailPage() {
       <Link className={styles.linkButton} to="/run-lab">
         Back to run history
       </Link>
-      <section className={styles.card} aria-labelledby="run-overview">
-        <h2 id="run-overview">Overview</h2>
-        <dl className={styles.facts}>
-          <div>
-            <dt>State</dt>
-            <dd>{run.data.state}</dd>
-          </div>
-          <div>
-            <dt>Strategy</dt>
-            <dd>{run.data.strategy_version}</dd>
-          </div>
-          <div>
-            <dt>Environment</dt>
-            <dd>{run.data.environment.replaceAll("_", " ")}</dd>
-          </div>
-        </dl>
-        {run.data.waiting_reason && (
-          <p className={styles.notice}>{run.data.waiting_reason}</p>
-        )}
-      </section>
-      {actions.length > 0 && (
-        <section className={styles.card} aria-labelledby="run-controls">
-          <h2 id="run-controls">Safe controls</h2>
-          <p>
-            Controls are shown only when this run’s current lifecycle can
-            accept them. Each command is revision-checked, durable, and
-            audited.
-          </p>
-          <div className={styles.actions}>
-            {actions.map((action) => (
-              <ConfirmAction
-                key={action}
-                trigger={
-                  <button
-                    type="button"
-                    className={action === "stop" ? styles.danger : styles.secondary}
-                    disabled={control.isPending}
-                  >
-                    {action}
-                  </button>
-                }
-                title={`${action} this run?`}
-                description={actionDescription(action)}
-                confirmLabel={action}
-                onConfirm={() => control.mutate(action)}
-              />
-            ))}
-          </div>
-          {control.isError && (
-            <p className={styles.error} role="alert">
-              The command was not accepted. Refresh the run and try again if
-              the current state still allows it.
-            </p>
+      <nav
+        className={styles.tabs}
+        aria-label="Run detail sections"
+        role="tablist"
+      >
+        {runTabs.map(([tab, label]) => (
+          <button
+            aria-controls={`run-tab-${tab}`}
+            aria-selected={activeTab === tab}
+            id={`run-tab-control-${tab}`}
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            role="tab"
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      {activeTab === "overview" && (
+        <section
+          aria-labelledby="run-tab-control-overview"
+          className={styles.card}
+          id="run-tab-overview"
+          role="tabpanel"
+        >
+          <h2 id="run-overview">Overview</h2>
+          <dl className={styles.facts}>
+            <div>
+              <dt>State</dt>
+              <dd>{run.data.state}</dd>
+            </div>
+            <div>
+              <dt>Strategy</dt>
+              <dd>{run.data.strategy_version}</dd>
+            </div>
+            <div>
+              <dt>Environment</dt>
+              <dd>{run.data.environment.replaceAll("_", " ")}</dd>
+            </div>
+          </dl>
+          {run.data.waiting_reason && (
+            <p className={styles.notice}>{run.data.waiting_reason}</p>
+          )}
+          {run.data.mode === "sandbox" && run.data.state !== "stopped" && (
+            <section
+              className={styles.section}
+              aria-labelledby="sandbox-arm-workflow"
+            >
+              <h2 id="sandbox-arm-workflow">Owner arm and start</h2>
+              <p>
+                Preparing this run did not arm an account or create an order.
+                Open Exchange Sandbox to review both engine and account states,
+                create the short-lived arm, then reauthenticate to start this
+                exact strategy session.
+              </p>
+              <Link className={styles.linkButton} to="/operations/sandbox">
+                Review and arm Exchange Sandbox
+              </Link>
+            </section>
+          )}
+          {actions.length > 0 && (
+            <section className={styles.section} aria-labelledby="run-controls">
+              <h2 id="run-controls">Safe controls</h2>
+              <p>
+                Controls are shown only when this run’s current lifecycle can
+                accept them. Each command is revision-checked, durable, and
+                audited.
+              </p>
+              <div className={styles.actions}>
+                {actions.map((action) => (
+                  <ConfirmAction
+                    key={action}
+                    trigger={
+                      <button
+                        type="button"
+                        className={
+                          action === "stop" ? styles.danger : styles.secondary
+                        }
+                        disabled={control.isPending}
+                      >
+                        {action}
+                      </button>
+                    }
+                    title={`${action} this run?`}
+                    description={actionDescription(action)}
+                    confirmLabel={action}
+                    onConfirm={() => control.mutate(action)}
+                  />
+                ))}
+              </div>
+              {control.isError && (
+                <p className={styles.error} role="alert">
+                  The command was not accepted. Refresh the run and try again if
+                  the current state still allows it.
+                </p>
+              )}
+            </section>
           )}
         </section>
       )}
-      <section className={styles.section} aria-labelledby="run-records">
-        <h2 id="run-records">Recorded workflow</h2>
-        <p>
-          Empty collections mean this run has not recorded that kind of event.
-          They do not mean an event was inferred or skipped.
-        </p>
-        <div className={styles.cardGrid}>
-          {outputViews.map(([view, label], index) => {
-            const result = outputs[index];
-            return (
-              <article className={styles.card} key={view}>
-                <h3>{label}</h3>
-                {result?.isLoading && <p>Loading recorded evidence…</p>}
-                {result?.isError && <p>Recorded evidence is unavailable.</p>}
-                {result?.data && <p>{result.data.items.length} recorded item(s).</p>}
-                {result?.data && result.data.items.length > 0 && (
-                  <details>
-                    <summary>Advanced immutable records</summary>
-                    <ul>
-                      {result.data.items.slice(0, 10).map((item) => (
-                        <li key={`${item.kind}-${item.ordinal}`}>
-                          Event {item.ordinal} · {item.content_hash.slice(0, 12)}…
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      </section>
-      <section className={styles.cardGrid} aria-label="Portfolio, risk, and evidence">
-        <article className={styles.card}>
-          <h2>Portfolio &amp; P&amp;L</h2>
-          {portfolio.data?.state === "recorded" ? (
-            <p>Latest reducer-owned portfolio snapshot recorded at event {portfolio.data.ordinal}.</p>
-          ) : (
-            <p>{portfolio.data?.waiting_reason ?? "Loading portfolio projection…"}</p>
-          )}
-        </article>
-        <article className={styles.card}>
-          <h2>Risk</h2>
-          <p>{risk.data?.summary ?? "Loading risk evidence…"}</p>
-        </article>
-        <article className={styles.card}>
-          <h2>Evidence</h2>
-          {evidence.data?.state === "recorded" ? (
-            <details>
-              <summary>Advanced reproducibility identity</summary>
-              <dl className={styles.facts}>
-                <div><dt>Manifest</dt><dd>{evidence.data.manifest_hash}</dd></div>
-                <div><dt>Source commit</dt><dd>{evidence.data.source_commit}</dd></div>
-                <div><dt>Confidence tier</dt><dd>{evidence.data.confidence_tier}</dd></div>
-              </dl>
-            </details>
-          ) : (
-            <p>No immutable evidence manifest has been recorded for this run yet.</p>
-          )}
-        </article>
-      </section>
+      <RunEvidenceTabs
+        activeTab={activeTab}
+        run={run.data}
+        outputs={outputs}
+        portfolio={portfolio.data}
+        risk={risk.data}
+        evidence={evidence.data}
+      />
     </Page>
   );
 }

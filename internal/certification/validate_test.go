@@ -206,10 +206,10 @@ func validArtifacts(source string) []ArtifactIdentity {
 func validPrerequisites(t *testing.T, key ed25519.PrivateKey, reviewer ReviewerIdentity,
 	source string, reference func(int) []EvidenceReference) []PrerequisiteVerdict {
 	t.Helper()
-	prerequisites := make([]PrerequisiteVerdict, 0, len(requiredPhaseGates))
-	for index, gate := range requiredPhaseGates {
+	prerequisites := make([]PrerequisiteVerdict, 0, len(requiredReadinessGates))
+	for index, gate := range requiredReadinessGates {
 		verdict := PrerequisiteVerdict{
-			SchemaVersion: PrerequisiteSchema, EvidenceID: "phase-" + gate + "-verdict", GateID: gate,
+			SchemaVersion: PrerequisiteSchema, EvidenceID: "readiness-" + gate + "-verdict", GateID: gate,
 			SourceSHA: source, State: "PASSED", Formal: true, Qualified: true,
 			ProfitabilityEvidence: false, Evidence: reference(index), Reviewer: reviewer,
 			IssuedAt: testNow.Add(-time.Hour), ValidUntil: testNow.Add(30 * 24 * time.Hour),

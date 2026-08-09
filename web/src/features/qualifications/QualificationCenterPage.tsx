@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { APIError } from "../../api/client";
-import { d1CollectionQuery, sessionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import styles from "../shared/ConsoleSurface.module.css";
@@ -9,7 +9,7 @@ import { QualificationCard } from "./QualificationCard";
 
 export function QualificationCenterPage() {
   const session = useQuery(sessionQuery);
-  const query = useQuery(d1CollectionQuery("qualifications"));
+  const query = useQuery(ownerControlCollectionQuery("qualifications"));
   if (session.isLoading || query.isLoading)
     return <StatePanel state="loading" />;
   if (

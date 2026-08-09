@@ -63,7 +63,7 @@ export function LoginPage() {
             {login.isPending ? "Verifying…" : "Enter console"}
           </button>
         </form>
-        <div className={styles.lock}>REAL TRADING DISABLED</div>
+        <div className={styles.lock}>REAL-MONEY TRADING IS NOT AVAILABLE</div>
       </section>
     </main>
   );

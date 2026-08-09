@@ -11,8 +11,8 @@ import (
 )
 
 func TestRunCatalogueUsesSemanticStrategiesWithoutRawIdentifiers(t *testing.T) {
-	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
-	session, _ := a11HTTPLogin(t, handler)
+	handler, _ := ownerConsoleHTTPTestHandler(t, []string{"operations.read"})
+	session, _ := ownerConsoleHTTPLogin(t, handler)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/run-catalog", nil)
 	request.AddCookie(session)
 	response := httptest.NewRecorder()
@@ -27,26 +27,65 @@ func TestRunCatalogueUsesSemanticStrategiesWithoutRawIdentifiers(t *testing.T) {
 	if len(catalogue.Choices) == 0 {
 		t.Fatal("catalogue has no approved choices")
 	}
-	seenTrend, seenMeanReversion := false, false
+	seen := inspectRunCatalogue(t, catalogue)
+	if !seen.complete() {
+		t.Fatalf("catalogue runtimes %+v", seen)
+	}
+}
+
+type runCatalogueCoverage struct {
+	trend, bybitTrendShadow, meanReversion, meanReversionShadow      bool
+	triangular, triangularShadow, crossExchange, crossExchangeShadow bool
+}
+
+func (coverage runCatalogueCoverage) complete() bool {
+	return coverage.trend && coverage.bybitTrendShadow && coverage.meanReversion && coverage.meanReversionShadow &&
+		coverage.triangular && coverage.triangularShadow && coverage.crossExchange && coverage.crossExchangeShadow
+}
+
+func inspectRunCatalogue(t *testing.T, catalogue generated.RunCatalog) runCatalogueCoverage {
+	t.Helper()
+	var seen runCatalogueCoverage
 	for _, choice := range catalogue.Choices {
 		if choice.StrategyId == "trend-following" && choice.StrategyVersion == "trend-following@1.0.0" {
-			seenTrend = true
+			seen.trend = true
+		}
+		if choice.StrategyId == "trend-following" && choice.Mode == generated.RunChoiceModeShadow &&
+			len(choice.Exchanges) == 1 && choice.Exchanges[0] == generated.RunChoiceExchangesBybit {
+			seen.bybitTrendShadow = true
 		}
 		if choice.StrategyId == "mean-reversion" && choice.StrategyVersion == "mean-reversion@1.0.0" {
-			seenMeanReversion = true
+			seen.meanReversion = true
+		}
+		if choice.StrategyId == "mean-reversion" && choice.Mode == generated.RunChoiceModeShadow &&
+			len(choice.Exchanges) == 1 && choice.Exchanges[0] == generated.RunChoiceExchangesBybit {
+			seen.meanReversionShadow = true
+		}
+		if choice.StrategyId == "triangular-arbitrage" && choice.StrategyVersion == "triangular-arbitrage@1.0.0" && len(choice.Exchanges) == 1 {
+			seen.triangular = true
+		}
+		if choice.StrategyId == "triangular-arbitrage" && choice.Mode == generated.RunChoiceModeShadow &&
+			len(choice.Exchanges) == 1 && choice.Exchanges[0] == generated.RunChoiceExchangesBybit {
+			seen.triangularShadow = true
+		}
+		if choice.StrategyId == "cross-exchange-arbitrage" && choice.StrategyVersion == "cross-exchange-arbitrage@1.0.0" && len(choice.Exchanges) == 2 {
+			seen.crossExchange = true
+		}
+		if choice.StrategyId == "cross-exchange-arbitrage" && choice.Mode == generated.RunChoiceModeShadow &&
+			len(choice.Exchanges) == 2 && choice.Exchanges[0] == generated.RunChoiceExchangesBinance &&
+			choice.Exchanges[1] == generated.RunChoiceExchangesBybit {
+			seen.crossExchangeShadow = true
 		}
 		if choice.Mode == "live" {
 			t.Fatal("catalogue exposed forbidden live mode")
 		}
 	}
-	if !seenTrend || !seenMeanReversion {
-		t.Fatalf("catalogue required runtimes trend=%t mean-reversion=%t", seenTrend, seenMeanReversion)
-	}
+	return seen
 }
 
 func TestUnifiedRunCreationRequiresAnAvailableDurableCommandService(t *testing.T) {
-	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
-	session, csrf := a11HTTPLogin(t, handler)
+	handler, _ := ownerConsoleHTTPTestHandler(t, []string{"operations.read"})
+	session, csrf := ownerConsoleHTTPLogin(t, handler)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/runs", bytes.NewBufferString(`{
 "strategy_id":"trend-following","strategy_version":"trend-following@1.0.0","mode":"backtest",
 "exchanges":["binance"],"instrument":"BTC/USDT","preset":"latest-qualified-inputs"}`))

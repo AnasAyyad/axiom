@@ -101,8 +101,8 @@ function AlertRouteCard({
           </button>
           {mutation.isError && (
             <p className={styles.error} role="alert">
-              Test delivery was rejected. Check route state, permission, and
-              revision.
+              Test delivery was rejected. Check route state, owner-session
+              state, and revision.
             </p>
           )}
           {mutation.isSuccess && (

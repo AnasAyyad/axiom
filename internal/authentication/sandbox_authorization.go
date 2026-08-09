@@ -10,7 +10,7 @@ import (
 	"axiom/internal/security"
 )
 
-// Sandbox authorization timing and permission constants are fixed V1C policy.
+// Sandbox authorization timing and permission constants are fixed sandbox runtime policy.
 const (
 	// SandboxReauthorizationLifetime is the exact lifetime of one high-risk grant.
 	SandboxReauthorizationLifetime = 2 * time.Minute
@@ -189,7 +189,7 @@ func (service *SandboxAuthorizationService) Reauthenticate(
 }
 
 // ReauthenticateForRevision issues a grant bound to one positive target
-// revision. D1 high-risk commands must consume and match that exact revision.
+// revision. owner control high-risk commands must consume and match that exact revision.
 func (service *SandboxAuthorizationService) ReauthenticateForRevision(
 	ctx context.Context,
 	principal Principal,

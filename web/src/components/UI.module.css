@@ -17,6 +17,22 @@
   color: var(--color-text-muted);
 }
 
+.metricHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.metricHeader > span {
+  min-width: 0;
+}
+
+.metricHeader button {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+}
+
 .metric strong {
   align-self: center;
   color: var(--tone, var(--color-text));

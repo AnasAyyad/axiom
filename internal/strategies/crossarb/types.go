@@ -12,7 +12,7 @@ import (
 // Direction is one exhaustive approved two-venue ordering.
 type Direction string
 
-// B5 evaluates both directions for every approved instrument.
+// cross-exchange arbitrage evaluates both directions for every approved instrument.
 const (
 	BuyBinanceSellBybit Direction = "buy_binance_sell_bybit"
 	BuyBybitSellBinance Direction = "buy_bybit_sell_binance"
@@ -65,7 +65,7 @@ type RestorationEconomics struct {
 	AdvisoryRebalancingRequired    bool
 }
 
-// EvaluationInput is the complete immutable B5 decision evidence.
+// EvaluationInput is the complete immutable cross-exchange arbitrage decision evidence.
 type EvaluationInput struct {
 	CoherentView              runtimecore.CoherentView
 	Markets                   []Market
@@ -129,7 +129,7 @@ type RebalancingNeed struct {
 }
 
 // Candidate is one executable-depth, inventory-backed, closed-cycle-positive
-// B5 simulation candidate.
+// cross-exchange arbitrage simulation candidate.
 type Candidate struct {
 	ID                        string
 	Direction                 Direction

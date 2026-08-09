@@ -65,15 +65,15 @@ export function SandboxControlsView(props: Props) {
     <section className={styles.controls} aria-labelledby="controls-heading">
       <header>
         <div>
-          <span>Audited operator controls</span>
+          <span>Audited owner controls</span>
           <h2 id="controls-heading">Virtual/test actions only</h2>
         </div>
         <strong>SERVER POLICY IS AUTHORITATIVE</strong>
       </header>
       <p>
         No production target exists. Disabled controls are only guidance; the
-        server independently rechecks session, Origin, CSRF,
-        idempotency, revision, reconciliation, arm, caps, and configuration.
+        server independently rechecks session, Origin, CSRF, idempotency,
+        revision, reconciliation, arm, caps, and configuration.
       </p>
       <label>
         Account
@@ -85,8 +85,7 @@ export function SandboxControlsView(props: Props) {
             <option key={item.id} value={item.id}>
               {item.exchange === "binance"
                 ? "Binance Spot Testnet"
-                : "Bybit Demo"}{" "}
-              · {item.id}
+                : "Bybit Demo"}
             </option>
           ))}
         </select>

@@ -40,7 +40,7 @@
 .safetyHeader dl {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(7, minmax(5.5rem, 1fr));
+  grid-template-columns: repeat(9, minmax(5.5rem, 1fr));
   align-items: center;
   gap: 0.35rem;
   margin: 0;

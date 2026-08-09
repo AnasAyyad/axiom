@@ -6,7 +6,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// Configuration is the immutable exact B4 strategy/model contract.
+// Configuration is the immutable exact triangular arbitrage strategy/model contract.
 type Configuration struct {
 	StrategyVersion         string
 	ModelVersion            string
@@ -22,10 +22,10 @@ type Configuration struct {
 	ClaimModel              string
 }
 
-// DefaultConfiguration returns the reviewed B4 baseline.
+// DefaultConfiguration returns the reviewed triangular arbitrage baseline.
 func DefaultConfiguration() Configuration {
 	return Configuration{
-		StrategyVersion:         "triangular.v1b.1",
+		StrategyVersion:         "triangular-arbitrage@1.0.0",
 		ModelVersion:            "triangular-exact-depth.v1",
 		SizeLadder:              []domain.Quantity{quantity("10"), quantity("25"), quantity("50"), quantity("100")},
 		MaximumCycleNotional:    quantity("100"),

@@ -36,16 +36,167 @@ func TestRuntimeMutationGrantsExcludeImmutableHistory(t *testing.T) {
 	for _, table := range []string{
 		"audit_events", "fills", "inbox_events", "journal_transactions", "ledger_entries", "order_events",
 		"run_results", "strategy_versions", "strategy_maturity_states",
-		"v1c_high_risk_audit_events",
+		"sandbox_runtime_high_risk_audit_events",
 	} {
 		if strings.Contains(updates, `"`+table+`"`) || strings.Contains(deletes, `"`+table+`"`) {
 			t.Fatalf("runtime can mutate immutable history table %s", table)
 		}
 	}
-	for _, table := range []string{"execution_leases", "sessions", "user_roles"} {
+	for _, table := range []string{"execution_leases", "sessions"} {
 		if !strings.Contains(deletes, `"public"."`+table+`"`) {
 			t.Fatalf("runtime delete grant omits %s", table)
 		}
+	}
+	for _, historical := range []string{
+		"authorization_permissions", "authorization_roles", "role_permissions", "user_roles", "owner_console_role_change_events",
+	} {
+		if strings.Contains(updates, `"`+historical+`"`) || strings.Contains(deletes, `"`+historical+`"`) ||
+			containsGrantTable(runtimeReadInsertTables, historical) {
+			t.Fatalf("runtime grant can mutate historical authorization table %s", historical)
+		}
+	}
+}
+
+func TestStrategySessionEvaluationTimelineIsAppendOnlyForRuntimeAndEngine(t *testing.T) {
+	const table = "sandbox_strategy_session_evaluations"
+	if !containsGrantTable(runtimeReadInsertTables, table) ||
+		containsGrantTable(runtimeUpdateTables, table) ||
+		containsGrantTable(runtimeDeleteTables, table) {
+		t.Fatalf("runtime evaluation grants are not append-only")
+	}
+	if !containsGrantTable(sandboxRuntimeEngineRuntimeAppendTables, table) ||
+		containsGrantTable(sandboxRuntimeEngineReadWriteTables, table) {
+		t.Fatalf("engine evaluation grants are not append-only")
+	}
+	if !containsGrantTable(readOnlyTables, table) {
+		t.Fatalf("reporting role cannot read evaluation timeline")
+	}
+}
+
+func TestStrategyPlanDecisionEvidenceIsAppendOnlyForRuntimeAndEngine(t *testing.T) {
+	const table = "sandbox_runtime_strategy_plan_decisions"
+	if !containsGrantTable(runtimeReadInsertTables, table) ||
+		containsGrantTable(runtimeUpdateTables, table) ||
+		containsGrantTable(runtimeDeleteTables, table) {
+		t.Fatalf("runtime strategy-decision grants are not append-only")
+	}
+	if !containsGrantTable(sandboxRuntimeEngineReadWriteTables, table) ||
+		!containsGrantTable(readOnlyTables, table) {
+		t.Fatalf("engine/reporting strategy-decision grants are incomplete")
+	}
+}
+
+func TestStrategyDecisionJournalIsAppendOnlyForRuntimeAndEngine(t *testing.T) {
+	const table = "sandbox_strategy_decisions"
+	if !containsGrantTable(runtimeReadInsertTables, table) ||
+		containsGrantTable(runtimeUpdateTables, table) ||
+		containsGrantTable(runtimeDeleteTables, table) {
+		t.Fatalf("runtime strategy-decision journal grants are not append-only")
+	}
+	if !containsGrantTable(sandboxRuntimeEngineRuntimeAppendTables, table) ||
+		containsGrantTable(sandboxRuntimeEngineReadWriteTables, table) {
+		t.Fatalf("engine strategy-decision journal grants are not append-only")
+	}
+	if !containsGrantTable(readOnlyTables, table) {
+		t.Fatalf("reporting role cannot read strategy-decision journal")
+	}
+}
+
+func TestShadowStrategyDecisionEvidenceIsRuntimeAppendOnlyAndReportable(t *testing.T) {
+	const table = "shadow_strategy_decision_evidence"
+	if !containsGrantTable(runtimeReadInsertTables, table) ||
+		containsGrantTable(runtimeUpdateTables, table) || containsGrantTable(runtimeDeleteTables, table) {
+		t.Fatalf("runtime shadow strategy evidence grants are not append-only")
+	}
+	if !containsGrantTable(readOnlyTables, table) {
+		t.Fatal("reporting role cannot read shadow strategy evidence")
+	}
+}
+
+func TestShadowMultilegExecutionEvidenceIsRuntimeAppendOnlyAndReportable(t *testing.T) {
+	const table = "shadow_multileg_execution_evidence"
+	if !containsGrantTable(runtimeReadInsertTables, table) ||
+		containsGrantTable(runtimeUpdateTables, table) || containsGrantTable(runtimeDeleteTables, table) {
+		t.Fatalf("runtime shadow multi-leg evidence grants are not append-only")
+	}
+	if !containsGrantTable(readOnlyTables, table) {
+		t.Fatal("reporting role cannot read shadow multi-leg evidence")
+	}
+}
+
+func TestShadowCrossExchangeInventoryEvidenceIsRuntimeAppendOnlyAndReportable(t *testing.T) {
+	const table = "shadow_cross_exchange_inventory_initializations"
+	if !containsGrantTable(runtimeReadInsertTables, table) ||
+		containsGrantTable(runtimeUpdateTables, table) || containsGrantTable(runtimeDeleteTables, table) {
+		t.Fatalf("runtime paired-shadow inventory evidence grants are not append-only")
+	}
+	if !containsGrantTable(readOnlyTables, table) {
+		t.Fatal("reporting role cannot read paired-shadow inventory evidence")
+	}
+}
+
+func TestSandboxAccountingJournalIsAppendOnlyForEngineAndReadOnlyElsewhere(t *testing.T) {
+	for _, table := range []string{"sandbox_accounting_transactions", "sandbox_accounting_entries"} {
+		if !containsGrantTable(sandboxRuntimeEngineRuntimeAppendTables, table) ||
+			containsGrantTable(sandboxRuntimeEngineReadWriteTables, table) ||
+			containsGrantTable(runtimeUpdateTables, table) ||
+			containsGrantTable(runtimeDeleteTables, table) ||
+			!containsGrantTable(runtimeReadTables, table) ||
+			!containsGrantTable(readOnlyTables, table) {
+			t.Fatalf("sandbox accounting grants are not append-only/read-only for %s", table)
+		}
+	}
+}
+
+func TestSandboxAccountingProjectionsAreEngineMaintainedAndReadOnlyElsewhere(t *testing.T) {
+	for _, table := range []string{"sandbox_accounting_positions", "sandbox_accounting_position_fees"} {
+		if !containsGrantTable(sandboxRuntimeEngineReadWriteTables, table) ||
+			containsGrantTable(sandboxRuntimeEngineRuntimeAppendTables, table) ||
+			!containsGrantTable(runtimeReadTables, table) ||
+			containsGrantTable(runtimeReadInsertTables, table) ||
+			containsGrantTable(runtimeUpdateTables, table) ||
+			containsGrantTable(runtimeDeleteTables, table) ||
+			!containsGrantTable(readOnlyTables, table) {
+			t.Fatalf("sandbox accounting projection grants are not engine-owned/read-only for %s", table)
+		}
+	}
+}
+
+func TestStrategyRiskObservationsAreEngineAppendOnlyAndRuntimeReadOnly(t *testing.T) {
+	for _, table := range []string{"sandbox_strategy_risk_observations", "sandbox_strategy_risk_valuations"} {
+		if !containsGrantTable(runtimeReadTables, table) ||
+			containsGrantTable(runtimeReadInsertTables, table) ||
+			containsGrantTable(runtimeUpdateTables, table) ||
+			containsGrantTable(runtimeDeleteTables, table) {
+			t.Fatalf("runtime risk-observation grants are not read-only for %s", table)
+		}
+		if !containsGrantTable(sandboxRuntimeEngineRuntimeAppendTables, table) ||
+			containsGrantTable(sandboxRuntimeEngineReadWriteTables, table) {
+			t.Fatalf("engine risk-observation grants are not append-only for %s", table)
+		}
+		if !containsGrantTable(readOnlyTables, table) {
+			t.Fatalf("reporting role cannot read risk evidence table %s", table)
+		}
+	}
+	for _, dependency := range []string{"asset_screening_versions", "risk_policies", "risk_policy_limits"} {
+		if !containsGrantTable(sandboxRuntimeEngineReadOnlyTables, dependency) {
+			t.Fatalf("engine risk-observation dependency grant omits %s", dependency)
+		}
+	}
+	for _, dependency := range []string{"owner_console_storage_pressure_state"} {
+		if !containsGrantTable(sandboxRuntimeEngineReadOnlyTables, dependency) {
+			t.Fatalf("engine risk projection dependency grant omits %s", dependency)
+		}
+	}
+	if !containsGrantTable(sandboxRuntimeEngineRiskStateAppendTables, "risk_state_events") ||
+		containsGrantTable(sandboxRuntimeEngineReadOnlyTables, "risk_state_events") ||
+		containsGrantTable(sandboxRuntimeEngineReadWriteTables, "risk_state_events") {
+		t.Fatal("engine central-risk transition evidence is not append-only")
+	}
+	if !containsGrantTable(sandboxRuntimeEngineRiskStateUpdateTables, "api_entity_revisions") ||
+		containsGrantTable(sandboxRuntimeEngineReadWriteTables, "api_entity_revisions") ||
+		containsGrantTable(sandboxRuntimeEngineRuntimeAppendTables, "api_entity_revisions") {
+		t.Fatal("engine central-risk revision received broader than update-only ownership")
 	}
 }
 
@@ -57,88 +208,88 @@ func TestRuntimeMigrationLedgerGrantIsReadOnly(t *testing.T) {
 	}
 }
 
-func TestD1RuntimeAndReportingGrantsRemainLeastPrivilege(t *testing.T) {
+func TestOwnerControlRuntimeAndReportingGrantsRemainLeastPrivilege(t *testing.T) {
 	for _, table := range []string{
-		"v1d_export_artifacts", "v1d_artifact_holds", "v1d_artifact_access_events",
-		"v1d_qualification_runs", "v1d_role_change_events",
+		"owner_console_export_artifacts", "owner_console_artifact_holds", "owner_console_artifact_access_events",
+		"owner_console_qualification_runs",
 	} {
 		if !containsGrantTable(runtimeReadInsertTables, table) {
-			t.Errorf("D1 runtime append grant omits %s", table)
+			t.Errorf("owner control runtime append grant omits %s", table)
 		}
 	}
 	for _, table := range []string{
-		"v1d_strategy_controls", "v1d_risk_controls", "v1d_export_artifacts",
-		"v1d_artifact_holds", "v1d_qualification_runs",
+		"owner_console_strategy_controls", "owner_console_risk_controls", "owner_console_export_artifacts",
+		"owner_console_artifact_holds", "owner_console_qualification_runs",
 	} {
 		if !containsGrantTable(runtimeUpdateTables, table) {
-			t.Errorf("D1 runtime update grant omits %s", table)
+			t.Errorf("owner control runtime update grant omits %s", table)
 		}
 	}
 	for _, immutable := range []string{
-		"v1d_activity_projection", "v1d_reason_catalogue", "v1d_artifact_access_events",
-		"v1d_role_change_events",
+		"owner_console_activity_projection", "owner_console_reason_catalogue", "owner_console_artifact_access_events",
+		"owner_console_role_change_events",
 	} {
 		if containsGrantTable(runtimeUpdateTables, immutable) ||
 			containsGrantTable(runtimeDeleteTables, immutable) {
-			t.Errorf("D1 immutable relation %s received mutation privilege", immutable)
+			t.Errorf("owner control immutable relation %s received mutation privilege", immutable)
 		}
 		if !containsGrantTable(readOnlyTables, immutable) {
-			t.Errorf("D1 reporting grant omits %s", immutable)
+			t.Errorf("owner control reporting grant omits %s", immutable)
 		}
 	}
 }
 
-func TestD4OperationalEvidenceGrantsRemainLeastPrivilege(t *testing.T) {
+func TestOperationalEvidenceOperationalEvidenceGrantsRemainLeastPrivilege(t *testing.T) {
 	appendOnly := []string{
-		"v1d_incident_events", "v1d_incident_replay_inputs", "v1d_incident_alert_links",
-		"v1d_incident_activity_links", "v1d_incident_resolution_evidence",
-		"v1d_alert_delivery_attempts", "v1d_alert_escalations",
+		"owner_console_incident_events", "owner_console_incident_replay_inputs", "owner_console_incident_alert_links",
+		"owner_console_incident_activity_links", "owner_console_incident_resolution_evidence",
+		"owner_console_alert_delivery_attempts", "owner_console_alert_escalations",
 	}
 	for _, table := range appendOnly {
 		if !containsGrantTable(runtimeReadInsertTables, table) {
-			t.Errorf("D4 runtime append grant omits %s", table)
+			t.Errorf("operational evidence runtime append grant omits %s", table)
 		}
 		if containsGrantTable(runtimeUpdateTables, table) ||
 			containsGrantTable(runtimeDeleteTables, table) {
-			t.Errorf("D4 immutable relation %s received mutation privilege", table)
+			t.Errorf("operational evidence immutable relation %s received mutation privilege", table)
 		}
 	}
 	for _, table := range []string{
-		"v1d_report_schedules", "v1d_reports", "v1d_alert_routes", "v1d_alert_route_tests",
+		"owner_console_report_schedules", "owner_console_reports", "owner_console_alert_routes", "owner_console_alert_route_tests",
 	} {
 		if !containsGrantTable(runtimeUpdateTables, table) {
-			t.Errorf("D4 runtime update grant omits %s", table)
+			t.Errorf("operational evidence runtime update grant omits %s", table)
 		}
 	}
 	for _, table := range []string{
-		"v1d_incident_events", "v1d_incident_replay_inputs", "v1d_incident_alert_links",
-		"v1d_incident_activity_links", "v1d_incident_resolution_evidence",
-		"v1d_report_schedules", "v1d_reports", "v1d_alert_routes",
-		"v1d_alert_delivery_attempts", "v1d_alert_escalations", "v1d_alert_route_tests",
-		"v1d_audit_chain",
+		"owner_console_incident_events", "owner_console_incident_replay_inputs", "owner_console_incident_alert_links",
+		"owner_console_incident_activity_links", "owner_console_incident_resolution_evidence",
+		"owner_console_report_schedules", "owner_console_reports", "owner_console_alert_routes",
+		"owner_console_alert_delivery_attempts", "owner_console_alert_escalations", "owner_console_alert_route_tests",
+		"owner_console_audit_chain",
 	} {
 		if !containsGrantTable(readOnlyTables, table) {
-			t.Errorf("D4 reporting grant omits %s", table)
+			t.Errorf("operational evidence reporting grant omits %s", table)
 		}
 	}
-	if containsGrantTable(runtimeReadInsertTables, "v1d_audit_chain") ||
-		containsGrantTable(runtimeUpdateTables, "v1d_audit_chain") ||
-		containsGrantTable(runtimeDeleteTables, "v1d_audit_chain") {
-		t.Error("D4 audit chain received direct mutation privilege")
+	if containsGrantTable(runtimeReadInsertTables, "owner_console_audit_chain") ||
+		containsGrantTable(runtimeUpdateTables, "owner_console_audit_chain") ||
+		containsGrantTable(runtimeDeleteTables, "owner_console_audit_chain") {
+		t.Error("operational evidence audit chain received direct mutation privilege")
 	}
 }
 
 func TestProcessAlertEvidenceGrantsAreNarrow(t *testing.T) {
-	if !containsGrantTable(processAlertAppendTables, "v1d_alert_delivery_attempts") {
-		t.Error("process alert append grant omits v1d_alert_delivery_attempts")
+	if !containsGrantTable(processAlertAppendTables, "owner_console_alert_delivery_attempts") {
+		t.Error("process alert append grant omits owner_console_alert_delivery_attempts")
 	}
-	for _, table := range []string{"v1d_alert_routes", "v1d_alert_route_tests"} {
+	for _, table := range []string{"owner_console_alert_routes", "owner_console_alert_route_tests"} {
 		if !containsGrantTable(processAlertUpdateTables, table) {
 			t.Errorf("process alert update grant omits %s", table)
 		}
 	}
 	for _, immutable := range []string{
-		"v1d_alert_delivery_attempts", "v1d_alert_escalations", "v1d_audit_chain",
+		"owner_console_alert_delivery_attempts", "owner_console_alert_escalations", "owner_console_audit_chain",
 	} {
 		if containsGrantTable(processAlertUpdateTables, immutable) {
 			t.Errorf("process alert update grant exposes immutable %s", immutable)
@@ -147,7 +298,7 @@ func TestProcessAlertEvidenceGrantsAreNarrow(t *testing.T) {
 }
 
 func TestRuntimeAuthenticatedEvidenceGrantIsReadOnly(t *testing.T) {
-	const table = `"public"."v1c_authenticated_request_evidence"`
+	const table = `"public"."sandbox_runtime_authenticated_request_evidence"`
 	read := grantSQL("SELECT", runtimeReadTables, `"axiom_runtime"`)
 	insert := grantSQL("SELECT, INSERT", runtimeReadInsertTables, `"axiom_runtime"`)
 	update := grantSQL("UPDATE", runtimeUpdateTables, `"axiom_runtime"`)
@@ -172,35 +323,36 @@ func TestRuntimePostCreateCanaryCoordinatorGrantsRemainClosed(t *testing.T) {
 		runtimeReadInsertTables...,
 	)
 	for _, table := range []string{
-		"v1c_submission_plans",
-		"v1c_submission_outbox",
-		"v1c_exchange_accounts",
-		"v1c_authenticated_request_evidence",
-		"v1c_canary_evidence",
-		"v1c_engine_observations",
-		"v1c_account_leases",
-		"v1c_engine_startup_evidence",
-		"v1c_engine_commands",
-		"v1c_sandbox_sessions",
-		"v1c_sandbox_session_accounts",
-		"v1c_sandbox_arms",
+		"sandbox_runtime_submission_plans",
+		"sandbox_runtime_submission_outbox",
+		"sandbox_runtime_exchange_accounts",
+		"sandbox_runtime_authenticated_request_evidence",
+		"sandbox_runtime_canary_evidence",
+		"sandbox_runtime_engine_observations",
+		"sandbox_runtime_engine_market_observations",
+		"sandbox_runtime_account_leases",
+		"sandbox_runtime_engine_startup_evidence",
+		"sandbox_runtime_engine_commands",
+		"sandbox_runtime_sandbox_sessions",
+		"sandbox_runtime_sandbox_session_accounts",
+		"sandbox_runtime_sandbox_arms",
 	} {
 		if !containsGrantTable(read, table) {
 			t.Fatalf("runtime post-create canary read omits %s", table)
 		}
 	}
 	for _, table := range []string{
-		"v1c_canary_evidence",
-		"v1c_engine_commands",
+		"sandbox_runtime_canary_evidence",
+		"sandbox_runtime_engine_commands",
 	} {
 		if !containsGrantTable(runtimeReadInsertTables, table) {
 			t.Fatalf("runtime post-create canary insert omits %s", table)
 		}
 	}
 	for _, table := range []string{
-		"v1c_sandbox_sessions",
-		"v1c_sandbox_arms",
-		"v1c_exchange_accounts",
+		"sandbox_runtime_sandbox_sessions",
+		"sandbox_runtime_sandbox_arms",
+		"sandbox_runtime_exchange_accounts",
 	} {
 		if !containsGrantTable(runtimeUpdateTables, table) {
 			t.Fatalf("runtime post-create canary update omits %s", table)
@@ -243,140 +395,140 @@ func TestReadOnlyReportingExcludesCredentialTables(t *testing.T) {
 	}
 }
 
-func TestV1CEngineGrantIncludesClosedExecutionAndAlertTables(t *testing.T) {
+func TestSandboxRuntimeEngineGrantIncludesClosedExecutionAndAlertTables(t *testing.T) {
 	role := `"axiom_binance_testnet_engine"`
 	statement := grantSQL(
 		"SELECT, INSERT, UPDATE",
 		append(
-			append([]string(nil), v1cEngineReadWriteTables...),
-			v1cEngineAlertReadWriteTables...,
+			append([]string(nil), sandboxRuntimeEngineReadWriteTables...),
+			sandboxRuntimeEngineAlertReadWriteTables...,
 		),
 		role,
 	)
 	if !strings.Contains(
 		statement,
-		`"public"."v1c_authenticated_request_evidence"`,
+		`"public"."sandbox_runtime_authenticated_request_evidence"`,
 	) {
-		t.Fatal("V1C engine cannot persist authenticated request evidence")
+		t.Fatal("sandbox runtime engine cannot persist authenticated request evidence")
 	}
-	for _, table := range v1cEngineAlertReadWriteTables {
+	for _, table := range sandboxRuntimeEngineAlertReadWriteTables {
 		if !strings.Contains(statement, `"public"."`+table+`"`) {
-			t.Fatalf("V1C engine cannot persist operational alert table %s", table)
+			t.Fatalf("sandbox runtime engine cannot persist operational alert table %s", table)
 		}
 	}
 	appendOnly := grantSQL(
 		"SELECT, INSERT",
 		append(
-			append([]string(nil), v1cEngineAlertAppendTables...),
-			v1cEngineRuntimeAppendTables...,
+			append([]string(nil), sandboxRuntimeEngineAlertAppendTables...),
+			sandboxRuntimeEngineRuntimeAppendTables...,
 		),
 		role,
 	)
 	if !strings.Contains(appendOnly, `"public"."audit_events"`) {
-		t.Fatal("V1C engine cannot append alert audit evidence")
+		t.Fatal("sandbox runtime engine cannot append alert audit evidence")
 	}
 	if !strings.Contains(
 		appendOnly,
-		`"public"."v1c_engine_runtime_events"`,
+		`"public"."sandbox_runtime_engine_runtime_events"`,
 	) {
-		t.Fatal("V1C engine cannot append redacted runtime recovery evidence")
+		t.Fatal("sandbox runtime engine cannot append redacted runtime recovery evidence")
 	}
-	assertV1CEngineReadOnlyGrants(t, role)
-	assertV1CEngineExcludedGrants(t, role, statement)
+	assertSandboxRuntimeEngineReadOnlyGrants(t, role)
+	assertSandboxRuntimeEngineExcludedGrants(t, role, statement)
 }
 
-func TestC6QualificationRoleIsDedicatedAndLeastPrivilege(t *testing.T) {
+func TestSandboxQualificationRoleIsDedicatedAndLeastPrivilege(t *testing.T) {
 	read := grantSQL(
 		"SELECT",
-		c6QualificationReadTables,
-		`"axiom_c6_qualification"`,
+		sandboxQualificationReadTables,
+		`"axiom_sandbox_qualification"`,
 	)
 	appendOnly := grantSQL(
 		"SELECT, INSERT",
-		c6QualificationAppendTables,
-		`"axiom_c6_qualification"`,
+		sandboxQualificationAppendTables,
+		`"axiom_sandbox_qualification"`,
 	)
-	assertC6RoleAppendGrants(t, appendOnly)
-	assertC6RoleForbiddenGrants(t, read, appendOnly)
-	assertC6RoleReadGrants(t, read)
-	assertC6RoleIsolation(t)
+	assertSandboxQualificationRoleAppendGrants(t, appendOnly)
+	assertSandboxQualificationRoleForbiddenGrants(t, read, appendOnly)
+	assertSandboxQualificationRoleReadGrants(t, read)
+	assertSandboxQualificationRoleIsolation(t)
 }
 
-func assertC6RoleAppendGrants(t *testing.T, appendOnly string) {
+func assertSandboxQualificationRoleAppendGrants(t *testing.T, appendOnly string) {
 	t.Helper()
 	for _, table := range []string{
-		"v1c_c6_qualification_runs",
-		"v1c_c6_qualification_accounts",
-		"v1c_c6_qualification_samples",
-		"v1c_c6_qualification_failures",
-		"v1c_c6_chaos_events",
+		"sandbox_qualification_runs",
+		"sandbox_qualification_accounts",
+		"sandbox_qualification_samples",
+		"sandbox_qualification_failures",
+		"sandbox_qualification_chaos_events",
 	} {
 		if !strings.Contains(
 			appendOnly,
 			`"public"."`+table+`"`,
 		) {
-			t.Fatalf("C6 qualification append grant omits %s", table)
+			t.Fatalf("sandbox qualification qualification append grant omits %s", table)
 		}
 	}
 }
 
-func assertC6RoleForbiddenGrants(t *testing.T, read, appendOnly string) {
+func assertSandboxQualificationRoleForbiddenGrants(t *testing.T, read, appendOnly string) {
 	t.Helper()
 	for _, forbidden := range []string{
 		"users",
 		"sessions",
-		"v1c_sandbox_authorizations",
-		"v1c_credential_generations",
-		"v1c_private_inbox",
-		"v1c_exchange_fills",
+		"sandbox_runtime_sandbox_authorizations",
+		"sandbox_runtime_credential_generations",
+		"sandbox_runtime_private_inbox",
+		"sandbox_runtime_exchange_fills",
 	} {
 		if strings.Contains(read, `"`+forbidden+`"`) ||
 			strings.Contains(appendOnly, `"`+forbidden+`"`) {
-			t.Fatalf("C6 qualification role exposes %s", forbidden)
+			t.Fatalf("sandbox qualification qualification role exposes %s", forbidden)
 		}
 	}
 }
 
-func assertC6RoleReadGrants(t *testing.T, read string) {
+func assertSandboxQualificationRoleReadGrants(t *testing.T, read string) {
 	t.Helper()
 	for _, required := range []string{
-		"v1c_engine_runtime_events",
-		"v1c_c6_order_observations",
+		"sandbox_runtime_engine_runtime_events",
+		"sandbox_qualification_order_observations",
 	} {
 		if !strings.Contains(read, `"public"."`+required+`"`) {
-			t.Fatalf("C6 qualification role omits redacted %s", required)
+			t.Fatalf("sandbox qualification qualification role omits redacted %s", required)
 		}
 	}
 }
 
-func assertC6RoleIsolation(t *testing.T) {
+func assertSandboxQualificationRoleIsolation(t *testing.T) {
 	t.Helper()
-	for _, table := range c6QualificationAppendTables {
+	for _, table := range sandboxQualificationAppendTables {
 		if containsGrantTable(runtimeReadInsertTables, table) ||
-			containsGrantTable(v1cEngineReadWriteTables, table) {
+			containsGrantTable(sandboxRuntimeEngineReadWriteTables, table) {
 			t.Fatalf("non-qualification role can append %s", table)
 		}
 	}
 }
 
-func assertV1CEngineReadOnlyGrants(t *testing.T, role string) {
+func assertSandboxRuntimeEngineReadOnlyGrants(t *testing.T, role string) {
 	t.Helper()
-	readOnly := grantSQL("SELECT", v1cEngineReadOnlyTables, role)
+	readOnly := grantSQL("SELECT", sandboxRuntimeEngineReadOnlyTables, role)
 	for _, table := range []string{"sessions", "users"} {
 		if !strings.Contains(readOnly, `"public"."`+table+`"`) {
-			t.Fatalf("V1C engine cannot evaluate authorization safety through %s", table)
+			t.Fatalf("sandbox runtime engine cannot evaluate authorization safety through %s", table)
 		}
 	}
 	if strings.Contains(
-		grantSQL("UPDATE", v1cEngineAlertReadWriteTables,
+		grantSQL("UPDATE", sandboxRuntimeEngineAlertReadWriteTables,
 			role),
 		`"public"."audit_events"`,
 	) {
-		t.Fatal("V1C engine can update immutable alert audit evidence")
+		t.Fatal("sandbox runtime engine can update immutable alert audit evidence")
 	}
 }
 
-func assertV1CEngineExcludedGrants(
+func assertSandboxRuntimeEngineExcludedGrants(
 	t *testing.T,
 	role, statement string,
 ) {
@@ -386,12 +538,31 @@ func assertV1CEngineExcludedGrants(
 		"public_clock_samples", "command_requests",
 	} {
 		if strings.Contains(statement, `"public"."`+forbidden+`"`) {
-			t.Fatalf("V1C engine grant exposes non-execution table %s", forbidden)
+			t.Fatalf("sandbox runtime engine grant exposes non-execution table %s", forbidden)
 		}
 	}
 }
 
 func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
+	schemaText := effectiveRoleGrantSchema(t)
+	for name, tables := range roleGrantTableGroups() {
+		seen := make(map[string]struct{}, len(tables))
+		for _, table := range tables {
+			if _, duplicate := seen[table]; duplicate {
+				t.Fatalf("%s repeats %s", name, table)
+			}
+			seen[table] = struct{}{}
+			tableDefined := strings.Contains(schemaText, "create table "+table+" (") ||
+				strings.Contains(schemaText, "create view "+table)
+			if table != "schema_migrations" && !tableDefined {
+				t.Fatalf("%s references absent table %s", name, table)
+			}
+		}
+	}
+}
+
+func effectiveRoleGrantSchema(t *testing.T) string {
+	t.Helper()
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
@@ -400,40 +571,39 @@ func TestRoleGrantTablesExistAndAreUnique(t *testing.T) {
 	for _, migration := range migrations {
 		schema.WriteString(strings.ToLower(migration.SQL))
 	}
-	groups := map[string][]string{
+	schemaText := schema.String()
+	// The semantic-name compatibility migration renames historical objects in
+	// place. Mirror those prefix mappings so grants are checked against the
+	// effective post-migration schema without rewriting immutable migration SQL.
+	for _, pair := range [][2]string{
+		{"v1c_c6_qualification_", "sandbox_qualification_"}, // semantic-naming: historical-reference
+		{"v1c_c6_", "sandbox_qualification_"},               // semantic-naming: historical-reference
+		{"v1c_", "sandbox_runtime_"},                        // semantic-naming: historical-reference
+		{"v1d_", "owner_console_"},                          // semantic-naming: historical-reference
+		{"b4_", "triangular_arbitrage_"},                    // semantic-naming: historical-reference
+		{"b5_", "cross_exchange_arbitrage_"},                // semantic-naming: historical-reference
+		{"b7_", "research_promotion_"},                      // semantic-naming: historical-reference
+		{"b8_", "multi_exchange_console_"},                  // semantic-naming: historical-reference
+	} {
+		schemaText += "\n" + strings.ReplaceAll(schema.String(), pair[0], pair[1])
+	}
+	return schemaText
+}
+
+func roleGrantTableGroups() map[string][]string {
+	return map[string][]string{
 		"runtime read/insert": runtimeReadInsertTables, "runtime update": runtimeUpdateTables,
 		"runtime read": runtimeReadTables, "runtime delete": runtimeDeleteTables, "recorder read": recorderReadTables,
 		"recorder write": recorderWriteTables, "recorder append": recorderAppendTables,
-		"reporting read":              readOnlyTables,
-		"v1c engine read/write":       v1cEngineReadWriteTables,
-		"v1c engine read":             v1cEngineReadOnlyTables,
-		"v1c engine alert read/write": v1cEngineAlertReadWriteTables,
-		"v1c engine alert append":     v1cEngineAlertAppendTables,
-		"v1c engine runtime append":   v1cEngineRuntimeAppendTables,
-		"process alert append":        processAlertAppendTables,
-		"process alert update":        processAlertUpdateTables,
-		"c6 qualification read":       c6QualificationReadTables,
-		"c6 qualification append":     c6QualificationAppendTables,
-	}
-	for name, tables := range groups {
-		seen := make(map[string]struct{}, len(tables))
-		for _, table := range tables {
-			if _, duplicate := seen[table]; duplicate {
-				t.Fatalf("%s repeats %s", name, table)
-			}
-			seen[table] = struct{}{}
-			// The migration ledger is created transactionally by ApplyMigrations
-			// before the versioned migration files are executed.
-			tableDefined := strings.Contains(
-				schema.String(),
-				"create table "+table+" (",
-			) || strings.Contains(
-				schema.String(),
-				"create view "+table,
-			)
-			if table != "schema_migrations" && !tableDefined {
-				t.Fatalf("%s references absent table %s", name, table)
-			}
-		}
+		"reporting read":                             readOnlyTables,
+		"sandbox_runtime engine read/write":          sandboxRuntimeEngineReadWriteTables,
+		"sandbox_runtime engine read":                sandboxRuntimeEngineReadOnlyTables,
+		"sandbox_runtime engine alert read/write":    sandboxRuntimeEngineAlertReadWriteTables,
+		"sandbox_runtime engine alert append":        sandboxRuntimeEngineAlertAppendTables,
+		"sandbox_runtime engine runtime append":      sandboxRuntimeEngineRuntimeAppendTables,
+		"process alert append":                       processAlertAppendTables,
+		"process alert update":                       processAlertUpdateTables,
+		"sandbox_qualification qualification read":   sandboxQualificationReadTables,
+		"sandbox_qualification qualification append": sandboxQualificationAppendTables,
 	}
 }

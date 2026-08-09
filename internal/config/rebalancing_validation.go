@@ -7,7 +7,7 @@ import (
 )
 
 func validateRebalancing(schema string, optimizer RebalancingConfiguration) error {
-	if schema != SchemaVersionV1BB6 && schema != SchemaVersionV1C {
+	if schema != SchemaVersionInventoryRebalancing && schema != SchemaVersionSandboxRuntime {
 		if !emptyRebalancing(optimizer) {
 			return configError("invalid_configuration", "rebalancing")
 		}
@@ -99,7 +99,7 @@ func validateRebalancingValue(parameter StrategyParameter) error {
 	return nil
 }
 
-// ValidateRebalancingConfiguration validates one standalone B6 graph.
+// ValidateRebalancingConfiguration validates one standalone inventory rebalancing graph.
 func ValidateRebalancingConfiguration(optimizer RebalancingConfiguration) error {
-	return validateRebalancing(SchemaVersionV1BB6, optimizer)
+	return validateRebalancing(SchemaVersionInventoryRebalancing, optimizer)
 }

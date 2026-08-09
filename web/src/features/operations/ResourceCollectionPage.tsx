@@ -3,17 +3,19 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 import { APIError } from "../../api/client";
-import { d1CollectionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
 import styles from "../shared/ConsoleSurface.module.css";
 
-export type D1Collection = Parameters<typeof d1CollectionQuery>[0];
+export type OwnerControlCollection = Parameters<
+  typeof ownerControlCollectionQuery
+>[0];
 
 interface ResourceCollectionPageProps {
-  readonly resource: D1Collection;
+  readonly resource: OwnerControlCollection;
   readonly title: string;
   readonly eyebrow: string;
   readonly description: string;
@@ -28,7 +30,7 @@ export function ResourceCollectionPage({
   emptyDetail,
 }: ResourceCollectionPageProps) {
   const [state, setState] = useState("");
-  const query = useQuery(d1CollectionQuery(resource, { state }));
+  const query = useQuery(ownerControlCollectionQuery(resource, { state }));
   if (query.isLoading) return <StatePanel state="loading" />;
   if (query.error instanceof APIError && query.error.status === 403)
     return <StatePanel state="forbidden" />;

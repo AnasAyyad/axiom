@@ -9,6 +9,7 @@ import (
 // sandbox strategy session. It never denotes a production execution mode.
 type StrategySessionState string
 
+// Lifecycle states for an explicitly armed sandbox strategy session.
 const (
 	StrategySessionPrepared StrategySessionState = "prepared"
 	StrategySessionRunning  StrategySessionState = "running"

@@ -11,7 +11,7 @@ import (
 
 // DataCatalogue presents immutable, protected server-side dataset evidence in
 // owner language. It does not return a storage path or accept a client upload.
-func (store *A11ConsoleStore) DataCatalogue(ctx context.Context) (generated.DataCataloguePage, error) {
+func (store *OwnerConsoleStore) DataCatalogue(ctx context.Context) (generated.DataCataloguePage, error) {
 	rows, err := store.pool.Query(ctx, `
 SELECT manifest.dataset_hash::text,manifest.dataset_kind,manifest.state,
   coalesce(manifest.quality_tier,''),manifest.coverage_start,manifest.coverage_end,
@@ -23,7 +23,13 @@ SELECT manifest.dataset_hash::text,manifest.dataset_kind,manifest.state,
     (SELECT array_agg(DISTINCT segment.exchange_id ORDER BY segment.exchange_id)
       FROM dataset_segments member JOIN market_data_segments segment ON segment.id=member.segment_id
       WHERE member.dataset_id=manifest.id)
-  )
+  ),
+  coalesce((SELECT array_agg(DISTINCT segment.instrument_id ORDER BY segment.instrument_id)
+    FROM dataset_segments member JOIN market_data_segments segment ON segment.id=member.segment_id
+    WHERE member.dataset_id=manifest.id AND segment.instrument_id IS NOT NULL), '{}'),
+  coalesce((SELECT array_agg(DISTINCT segment.event_type ORDER BY segment.event_type)
+    FROM dataset_segments member JOIN market_data_segments segment ON segment.id=member.segment_id
+    WHERE member.dataset_id=manifest.id), '{}')
 FROM dataset_manifests manifest
 WHERE manifest.state IN ('building','ready','qualified','rejected')
   AND EXISTS (
@@ -54,8 +60,8 @@ func scanOwnerDataCatalogue(scanner ownerDataCatalogueScanner) (generated.DataCa
 	var hash, kind, state, quality string
 	var start, end time.Time
 	var segments, gaps int
-	var exchanges []string
-	if err := scanner.Scan(&hash, &kind, &state, &quality, &start, &end, &segments, &gaps, &exchanges); err != nil {
+	var exchanges, instruments, coverageTypes []string
+	if err := scanner.Scan(&hash, &kind, &state, &quality, &start, &end, &segments, &gaps, &exchanges, &instruments, &coverageTypes); err != nil {
 		return generated.DataCatalogueItem{}, err
 	}
 	if len(hash) != 64 || len(exchanges) == 0 || segments < 0 || gaps < 0 {
@@ -63,7 +69,8 @@ func scanOwnerDataCatalogue(scanner ownerDataCatalogueScanner) (generated.DataCa
 	}
 	item := generated.DataCatalogueItem{ManifestHash: hash, State: generated.DataCatalogueItemState(state),
 		CoverageStart: start.UTC(), CoverageEnd: end.UTC(), SegmentCount: segments, KnownGapCount: gaps,
-		Exchanges: make([]generated.DataCatalogueItemExchanges, 0, len(exchanges))}
+		Exchanges:   make([]generated.DataCatalogueItemExchanges, 0, len(exchanges)),
+		Instruments: append([]string(nil), instruments...), CoverageTypes: append([]string(nil), coverageTypes...)}
 	for _, exchange := range exchanges {
 		if exchange != "binance" && exchange != "bybit" {
 			return generated.DataCatalogueItem{}, fmt.Errorf("owner_data_catalogue_invalid")
@@ -90,4 +97,4 @@ func scanOwnerDataCatalogue(scanner ownerDataCatalogueScanner) (generated.DataCa
 	return item, nil
 }
 
-var _ console.DataCatalogueReadService = (*A11ConsoleStore)(nil)
+var _ console.DataCatalogueReadService = (*OwnerConsoleStore)(nil)

@@ -9,8 +9,9 @@ import (
 )
 
 // runs returns the single owner-facing list for every durable run that the
-// current runtime can actually project. Creation remains on the existing
-// specialised endpoints until each strategy has a shared materializer.
+// current runtime can actually project. Creation is resolved through the
+// semantic run command service, which selects only an installed shared
+// materializer for the requested workflow.
 func (handler *handler) runs(
 	writer http.ResponseWriter,
 	request *http.Request,

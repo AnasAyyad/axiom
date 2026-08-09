@@ -108,7 +108,7 @@ export function ActivityDetailPanel({
       {exportRecord.isError && (
         <p className={styles.error} role="alert">
           The audited export could not be created. Check the revision and your
-          artifact permission, then retry.
+          artifact availability, then retry.
         </p>
       )}
       <EvidenceDetails

@@ -8,7 +8,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// ConfigurationFromReviewed maps the validated immutable B6 graph into the
+// ConfigurationFromReviewed maps the validated immutable inventory rebalancing graph into the
 // optimizer value object.
 func ConfigurationFromReviewed(reviewed config.RebalancingConfiguration) (Configuration, error) {
 	if err := config.ValidateRebalancingConfiguration(reviewed); err != nil {

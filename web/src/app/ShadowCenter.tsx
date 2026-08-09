@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 
 import { getAPI, newIdempotencyKey, postAPI } from "../api/client";
 import { sessionQuery } from "../api/queries";
@@ -9,34 +9,15 @@ import { StatePanel } from "../components/StatePanel";
 import { LabSafetyNote } from "../features/labs/LabRunTools";
 import { ShadowSessionEvidence } from "../features/labs/ShadowSessionEvidence";
 import { compareShadowSessions } from "../features/labs/shadowModel";
-import { hasAccess } from "../features/shared/access";
-import { Field, Lab } from "./ResearchLabShared";
+import { Lab } from "./ResearchLabShared";
 import styles from "./Page.module.css";
 
 export function ShadowCenter() {
   const { id } = useParams();
-  const [configuration, setConfiguration] = useState("");
-  const [portfolio, setPortfolio] = useState("");
-  const [strategy, setStrategy] = useState("trend.v1a.1");
   const [sessionID, setSessionID] = useState(id ?? "");
   const [compareID, setCompareID] = useState("");
   const currentUser = useQuery(sessionQuery);
-  const canControl = currentUser.data
-    ? hasAccess(currentUser.data.user, ["research.control"])
-    : false;
-  const create = useMutation({
-    mutationFn: () =>
-      postAPI<"ShadowSessionResource">(
-        "/api/v1/shadow-sessions",
-        {
-          configuration_id: configuration,
-          portfolio_id: portfolio,
-          strategy_version: strategy,
-        },
-        newIdempotencyKey("shadow"),
-      ),
-    onSuccess: (session) => setSessionID(session.id),
-  });
+  const ownerSessionReady = currentUser.isSuccess;
   const session = useQuery({
     queryKey: ["shadow", sessionID],
     queryFn: () =>
@@ -74,69 +55,54 @@ export function ShadowCenter() {
     <Lab
       title="Shadow Trading Center"
       eyebrow="Public-live · virtual execution"
-      description="Binance production-public data feeds only the simulation broker. No private credentials or external order path exists."
+      description="Selected Binance or Bybit production-public data feeds only the simulation broker. No private credentials or external order path exists."
     >
-      <form
-        className={`${styles.card} ${styles.form}`}
-        onSubmit={(event) => {
-          event.preventDefault();
-          create.mutate();
-        }}
-      >
-        <Field
-          label="Configuration ID"
-          value={configuration}
-          set={setConfiguration}
-        />
-        <Field label="Portfolio ID" value={portfolio} set={setPortfolio} />
-        <label>
-          Strategy version
-          <select
-            value={strategy}
-            onChange={(event) => setStrategy(event.target.value)}
-          >
-            <option value="trend.v1a.1">Trend v1a.1</option>
-          </select>
-        </label>
-        <button type="submit" disabled={create.isPending || !canControl}>
-          Start virtual shadow
-        </button>
-      </form>
-      <LabSafetyNote />
-      {!canControl && (
-        <StatePanel
-          state="forbidden"
-          detail="Your role can inspect shadow evidence but cannot start or stop a session."
-        />
+      {sessionID === "" && (
+        <section className={styles.card}>
+          <h2>Start a reviewed shadow session</h2>
+          <p>
+            New public-data shadow sessions use the server-approved strategy,
+            venue, instrument, portfolio, and risk selection. You never need to
+            paste internal identifiers into the browser.
+          </p>
+          <Link className={styles.action} to="/run-lab">
+            Choose a reviewed run
+          </Link>
+        </section>
       )}
-      {create.isError && (
+      <LabSafetyNote />
+      {!ownerSessionReady && (
         <StatePanel
-          state="paused"
-          detail="Safety prerequisites, identity, or one-session quota prevented start."
+          state="loading"
+          detail="Confirming the owner session before lifecycle controls are available."
         />
       )}
       {session.data && (
         <ShadowSessionEvidence
           session={session.data}
-          canControl={canControl}
+          canControl={ownerSessionReady}
           stopPending={stop.isPending}
           onStop={() => stop.mutate()}
         />
       )}
       <section className={styles.card}>
         <h2>Compare shadow sessions</h2>
-        <form
-          className={styles.form}
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <label>
-            Comparison session ID
-            <input
-              value={compareID}
-              onChange={(event) => setCompareID(event.target.value.trim())}
-            />
-          </label>
-        </form>
+        <label className={styles.field}>
+          Compare with
+          <select
+            value={compareID}
+            onChange={(event) => setCompareID(event.target.value)}
+          >
+            <option value="">Choose an existing shadow session</option>
+            {history.data?.items
+              .filter((item) => item.id !== sessionID)
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.state} shadow session · revision {item.revision}
+                </option>
+              ))}
+          </select>
+        </label>
         {session.data && comparison.data && (
           <DataTable
             caption={`Shadow comparison: ${session.data.id} and ${comparison.data.id}`}

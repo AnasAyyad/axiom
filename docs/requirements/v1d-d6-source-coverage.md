@@ -6,9 +6,9 @@ execution engine, or qualification platform.
 - Certification model: `internal/certification` owns strict inputs, exact
   identities, trust, signature, lifetime, review, Section 35, and final-verdict
   rules.
-- Final command: `cmd/d6-certify` is default-off, exact-build bound, consumes
+- Final command: `cmd/release-certify` is default-off, exact-build bound, consumes
   externally prepared signed records, and writes one immutable verdict.
-- Repository enforcement: `scripts/check-v1d-d6-boundary.mjs`, existing secret,
+- Repository enforcement: `scripts/check-release-certification-boundary.mjs`, existing secret,
   prohibited-capability, binary, generated-contract, image, Compose, and
   documentation checks.
 - Image supply chain: the application and backup Dockerfiles, image inspection,

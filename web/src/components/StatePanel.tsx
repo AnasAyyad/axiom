@@ -27,7 +27,7 @@ export function StatePanel({ state, detail }: StatePanelProps) {
     paused: "Operations are paused",
     locked: "Safety lock is active",
     reconnecting: "Reconnecting to live updates…",
-    forbidden: "You do not have permission to view this evidence",
+    forbidden: "This evidence is not available for the current owner session",
     validation: "Review the highlighted values",
     partial: "Some authoritative data is unavailable",
     blocked: "A prerequisite is blocking this workflow",

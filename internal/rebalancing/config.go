@@ -6,7 +6,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// Configuration is the immutable B6 advisory optimizer contract.
+// Configuration is the immutable inventory rebalancing advisory optimizer contract.
 type Configuration struct {
 	OptimizerVersion      string
 	FactSchemaVersion     string
@@ -24,10 +24,10 @@ type Configuration struct {
 	MinimumChecklistSteps uint32
 }
 
-// DefaultConfiguration returns the reviewed B6 baseline.
+// DefaultConfiguration returns the reviewed inventory rebalancing baseline.
 func DefaultConfiguration() Configuration {
 	return Configuration{
-		OptimizerVersion:      "rebalancing.v1b.1",
+		OptimizerVersion:      "inventory-rebalancing@1.0.0",
 		FactSchemaVersion:     "rebalancing-fact.v1",
 		CostModelVersion:      "rebalancing-cost.v1",
 		Mode:                  "advisory_only",

@@ -80,6 +80,22 @@ func (health *sandboxEngineHealth) reconcile(
 		return nil
 	}
 	health.reconciliationHealthy = err == nil
+	if err == nil {
+		// Automatic evaluations require account/reconciliation evidence from
+		// this cycle and a synchronously refreshed public eligibility snapshot.
+		// Ordinary one-second dispatch ticks never evaluate a strategy.
+		eligible, refreshErr := loop.refreshEligibility(ctx, health.exchangeEligible)
+		if refreshErr != nil {
+			return refreshErr
+		}
+		health.exchangeEligible = eligible
+		if eligible {
+			err = loop.evaluateStrategies(ctx)
+			health.reconciliationHealthy = err == nil
+		} else {
+			health.reconciliationHealthy = false
+		}
+	}
 	return health.transition(ctx, loop)
 }
 

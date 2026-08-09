@@ -35,26 +35,26 @@ func runMigrate(ctx context.Context, runtimeConfig config.Runtime, product confi
 	}
 	binanceRole := environmentOr("POSTGRES_BINANCE_ENGINE_USER", "axiom_binance_engine")
 	bybitRole := environmentOr("POSTGRES_BYBIT_ENGINE_USER", "axiom_bybit_engine")
-	if err := postgresstore.ApplyV1CEngineRoleGrants(ctx, pool, binanceRole, bybitRole); err != nil {
+	if err := postgresstore.ApplySandboxRuntimeEngineRoleGrants(ctx, pool, binanceRole, bybitRole); err != nil {
 		return err
 	}
 	qualificationRole := environmentOr(
-		"POSTGRES_C6_QUALIFICATION_USER",
-		"axiom_c6_qualification",
+		"POSTGRES_SANDBOX_QUALIFICATION_USER",
+		"axiom_sandbox_qualification",
 	)
-	if err := postgresstore.ApplyC6QualificationRoleGrants(
+	if err := postgresstore.ApplySandboxQualificationRoleGrants(
 		ctx, pool, qualificationRole,
 	); err != nil {
 		return err
 	}
-	if err := postgresstore.EnsureV1AReferenceData(ctx, pool, product, time.Now().UTC()); err != nil {
+	if err := postgresstore.EnsureTrendFoundationReferenceData(ctx, pool, product, time.Now().UTC()); err != nil {
 		return err
 	}
 	return json.NewEncoder(output).Encode(map[string]any{
-		"event_code": "migration_complete",
-		"phase":      "A11",
-		"applied":    applied,
-		"checked_at": time.Now().UTC().Format(time.RFC3339),
+		"event_code":      "migration_complete",
+		"readiness_state": "migrations_applied",
+		"applied":         applied,
+		"checked_at":      time.Now().UTC().Format(time.RFC3339),
 	})
 }
 

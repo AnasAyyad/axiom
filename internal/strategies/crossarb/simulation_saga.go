@@ -10,15 +10,18 @@ import (
 func newConcurrentSaga(
 	candidate Candidate,
 ) (*execution.SagaReducer, domain.ExecutionPlanID, error) {
-	planID, err := domain.NewExecutionPlanID("b5-" + candidate.ID[:24])
+	planID, err := domain.NewExecutionPlanID("cross_exchange_arbitrage-" + candidate.ID[:24])
 	if err != nil {
 		return nil, domain.ExecutionPlanID{}, err
 	}
-	reservation, _ := domain.NewReservationID("b5-claims-" + candidate.ID[:20])
+	reservation, err := sagaReservationID(candidate.ID)
+	if err != nil {
+		return nil, domain.ExecutionPlanID{}, err
+	}
 	legs := make([]execution.SagaLeg, 2)
 	for index := range legs {
 		orderID, _ := domain.NewVirtualOrderID(
-			"b5-" + candidate.ID[:16] + "-leg-" + strconv.Itoa(index+1),
+			"cross_exchange_arbitrage-" + candidate.ID[:16] + "-leg-" + strconv.Itoa(index+1),
 		)
 		legs[index] = execution.SagaLeg{
 			Index: uint32(index), OrderID: orderID, State: execution.OrderCreated,
@@ -63,11 +66,11 @@ func simulationOrder(
 		leg = candidate.Sell
 	}
 	orderID, _ := domain.NewVirtualOrderID(
-		"b5-" + candidate.ID[:16] + "-leg-" + strconv.Itoa(index+1),
+		"cross_exchange_arbitrage-" + candidate.ID[:16] + "-leg-" + strconv.Itoa(index+1),
 	)
 	return execution.Order{
 		Identity: execution.OrderIdentity{
-			ID: orderID, PlanID: planID, ClientOrderID: "b5-sim-" + strconv.Itoa(index+1),
+			ID: orderID, PlanID: planID, ClientOrderID: "cross-exchange-arbitrage-sim-" + strconv.Itoa(index+1),
 			Instrument: leg.Instrument, Side: leg.Side, Quantity: leg.TradeQuantity,
 		},
 		State: state, CumulativeQuantity: filled, Revision: 1,

@@ -13,8 +13,18 @@ describe("owner navigation", () => {
       "Portfolio & Risk",
       "System",
     ]);
-    const labels = groups.flatMap((group) => group.items.map((item) => item.label));
-    expect(labels).toEqual(expect.arrayContaining(["Getting Started", "New Run", "Guided Demonstrations", "Exchange Sandbox", "Readiness"]));
+    const labels = groups.flatMap((group) =>
+      group.items.map((item) => item.label),
+    );
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "Getting Started",
+        "New Run",
+        "Guided Demonstrations",
+        "Exchange Sandbox",
+        "Readiness",
+      ]),
+    );
     expect(labels).not.toContain("User access");
   });
 });

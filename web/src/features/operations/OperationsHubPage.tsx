@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
-import { d1CollectionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { StatusBadge } from "../shared/StatusBadge";
@@ -58,8 +58,10 @@ const destinations = [
 ] as const;
 
 export function OperationsHubPage() {
-  const alerts = useQuery(d1CollectionQuery("alerts"));
-  const qualifications = useQuery(d1CollectionQuery("qualifications"));
+  const alerts = useQuery(ownerControlCollectionQuery("alerts"));
+  const qualifications = useQuery(
+    ownerControlCollectionQuery("qualifications"),
+  );
   return (
     <Page
       title="Operations"

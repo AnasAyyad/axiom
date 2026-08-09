@@ -7,53 +7,64 @@ import (
 	"strings"
 	"time"
 
+	"axiom/internal/accounting"
 	"axiom/internal/backtest"
 	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
+	"axiom/internal/execution"
 	"axiom/internal/marketdata"
+	"axiom/internal/reconciliation"
+	"axiom/internal/replay"
+	"axiom/internal/risk"
 	runtimecore "axiom/internal/runtime"
 	"axiom/internal/strategies/arbitrage"
 	"axiom/internal/strategies/crossarb"
 )
 
+// CrossExchangeArbitrageID is the stable semantic ID of the bundled scenario.
 const CrossExchangeArbitrageID = "cross-exchange-arbitrage-basics"
 
-// RunCrossExchangeArbitrage evaluates a fixed coherent two-venue view through
-// the reviewed closed-cycle evaluator. It exposes advisory evidence only: it
-// does not claim inventory, plan orders, or invoke a sandbox adapter.
+// RunCrossExchangeArbitrage runs a fixed coherent two-venue candidate through
+// the canonical allocator, central-risk, plan, deterministic simulation,
+// accounting, and reconciliation stages. It is synthetic and has no exchange
+// client or credential boundary.
 func RunCrossExchangeArbitrage(ctx context.Context) (Result, error) {
 	if ctx == nil {
 		return Result{}, fmt.Errorf("demonstration_context_invalid")
 	}
-	input, err := guidedCrossExchangeInput()
+	evaluation, err := guidedCrossExchangeInput()
 	if err != nil {
 		return Result{}, err
 	}
-	accepted, err := crossarb.Evaluate(input)
+	input, err := guidedCrossExchangeRecordedInput(evaluation)
 	if err != nil {
 		return Result{}, err
+	}
+	pipeline, err := newGuidedCrossExchangePipeline(input)
+	if err != nil {
+		return Result{}, err
+	}
+	accepted, err := processGuidedCrossExchange(ctx, pipeline, input)
+	if err != nil || len(accepted.Orders) == 0 || len(accepted.ExecutionEvents) == 0 {
+		return Result{}, fmt.Errorf("demonstration_pipeline_incomplete")
 	}
 	rejectedInput := input
 	rejectedInput.Restoration.MarginalInventoryReplacement = mustGuidedMoney("100")
-	_, rejectedErr := crossarb.Evaluate(rejectedInput)
+	rejectedEvaluation, evaluationErr := rejectedInput.EvaluationInput()
+	if evaluationErr != nil {
+		return Result{}, evaluationErr
+	}
+	_, rejectedErr := crossarb.Evaluate(rejectedEvaluation)
 	if rejectedErr == nil {
 		return Result{}, fmt.Errorf("demonstration_rejection_incomplete")
-	}
-	evidence, err := json.Marshal(map[string]any{
-		"candidates":      accepted,
-		"rejected_reason": rejectedErr.Error(),
-	})
-	if err != nil {
-		return Result{}, err
 	}
 	result := Result{
 		ID: CrossExchangeArbitrageID, StrategyID: "cross-exchange-arbitrage",
 		StrategyVersion: "cross-exchange-arbitrage@1.0.0", Synthetic: true,
-		AdvisoryOnly: true, AdvisoryEvidence: evidence,
 		ConfigurationHash: input.ConfigurationHash,
-		Accepted:          advisoryEvent("closed_cycle_candidate_recommended"),
-		Rejected:          advisoryEvent("restoration_cost_rejected"),
-		Metrics:           backtest.Metrics{TotalNetReturn: "not_applicable"},
+		Accepted:          accepted,
+		Rejected:          guidedRejectedEvent(input.Ordinal+1, "restoration_cost_rejected", rejectedErr),
+		Metrics:           pipeline.Metrics(),
 	}
 	hash, err := resultHash(result)
 	if err != nil {
@@ -61,6 +72,113 @@ func RunCrossExchangeArbitrage(ctx context.Context) (Result, error) {
 	}
 	result.ResultHash = hash
 	return result, nil
+}
+
+func guidedCrossExchangeRecordedInput(source crossarb.EvaluationInput) (crossarb.Input, error) {
+	markets := make([]crossarb.MarketInput, 0, len(source.Markets))
+	for _, market := range source.Markets {
+		view := market.Book
+		observation := view.Observation()
+		markets = append(markets, crossarb.MarketInput{Snapshot: exchangecontracts.BookSnapshot{
+			Exchange: exchangecontracts.ExchangeID(view.Exchange()), Instrument: view.Instrument(),
+			LastSequence: view.Sequence(), ReceivedAt: observation.ReceivedAt, Bids: view.Bids(), Asks: view.Asks(),
+			RawPayloadHash: "sha256:guided-cross-" + view.Exchange(),
+		}, Observation: observation, Rules: market.Rules})
+	}
+	now := time.Unix(11, 0).UTC()
+	observations, policies, evaluatedAt, err := (demoRiskInputs{at: now}).Current()
+	if err != nil {
+		return crossarb.Input{}, err
+	}
+	view := source.CoherentView
+	input := crossarb.Input{Ordinal: 1, LogicalTime: source.DecisionOffsetNanos, Now: now, Markets: markets,
+		Coherent:  crossarb.CoherentViewInput{Identity: view.Identity(), Policy: view.Policy(), Trigger: view.Trigger(), Members: view.Members()},
+		Inventory: source.Inventory, QuoteBudget: source.QuoteBudget, FeeBalances: source.FeeBalances,
+		Configuration: source.Configuration, ConfigurationHash: source.ConfigurationHash,
+		InstrumentMetadataSetHash: source.InstrumentMetadataSetHash, Restoration: source.Restoration,
+		CentralRisk: &crossarb.RiskInput{Policies: policies, Observations: observations, EvaluatedAt: evaluatedAt},
+		Reduction: &crossarb.ReductionInput{Attribution: guidedCrossExchangeAttribution(),
+			Reconciliation: crossarb.ReconciliationInput{Scope: "guided-cross-exchange/" + source.ConfigurationHash,
+				Expected: guidedReconciliationState(), Actual: guidedReconciliationState(), At: now}},
+		Simulation: &crossarb.SimulationInput{Latency: crossarb.LatencyDistribution{
+			Version: "guided-cross-latency-v1", BuySamplesNanos: []uint64{10}, SellSamplesNanos: []uint64{20},
+			VerificationNanos: 5, RetryNanos: 5, RecoveryNanos: 30}, Recovery: crossarb.RecoveryPolicy{}},
+	}
+	for _, offset := range []uint64{input.LogicalTime + 10, input.LogicalTime + 20} {
+		for _, market := range input.Markets {
+			input.Simulation.Markets = append(input.Simulation.Markets, crossarb.TimedMarketInput{Offset: offset, Market: market})
+		}
+	}
+	input.Simulation.Directives = []crossarb.TimedDirective{
+		{Exchange: "binance", Phase: crossarb.PhaseArrival, Offset: input.LogicalTime + 10,
+			Directive: crossarb.LegDirective{State: execution.OrderFilled}},
+		{Exchange: "bybit", Phase: crossarb.PhaseArrival, Offset: input.LogicalTime + 20,
+			Directive: crossarb.LegDirective{State: execution.OrderFilled}},
+	}
+	return input, nil
+}
+
+func newGuidedCrossExchangePipeline(input crossarb.Input) (*backtest.SagaPipelineProcessor, error) {
+	claims, err := crossarb.NewRecordedSagaClaimSet(input)
+	if err != nil {
+		return nil, err
+	}
+	allocator, err := crossarb.NewAtomicSagaAllocator(claims, runtimecore.FencingToken(1))
+	if err != nil {
+		return nil, err
+	}
+	riskEngine, err := risk.NewEngine(demoRiskAudit{}, demoRiskAlerts{})
+	if err != nil || riskEngine.ManualTransition(risk.StateNormal, demoRecovery(input.Now)) != nil {
+		return nil, fmt.Errorf("demonstration_risk_invalid")
+	}
+	riskAdapter, err := crossarb.NewSagaRiskAdapter(riskEngine, crossarb.RecordedSagaRiskInputs{})
+	if err != nil {
+		return nil, err
+	}
+	broker, err := crossarb.NewSagaSimulationBroker(crossarb.RecordedSagaSimulationInputs{})
+	if err != nil {
+		return nil, err
+	}
+	runID, runErr := domain.NewRunID("guided-cross-exchange-run")
+	portfolioID, portfolioErr := domain.NewPortfolioID("guided-cross-exchange-portfolio")
+	if runErr != nil || portfolioErr != nil {
+		return nil, fmt.Errorf("demonstration_identity_invalid")
+	}
+	journal := accounting.NewMemoryJournal()
+	reconciler, err := reconciliation.NewReconciler(guidedReconciliationCases{}, guidedReconciliationIncidents{}, guidedReconciliationQuarantine{}, journal,
+		reconciliation.Context{RunID: runID, PortfolioID: portfolioID, Owner: "guided-owner", ConfigurationHash: input.ConfigurationHash})
+	if err != nil {
+		return nil, err
+	}
+	provider, err := crossarb.NewRecordedSagaReductionProvider(journal, reconciler, runID, portfolioID, "guided-owner", allocator)
+	if err != nil {
+		return nil, err
+	}
+	reducer, err := crossarb.NewSagaReducer(provider)
+	if err != nil {
+		return nil, err
+	}
+	return backtest.NewSagaPipelineProcessor(backtest.SagaPipelineDependencies{Strategy: crossarb.NewSagaStrategyAdapter(),
+		Allocator: allocator, Risk: riskAdapter, Planner: crossarb.NewSagaPlanner(), Broker: broker, Reducer: reducer,
+		Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "not_evaluated", Trades: 2} }})
+}
+
+func processGuidedCrossExchange(ctx context.Context, processor *backtest.SagaPipelineProcessor, input crossarb.Input) (backtest.EventResult, error) {
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return backtest.EventResult{}, err
+	}
+	return processor.Process(ctx, replay.Event{Ordinal: input.Ordinal, LogicalTime: input.LogicalTime, Canonical: payload})
+}
+
+func guidedCrossExchangeAttribution() crossarb.PortfolioAttribution {
+	value := func(gain bool) crossarb.AttributionValue {
+		return crossarb.AttributionValue{Amount: mustGuidedBalance("0.01"), Gain: gain}
+	}
+	return crossarb.PortfolioAttribution{ExecutionPnL: value(true), BTCInventoryPnL: value(false),
+		ETHInventoryPnL: value(true), StablecoinValuation: value(false), Fees: mustGuidedBalance("0.01"),
+		Spread: mustGuidedBalance("0.01"), Slippage: mustGuidedBalance("0.01"), Latency: mustGuidedBalance("0.01"),
+		Recovery: mustGuidedBalance("0.01"), Rebalancing: mustGuidedBalance("0.01"), CombinedPnL: value(true)}
 }
 
 func guidedCrossExchangeInput() (crossarb.EvaluationInput, error) {

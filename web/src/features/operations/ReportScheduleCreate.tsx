@@ -147,8 +147,8 @@ export function CreateReportSchedule() {
       </button>
       {mutation.isError && (
         <p className={styles.error} role="alert">
-          Schedule creation failed. Verify UTC values, quota, permission, and
-          reason.
+          Schedule creation failed. Verify UTC values, quota, owner-session
+          state, and reason.
         </p>
       )}
       {mutation.isSuccess && (

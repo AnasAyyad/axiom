@@ -18,7 +18,7 @@ import (
 )
 
 func TestLoginCookiesOriginCSRFAndLogout(t *testing.T) {
-	handler, store := a11HTTPTestHandler(t, []string{"operations.read", "commands.write"})
+	handler, store := ownerConsoleHTTPTestHandler(t, []string{"operations.read", "commands.write"})
 	rejected := httptest.NewRequest(http.MethodPost, "/api/v1/session/login", strings.NewReader(`{"email":"owner@example.test","password":"console-password"}`))
 	rejected.Header.Set("Origin", "http://localhost:4173.evil.test")
 	rejectedResponse := httptest.NewRecorder()
@@ -26,12 +26,12 @@ func TestLoginCookiesOriginCSRFAndLogout(t *testing.T) {
 	if rejectedResponse.Code != http.StatusForbidden {
 		t.Fatalf("non-exact login origin = %d", rejectedResponse.Code)
 	}
-	session, csrf := assertA11LoginCookies(t, handler, store)
-	assertA11CSRFBoundary(t, handler, session, csrf)
-	assertA11LogoutRevokes(t, handler, session, csrf)
+	session, csrf := assertOwnerConsoleLoginCookies(t, handler, store)
+	assertOwnerConsoleCSRFBoundary(t, handler, session, csrf)
+	assertOwnerConsoleLogoutRevokes(t, handler, session, csrf)
 }
 
-func assertA11LoginCookies(t *testing.T, handler http.Handler, store *a11HTTPStore) (*http.Cookie, *http.Cookie) {
+func assertOwnerConsoleLoginCookies(t *testing.T, handler http.Handler, store *ownerConsoleHTTPStore) (*http.Cookie, *http.Cookie) {
 	t.Helper()
 	login := httptest.NewRequest(http.MethodPost, "/api/v1/session/login", strings.NewReader(`{"email":"owner@example.test","password":"console-password"}`))
 	login.Header.Set("Origin", "http://localhost:4173")
@@ -57,14 +57,14 @@ func assertA11LoginCookies(t *testing.T, handler http.Handler, store *a11HTTPSto
 		sessionCookie.SameSite != http.SameSiteStrictMode || sessionCookie.Path != "/" || sessionCookie.Domain != "" {
 		t.Fatalf("cookie policy = session %#v csrf %#v", sessionCookie, csrfCookie)
 	}
-	storedSession, found := store.sessions[a11HTTPTokenHash(sessionCookie.Value)]
-	if sessionCookie.Value == csrfCookie.Value || !found || storedSession.CSRFTokenHash != a11HTTPTokenHash(csrfCookie.Value) {
+	storedSession, found := store.sessions[ownerConsoleHTTPTokenHash(sessionCookie.Value)]
+	if sessionCookie.Value == csrfCookie.Value || !found || storedSession.CSRFTokenHash != ownerConsoleHTTPTokenHash(csrfCookie.Value) {
 		t.Fatal("session and CSRF values were not independently bound and hashed")
 	}
 	return sessionCookie, csrfCookie
 }
 
-func assertA11CSRFBoundary(t *testing.T, handler http.Handler, sessionCookie, csrfCookie *http.Cookie) {
+func assertOwnerConsoleCSRFBoundary(t *testing.T, handler http.Handler, sessionCookie, csrfCookie *http.Cookie) {
 	t.Helper()
 	mutationBody := []byte(`{"expected_revision":"1","reason":"operator qualification pause"}`)
 	missingCSRF := httptest.NewRequest(http.MethodPost, "/api/v1/risk/pause", bytes.NewReader(mutationBody))
@@ -92,7 +92,7 @@ func assertA11CSRFBoundary(t *testing.T, handler http.Handler, sessionCookie, cs
 	}
 }
 
-func assertA11LogoutRevokes(t *testing.T, handler http.Handler, sessionCookie, csrfCookie *http.Cookie) {
+func assertOwnerConsoleLogoutRevokes(t *testing.T, handler http.Handler, sessionCookie, csrfCookie *http.Cookie) {
 	t.Helper()
 	logout := httptest.NewRequest(http.MethodPost, "/api/v1/session/logout", nil)
 	logout.Header.Set("Origin", "http://localhost:4173")
@@ -115,8 +115,8 @@ func assertA11LogoutRevokes(t *testing.T, handler http.Handler, sessionCookie, c
 }
 
 func TestOwnerMutationStillValidatesBoundaries(t *testing.T) {
-	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
-	session, csrf := a11HTTPLogin(t, handler)
+	handler, _ := ownerConsoleHTTPTestHandler(t, []string{"operations.read"})
+	session, csrf := ownerConsoleHTTPLogin(t, handler)
 
 	viewerRequest := httptest.NewRequest(http.MethodPost, "/api/v1/risk/pause", strings.NewReader(`{"expected_revision":"1","reason":"operator qualification pause"}`))
 	viewerRequest.Header.Set("Origin", "http://localhost:4173")
@@ -132,8 +132,8 @@ func TestOwnerMutationStillValidatesBoundaries(t *testing.T) {
 }
 
 func TestOwnerSessionNeverExposesRolesPermissionsOrUserManagementRoutes(t *testing.T) {
-	handler, _ := a11HTTPTestHandler(t, []string{"operations.read"})
-	session, _ := a11HTTPLogin(t, handler)
+	handler, _ := ownerConsoleHTTPTestHandler(t, []string{"operations.read"})
+	session, _ := ownerConsoleHTTPLogin(t, handler)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/session/me", nil)
 	request.AddCookie(session)
 	response := httptest.NewRecorder()
@@ -164,8 +164,8 @@ func TestOwnerSessionNeverExposesRolesPermissionsOrUserManagementRoutes(t *testi
 
 func TestOwnerReachesApprovedLabCommandBoundary(t *testing.T) {
 	t.Parallel()
-	requestBody := `{"configuration_id":"configuration-a10","dataset_id":"dataset-a7",` +
-		`"research_generation_id":"generation-a10-1","strategy_version":"trend.v1a.1",` +
+	requestBody := `{"configuration_id":"configuration-research_registry","dataset_id":"dataset-public-data",` +
+		`"research_generation_id":"generation-research_registry-1","strategy_version":"trend-following@1.0.0",` +
 		`"root_seed_hash":"` + strings.Repeat("a", 64) + `"}`
 	for name, test := range map[string]struct {
 		permissions []string
@@ -175,8 +175,8 @@ func TestOwnerReachesApprovedLabCommandBoundary(t *testing.T) {
 		"second owner session": {[]string{"operations.read"}, http.StatusServiceUnavailable},
 	} {
 		t.Run(name, func(t *testing.T) {
-			handler, _ := a11HTTPTestHandler(t, test.permissions)
-			session, csrf := a11HTTPLogin(t, handler)
+			handler, _ := ownerConsoleHTTPTestHandler(t, test.permissions)
+			session, csrf := ownerConsoleHTTPLogin(t, handler)
 			request := httptest.NewRequest(http.MethodPost, "/api/v1/backtests", strings.NewReader(requestBody))
 			request.Header.Set("Origin", "http://localhost:4173")
 			request.Header.Set("Content-Type", "application/json")
@@ -194,10 +194,10 @@ func TestOwnerReachesApprovedLabCommandBoundary(t *testing.T) {
 }
 
 func TestEventSourceOriginValidationAcceptsOnlyAllowlistedSameOriginMetadata(t *testing.T) {
-	_, store := a11HTTPTestHandler(t, []string{"operations.read"})
-	stream := &a11HTTPStream{}
-	handler := a11HTTPTestHandlerWithStream(t, store, stream)
-	session, _ := a11HTTPLogin(t, handler)
+	_, store := ownerConsoleHTTPTestHandler(t, []string{"operations.read"})
+	stream := &ownerConsoleHTTPStream{}
+	handler := ownerConsoleHTTPTestHandlerWithStream(t, store, stream)
+	session, _ := ownerConsoleHTTPLogin(t, handler)
 
 	for name, testCase := range map[string]struct {
 		host, site, mode string
@@ -239,7 +239,7 @@ func TestLoginSourceScopeDropsEphemeralPorts(t *testing.T) {
 	}
 }
 
-func a11HTTPLogin(t *testing.T, handler http.Handler) (*http.Cookie, *http.Cookie) {
+func ownerConsoleHTTPLogin(t *testing.T, handler http.Handler) (*http.Cookie, *http.Cookie) {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/session/login", strings.NewReader(`{"email":"owner@example.test","password":"console-password"}`))
 	request.Header.Set("Origin", "http://localhost:4173")
@@ -261,14 +261,14 @@ func a11HTTPLogin(t *testing.T, handler http.Handler) (*http.Cookie, *http.Cooki
 	return session, csrf
 }
 
-func a11HTTPTestHandler(t *testing.T, permissions []string) (http.Handler, *a11HTTPStore) {
+func ownerConsoleHTTPTestHandler(t *testing.T, permissions []string) (http.Handler, *ownerConsoleHTTPStore) {
 	t.Helper()
 	hash, err := (authentication.PasswordHasher{}).Hash("console-password")
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := &a11HTTPStore{user: authentication.User{ID: "user-a11", Email: "owner@example.test", NormalizedEmail: "owner@example.test",
-		PasswordHash: hash, Status: "active", Roles: []string{"owner"}, Permissions: permissions, RoleRevision: 1},
+	store := &ownerConsoleHTTPStore{user: authentication.User{ID: "user-owner_console", Email: "owner@example.test", NormalizedEmail: "owner@example.test",
+		PasswordHash: hash, Status: "active"},
 		sessions: map[string]authentication.Session{}}
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC))
 	service, err := authentication.NewService(store, clock, []byte(strings.Repeat("c", 32)))
@@ -280,7 +280,7 @@ func a11HTTPTestHandler(t *testing.T, permissions []string) (http.Handler, *a11H
 	return mux, store
 }
 
-func a11HTTPTestHandlerWithStream(t *testing.T, store *a11HTTPStore, stream StreamService) http.Handler {
+func ownerConsoleHTTPTestHandlerWithStream(t *testing.T, store *ownerConsoleHTTPStore, stream StreamService) http.Handler {
 	t.Helper()
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC))
 	service, err := authentication.NewService(store, clock, []byte(strings.Repeat("c", 32)))
@@ -292,53 +292,53 @@ func a11HTTPTestHandlerWithStream(t *testing.T, store *a11HTTPStore, stream Stre
 	return mux
 }
 
-type a11HTTPStream struct{ calls int }
+type ownerConsoleHTTPStream struct{ calls int }
 
-func (stream *a11HTTPStream) Serve(writer http.ResponseWriter, _ *http.Request, _ authentication.Principal) error {
+func (stream *ownerConsoleHTTPStream) Serve(writer http.ResponseWriter, _ *http.Request, _ authentication.Principal) error {
 	stream.calls++
 	writer.WriteHeader(http.StatusNoContent)
 	return nil
 }
 
-type a11HTTPStore struct {
+type ownerConsoleHTTPStore struct {
 	user     authentication.User
 	sessions map[string]authentication.Session
 }
 
-func (*a11HTTPStore) UserCount(context.Context) (int64, error) { return 1, nil }
-func (*a11HTTPStore) BootstrapOwner(context.Context, authentication.BootstrapOwner) (bool, error) {
+func (*ownerConsoleHTTPStore) UserCount(context.Context) (int64, error) { return 1, nil }
+func (*ownerConsoleHTTPStore) BootstrapOwner(context.Context, authentication.BootstrapOwner) (bool, error) {
 	return false, nil
 }
-func (store *a11HTTPStore) UserForLogin(_ context.Context, normalized string) (authentication.User, error) {
+func (store *ownerConsoleHTTPStore) UserForLogin(_ context.Context, normalized string) (authentication.User, error) {
 	if normalized != store.user.NormalizedEmail {
 		return authentication.User{}, errors.New("not_found")
 	}
 	return store.user, nil
 }
-func (*a11HTTPStore) UpdatePasswordHash(context.Context, string, string, string, time.Time) error {
+func (*ownerConsoleHTTPStore) UpdatePasswordHash(context.Context, string, string, string, time.Time) error {
 	return nil
 }
-func (*a11HTTPStore) CountFailures(context.Context, string, string, time.Time) (int64, error) {
+func (*ownerConsoleHTTPStore) CountFailures(context.Context, string, string, time.Time) (int64, error) {
 	return 0, nil
 }
-func (*a11HTTPStore) RecordFailure(context.Context, string, string, string, time.Time) error {
+func (*ownerConsoleHTTPStore) RecordFailure(context.Context, string, string, string, time.Time) error {
 	return nil
 }
-func (store *a11HTTPStore) CreateSession(_ context.Context, value authentication.NewSession, _ int) error {
+func (store *ownerConsoleHTTPStore) CreateSession(_ context.Context, value authentication.NewSession, _ int) error {
 	store.sessions[value.TokenHash] = authentication.Session{ID: value.ID, UserID: value.UserID,
 		TokenHash: value.TokenHash, CSRFTokenHash: value.CSRFTokenHash, Email: store.user.Email, Status: store.user.Status,
-		Roles: store.user.Roles, Permissions: store.user.Permissions, CreatedAt: value.CreatedAt, ExpiresAt: value.ExpiresAt,
+		CreatedAt: value.CreatedAt, ExpiresAt: value.ExpiresAt,
 		LastSeenAt: value.CreatedAt, IdleExpiresAt: value.IdleExpiresAt, ReauthenticatedAt: value.CreatedAt, Revision: 1}
 	return nil
 }
-func (store *a11HTTPStore) SessionByTokenHash(_ context.Context, hash string) (authentication.Session, error) {
+func (store *ownerConsoleHTTPStore) SessionByTokenHash(_ context.Context, hash string) (authentication.Session, error) {
 	value, ok := store.sessions[hash]
 	if !ok {
 		return authentication.Session{}, errors.New("not_found")
 	}
 	return value, nil
 }
-func (store *a11HTTPStore) TouchSession(_ context.Context, id string, seen, idle time.Time) (authentication.Session, error) {
+func (store *ownerConsoleHTTPStore) TouchSession(_ context.Context, id string, seen, idle time.Time) (authentication.Session, error) {
 	for hash, value := range store.sessions {
 		if value.ID == id && value.RevokedAt == nil {
 			value.LastSeenAt, value.IdleExpiresAt, value.Revision = seen, idle, value.Revision+1
@@ -348,7 +348,7 @@ func (store *a11HTTPStore) TouchSession(_ context.Context, id string, seen, idle
 	}
 	return authentication.Session{}, errors.New("not_found")
 }
-func (store *a11HTTPStore) RevokeSession(_ context.Context, id, _ string, now time.Time) error {
+func (store *ownerConsoleHTTPStore) RevokeSession(_ context.Context, id, _ string, now time.Time) error {
 	for hash, value := range store.sessions {
 		if value.ID == id && value.RevokedAt == nil {
 			value.RevokedAt, value.Revision = &now, value.Revision+1
@@ -358,9 +358,9 @@ func (store *a11HTTPStore) RevokeSession(_ context.Context, id, _ string, now ti
 	return nil
 }
 
-func a11HTTPTokenHash(value string) string {
+func ownerConsoleHTTPTokenHash(value string) string {
 	digest := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(digest[:])
 }
 
-var _ authentication.Store = (*a11HTTPStore)(nil)
+var _ authentication.Store = (*ownerConsoleHTTPStore)(nil)

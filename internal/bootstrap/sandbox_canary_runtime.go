@@ -12,7 +12,7 @@ import (
 
 func createFreshCanarySession(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	command sandbox.CanarySessionCommand,
 ) (sandbox.CanarySession, error) {
 	deadline := time.Now().Add(20 * time.Second)
@@ -36,7 +36,7 @@ func createFreshCanarySession(
 
 func createCanaryArm(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	principal authentication.Principal,
 	authorization authentication.ConsumedAuthorization,
@@ -69,7 +69,7 @@ func createCanaryArm(
 
 func waitCanaryAdmission(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	armID, instrument string,
 	switches [4]bool,
@@ -112,7 +112,7 @@ func waitCanaryAdmission(
 
 func waitCanaryOrderAttempt(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	canaryID string,
 ) (sandbox.CanaryOrderStatus, error) {
@@ -139,7 +139,7 @@ func waitCanaryOrderAttempt(
 
 func executeCanaryEngineCommand(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	status sandbox.CanaryOrderStatus,
 	kind sandbox.EngineCommandKind,
 ) (string, error) {

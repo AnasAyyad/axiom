@@ -7,8 +7,8 @@ import (
 )
 
 func validateCrossExchange(schema string, strategy CrossExchangeConfiguration) error {
-	if schema != SchemaVersionV1BB5 && schema != SchemaVersionV1BB6 &&
-		schema != SchemaVersionV1C {
+	if schema != SchemaVersionCrossExchangeArbitrage && schema != SchemaVersionInventoryRebalancing &&
+		schema != SchemaVersionSandboxRuntime {
 		if !emptyCrossExchange(strategy) {
 			return configError("invalid_configuration", "cross_exchange")
 		}
@@ -103,7 +103,7 @@ func validateCrossExchangeValue(parameter StrategyParameter) error {
 	return nil
 }
 
-// ValidateCrossExchangeConfiguration validates one standalone B5 graph.
+// ValidateCrossExchangeConfiguration validates one standalone cross-exchange arbitrage graph.
 func ValidateCrossExchangeConfiguration(strategy CrossExchangeConfiguration) error {
-	return validateCrossExchange(SchemaVersionV1BB5, strategy)
+	return validateCrossExchange(SchemaVersionCrossExchangeArbitrage, strategy)
 }

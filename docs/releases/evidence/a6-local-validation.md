@@ -66,9 +66,9 @@ go vet ./internal/exchanges/...
 go tool staticcheck ./internal/exchanges/...
 go run scripts/check_go_policy.go
 scripts/check-file-policy.sh
-node scripts/check-a6-exchange-boundary.mjs
+node scripts/check-exchange-integration-exchange-boundary.mjs
 scripts/check-prohibited-capabilities.sh
-scripts/check-a6-binary-boundary.sh
+scripts/check-exchange-integration-binary-boundary.sh
 go mod verify
 git diff --check
 make verify

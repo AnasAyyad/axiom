@@ -8,7 +8,7 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-func TestV1ACapabilitiesArePublicOnly(t *testing.T) {
+func TestTrendFoundationCapabilitiesArePublicOnly(t *testing.T) {
 	t.Parallel()
 	descriptor, err := Capabilities(time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC))
 	if err != nil {

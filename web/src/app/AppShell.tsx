@@ -5,11 +5,11 @@ import { useNavigate } from "react-router";
 import { postAPI, setCSRFToken, type APIModel } from "../api/client";
 import {
   binanceQuery,
+  exchangesQuery,
   incidentsQuery,
   riskQuery,
   systemQuery,
 } from "../api/queries";
-import { roleLabel } from "../features/shared/access";
 import { SafetyHeader } from "./SafetyHeader";
 import { SidebarNavigation } from "./SidebarNavigation";
 import styles from "./Shell.module.css";
@@ -25,6 +25,7 @@ export function AppShell({ children, user }: AppShellProps) {
   const navigate = useNavigate();
   const system = useQuery(systemQuery);
   const binance = useQuery(binanceQuery);
+  const exchanges = useQuery(exchangesQuery);
   const risk = useQuery(riskQuery);
   const incidents = useQuery(incidentsQuery);
   const streamState = useLiveStream(queryClient);
@@ -58,7 +59,9 @@ export function AppShell({ children, user }: AppShellProps) {
       <SafetyHeader
         system={system.data}
         binance={binance.data}
+        exchanges={exchanges.data}
         risk={risk.data}
+        criticalAlerts={criticalIncidents}
         streamState={streamState}
       />
       <aside className={styles.sidebar}>
@@ -72,12 +75,12 @@ export function AppShell({ children, user }: AppShellProps) {
         <SidebarNavigation user={user} />
         <section
           className={styles.identity}
-          aria-label="User and display preferences"
+          aria-label="Owner and display preferences"
         >
           <dl className={styles.statusFacts}>
             <div>
-              <dt>Role</dt>
-              <dd>{roleLabel(user)}</dd>
+              <dt>Account</dt>
+              <dd>Owner</dd>
             </div>
             <div>
               <dt>Active run</dt>

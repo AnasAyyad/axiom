@@ -43,7 +43,7 @@ export function HealthPage() {
   return (
     <main className={styles.page}>
       <div className={styles.lockBanner} role="status" aria-live="polite">
-        REAL TRADING DISABLED
+        REAL-MONEY TRADING IS NOT AVAILABLE
       </div>
       <header className={styles.header}>
         <p className={styles.eyebrow}>Axiom application status</p>

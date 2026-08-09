@@ -1,23 +1,5 @@
 import type { APIModel } from "../../api/client";
 
-export interface LabRunForm {
-  readonly configuration: string;
-  readonly dataset: string;
-  readonly researchGeneration: string;
-  readonly strategy: string;
-  readonly seed: string;
-  readonly speed: "original" | "accelerated" | "maximum";
-}
-
-export const emptyLabRun: LabRunForm = {
-  configuration: "",
-  dataset: "",
-  researchGeneration: "",
-  strategy: "trend.v1a.1",
-  seed: "",
-  speed: "maximum",
-};
-
 export interface ComparisonRow {
   readonly id: string;
   readonly [key: string]: unknown;

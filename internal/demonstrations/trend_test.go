@@ -43,7 +43,7 @@ func TestCatalogueOnlyExposesExecutableDemonstrations(t *testing.T) {
 	}
 }
 
-func TestCrossExchangeWalkthroughUsesCoherentReadOnlyEvidence(t *testing.T) {
+func TestCrossExchangeWalkthroughUsesTheSharedPipelineDeterministically(t *testing.T) {
 	first, err := RunCrossExchangeArbitrage(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -52,15 +52,17 @@ func TestCrossExchangeWalkthroughUsesCoherentReadOnlyEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !first.AdvisoryOnly || first.ResultHash == "" || first.ResultHash != second.ResultHash ||
-		string(first.Accepted.Orders) != "[]" || string(first.Accepted.ExecutionEvents) != "[]" ||
-		!strings.Contains(string(first.AdvisoryEvidence), "buy_binance_sell_bybit") ||
-		!strings.Contains(string(first.AdvisoryEvidence), "no_eligible_direction") {
+	if first.AdvisoryOnly || first.ResultHash == "" || first.ResultHash != second.ResultHash ||
+		len(first.Accepted.Orders) == 0 || len(first.Accepted.ExecutionEvents) == 0 ||
+		!strings.Contains(string(first.Accepted.Decision), "approve") ||
+		!strings.Contains(string(first.Accepted.Balances), "transactions") ||
+		!strings.Contains(string(first.Accepted.ExecutionEvents), "both_filled") ||
+		!strings.Contains(string(first.Rejected.Decision), "restoration_cost_rejected") {
 		t.Fatalf("cross exchange result=%+v", first)
 	}
 }
 
-func TestTriangularArbitrageWalkthroughUsesReadOnlyEvaluatorEvidence(t *testing.T) {
+func TestTriangularArbitrageWalkthroughUsesTheSharedPipelineDeterministically(t *testing.T) {
 	first, err := RunTriangularArbitrage(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -69,10 +71,12 @@ func TestTriangularArbitrageWalkthroughUsesReadOnlyEvaluatorEvidence(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !first.AdvisoryOnly || first.ResultHash == "" || first.ResultHash != second.ResultHash ||
-		string(first.Accepted.Orders) != "[]" || string(first.Accepted.ExecutionEvents) != "[]" ||
-		!strings.Contains(string(first.AdvisoryEvidence), "USDT-BTC-ETH-USDT") ||
-		!strings.Contains(string(first.AdvisoryEvidence), "no_eligible_cycle") {
+	if first.AdvisoryOnly || first.ResultHash == "" || first.ResultHash != second.ResultHash ||
+		len(first.Accepted.Orders) == 0 || len(first.Accepted.ExecutionEvents) == 0 ||
+		!strings.Contains(string(first.Accepted.Decision), "approve") ||
+		!strings.Contains(string(first.Accepted.Balances), "transactions") ||
+		!strings.Contains(string(first.Accepted.ExecutionEvents), "full_success") ||
+		!strings.Contains(string(first.Rejected.Decision), "fee_capacity_rejected") {
 		t.Fatalf("triangular result=%+v", first)
 	}
 }

@@ -121,8 +121,8 @@ export function HighRiskAuthorizationForm({
       </button>
       {mutation.isError && (
         <p className={styles.error} role="alert">
-          The command was not applied. Verify permission, credentials, TOTP,
-          reason, and exact revision before retrying.
+          The command was not applied. Verify owner-session state, credentials,
+          TOTP, reason, and exact revision before retrying.
         </p>
       )}
       {mutation.isSuccess && (

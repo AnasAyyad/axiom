@@ -16,7 +16,7 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-func TestB1PublicClientRESTSurfaceIsCompiledAndCredentialFree(t *testing.T) {
+func TestExchangeExpansionPublicClientRESTSurfaceIsCompiledAndCredentialFree(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Unix(1_700_000_000, 0).UTC())
 	if _, err := NewPublicClient("arbitrary", clock); err == nil {
 		t.Fatal("arbitrary endpoint set accepted")
@@ -28,7 +28,7 @@ func TestB1PublicClientRESTSurfaceIsCompiledAndCredentialFree(t *testing.T) {
 	transport := &bybitScriptedTransport{fixtures: map[string][]byte{
 		"/v5/market/time":      []byte(`{"retCode":0,"retMsg":"OK","result":{"timeSecond":"1700000000","timeNano":"1700000000000000000"},"retExtInfo":{},"time":1700000000000}`),
 		"/v5/market/orderbook": []byte(`{"retCode":0,"retMsg":"OK","result":{"s":"BTCUSDT","b":[["100","2"]],"a":[["101","3"]],"ts":1700000000000,"u":42,"seq":99,"cts":1700000000000},"retExtInfo":{},"time":1700000000000}`),
-		"/v5/market/tickers":   []byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","list":[{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}]},"retExtInfo":{},"time":1700000000000}`),
+		"/v5/market/tickers":   []byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","list":[{"symbol":"BTCUSDT","biownerControlPrice":"100","biownerControlSize":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}]},"retExtInfo":{},"time":1700000000000}`),
 	}}
 	client.httpClient = &http.Client{Transport: transport, CheckRedirect: rejectPublicRedirect}
 	var monotonic time.Duration
@@ -60,7 +60,38 @@ func TestB1PublicClientRESTSurfaceIsCompiledAndCredentialFree(t *testing.T) {
 	}
 }
 
-func TestB1PublicClientBoundsBodiesAndMapsRateLimits(t *testing.T) {
+func TestStrategyInstrumentRulesUseOnlyTheFixedPublicRoute(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Unix(1_700_000_000, 0).UTC())
+	client, err := NewMarketPublicClient(clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := &bybitScriptedTransport{fixtures: map[string][]byte{
+		"/v5/market/instruments-info": []byte(`{
+		  "retCode":0,"retMsg":"OK","result":{"category":"spot","nextPageCursor":null,"list":[{
+		    "symbolId":1,"symbol":"BTCUSDT","baseCoin":"BTC","quoteCoin":"USDT",
+		    "innovation":"0","status":"Trading","marginTrading":"none","stTag":"0",
+		    "lotSizeFilter":{"basePrecision":"0.000001","quotePrecision":"0.0000001",
+		      "maxOrderQty":"230","minOrderQty":"0.000001","minOrderAmt":"5",
+		      "maxOrderAmt":"8000000","maxLimitOrderQty":"230","maxMarketOrderQty":"120",
+		      "postOnlyMaxLimitOrderSize":"1150"},
+		    "priceFilter":{"tickSize":"0.1"},"riskParameters":{},"symbolType":"","xstockMultiplier":""
+		  }]},"retExtInfo":{},"time":1700000000000}`),
+	}}
+	client.httpClient = &http.Client{Transport: transport, CheckRedirect: rejectPublicRedirect}
+	rules, err := client.StrategyInstrumentRules(context.Background(), approvedInstruments()[:1])
+	if err != nil || len(rules) != 1 || rules[0].Instrument.Symbol() != "BTCUSDT" ||
+		rules[0].MaximumQuantity.String() != "230" || rules[0].SourceHash == "" {
+		t.Fatalf("rules=%#v error=%v", rules, err)
+	}
+	if len(transport.requests) != 1 || transport.requests[0].URL.Path != "/v5/market/instruments-info" ||
+		transport.requests[0].Header.Get("X-Bapi-Api-Key") != "" ||
+		transport.requests[0].Header.Get("X-Bapi-Sign") != "" {
+		t.Fatalf("unsafe public rules request=%#v", transport.requests)
+	}
+}
+
+func TestExchangeExpansionPublicClientBoundsBodiesAndMapsRateLimits(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Unix(1_700_000_000, 0).UTC())
 	client, _ := NewPublicClient(publicEndpointSet, clock)
 	client.httpClient = &http.Client{Transport: bybitRoundTripFunc(func(_ *http.Request) (*http.Response, error) {
@@ -79,7 +110,7 @@ func TestB1PublicClientBoundsBodiesAndMapsRateLimits(t *testing.T) {
 	}
 }
 
-func TestB1EndpointPolicyDeniesCredentialsPrivateRoutesAndNonPublicAddresses(t *testing.T) {
+func TestExchangeExpansionEndpointPolicyDeniesCredentialsPrivateRoutesAndNonPublicAddresses(t *testing.T) {
 	for _, raw := range []string{
 		"https://api.bybit.com/v5/order/create",
 		"https://api-testnet.bybit.com/v5/market/time",
@@ -112,7 +143,7 @@ func TestB1EndpointPolicyDeniesCredentialsPrivateRoutesAndNonPublicAddresses(t *
 	}
 }
 
-func TestB1RecordedStreamPersistsRawBeforeCanonicalAndDecoderFailure(t *testing.T) {
+func TestExchangeExpansionRecordedStreamPersistsRawBeforeCanonicalAndDecoderFailure(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Unix(1_700_000_000, 0).UTC())
 	valid := []byte(`{"topic":"orderbook.1000.BTCUSDT","type":"snapshot","ts":1700000000000,"data":{"s":"BTCUSDT","b":[["100","2"]],"a":[["101","3"]],"u":42,"seq":99,"cts":1700000000000},"cts":1700000000000}`)
 	for _, test := range []struct {

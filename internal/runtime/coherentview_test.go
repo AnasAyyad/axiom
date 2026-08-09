@@ -7,7 +7,7 @@ import (
 )
 
 func TestCoherentViewInitialPolicyExactBoundaries(t *testing.T) {
-	policy := InitialB2CoherentPolicy()
+	policy := InitialCoherentMarketDataCoherentPolicy()
 	if policy.MaximumBookAge != 250*time.Millisecond ||
 		policy.MaximumInterBookSkew != 250*time.Millisecond ||
 		policy.MaximumClockUncertainty != 100*time.Millisecond {
@@ -49,7 +49,7 @@ func TestCoherentViewInitialPolicyExactBoundaries(t *testing.T) {
 }
 
 func TestCoherentViewRejectsFutureGapInactiveGenerationAndDisjointIntervals(t *testing.T) {
-	policy := InitialB2CoherentPolicy()
+	policy := InitialCoherentMarketDataCoherentPolicy()
 
 	t.Run("post trigger only", func(t *testing.T) {
 		views := NewMarketViews()
@@ -110,7 +110,7 @@ func TestCoherentViewAsOfUsesLatestCommittedEligibleVersion(t *testing.T) {
 		mustPublishCoherent(t, views, key, 1, 100, uint64(index+1), time.Millisecond, 0)
 		mustPublishCoherent(t, views, key, 2, 300, uint64(index+3), time.Millisecond, 0)
 	}
-	joined, err := views.CoherentAsOf(keys, triggerAt(200, 10), InitialB2CoherentPolicy())
+	joined, err := views.CoherentAsOf(keys, triggerAt(200, 10), InitialCoherentMarketDataCoherentPolicy())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestCoherentViewAsOfRejectsPostTriggerOrdinalEvenWithEarlierReceiveTime(t *
 	}
 	mustPublishCoherent(t, views, keys[0], 1, 100, 11, time.Millisecond, 0)
 	mustPublishCoherent(t, views, keys[1], 1, 100, 12, time.Millisecond, 0)
-	if _, err := views.CoherentAsOf(keys, triggerAt(200, 10), InitialB2CoherentPolicy()); err == nil || !strings.Contains(err.Error(), "post_trigger") {
+	if _, err := views.CoherentAsOf(keys, triggerAt(200, 10), InitialCoherentMarketDataCoherentPolicy()); err == nil || !strings.Contains(err.Error(), "post_trigger") {
 		t.Fatalf("post-trigger ordinals accepted: %v", err)
 	}
 }
@@ -148,7 +148,7 @@ func TestCoherentViewHashIsPermutationRestartAndRunStable(t *testing.T) {
 		for _, key := range order {
 			mustActivateAndPublish(t, views, key, 1, 100, uint64(key.Instrument.Base[0]), time.Millisecond, 0)
 		}
-		joined, err := views.CoherentAsOf(order, triggerAt(200, 999), InitialB2CoherentPolicy())
+		joined, err := views.CoherentAsOf(order, triggerAt(200, 999), InitialCoherentMarketDataCoherentPolicy())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -162,7 +162,7 @@ func TestCoherentViewHashIsPermutationRestartAndRunStable(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		replayed, err := restored.CoherentAsOf(keys, triggerAt(200, 999), InitialB2CoherentPolicy())
+		replayed, err := restored.CoherentAsOf(keys, triggerAt(200, 999), InitialCoherentMarketDataCoherentPolicy())
 		if err != nil || replayed.VersionVectorHash() != want {
 			t.Fatalf("restart hash = %s, %v; want %s", replayed.VersionVectorHash(), err, want)
 		}

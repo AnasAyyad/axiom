@@ -6,10 +6,10 @@ import (
 	"axiom/internal/domain"
 )
 
-// Stage is one fixed in-process V1A hot-path boundary.
+// Stage is one fixed in-process initial trend hot-path boundary.
 type Stage uint8
 
-// Exact V1A hot-path stage order.
+// Exact initial trend hot-path stage order.
 const (
 	StagePublicEvent Stage = iota + 1
 	StageRawRecording
@@ -36,7 +36,7 @@ type Causation struct {
 // StageHandler reduces one stage in process without an HTTP or RPC boundary.
 type StageHandler func(context.Context, Causation) (Causation, error)
 
-// Pipeline enforces the documented hot-path order for supplied phase handlers.
+// Pipeline enforces the documented hot-path order for supplied stage handlers.
 type Pipeline struct{ handlers []StageHandler }
 
 // NewPipeline requires exactly one handler for every ordered stage.

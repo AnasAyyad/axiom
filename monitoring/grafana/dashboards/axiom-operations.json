@@ -72,7 +72,7 @@
     },
     {
       "id": 9,
-      "title": "V1C engine readiness and arms",
+      "title": "sandbox runtime engine readiness and arms",
       "type": "timeseries",
       "targets": [
         { "expr": "min by (exchange) (axiom_sandbox_engine_ready)", "legendFormat": "{{exchange}} ready" },
@@ -125,12 +125,12 @@
     },
     {
       "id": 14,
-      "title": "C6 soak state, duration, and failures",
+      "title": "sandbox qualification soak state, duration, and failures",
       "type": "timeseries",
       "targets": [
-        { "expr": "max by (mode, state) (axiom_c6_soak_state)", "legendFormat": "{{mode}} {{state}}" },
-        { "expr": "max by (mode) (axiom_c6_soak_duration_seconds)", "legendFormat": "{{mode}} duration" },
-        { "expr": "sum by (reason) (increase(axiom_c6_soak_failures_total[5m]))", "legendFormat": "{{reason}}" }
+        { "expr": "max by (mode, state) (axiom_sandbox_qualification_soak_state)", "legendFormat": "{{mode}} {{state}}" },
+        { "expr": "max by (mode) (axiom_sandbox_qualification_soak_duration_seconds)", "legendFormat": "{{mode}} duration" },
+        { "expr": "sum by (reason) (increase(axiom_sandbox_qualification_soak_failures_total[5m]))", "legendFormat": "{{reason}}" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
       "gridPos": { "h": 7, "w": 12, "x": 0, "y": 35 }
@@ -142,7 +142,7 @@
       "targets": [
         { "expr": "histogram_quantile(0.95, sum by (le, exchange, operation) (rate(axiom_sandbox_recovery_duration_seconds_bucket[5m])))", "legendFormat": "{{exchange}} {{operation}} p95" },
         { "expr": "histogram_quantile(0.95, sum by (le, reason) (rate(axiom_critical_alert_latency_seconds_bucket[5m])))", "legendFormat": "{{reason}} alert p95" },
-        { "expr": "axiom_c6_memory_trend_bytes", "legendFormat": "memory {{window}}" }
+        { "expr": "axiom_sandbox_qualification_memory_trend_bytes", "legendFormat": "memory {{window}}" }
       ],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 35 }
@@ -150,11 +150,11 @@
   ],
   "refresh": "15s",
   "schemaVersion": 41,
-  "tags": ["axiom", "operations", "v1a", "v1c", "c6"],
+  "tags": ["axiom", "operations", "trend-following", "sandbox_runtime", "sandbox_qualification"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timezone": "utc",
-  "title": "Axiom Operations and V1C C6",
-  "uid": "axiom-v1a-operations",
+  "title": "Axiom Operations and Sandbox Qualification",
+  "uid": "axiom-trend-following-operations",
   "version": 2
 }

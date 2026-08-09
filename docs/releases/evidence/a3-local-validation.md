@@ -45,7 +45,7 @@ go test ./...
 go vet ./...
 go run scripts/check_go_policy.go
 scripts/check-file-policy.sh
-node scripts/check-a3-runtime-boundary.mjs
+node scripts/check-runtime-recovery-runtime-boundary.mjs
 ```
 
 The focused runtime package reported 83.0% statement coverage. The race suite

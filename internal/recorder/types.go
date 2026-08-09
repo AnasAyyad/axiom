@@ -34,7 +34,7 @@ type PendingUsage struct {
 // EventType identifies one recorded public market or lifecycle fact.
 type EventType string
 
-// A7 recorder event classes.
+// public-data qualification recorder event classes.
 const (
 	EventDepth         EventType = "depth"
 	EventTrade         EventType = "trade"
@@ -115,7 +115,7 @@ type SegmentReference struct {
 	Manifest segments.Manifest `json:"manifest"`
 }
 
-// CollectorProfile declares immutable B2 collector provenance.
+// CollectorProfile declares immutable coherent market data collector provenance.
 type CollectorProfile struct {
 	Instance             string `json:"instance"`
 	Region               string `json:"region"`

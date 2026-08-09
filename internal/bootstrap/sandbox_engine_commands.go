@@ -17,8 +17,8 @@ import (
 
 func (work *sandboxEngineRoleWork) processSandboxEngineCommands(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	owner string,
 	fence uint64,
 	adapter sandboxEngineAdapter,
@@ -56,8 +56,8 @@ func (work *sandboxEngineRoleWork) processSandboxEngineCommands(
 
 func (work *sandboxEngineRoleWork) processSandboxEngineCommand(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	fence uint64,
 	adapter sandboxEngineAdapter,
 	dispatcher *sandbox.SandboxDispatcher,
@@ -108,8 +108,8 @@ func sandboxEngineCommandFailureCode(err error) string {
 
 func (work *sandboxEngineRoleWork) executeSandboxEngineCommand(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	fence uint64,
 	adapter sandboxEngineAdapter,
 	dispatcher *sandbox.SandboxDispatcher,
@@ -151,8 +151,8 @@ func (work *sandboxEngineRoleWork) executeSandboxEngineCommand(
 
 func querySandboxEngineCommand(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	fence uint64,
 	adapter sandboxEngineAdapter,
 	command sandbox.EngineCommand,

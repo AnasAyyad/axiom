@@ -63,7 +63,7 @@ export function SandboxOperationsPage() {
       <section className={styles.environment} aria-label="Execution boundary">
         <strong>BINANCE SPOT TESTNET</strong>
         <strong>BYBIT DEMO</strong>
-        <span>REAL TRADING DISABLED</span>
+        <span>REAL-MONEY TRADING IS NOT AVAILABLE</span>
       </section>
       {data.stale && (
         <StatePanel

@@ -27,7 +27,7 @@ type PlannedLeg struct {
 	Maker         bool
 }
 
-// SimulatedPlan is the only broker-submittable execution object in V1A.
+// SimulatedPlan is the only broker-submittable execution object in initial trend.
 type SimulatedPlan struct {
 	ID                  domain.ExecutionPlanID
 	Intent              ApprovedIntent
@@ -42,7 +42,7 @@ type ExecutionPlanner interface {
 }
 
 // Broker can only schedule or cancel simulated plans. No external transport or
-// exchange credential is part of this V1A contract.
+// exchange credential is part of this initial trend contract.
 type Broker interface {
 	Submit(context.Context, SimulatedPlan) ([]OrderEvent, error)
 	Cancel(context.Context, domain.VirtualOrderID, string) ([]OrderEvent, error)

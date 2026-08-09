@@ -330,7 +330,9 @@ export function strategyDetailQuery(id: string) {
   return queryOptions({
     queryKey: ["strategy", id],
     queryFn: () =>
-      getAPI<"D1Resource">(`/api/v1/strategies/${encodeURIComponent(id)}`),
+      getAPI<"OwnerControlResource">(
+        `/api/v1/strategies/${encodeURIComponent(id)}`,
+      ),
     enabled: id !== "",
   });
 }
@@ -339,14 +341,14 @@ export function strategyVersionsQuery(id: string) {
   return queryOptions({
     queryKey: ["strategy", id, "versions"],
     queryFn: () =>
-      getAPI<"D1ResourcePage">(
+      getAPI<"OwnerControlResourcePage">(
         `/api/v1/strategies/${encodeURIComponent(id)}/versions?page_size=50`,
       ),
     enabled: id !== "",
   });
 }
 
-export function d1CollectionQuery(
+export function ownerControlCollectionQuery(
   resource:
     | "assets"
     | "risk/controls"
@@ -362,7 +364,7 @@ export function d1CollectionQuery(
 ) {
   const path = filteredPath(`/api/v1/${resource}`, filters);
   return queryOptions({
-    queryKey: ["d1", resource, filters],
-    queryFn: () => getAPI<"D1ResourcePage">(path),
+    queryKey: ["owner_control", resource, filters],
+    queryFn: () => getAPI<"OwnerControlResourcePage">(path),
   });
 }

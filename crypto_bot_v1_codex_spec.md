@@ -2414,7 +2414,7 @@ Rules:
 Show:
 
 - environment and execution mode
-- explicit `REAL TRADING DISABLED`
+- explicit `REAL-MONEY TRADING IS NOT AVAILABLE`
 - current shadow/test session
 - overall engine status
 - exchange connection indicators
@@ -3598,7 +3598,7 @@ The D2 console uses the following normative interaction contract:
 - navigation is grouped into `Overview`, `Explore`, `Run`, `Monitor`,
   `Portfolio & Risk`, and `System`; every normal product action is available to
   the authenticated owner without role or permission filtering
-- a persistent safety header shows environment, execution mode, exchange health, engine state, risk state, data freshness, live-update state, and `REAL TRADING DISABLED` on every authenticated route
+- a persistent safety header shows environment, execution mode, exchange health, engine state, risk state, data freshness, live-update state, and `REAL-MONEY TRADING IS NOT AVAILABLE` on every authenticated route
 - pages lead with plain-language status, reason, impact, and recommended action; correlation IDs, revisions, source identities, and redacted technical evidence remain available through progressive disclosure
 - activity is split into linked `Decisions & Orders` and restricted `System Events` views with stable time, strategy, instrument, exchange, side, outcome, reason, mode, and correlation filters
 - the Strategy Center keeps versioned configured state separate from runtime

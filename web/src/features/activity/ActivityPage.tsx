@@ -6,7 +6,6 @@ import { APIError, type APIModel } from "../../api/client";
 import { activityQuery, sessionQuery } from "../../api/queries";
 import { StatePanel } from "../../components/StatePanel";
 import { Page } from "../../app/OperationalShared";
-import { hasAccess } from "../shared/access";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ActivityDetailPanel } from "./ActivityDetailPanel";
 import { ActivityFilters } from "./ActivityFilters";
@@ -48,7 +47,6 @@ export function ActivityPage({ view }: ActivityPageProps) {
         detail="Activity could not be loaded from the authoritative projection."
       />
     );
-  const canExport = hasAccess(session.data.user, ["artifacts.read"]);
   return (
     <Page
       title={
@@ -154,7 +152,7 @@ export function ActivityPage({ view }: ActivityPageProps) {
       {selected && (
         <ActivityDetailPanel
           activity={selected}
-          canExport={canExport}
+          canExport
           onCorrelation={(correlation_id) =>
             setFilters({ ...filters, correlation_id })
           }

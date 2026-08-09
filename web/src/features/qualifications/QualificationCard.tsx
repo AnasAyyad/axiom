@@ -11,7 +11,7 @@ import styles from "../shared/ConsoleSurface.module.css";
 import { QualificationStart } from "./QualificationStart";
 
 interface QualificationCardProps {
-  readonly qualification: APIModel<"D1Resource">;
+  readonly qualification: APIModel<"OwnerControlResource">;
   readonly canStart: boolean;
   readonly canAbort: boolean;
 }
@@ -37,7 +37,9 @@ export function QualificationCard({
     qualification.state,
   );
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["d1", "qualifications"] });
+    queryClient.invalidateQueries({
+      queryKey: ["owner_control", "qualifications"],
+    });
   const abort = useMutation({
     mutationFn: () => {
       if (!runID || abortReason.trim().length < 8)
@@ -89,8 +91,8 @@ export function QualificationCard({
       )}
       {isAvailable && !canStart && (
         <p className={styles.heroNote}>
-          Only Owner / Admin may start a formal qualification. Your role may
-          monitor retained evidence.
+          This owner session cannot start the formal qualification yet. Refresh
+          the retained evidence and complete its stated prerequisites.
         </p>
       )}
       {isActive && canAbort && runID && (
@@ -138,7 +140,7 @@ function QualificationSummary({
   qualification,
   runID,
 }: {
-  readonly qualification: APIModel<"D1Resource">;
+  readonly qualification: APIModel<"OwnerControlResource">;
   readonly runID: string | undefined;
 }) {
   return (

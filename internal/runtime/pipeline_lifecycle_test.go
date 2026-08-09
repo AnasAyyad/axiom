@@ -182,5 +182,5 @@ func TestRecoveryQualificationProfileWithinFiveMinutes(t *testing.T) {
 	if gate.Accepting() {
 		t.Fatal("qualification profile enabled strategy execution")
 	}
-	t.Logf("A3 recovery conformance profile ready in %d ns", snapshot.Elapsed)
+	t.Logf("runtime recovery recovery conformance profile ready in %d ns", snapshot.Elapsed)
 }

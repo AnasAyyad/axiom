@@ -12,10 +12,10 @@ import (
 )
 
 func newSandboxEngineDispatchers(
-	account postgresstore.V1CEngineAccount,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	owner string,
 	fence uint64,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	adapter sandboxEngineAdapter,
 ) (
 	*sandbox.SandboxDispatcher,
@@ -52,9 +52,9 @@ func newSandboxEngineDispatchers(
 
 func (work *sandboxEngineRoleWork) reconcile(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	adapter sandboxEngineAdapter,
-	account postgresstore.V1CEngineAccount,
+	account postgresstore.SandboxRuntimeEngineAccount,
 ) (sandbox.ReconciliationResult, error) {
 	var result sandbox.ReconciliationResult
 	var err error
@@ -110,32 +110,38 @@ func snapshotIdentity(
 
 func (work *sandboxEngineRoleWork) runSandboxEngineLoop(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	owner string,
 	fence uint64,
 	adapter sandboxEngineAdapter,
 	source sandbox.PrivateEventSource,
 	dispatcher *sandbox.SandboxDispatcher,
 	recovery *sandbox.UnknownRecoveryHarness,
+	scheduler sandboxStrategyScheduler,
 ) error {
 	loop := sandboxEngineLoop{
 		work: work, store: store, account: account, owner: owner,
 		fence: fence, adapter: adapter, dispatcher: dispatcher,
-		recovery: recovery,
+		recovery: recovery, scheduler: scheduler,
 	}
 	return loop.run(ctx, source)
 }
 
+type sandboxStrategyScheduler interface {
+	Tick(context.Context) (sandbox.StrategySessionScheduleResult, error)
+}
+
 type sandboxEngineLoop struct {
 	work       *sandboxEngineRoleWork
-	store      *postgresstore.V1CDispatcherStore
-	account    postgresstore.V1CEngineAccount
+	store      *postgresstore.SandboxRuntimeDispatcherStore
+	account    postgresstore.SandboxRuntimeEngineAccount
 	owner      string
 	fence      uint64
 	adapter    sandboxEngineAdapter
 	dispatcher *sandbox.SandboxDispatcher
 	recovery   *sandbox.UnknownRecoveryHarness
+	scheduler  sandboxStrategyScheduler
 }
 
 func (loop sandboxEngineLoop) run(
@@ -244,6 +250,19 @@ func (loop sandboxEngineLoop) dispatch(
 	return err
 }
 
+func (loop sandboxEngineLoop) evaluateStrategies(ctx context.Context) error {
+	if !loop.work.sandboxSubmissionEnabled() {
+		return nil
+	}
+	if loop.scheduler == nil {
+		return fmt.Errorf("sandbox_engine_strategy_scheduler_unavailable")
+	}
+	if _, err := loop.scheduler.Tick(ctx); err != nil {
+		return fmt.Errorf("sandbox_engine_strategy_scheduler_failed")
+	}
+	return nil
+}
+
 func (loop sandboxEngineLoop) recover(
 	ctx context.Context,
 	eligible bool,
@@ -319,16 +338,16 @@ func (loop sandboxEngineLoop) refreshEligibility(
 	if !loop.work.sandboxSubmissionEnabled() {
 		return true, nil
 	}
-	snapshot, err := loop.adapter.StartupEligibility(ctx)
+	snapshots, err := loop.adapter.StrategyEligibility(ctx)
 	if ctx.Err() != nil {
 		return current, nil
 	}
-	if err != nil || !snapshot.Eligible {
+	if err != nil || !allSandboxEligibilityEligible(snapshots) {
 		return false, nil
 	}
-	if err = loop.store.RecordEngineObservation(
+	if err = loop.store.RecordEngineObservations(
 		ctx, loop.account.AccountID, loop.account.Epoch,
-		loop.work.exchange, loop.fence, snapshot,
+		loop.work.exchange, loop.fence, snapshots,
 	); err != nil {
 		return false, err
 	}

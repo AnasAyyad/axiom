@@ -12,7 +12,7 @@ import (
 	staticassets "axiom/internal/api/static"
 )
 
-// NewRouter composes A1 health routes and the embedded React application.
+// NewRouter composes application baseline health routes and the embedded React application.
 func NewRouter(options health.Options, consoleOptions ...console.Options) http.Handler {
 	mux := http.NewServeMux()
 	if len(consoleOptions) > 0 {

@@ -7,9 +7,9 @@ import (
 )
 
 func validateMeanReversion(schema string, strategy MeanReversionConfiguration) error {
-	if schema != SchemaVersionV1BB3 && schema != SchemaVersionV1BB4 &&
-		schema != SchemaVersionV1BB5 && schema != SchemaVersionV1BB6 &&
-		schema != SchemaVersionV1C {
+	if schema != SchemaVersionMeanReversion && schema != SchemaVersionTriangularArbitrage &&
+		schema != SchemaVersionCrossExchangeArbitrage && schema != SchemaVersionInventoryRebalancing &&
+		schema != SchemaVersionSandboxRuntime {
 		if strategy.StrategyVersion != "" || strategy.PrimaryTimeframe != "" ||
 			strategy.HigherTimeframe != "" || len(strategy.Parameters) != 0 {
 			return configError("invalid_configuration", "mean_reversion")
@@ -42,10 +42,10 @@ func validateMeanReversion(schema string, strategy MeanReversionConfiguration) e
 	return nil
 }
 
-// ValidateMeanReversionConfiguration validates one standalone B3 graph with
+// ValidateMeanReversionConfiguration validates one standalone mean reversion graph with
 // the same contract used by the complete immutable configuration loader.
 func ValidateMeanReversionConfiguration(strategy MeanReversionConfiguration) error {
-	return validateMeanReversion(SchemaVersionV1BB3, strategy)
+	return validateMeanReversion(SchemaVersionMeanReversion, strategy)
 }
 
 func sameMeanReversionParameterContract(parameter, contract StrategyParameter) bool {

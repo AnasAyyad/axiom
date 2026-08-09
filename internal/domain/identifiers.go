@@ -122,7 +122,7 @@ func (eventIDKind) prefix() string                 { return "event" }
 func (sourceSessionIDKind) prefix() string         { return "source_session" }
 func (connectionIDKind) prefix() string            { return "connection" }
 
-// Stable compile-time-distinct identifier types for every V1A aggregate.
+// Stable compile-time-distinct identifier types for every initial trend aggregate.
 type (
 	UserID                  = ID[userIDKind]
 	SessionID               = ID[sessionIDKind]

@@ -7,8 +7,8 @@ import (
 	platformconfig "axiom/internal/config"
 )
 
-func TestConfigurationFromReviewedMapsExactB6Contract(t *testing.T) {
-	reviewed := platformconfig.DefaultV1BConfiguration().Rebalancing
+func TestConfigurationFromReviewedMapsExactInventoryRebalancingContract(t *testing.T) {
+	reviewed := platformconfig.DefaultMultiStrategyConfiguration().Rebalancing
 	configuration, err := ConfigurationFromReviewed(reviewed)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestConfigurationFromReviewedMapsExactB6Contract(t *testing.T) {
 }
 
 func TestConfigurationFromReviewedRejectsAlteredContract(t *testing.T) {
-	reviewed := platformconfig.DefaultV1BConfiguration().Rebalancing
+	reviewed := platformconfig.DefaultMultiStrategyConfiguration().Rebalancing
 	reviewed.Parameters[0].Value = "5"
 	if _, err := ConfigurationFromReviewed(reviewed); errorCode(err) != "reviewed_configuration_invalid" {
 		t.Fatalf("altered reviewed contract accepted: %v", err)

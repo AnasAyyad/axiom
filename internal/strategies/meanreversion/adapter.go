@@ -14,12 +14,13 @@ import (
 	runtimecore "axiom/internal/runtime"
 )
 
-// Adapter maps pure B3 decisions to the shared strategy boundary.
+// Adapter maps pure mean reversion decisions to the shared strategy boundary.
 type Adapter struct {
 	evaluator  *Evaluator
 	mutex      sync.Mutex
 	seen       map[string]struct{}
 	candidates map[string]Candidate
+	decisions  map[uint64]Decision
 }
 
 // NewAdapter constructs an idempotent mode-independent adapter.
@@ -28,7 +29,7 @@ func NewAdapter(evaluator *Evaluator) (*Adapter, error) {
 		return nil, strategyError(ReasonInvalidConfiguration)
 	}
 	return &Adapter{evaluator: evaluator, seen: make(map[string]struct{}),
-		candidates: make(map[string]Candidate)}, nil
+		candidates: make(map[string]Candidate), decisions: make(map[uint64]Decision)}, nil
 }
 
 // Evaluate decodes immutable canonical input and returns only accepted changes.
@@ -45,24 +46,49 @@ func (adapter *Adapter) Evaluate(ctx context.Context, event replay.Event) (backt
 	if err != nil {
 		return backtest.Candidate{}, err
 	}
+	adapter.mutex.Lock()
+	adapter.decisions[event.Ordinal] = decision
 	if decision.Candidate == nil {
+		adapter.mutex.Unlock()
 		return backtest.Candidate{}, strategyError(decision.ReasonCode)
 	}
-	adapter.mutex.Lock()
-	defer adapter.mutex.Unlock()
 	key := decision.ID.String()
 	if _, duplicate := adapter.seen[key]; duplicate {
+		adapter.mutex.Unlock()
 		return backtest.Candidate{}, strategyError(ReasonDuplicateDecision)
 	}
 	adapter.seen[key] = struct{}{}
 	adapter.candidates[key] = *decision.Candidate
+	adapter.decisions[event.Ordinal] = decision
 	payload, err := adapter.portfolioCandidate(input, decision)
 	if err != nil {
 		delete(adapter.seen, key)
 		delete(adapter.candidates, key)
+		adapter.mutex.Unlock()
 		return backtest.Candidate{}, err
 	}
+	adapter.mutex.Unlock()
 	return backtest.Candidate{Ordinal: event.Ordinal, Payload: payload}, nil
+}
+
+// DecisionEvidence returns the exact complete decision associated with a
+// canonical input. The retained decision carries no-action holding and
+// cooldown facts that a generic portfolio candidate intentionally omits.
+func (adapter *Adapter) DecisionEvidence(event replay.Event) (json.RawMessage, error) {
+	if adapter == nil || event.Ordinal == 0 {
+		return nil, strategyError(ReasonCandleOrder)
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	decision, exists := adapter.decisions[event.Ordinal]
+	if !exists || decision.Ordinal != event.Ordinal {
+		return nil, strategyError(ReasonDuplicateDecision)
+	}
+	payload, err := json.Marshal(decision)
+	if err != nil {
+		return nil, strategyError(ReasonInvalidConfiguration)
+	}
+	return payload, nil
 }
 
 // Candidate returns the exact accepted desired change for planning.
@@ -91,7 +117,7 @@ func (adapter *Adapter) portfolioCandidate(input Input, decision Decision) (json
 			return nil, strategyError(ReasonInvalidSizing)
 		}
 	}
-	payload := portfolio.Candidate{ID: decision.ID.Value(), Strategy: portfolio.V1BMeanReversionStrategy,
+	payload := portfolio.Candidate{ID: decision.ID.Value(), Strategy: portfolio.MultiStrategyResearchMeanReversionStrategy,
 		Instrument: candidate.Instrument, Side: candidate.Side, Quantity: candidate.Quantity, Notional: reserved,
 		Score: score, ScoreComponents: []portfolio.ScoreComponent{{Name: "mean_reversion_stressed_deviation", Value: score}},
 		BaseEligibility: input.Evidence.AssetEligibilityVersion, QuoteEligibility: input.Evidence.AssetEligibilityVersion,
@@ -117,3 +143,4 @@ func moneyFromNotional(value domain.Notional) domain.Money {
 }
 
 var _ backtest.Strategy = (*Adapter)(nil)
+var _ backtest.DecisionEvidenceSource = (*Adapter)(nil)

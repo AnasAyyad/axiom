@@ -86,8 +86,11 @@ func normalizeInstrument(
 	tick, tickErr := domain.ParsePrice(native.PriceFilter.TickSize)
 	step, stepErr := domain.ParseQuantity(native.LotSizeFilter.BasePrecision)
 	minimum, minimumErr := domain.ParseQuantity(native.LotSizeFilter.MinimumOrderQty)
+	maximum, maximumErr := domain.ParseQuantity(native.LotSizeFilter.MaximumOrderQty)
 	minimumNotional, notionalErr := domain.ParseNotional(native.LotSizeFilter.MinimumOrderAmount)
-	if tickErr != nil || stepErr != nil || minimumErr != nil || notionalErr != nil {
+	zero, _ := domain.ParseQuantity("0")
+	if tickErr != nil || stepErr != nil || minimumErr != nil || maximumErr != nil || notionalErr != nil ||
+		maximum.Compare(zero) <= 0 || maximum.Compare(minimum) < 0 {
 		return exchangecontracts.InstrumentRecord{}, validationError(exchangecontracts.OperationMetadata)
 	}
 	metadata := domain.InstrumentMetadata{Instrument: instrument, Version: version,
@@ -97,7 +100,7 @@ func normalizeInstrument(
 		return exchangecontracts.InstrumentRecord{}, validationError(exchangecontracts.OperationMetadata)
 	}
 	return exchangecontracts.InstrumentRecord{Exchange: "bybit", NativeSymbol: native.Symbol,
-		NativeStatus: native.Status, Metadata: metadata, RawPayloadHash: rawHash}, nil
+		NativeStatus: native.Status, Metadata: metadata, MaximumQuantity: maximum, RawPayloadHash: rawHash}, nil
 }
 
 // NormalizeTrades converts one bounded Bybit recent-trade response.

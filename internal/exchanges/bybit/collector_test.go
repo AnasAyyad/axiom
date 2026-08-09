@@ -16,7 +16,7 @@ import (
 	"axiom/internal/marketdata"
 )
 
-func TestB1InstrumentCollectorAppliesSnapshotsMonotonicDeltasAndPublicEvents(t *testing.T) {
+func TestExchangeExpansionInstrumentCollectorAppliesSnapshotsMonotonicDeltasAndPublicEvents(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	source := &bybitCollectorSource{clock: clock, generations: [][]exchangecontracts.StreamEvent{{
@@ -80,7 +80,7 @@ func assertHealthyBybitCancellation(
 	}
 }
 
-func TestB1InstrumentCollectorRecordsConservativeGapAndReconnects(t *testing.T) {
+func TestExchangeExpansionInstrumentCollectorRecordsConservativeGapAndReconnects(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	source := &bybitCollectorSource{clock: clock, generations: [][]exchangecontracts.StreamEvent{
@@ -116,7 +116,7 @@ func TestB1InstrumentCollectorRecordsConservativeGapAndReconnects(t *testing.T) 
 	}
 }
 
-func TestB1LifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.T) {
+func TestExchangeExpansionLifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	source := &bybitCollectorSource{clock: clock, generations: [][]exchangecontracts.StreamEvent{{
@@ -143,7 +143,7 @@ func TestB1LifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.
 	}
 }
 
-func TestB1InstrumentCollectorReceiverQueueIsBounded(t *testing.T) {
+func TestExchangeExpansionInstrumentCollectorReceiverQueueIsBounded(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	events := make([]exchangecontracts.StreamEvent, 1001)

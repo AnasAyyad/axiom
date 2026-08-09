@@ -106,7 +106,16 @@ type Allocation struct {
 	Liquidity LiquidityReservation
 }
 
-// Allocator ranks and atomically reserves the isolated V1A Trend portfolio.
+// AllocationLimits are the explicit conservative ownership thresholds applied
+// before a candidate can reserve account funds. They are fixed by the runtime
+// that owns the account; strategies cannot supply or relax them.
+type AllocationLimits struct {
+	MinimumReserve     domain.Balance
+	MaximumReserved    domain.Balance
+	MaximumOrderAmount domain.Balance
+}
+
+// Allocator ranks and atomically reserves the isolated initial trend Trend portfolio.
 type Allocator struct {
 	mutex        sync.Mutex
 	portfolio    *Portfolio
@@ -117,16 +126,38 @@ type Allocator struct {
 	tradeBudget  domain.Balance
 }
 
-// NewAllocator constructs the conservative V1A allocation boundary.
+// NewAllocator constructs the established conservative allocation boundary.
 func NewAllocator(portfolio *Portfolio, registry AssetRegistry, liquidity *LiquidityPool) (*Allocator, error) {
-	if portfolio == nil || registry == nil || liquidity == nil {
-		return nil, portfolioError("allocator_configuration_invalid")
-	}
 	reserve, _ := domain.ParseBalance("75.00")
 	reserved, _ := domain.ParseBalance("425.00")
 	budget, _ := domain.ParseBalance("150.00")
+	return NewAllocatorWithLimits(portfolio, registry, liquidity, AllocationLimits{
+		MinimumReserve: reserve, MaximumReserved: reserved, MaximumOrderAmount: budget,
+	})
+}
+
+// NewAllocatorWithLimits constructs the same exclusive allocation boundary
+// with a runtime-owned closed limit set. It is intended for account-specific
+// modes whose limits differ from the established research defaults.
+func NewAllocatorWithLimits(
+	portfolio *Portfolio,
+	registry AssetRegistry,
+	liquidity *LiquidityPool,
+	limits AllocationLimits,
+) (*Allocator, error) {
+	if portfolio == nil || registry == nil || liquidity == nil || !validAllocationLimits(limits) {
+		return nil, portfolioError("allocator_configuration_invalid")
+	}
 	return &Allocator{portfolio: portfolio, registry: registry, liquidity: liquidity,
-		reserveFloor: reserve, reservedCap: reserved, tradeBudget: budget}, nil
+		reserveFloor: limits.MinimumReserve, reservedCap: limits.MaximumReserved,
+		tradeBudget: limits.MaximumOrderAmount}, nil
+}
+
+func validAllocationLimits(limits AllocationLimits) bool {
+	zero, _ := domain.ParseBalance("0")
+	return limits.MinimumReserve.Compare(zero) >= 0 && limits.MaximumReserved.Compare(zero) >= 0 &&
+		limits.MaximumOrderAmount.Compare(zero) >= 0 &&
+		limits.MaximumReserved.Compare(limits.MaximumOrderAmount) >= 0
 }
 
 // Allocate ranks candidates and returns every successful exclusive reservation.

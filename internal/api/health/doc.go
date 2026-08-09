@@ -1,2 +1,2 @@
-// Package health implements the public A1 liveness, readiness, and build API.
+// Package health implements the public application baseline liveness, readiness, and build API.
 package health

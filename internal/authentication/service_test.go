@@ -3,6 +3,7 @@ package authentication
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -61,8 +62,7 @@ func (store *authenticationTestStore) BootstrapOwner(_ context.Context, owner Bo
 		return false, nil
 	}
 	store.users[owner.NormalizedEmail] = User{ID: owner.ID, Email: owner.Email, NormalizedEmail: owner.NormalizedEmail,
-		PasswordHash: owner.PasswordHash, Status: "active", Roles: []string{"owner"},
-		Permissions: []string{"operations.read", "commands.write", "incident.raw", "audit.raw"}, RoleRevision: 1}
+		PasswordHash: owner.PasswordHash, Status: "active"}
 	store.bootstrapCount++
 	return true, nil
 }
@@ -141,7 +141,6 @@ func (store *authenticationTestStore) SessionByTokenHash(_ context.Context, hash
 	for _, user := range store.users {
 		if user.ID == session.UserID {
 			session.Email, session.Status = user.Email, user.Status
-			session.Roles, session.Permissions = user.Roles, user.Permissions
 		}
 	}
 	return session, nil
@@ -264,6 +263,26 @@ func TestLoginSessionCSRFLogoutAndGenericFailures(t *testing.T) {
 	clock.advance(time.Minute)
 }
 
+func TestRequirePermissionRequiresAnAuthenticatedOwner(t *testing.T) {
+	if RequirePermission(Principal{UserID: "owner"}, "sandbox.arm") != nil {
+		t.Fatal("authenticated owner rejected")
+	}
+	if RequirePermission(Principal{}, "sandbox.arm") == nil {
+		t.Fatal("anonymous request accepted")
+	}
+}
+
+func TestRuntimeAuthenticationRecordsDoNotCarryLegacyAuthorizationClaims(t *testing.T) {
+	for _, record := range []any{User{}, Session{}, Principal{}} {
+		kind := reflect.TypeOf(record)
+		for _, legacy := range []string{"Roles", "Permissions", "RoleRevision"} {
+			if _, found := kind.FieldByName(legacy); found {
+				t.Fatalf("%s still exposes legacy %s", kind.Name(), legacy)
+			}
+		}
+	}
+}
+
 func TestLoginRehashRateLimitIdleAndRecentAuthentication(t *testing.T) {
 	legacy := legacyTestHash("owner-password")
 	service, store, clock := authenticatedTestService(t, legacy)
@@ -298,7 +317,7 @@ func authenticatedTestService(t *testing.T, hash string) (*Service, *authenticat
 	t.Helper()
 	store, clock := newAuthenticationTestStore(), testAuthenticationClock()
 	store.users["owner@example.com"] = User{ID: "user-owner", Email: "owner@example.com", NormalizedEmail: "owner@example.com",
-		PasswordHash: hash, Status: "active", Roles: []string{"owner"}, Permissions: []string{"operations.read", "commands.write"}, RoleRevision: 1}
+		PasswordHash: hash, Status: "active"}
 	service, err := NewService(store, clock, []byte("0123456789abcdef0123456789abcdef"))
 	if err != nil {
 		t.Fatal(err)

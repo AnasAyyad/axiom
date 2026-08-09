@@ -9,7 +9,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// ProtectedState is the complete A9 portfolio checkpoint needed across restart.
+// ProtectedState is the complete portfolio and risk portfolio checkpoint needed across restart.
 type ProtectedState struct {
 	Ownership Ownership
 	Numeraire domain.AssetSymbol
@@ -41,8 +41,8 @@ func (state ProtectedState) CanonicalHash() string {
 // Restore validates one checkpoint without activating strategy execution.
 func Restore(state ProtectedState) (*Portfolio, error) {
 	if state.Ownership.PortfolioID.Value() == "" || state.Ownership.AccountID.Value() == "" ||
-		!supportedStrategy(state.Ownership.Strategy) || state.Ownership.Exchange != V1AExchange ||
-		state.Numeraire != V1ANumeraire || state.Revision == 0 {
+		!supportedStrategy(state.Ownership.Strategy) || !supportedExchange(state.Ownership.Exchange) ||
+		state.Numeraire != TrendNumeraire || state.Revision == 0 {
 		return nil, portfolioError("portfolio_restore_invalid")
 	}
 	ledger, err := accounting.RestoreReservationLedger(state.Ledger)
@@ -84,7 +84,7 @@ func restorePositions(
 	positions := make(map[domain.Instrument]Position, len(state.Positions))
 	for _, position := range state.Positions {
 		instrument, instrumentErr := domain.NewSpotInstrument(position.Instrument.Base, position.Instrument.Quote)
-		if instrumentErr != nil || instrument != position.Instrument || position.Instrument.Quote != V1ANumeraire ||
+		if instrumentErr != nil || instrument != position.Instrument || position.Instrument.Quote != TrendNumeraire ||
 			(position.Instrument.Base != "BTC" && position.Instrument.Base != "ETH") || position.Revision == 0 {
 			return nil, portfolioError("portfolio_restore_invalid")
 		}
@@ -103,7 +103,7 @@ func restorePositions(
 	for _, asset := range []domain.AssetSymbol{"BTC", "ETH"} {
 		balance, _ := ledger.Balance(balances[asset])
 		owned, addErr := balance.Available.Add(balance.Reserved)
-		instrument, _ := domain.NewSpotInstrument(asset, V1ANumeraire)
+		instrument, _ := domain.NewSpotInstrument(asset, TrendNumeraire)
 		_, hasPosition := positions[instrument]
 		if addErr != nil || (owned.Compare(zero) > 0) != hasPosition {
 			return nil, portfolioError("portfolio_restore_invalid")

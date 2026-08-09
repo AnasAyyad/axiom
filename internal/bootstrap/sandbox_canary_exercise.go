@@ -11,7 +11,7 @@ import (
 
 func recordSandboxCanaryStage(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	planID string,
 	stage sandbox.CanaryEvidenceStage,
@@ -29,7 +29,7 @@ func recordSandboxCanaryStage(
 
 func exerciseSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	exchange sandbox.Exchange,
 	plan sandbox.ApprovedSandboxPlan,
@@ -77,7 +77,7 @@ func exerciseSandboxCanary(
 
 func querySandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	planID string,
 	cycle uint64,
@@ -97,7 +97,7 @@ func querySandboxCanary(
 
 func requireSandboxCanaryCreateEvidence(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	status sandbox.CanaryOrderStatus,
 ) error {
@@ -115,7 +115,7 @@ func requireSandboxCanaryCreateEvidence(
 
 func finishSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	session sandbox.CanarySession,
 	exchange sandbox.Exchange,
 	planID string,
@@ -162,7 +162,7 @@ func finishSandboxCanary(
 
 func waitCanaryCancelOrFill(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	canaryID string,
 ) (sandbox.CanaryOrderStatus, error) {

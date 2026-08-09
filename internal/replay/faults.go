@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// FaultKind identifies one deterministic A8 replay failure scenario.
+// FaultKind identifies one deterministic strategy execution replay failure scenario.
 type FaultKind string
 
 // Supported replay and virtual execution faults.

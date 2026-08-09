@@ -66,7 +66,7 @@ func verifySafetyManifest(public ed25519.PublicKey, manifest SafetyManifest) boo
 	return verifySeal(public, manifest, hash, fingerprint, signature)
 }
 
-// SealPrerequisiteVerdict authenticates one fully populated phase verdict.
+// SealPrerequisiteVerdict authenticates one fully populated readiness verdict.
 func SealPrerequisiteVerdict(key ed25519.PrivateKey, verdict *PrerequisiteVerdict) error {
 	verdict.EvidenceHash, verdict.SigningKeyFingerprint, verdict.Signature = "", "", ""
 	hash, fingerprint, signature, err := seal(key, *verdict)

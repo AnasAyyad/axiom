@@ -25,7 +25,10 @@ function InteractiveTable() {
       <DataTable
         caption="Evidence"
         rows={[
-          { id: "event-a11", detail: authorized ? "authorized" : "redacted" },
+          {
+            id: "event-owner_console",
+            detail: authorized ? "authorized" : "redacted",
+          },
         ]}
         columns={[{ key: "detail", label: "Detail" }]}
       />

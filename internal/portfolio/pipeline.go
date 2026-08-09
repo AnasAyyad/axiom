@@ -8,10 +8,10 @@ import (
 	"axiom/internal/backtest"
 )
 
-// PipelineAllocator adapts central exclusive allocation to the shared A8 pipeline.
+// PipelineAllocator adapts central exclusive allocation to the shared strategy execution pipeline.
 type PipelineAllocator struct{ allocator *Allocator }
 
-// NewPipelineAllocator constructs the real A9 allocation adapter.
+// NewPipelineAllocator constructs the real portfolio and risk allocation adapter.
 func NewPipelineAllocator(allocator *Allocator) (*PipelineAllocator, error) {
 	if allocator == nil {
 		return nil, portfolioError("pipeline_allocator_invalid")

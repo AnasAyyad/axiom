@@ -32,7 +32,7 @@ RUN --mount=type=cache,id=axiom-go-mod,target=/go/pkg/mod \
     go mod download
 COPY cmd cmd
 COPY internal internal
-COPY scripts/generate_v1c_canary_config.go scripts/generate_v1c_canary_config.go
+COPY scripts/generate_sandbox_runtime_canary_config.go scripts/generate_sandbox_runtime_canary_config.go
 COPY --from=web-build /src/web/dist /src/internal/api/static/dist
 RUN --mount=type=cache,id=axiom-go-build,target=/root/.cache/go-build \
     GO_SUM_HASH="$(sha256sum go.sum | cut -d' ' -f1)" && \
@@ -40,23 +40,23 @@ RUN --mount=type=cache,id=axiom-go-build,target=/root/.cache/go-build \
     go build -trimpath \
     -ldflags "-s -w -X axiom/internal/buildinfo.Version=${VERSION} -X axiom/internal/buildinfo.Commit=${COMMIT} -X axiom/internal/buildinfo.BuiltAt=${BUILT_AT} -X axiom/internal/buildinfo.Dirty=${DIRTY} -X axiom/internal/buildinfo.GoSumHash=${GO_SUM_HASH} -X axiom/internal/buildinfo.PNPMLockHash=${PNPM_LOCK_HASH}" \
     -o /out/platform ./cmd/platform
-RUN go run ./scripts/generate_v1c_canary_config.go \
+RUN go run ./scripts/generate_sandbox_runtime_canary_config.go \
       --exchange binance \
-      --output /out/platform-binance-testnet-v1c.json && \
-    go run ./scripts/generate_v1c_canary_config.go \
+      --output /out/platform-binance-testnet.json && \
+    go run ./scripts/generate_sandbox_runtime_canary_config.go \
       --exchange bybit \
-      --output /out/platform-bybit-demo-v1c.json
+      --output /out/platform-bybit-demo.json
 
 FROM scratch AS runtime
 LABEL org.opencontainers.image.title="Axiom" \
-      org.opencontainers.image.description="V1A public-data research and simulation platform" \
+      org.opencontainers.image.description="Axiom public-data research and simulation platform" \
       org.opencontainers.image.licenses="UNLICENSED"
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=go-build /usr/share/zoneinfo/UTC /usr/share/zoneinfo/UTC
 COPY --from=go-build --chown=10001:70 /out/platform /app/platform
 COPY --chown=10001:70 deploy/config/platform-shadow.json /etc/axiom/platform.json
-COPY --from=go-build --chown=10001:70 /out/platform-binance-testnet-v1c.json /etc/axiom/platform-binance-testnet-v1c.json
-COPY --from=go-build --chown=10001:70 /out/platform-bybit-demo-v1c.json /etc/axiom/platform-bybit-demo-v1c.json
+COPY --from=go-build --chown=10001:70 /out/platform-binance-testnet.json /etc/axiom/platform-binance-testnet.json
+COPY --from=go-build --chown=10001:70 /out/platform-bybit-demo.json /etc/axiom/platform-bybit-demo.json
 ENV TZ=UTC
 USER 10001:70
 EXPOSE 8080 9091

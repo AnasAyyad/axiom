@@ -10,7 +10,7 @@ import (
 	"axiom/internal/authentication"
 )
 
-type a11FilterReadStub struct {
+type ownerConsoleFilterReadStub struct {
 	ReadService
 	incidentState    string
 	auditEvent       string
@@ -22,7 +22,7 @@ type a11FilterReadStub struct {
 	inventoryFilters InventoryFilters
 }
 
-func (stub *a11FilterReadStub) Opportunities(
+func (stub *ownerConsoleFilterReadStub) Opportunities(
 	_ context.Context, _ string, _ int, kind string,
 ) (generated.OpportunityPage, error) {
 	stub.opportunityKind = kind
@@ -30,7 +30,7 @@ func (stub *a11FilterReadStub) Opportunities(
 		Revision: "0", SnapshotRevision: "0"}, nil
 }
 
-func (stub *a11FilterReadStub) Inventory(
+func (stub *ownerConsoleFilterReadStub) Inventory(
 	_ context.Context, _ string, _ int, filters InventoryFilters,
 ) (generated.InventoryPage, error) {
 	stub.inventoryFilters = filters
@@ -39,31 +39,31 @@ func (stub *a11FilterReadStub) Inventory(
 		IsolationNotice: "isolated"}, nil
 }
 
-func (stub *a11FilterReadStub) Job(_ context.Context, id, eventOrdinal string) (generated.JobResource, error) {
+func (stub *ownerConsoleFilterReadStub) Job(_ context.Context, id, eventOrdinal string) (generated.JobResource, error) {
 	stub.jobID, stub.eventOrdinal = id, eventOrdinal
 	return generated.JobResource{Id: id, Kind: generated.JobResourceKind("replay"),
 		State: generated.JobResourceState("PAUSED"), ModeLabel: generated.REPLAY, Revision: "1"}, nil
 }
 
-func (stub *a11FilterReadStub) Incident(_ context.Context, id string, raw bool) (generated.IncidentDetail, error) {
+func (stub *ownerConsoleFilterReadStub) Incident(_ context.Context, id string, raw bool) (generated.IncidentDetail, error) {
 	stub.incidentRaw = raw
 	return generated.IncidentDetail{Id: id, ReasonCode: "test", Revision: "1",
 		Severity: generated.IncidentDetailSeverity("warning"), State: generated.IncidentDetailState("resolved"),
 		Timeline: []generated.TimelineEvent{}}, nil
 }
 
-func (stub *a11FilterReadStub) Incidents(_ context.Context, _ string, _ int, state string) (generated.IncidentPage, error) {
+func (stub *ownerConsoleFilterReadStub) Incidents(_ context.Context, _ string, _ int, state string) (generated.IncidentPage, error) {
 	stub.incidentState = state
 	return generated.IncidentPage{Items: []generated.IncidentSummary{}, Revision: "0"}, nil
 }
 
-func (stub *a11FilterReadStub) Audit(_ context.Context, _ string, _ int, eventType string, raw bool) (generated.AuditEventPage, error) {
+func (stub *ownerConsoleFilterReadStub) Audit(_ context.Context, _ string, _ int, eventType string, raw bool) (generated.AuditEventPage, error) {
 	stub.auditEvent, stub.auditRaw = eventType, raw
 	return generated.AuditEventPage{Items: []generated.AuditEvent{}, Revision: "0"}, nil
 }
 
 func TestReadFiltersReachAuthoritativeProjection(t *testing.T) {
-	stub := &a11FilterReadStub{}
+	stub := &ownerConsoleFilterReadStub{}
 	handler := &handler{options: Options{Read: stub}}
 
 	incidentResponse := httptest.NewRecorder()
@@ -83,10 +83,10 @@ func TestReadFiltersReachAuthoritativeProjection(t *testing.T) {
 }
 
 func TestRawEvidenceRequiresExplicitPermission(t *testing.T) {
-	stub := &a11FilterReadStub{}
+	stub := &ownerConsoleFilterReadStub{}
 	handler := &handler{options: Options{Read: stub}}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/incident-a11?include_raw=true", nil)
-	request.SetPathValue("id", "incident-a11")
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/incident-owner_console?include_raw=true", nil)
+	request.SetPathValue("id", "incident-owner_console")
 	response := httptest.NewRecorder()
 	handler.incident(response, request, authentication.Principal{})
 	if response.Code != http.StatusForbidden || stub.incidentRaw {
@@ -99,8 +99,8 @@ func TestRawEvidenceRequiresExplicitPermission(t *testing.T) {
 		t.Fatalf("authorized raw incident = %d forwarded=%t", allowed.Code, stub.incidentRaw)
 	}
 
-	invalidRequest := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/incident-a11?include_raw=1", nil)
-	invalidRequest.SetPathValue("id", "incident-a11")
+	invalidRequest := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/incident-owner_console?include_raw=1", nil)
+	invalidRequest.SetPathValue("id", "incident-owner_console")
 	invalid := httptest.NewRecorder()
 	handler.incident(invalid, invalidRequest, authentication.Principal{UserID: "owner"})
 	if invalid.Code != http.StatusBadRequest {
@@ -109,7 +109,7 @@ func TestRawEvidenceRequiresExplicitPermission(t *testing.T) {
 }
 
 func TestIncidentFilterRejectsUnknownState(t *testing.T) {
-	stub := &a11FilterReadStub{}
+	stub := &ownerConsoleFilterReadStub{}
 	handler := &handler{options: Options{Read: stub}}
 	response := httptest.NewRecorder()
 	handler.incidents(response, httptest.NewRequest(http.MethodGet,
@@ -120,27 +120,27 @@ func TestIncidentFilterRejectsUnknownState(t *testing.T) {
 }
 
 func TestReplayEventOrdinalReachesAuthoritativeProjection(t *testing.T) {
-	stub := &a11FilterReadStub{}
+	stub := &ownerConsoleFilterReadStub{}
 	handler := &handler{options: Options{Read: stub}}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/replays/replay-a11?event_ordinal=42", nil)
-	request.SetPathValue("id", "replay-a11")
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/replays/replay-owner_console?event_ordinal=42", nil)
+	request.SetPathValue("id", "replay-owner_console")
 	response := httptest.NewRecorder()
 	handler.job(response, request, authentication.Principal{})
-	if response.Code != http.StatusOK || stub.jobID != "replay-a11" || stub.eventOrdinal != "42" {
+	if response.Code != http.StatusOK || stub.jobID != "replay-owner_console" || stub.eventOrdinal != "42" {
 		t.Fatalf("replay event selection = %d %q/%q", response.Code, stub.jobID, stub.eventOrdinal)
 	}
 
-	backtestRequest := httptest.NewRequest(http.MethodGet, "/api/v1/backtests/backtest-a11?event_ordinal=42", nil)
-	backtestRequest.SetPathValue("id", "backtest-a11")
+	backtestRequest := httptest.NewRequest(http.MethodGet, "/api/v1/backtests/backtest-owner_console?event_ordinal=42", nil)
+	backtestRequest.SetPathValue("id", "backtest-owner_console")
 	backtestResponse := httptest.NewRecorder()
 	handler.job(backtestResponse, backtestRequest, authentication.Principal{})
-	if backtestResponse.Code != http.StatusBadRequest || stub.jobID != "replay-a11" {
+	if backtestResponse.Code != http.StatusBadRequest || stub.jobID != "replay-owner_console" {
 		t.Fatalf("backtest accepted replay inspection = %d forwarded=%q", backtestResponse.Code, stub.jobID)
 	}
 }
 
-func TestB8GenericFiltersReachAuthoritativeProjectionAndFailClosed(t *testing.T) {
-	stub := &a11FilterReadStub{}
+func TestMultiExchangeConsoleGenericFiltersReachAuthoritativeProjectionAndFailClosed(t *testing.T) {
+	stub := &ownerConsoleFilterReadStub{}
 	handler := &handler{options: Options{Read: stub}}
 
 	opportunities := httptest.NewRecorder()
@@ -148,7 +148,7 @@ func TestB8GenericFiltersReachAuthoritativeProjectionAndFailClosed(t *testing.T)
 		"/api/v1/opportunities?kind=cross_exchange&page_size=25", nil),
 		authentication.Principal{})
 	if opportunities.Code != http.StatusOK || stub.opportunityKind != "cross_exchange" {
-		t.Fatalf("B8 opportunity filter=%d %q", opportunities.Code, stub.opportunityKind)
+		t.Fatalf("multi-exchange console opportunity filter=%d %q", opportunities.Code, stub.opportunityKind)
 	}
 
 	invalid := httptest.NewRecorder()
@@ -156,7 +156,7 @@ func TestB8GenericFiltersReachAuthoritativeProjectionAndFailClosed(t *testing.T)
 		"/api/v1/opportunities?kind=production&page_size=25", nil),
 		authentication.Principal{})
 	if invalid.Code != http.StatusBadRequest || stub.opportunityKind != "cross_exchange" {
-		t.Fatalf("unsafe B8 kind forwarded=%d %q", invalid.Code, stub.opportunityKind)
+		t.Fatalf("unsafe multi-exchange console kind forwarded=%d %q", invalid.Code, stub.opportunityKind)
 	}
 
 	inventory := httptest.NewRecorder()
@@ -166,6 +166,6 @@ func TestB8GenericFiltersReachAuthoritativeProjectionAndFailClosed(t *testing.T)
 	if inventory.Code != http.StatusOK ||
 		stub.inventoryFilters != (InventoryFilters{Exchange: "bybit", Asset: "BTC",
 			Strategy: "cross.v1", Portfolio: "portfolio-1"}) {
-		t.Fatalf("B8 inventory filter=%d %#v", inventory.Code, stub.inventoryFilters)
+		t.Fatalf("multi-exchange console inventory filter=%d %#v", inventory.Code, stub.inventoryFilters)
 	}
 }

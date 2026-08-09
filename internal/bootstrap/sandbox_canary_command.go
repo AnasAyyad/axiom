@@ -46,7 +46,7 @@ func runSandboxCanary(
 		return err
 	}
 	defer pool.Close()
-	store, err := postgresstore.NewV1CDispatcherStore(pool)
+	store, err := postgresstore.NewSandboxRuntimeDispatcherStore(pool)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func sandboxCanaryOutputLabel(phase string) string {
 func executeSandboxCanaryPhase(
 	ctx context.Context,
 	pool *pgxpool.Pool,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	configurationID string,
@@ -145,7 +145,7 @@ func executeSandboxCanaryPhase(
 func executeSandboxCanaryPreparePhase(
 	ctx context.Context,
 	pool *pgxpool.Pool,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	configurationID string,

@@ -15,7 +15,7 @@ import (
 // automatic strategy child. It resolves current account epochs itself so an
 // API caller cannot attach an arbitrary, stale, or already-active account.
 // The method does not arm an account, submit an order, or contact an exchange.
-func (store *V1CDispatcherStore) CreateStrategySession(
+func (store *SandboxRuntimeDispatcherStore) CreateStrategySession(
 	ctx context.Context,
 	command sandbox.StrategySessionCommand,
 ) (sandbox.StrategySession, error) {
@@ -84,11 +84,15 @@ func selectStrategySessionAccount(
 const strategySessionAccountSelectionSQL = `
 SELECT account.id,account.current_epoch,observation.startup_cycle,
        observation.observed_at
-FROM v1c_exchange_accounts account
-JOIN v1c_engine_observations observation
+FROM sandbox_runtime_exchange_accounts account
+JOIN sandbox_runtime_engine_observations observation
   ON observation.account_id=account.id
  AND observation.account_epoch=account.current_epoch
-JOIN v1c_account_leases lease
+JOIN sandbox_runtime_engine_market_observations market_observation
+  ON market_observation.account_id=account.id
+ AND market_observation.account_epoch=account.current_epoch
+ AND market_observation.instrument=$2
+JOIN sandbox_runtime_account_leases lease
   ON lease.account_id=account.id
  AND lease.fencing_token=observation.startup_cycle
 WHERE account.exchange=$1
@@ -99,13 +103,15 @@ WHERE account.exchange=$1
   AND observation.private_stream_healthy
   AND observation.reconciliation_clean
   AND observation.evidence_healthy
-  AND observation.eligibility->>'instrument'=$2
-  AND (observation.eligibility->>'eligible')::boolean
+  AND market_observation.exchange=$1
+  AND (market_observation.eligibility->>'eligible')::boolean
+  AND market_observation.observed_at<=$3
+  AND $3-market_observation.observed_at<=interval '250 milliseconds'
   AND lease.expires_at>$3
   AND NOT EXISTS(
     SELECT 1
-    FROM v1c_sandbox_session_accounts membership
-    JOIN v1c_sandbox_sessions session ON session.id=membership.session_id
+    FROM sandbox_runtime_sandbox_session_accounts membership
+    JOIN sandbox_runtime_sandbox_sessions session ON session.id=membership.session_id
     WHERE membership.account_id=account.id
       AND membership.account_epoch=account.current_epoch
       AND session.state IN ('READY_PAUSED','ARMED','PAUSED')
@@ -121,7 +127,7 @@ func insertStrategySession(
 	session sandbox.StrategySession,
 ) error {
 	if _, err := tx.Exec(ctx, `
-INSERT INTO v1c_sandbox_sessions(
+INSERT INTO sandbox_runtime_sandbox_sessions(
  id,state,configuration_id,strategy_set_hash,revision,created_by,
  created_at,updated_at
 ) VALUES ($1,'READY_PAUSED',$2,$3,1,$4,$5,$5)`,
@@ -131,7 +137,7 @@ INSERT INTO v1c_sandbox_sessions(
 	}
 	for _, account := range session.Accounts {
 		if _, err := tx.Exec(ctx, `
-INSERT INTO v1c_sandbox_session_accounts(session_id,account_id,account_epoch)
+INSERT INTO sandbox_runtime_sandbox_session_accounts(session_id,account_id,account_epoch)
 VALUES ($1,$2,$3)`, command.ID, account.ID, account.Epoch); err != nil {
 			return fmt.Errorf("sandbox_strategy_session_membership_insert_failed")
 		}

@@ -11,7 +11,7 @@ import (
 const blockExpiredSandboxStrategySessionsSQL = `
 UPDATE sandbox_strategy_sessions strategy
 SET state='blocked',blocking_reason='arm_expired_or_revoked',revision=strategy.revision+1
-FROM v1c_sandbox_sessions parent
+FROM sandbox_runtime_sandbox_sessions parent
 WHERE strategy.sandbox_session_id=parent.id
   AND strategy.state='running'
   AND EXISTS (
@@ -23,7 +23,7 @@ WHERE strategy.sandbox_session_id=parent.id
   )
   AND NOT EXISTS (
     SELECT 1
-    FROM v1c_sandbox_arms arm
+    FROM sandbox_runtime_sandbox_arms arm
     WHERE arm.sandbox_session_id=parent.id
       AND arm.revoked_at IS NULL
       AND arm.created_at <= $3
@@ -34,7 +34,7 @@ WHERE strategy.sandbox_session_id=parent.id
 // account's exact arm is no longer active. It intentionally does not alter
 // the parent session, dispatcher, or existing orders: cancellation,
 // reconciliation, and risk-reducing recovery must remain available.
-func (store *V1CDispatcherStore) BlockExpiredStrategySessions(
+func (store *SandboxRuntimeDispatcherStore) BlockExpiredStrategySessions(
 	ctx context.Context,
 	account sandbox.AccountID,
 	epoch uint64,

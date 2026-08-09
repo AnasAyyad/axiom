@@ -14,7 +14,7 @@ import (
 )
 
 type storagePressureWriter interface {
-	Observe(context.Context, pressure.Observation, pressure.Policy) (postgresstore.D5StoragePressureState, bool, error)
+	Observe(context.Context, pressure.Observation, pressure.Policy) (postgresstore.OperationalReadinessStoragePressureState, bool, error)
 }
 
 func configureRecorderPressure(work *recorderRoleWork, pool *pgxpool.Pool, instance string) error {
@@ -22,7 +22,7 @@ func configureRecorderPressure(work *recorderRoleWork, pool *pgxpool.Pool, insta
 	if pool == nil {
 		return nil
 	}
-	store, err := postgresstore.NewD5StoragePressureStore(pool, instance)
+	store, err := postgresstore.NewOperationalReadinessStoragePressureStore(pool, instance)
 	if err != nil {
 		return err
 	}

@@ -23,27 +23,27 @@ const (
 	csrfCookieName    = "axiom_csrf"
 )
 
-// Options are immutable A11 HTTP dependencies.
+// Options are immutable owner console HTTP dependencies.
 type Options struct {
-	Authentication        *authentication.Service
-	SandboxAuthorizations *authentication.SandboxAuthorizationService
-	AllowedOrigins        []string
-	SecureCookies         bool
-	Read                  ReadService
-	Commands              CommandService
-	Streams               StreamService
-	SandboxRead           SandboxReadService
-	SandboxCommands       SandboxCommandService
-	D1Read                D1ReadService
-	D1Commands            D1CommandService
-	D4Read                D4ReadService
-	RunRegistry           *runs.Registry
-	Runs                  RunReadService
-	RunCommands           RunCommandService
-	DataCatalogue         DataCatalogueReadService
+	Authentication          *authentication.Service
+	SandboxAuthorizations   *authentication.SandboxAuthorizationService
+	AllowedOrigins          []string
+	SecureCookies           bool
+	Read                    ReadService
+	Commands                CommandService
+	Streams                 StreamService
+	SandboxRead             SandboxReadService
+	SandboxCommands         SandboxCommandService
+	OwnerControlRead        OwnerControlReadService
+	OwnerControlCommands    OwnerControlCommandService
+	OperationalEvidenceRead OperationalEvidenceReadService
+	RunRegistry             *runs.Registry
+	Runs                    RunReadService
+	RunCommands             RunCommandService
+	DataCatalogue           DataCatalogueReadService
 }
 
-// Register installs all authenticated A11 routes on one mux.
+// Register installs all authenticated owner console routes on one mux.
 func Register(mux *http.ServeMux, options Options) {
 	handler := &handler{options: options, origins: make(map[string]struct{})}
 	for _, origin := range options.AllowedOrigins {
@@ -72,8 +72,8 @@ func Register(mux *http.ServeMux, options Options) {
 	handler.registerReads(mux)
 	handler.registerCommands(mux)
 	handler.registerSandbox(mux)
-	handler.registerD1(mux)
-	handler.registerD4(mux)
+	handler.registerOwnerControl(mux)
+	handler.registerOperationalEvidence(mux)
 	mux.HandleFunc("GET /api/v1/stream", handler.authorized(handler.stream, "operations.read"))
 }
 

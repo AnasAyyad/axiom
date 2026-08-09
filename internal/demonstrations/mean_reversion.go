@@ -15,7 +15,6 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/portfolio"
 	"axiom/internal/replay"
-	"axiom/internal/risk"
 	runtimecore "axiom/internal/runtime"
 	"axiom/internal/simulation"
 	"axiom/internal/strategies/meanreversion"
@@ -58,7 +57,7 @@ func RunMeanReversion(ctx context.Context) (Result, error) {
 }
 
 func newMeanReversionProcessor() (*meanreversion.OperationalProcessor, meanreversion.Input, meanreversion.Configuration, error) {
-	configuration, err := meanreversion.NewConfiguration(config.DefaultV1BConfiguration().MeanReversion)
+	configuration, err := meanreversion.NewConfiguration(config.DefaultMultiStrategyConfiguration().MeanReversion)
 	if err != nil {
 		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
 	}
@@ -74,64 +73,58 @@ func newMeanReversionProcessor() (*meanreversion.OperationalProcessor, meanrever
 	if err != nil {
 		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
 	}
-	runID, runErr := domain.NewRunID("guided-mean-run")
-	portfolioID, portfolioErr := domain.NewPortfolioID("guided-mean-portfolio")
-	accountID, accountErr := domain.NewVirtualAccountID("guided-mean-account")
-	capital, capitalErr := domain.ParseBalance("500")
-	if runErr != nil || portfolioErr != nil || accountErr != nil || capitalErr != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, fmt.Errorf("demonstration_identity_invalid")
-	}
-	owned, err := portfolio.InitializeMeanReversion(runID, portfolioID, accountID, configuration.Hash, capital,
-		accounting.NewMemoryJournal(), domain.EventTime{UTC: time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC), Sequence: 1})
+	owned, err := meanReversionPortfolio(configuration.Hash)
 	if err != nil {
 		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
 	}
-	registry, liquidity := portfolio.NewAssetRegistry(), portfolio.NewLiquidityPool()
-	depth, depthErr := domain.ParseQuantity("1")
-	if depthErr != nil || liquidity.Open(input.Sizing.LiquidityDomain, depth) != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, fmt.Errorf("demonstration_liquidity_invalid")
-	}
-	allocator, err := portfolio.NewAllocator(owned, registry, liquidity)
+	core, err := newDemonstrationPipelineCore(owned, input.Sizing.LiquidityDomain, input.Now)
 	if err != nil {
 		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
 	}
-	pipelineAllocator, err := portfolio.NewPipelineAllocator(allocator)
-	if err != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
-	}
-	vault := portfolio.NewApprovalVault()
-	riskEngine, err := risk.NewEngine(demoRiskAudit{}, demoRiskAlerts{})
-	if err != nil || riskEngine.ManualTransition(risk.StateNormal, demoRecovery(input.Now)) != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, fmt.Errorf("demonstration_risk_invalid")
-	}
-	pipelineRisk, err := risk.NewPipelineEngine(riskEngine, vault, registry, demoRiskInputs{at: input.Now.Add(time.Nanosecond)})
-	if err != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
-	}
-	strategyPlanner, err := meanreversion.NewPlanner("paper", input.Sizing.LiquidityDomain, adapter)
-	if err != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
-	}
-	planner, err := portfolio.NewEligibilityPlanner(strategyPlanner, vault, registry)
-	if err != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
-	}
-	guard, err := portfolio.NewBrokerGuard(owned, registry)
-	if err != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
-	}
-	broker, err := meanReversionBroker(input, guard)
-	if err != nil {
-		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
-	}
-	pipeline, err := backtest.NewPipelineProcessor(backtest.PipelineDependencies{Strategy: adapter, Allocator: pipelineAllocator,
-		Risk: pipelineRisk, Planner: planner, Broker: broker, Reduce: pipelineAllocator.ReduceSimulation,
-		Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "not_evaluated"} }})
+	pipeline, err := newMeanReversionDemonstrationPipeline(adapter, input, owned, core)
 	if err != nil {
 		return nil, meanreversion.Input{}, meanreversion.Configuration{}, err
 	}
 	operational, err := meanreversion.NewOperationalProcessor(evaluator, pipeline, func() (json.RawMessage, error) { return json.Marshal(owned.Snapshot()) })
 	return operational, input, configuration, err
+}
+
+func meanReversionPortfolio(configurationHash string) (*portfolio.Portfolio, error) {
+	runID, runErr := domain.NewRunID("guided-mean-run")
+	portfolioID, portfolioErr := domain.NewPortfolioID("guided-mean-portfolio")
+	accountID, accountErr := domain.NewVirtualAccountID("guided-mean-account")
+	capital, capitalErr := domain.ParseBalance("500")
+	if runErr != nil || portfolioErr != nil || accountErr != nil || capitalErr != nil {
+		return nil, fmt.Errorf("demonstration_identity_invalid")
+	}
+	return portfolio.InitializeMeanReversion(runID, portfolioID, accountID, configurationHash, capital,
+		accounting.NewMemoryJournal(), domain.EventTime{UTC: time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC), Sequence: 1})
+}
+
+func newMeanReversionDemonstrationPipeline(adapter *meanreversion.Adapter, input meanreversion.Input,
+	owned *portfolio.Portfolio, core demonstrationPipelineCore,
+) (*backtest.PipelineProcessor, error) {
+	strategyPlanner, err := meanreversion.NewPlanner("paper", input.Sizing.LiquidityDomain, adapter)
+	if err != nil {
+		return nil, err
+	}
+	planner, err := portfolio.NewEligibilityPlanner(strategyPlanner, core.vault, core.registry)
+	if err != nil {
+		return nil, err
+	}
+	guard, err := portfolio.NewBrokerGuard(owned, core.registry)
+	if err != nil {
+		return nil, err
+	}
+	broker, err := meanReversionBroker(input, guard)
+	if err != nil {
+		return nil, err
+	}
+	return backtest.NewPipelineProcessor(backtest.PipelineDependencies{
+		Strategy: adapter, Allocator: core.allocator, Risk: core.risk, Planner: planner, Broker: broker,
+		Reduce:  core.allocator.ReduceSimulation,
+		Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "not_evaluated"} },
+	})
 }
 
 func processMeanReversionInput(ctx context.Context, processor *meanreversion.OperationalProcessor, input meanreversion.Input) (backtest.EventResult, error) {
@@ -181,7 +174,7 @@ func meanReversionInput(configuration meanreversion.Configuration) (meanreversio
 	return meanreversion.Input{Ordinal: 1, LogicalTime: 100, Now: signalEnd.Add(3100 * time.Millisecond), Instrument: instrument,
 		PrimaryCandles: primary, HigherCandles: higher, MarketHealthy: true, MarketDataQualityPass: true, Spread: spread, BookAge: 10 * time.Millisecond,
 		Sizing:   meanreversion.SizingState{Equity: equity, AvailableCash: equity, MinimumReserve: reserve, NotionalLimits: []domain.Money{limit}, FirstExecutablePrice: executable, FirstExecutableAt: signalEnd.Add(100 * time.Millisecond), GapAllowance: gap, SlippageAllowance: gap, EntryFeeRate: fee, ExitFeeRate: fee, InstrumentMetadata: domain.InstrumentMetadata{Instrument: instrument, Version: 1, EffectiveAt: signalEnd.Add(-24 * time.Hour), PriceTick: tick, QuantityStep: step, MinimumQuantity: step, MinimumNotional: minimum}, CentralRiskEligible: true, LiquidityDomain: "guided-mean-liquidity", FencingToken: 1},
-		Evidence: meanreversion.InputEvidence{PrimaryCandleViewID: "guided-primary", PrimaryCandleViewRevision: 1, HigherCandleViewID: "guided-higher", HigherCandleViewRevision: 1, MarketViewID: "guided-book", MarketViewRevision: 1, CoherentViewID: strings.Repeat("a", 64), CoherentVersionVectorHash: strings.Repeat("a", 64), InstrumentMetadataID: "guided-metadata", AssetEligibilityVersion: 1, ConfigurationSnapshotID: "guided-configuration", ConfigurationVersion: "axiom.config.v1b.2", ConfigurationHash: configuration.Hash, StrategyVersion: configuration.Version, StrategyHash: strings.Repeat("b", 64), PortfolioRevision: 1, PositionRevision: 1, RiskPolicyID: "guided-risk", RiskPolicyVersion: 1, RiskPolicyHash: strings.Repeat("c", 64), FeeModelID: "guided-fee-v1", LatencyModelID: "guided-latency-v1", FillModelID: "guided-fill-v1", SlippageModelID: "guided-slippage-v1", GapModelID: "guided-gap-v1", CorrelationModelID: "guided-correlation-v1", CorrelationID: "guided-mean-correlation", CausationID: "guided-mean-input"}}, nil
+		Evidence: meanreversion.InputEvidence{PrimaryCandleViewID: "guided-primary", PrimaryCandleViewRevision: 1, HigherCandleViewID: "guided-higher", HigherCandleViewRevision: 1, MarketViewID: "guided-book", MarketViewRevision: 1, CoherentViewID: strings.Repeat("a", 64), CoherentVersionVectorHash: strings.Repeat("a", 64), InstrumentMetadataID: "guided-metadata", AssetEligibilityVersion: 1, ConfigurationSnapshotID: "guided-configuration", ConfigurationVersion: "axiom.configuration@1.2.0", ConfigurationHash: configuration.Hash, StrategyVersion: configuration.Version, StrategyHash: strings.Repeat("b", 64), PortfolioRevision: 1, PositionRevision: 1, RiskPolicyID: "guided-risk", RiskPolicyVersion: 1, RiskPolicyHash: strings.Repeat("c", 64), FeeModelID: "guided-fee-v1", LatencyModelID: "guided-latency-v1", FillModelID: "guided-fill-v1", SlippageModelID: "guided-slippage-v1", GapModelID: "guided-gap-v1", CorrelationModelID: "guided-correlation-v1", CorrelationID: "guided-mean-correlation", CausationID: "guided-mean-input"}}, nil
 }
 
 func meanReversionCandle(instrument domain.Instrument, interval string, open time.Time, duration time.Duration, closeValue, sequence int, prefix string) (exchangecontracts.Candle, error) {

@@ -150,8 +150,9 @@ func (evaluator *Evaluator) riskQuantity(input Input, entry, unitRisk decimal) (
 		notionalCap = minimum(notionalCap, parsed)
 	}
 	rawQuantity, err := riskBudget.divide(unitRisk, apd.RoundFloor)
-	capQuantity, capErr := notionalCap.divide(entry, apd.RoundFloor)
-	if err != nil || capErr != nil {
+	grossUnitCost, grossErr := feeInclusiveEntryAmount(entry, input.Sizing.EntryFeeRate.String())
+	capQuantity, capErr := notionalCap.divide(grossUnitCost, apd.RoundFloor)
+	if err != nil || grossErr != nil || capErr != nil {
 		return decimal{}, decimal{}, decimal{}, ReasonInvalidSizing
 	}
 	return riskBudget, notionalCap, minimum(rawQuantity, capQuantity), ""
@@ -184,7 +185,8 @@ func (evaluator *Evaluator) buildEntryCandidate(input Input, latest exchangecont
 		return Candidate{}, ReasonMinimumFilter
 	}
 	notionalValue, _ := parseDecimal(notional.String())
-	if notionalValue.compare(calculation.notionalCap) > 0 {
+	grossNotional, grossErr := feeInclusiveEntryAmount(notionalValue, input.Sizing.EntryFeeRate.String())
+	if grossErr != nil || grossNotional.compare(calculation.notionalCap) > 0 {
 		return Candidate{}, ReasonRiskClipped
 	}
 	explanation.RiskBudget, _ = domain.ParseMoney(calculation.riskBudget.stringValue())
@@ -200,6 +202,22 @@ func (evaluator *Evaluator) buildEntryCandidate(input Input, latest exchangecont
 		Side: domain.SideBuy, Quantity: quantity, LimitPrice: limit, Notional: notional,
 		ExpiresAt:  input.LogicalTime + uint64(evaluator.configuration.CandidateLifetime),
 		ReasonCode: ReasonEntryAccepted, Explanation: explanation}, ""
+}
+
+// feeInclusiveEntryAmount keeps every strategy-supplied notional ceiling bound
+// to the actual quote-asset reservation. Pipeline allocation reserves entry
+// notional plus its fee, so sizing against notional alone can otherwise create
+// an accepted candidate that the shared allocator must reject as over-cap.
+func feeInclusiveEntryAmount(amount decimal, rateText string) (decimal, error) {
+	rate, err := parseDecimal(rateText)
+	if err != nil || rate.value.Sign() < 0 {
+		return decimal{}, strategyError(ReasonInvalidSizing)
+	}
+	fee, err := amount.multiply(rate, apd.RoundCeiling)
+	if err != nil {
+		return decimal{}, err
+	}
+	return amount.add(fee)
 }
 
 func (evaluator *Evaluator) exitCandidate(input Input, latest exchangecontracts.Candle,

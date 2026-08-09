@@ -34,8 +34,8 @@ pre-approve any formal gate.
 | `make a10-sqlc GO=.local/toolchains/go/bin/go SQLC=/home/anas/.local/bin/sqlc` | Passed. sqlc generation is current and the PostgreSQL repositories compile/test with the destructive DSN disabled. |
 | `make a10-postgres-qualify ... AXIOM_A10_TEST_DSN=postgres://.../axiom_a10_test?sslmode=disable` | Passed against a fresh `postgres:18.4-alpine` database. All nine forward migrations applied before immutable registration, referential-integrity, mutation, deletion, and one-time final-test-consumption checks. The local credential was ephemeral and is not committed. |
 | `go run scripts/check_go_policy.go` | Passed after adding nil-AST handling required by inferred constant declarations under the pinned Go parser. |
-| `node scripts/check-a2-config-reference.mjs` | Passed for the schema, original financial graph, and all 16 Trend parameter rows. |
-| `node scripts/check-a10-strategy-boundary.mjs` | Passed. Production Trend source has no broker/simulator/storage/network capability and the scratch image does not copy Python research. |
+| `node scripts/check-configuration-reference-config-reference.mjs` | Passed for the schema, original financial graph, and all 16 Trend parameter rows. |
+| `node scripts/check-research-registry-strategy-boundary.mjs` | Passed. Production Trend source has no broker/simulator/storage/network capability and the scratch image does not copy Python research. |
 | `make verify` | Passed cumulatively with exact preflight, formatting, contract generation, documentation, lint/static analysis, backend/frontend/race/fuzz tests, build, all 128 Compose renders, security negative tests, binary boundaries, and `govulncheck` with no findings. |
 | `make image IMAGE=axiom:a10-local ...` | Passed. Built Linux/amd64 scratch image ID `sha256:9f47b4b4c0f58cb0d4d2792357e025dd4b778aa1eb219dd4b55a2dacf2bb6d02`, running as `10001:70` with `/app/platform` as the entrypoint. |
 | `make compose-smoke IMAGE=axiom:a10-local` | Passed. The image-backed application, recorder, worker, PostgreSQL, Prometheus, and Grafana services reached their required healthy/exited states. |

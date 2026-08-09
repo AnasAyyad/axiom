@@ -66,7 +66,7 @@ type AuthenticationRuntime struct {
 	SecureCookies                  bool
 }
 
-// Runtime is the immutable A1 process configuration.
+// Runtime is the immutable application baseline process configuration.
 type Runtime struct {
 	DeploymentEnvironment string
 	InstanceID            string
@@ -81,7 +81,7 @@ type Runtime struct {
 	Authentication        AuthenticationRuntime
 }
 
-// LoadRuntime validates the narrow A1 runtime configuration before resources open.
+// LoadRuntime validates the narrow application baseline runtime configuration before resources open.
 func LoadRuntime() (Runtime, error) {
 	if err := ValidateEnvironment(os.Environ()); err != nil {
 		return Runtime{}, err

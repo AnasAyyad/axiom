@@ -10,14 +10,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestA4PostgresRestoredRoleQualification(t *testing.T) {
-	dsn := os.Getenv("AXIOM_A4_RESTORE_DSN")
+func TestDurableStoragePostgresRestoredRoleQualification(t *testing.T) {
+	dsn := os.Getenv("AXIOM_DURABLE_STORAGE_RESTORE_DSN")
 	if dsn == "" {
-		t.Skip("AXIOM_A4_RESTORE_DSN is not set")
+		t.Skip("AXIOM_DURABLE_STORAGE_RESTORE_DSN is not set")
 	}
 	configuration, err := pgxpool.ParseConfig(dsn)
-	if err != nil || !strings.HasSuffix(configuration.ConnConfig.Database, "_a4_test") {
-		t.Fatal("A4 restore qualification requires a dedicated database ending _a4_test")
+	if err != nil || !strings.HasSuffix(configuration.ConnConfig.Database, "_durable_storage_test") {
+		t.Fatal("durable storage restore qualification requires a dedicated database ending _durable_storage_test")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -27,9 +27,9 @@ func TestA4PostgresRestoredRoleQualification(t *testing.T) {
 	}
 	defer pool.Close()
 	assertRestoredFacts(t, ctx, pool)
-	runtimeRole := testRole("AXIOM_A4_RUNTIME_ROLE", "axiom_runtime")
-	recorderRole := testRole("AXIOM_A4_RECORDER_ROLE", "axiom_recorder")
-	readOnlyRole := testRole("AXIOM_A4_READONLY_ROLE", "axiom_readonly")
+	runtimeRole := testRole("AXIOM_DURABLE_STORAGE_RUNTIME_ROLE", "axiom_runtime")
+	recorderRole := testRole("AXIOM_DURABLE_STORAGE_RECORDER_ROLE", "axiom_recorder")
+	readOnlyRole := testRole("AXIOM_DURABLE_STORAGE_READONLY_ROLE", "axiom_readonly")
 	if err = ApplyRoleGrants(ctx, pool, runtimeRole, recorderRole, readOnlyRole); err != nil {
 		t.Fatalf("restored role grants failed: %v", err)
 	}

@@ -52,7 +52,7 @@ func NewBearerAuthorizer(token string) (func(*http.Request) bool, error) {
 	}, nil
 }
 
-// Register adds all A1 health and system-information routes to mux.
+// Register adds all application baseline health and system-information routes to mux.
 func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("/health/live", getOnly(liveness(options)))
 	mux.HandleFunc("/health/ready", getOnly(readiness(options)))

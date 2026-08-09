@@ -46,7 +46,7 @@ const (
 // ScopeKind is one persisted policy hierarchy dimension.
 type ScopeKind string
 
-// Required six A9 policy scopes.
+// Required six portfolio and risk policy scopes.
 const (
 	ScopeGlobal     ScopeKind = "global"
 	ScopeAccount    ScopeKind = "exchange_account"
@@ -70,7 +70,7 @@ type Scope struct {
 	ID   string
 }
 
-// Limits contains every active conservative V1A threshold.
+// Limits contains every active conservative initial trend threshold.
 type Limits struct {
 	AccountDrawdown   domain.Percent
 	DayLoss           domain.Percent

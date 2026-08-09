@@ -1,12 +1,23 @@
 package risk
 
 import (
+	"fmt"
 	"time"
 
 	"axiom/internal/domain"
 )
 
-// DefaultLimits returns every active conservative V1A threshold as fractions.
+// ValidatePolicy verifies the complete persisted policy shape before another
+// package uses it to compose central risk. It does not change engine state or
+// make a policy effective.
+func ValidatePolicy(policy Policy) error {
+	if !validPolicy(policy) {
+		return fmt.Errorf("risk_policy_invalid")
+	}
+	return nil
+}
+
+// DefaultLimits returns every active conservative initial trend threshold as fractions.
 func DefaultLimits() Limits {
 	return Limits{AccountDrawdown: percent("0.05"), DayLoss: percent("0.01"), RollingLoss: percent("0.01"),
 		StrategyLoss: percent("0.03"), AssetExposure: percent("0.30"), CombinedExposure: percent("0.50"),
@@ -18,7 +29,7 @@ func DefaultLimits() Limits {
 
 // DefaultGlobalPolicy starts PAUSED and never grants entry by construction.
 func DefaultGlobalPolicy() Policy {
-	return Policy{ID: "v1a-global-default", Version: 1, Scope: Scope{Kind: ScopeGlobal, ID: "platform"},
+	return Policy{ID: "global-spot-default", Version: 1, Scope: Scope{Kind: ScopeGlobal, ID: "platform"},
 		State: StatePaused, Limits: DefaultLimits()}
 }
 

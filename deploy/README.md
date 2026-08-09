@@ -18,13 +18,13 @@ readiness runner. No service can target a production-private exchange host.
 
 ```bash
 cp .env.example .env
-mkdir -p .secrets .local/market-data .local/backup-staging .local/v1c-pr2-canaries
+mkdir -p .secrets .local/market-data .local/backup-staging .local/sandbox-canaries
 chmod 700 .secrets
 # On Linux, ensure bind-mounted writable paths match APP_UID/APP_GID.
 sudo chown -R 10001:10001 .local/market-data
 sudo chown -R 10002:70 .local/backup-staging
-sudo chown 10001:70 .local/v1c-pr2-canaries
-chmod 750 .local/v1c-pr2-canaries
+sudo chown 10001:70 .local/sandbox-canaries
+chmod 750 .local/sandbox-canaries
 ```
 
 Review every `CHANGE_ME` value in `.env`. Keep public ports bound to `127.0.0.1` unless Caddy or another authenticated TLS proxy is active.
@@ -41,12 +41,12 @@ must be mounted explicitly at an absolute path and selected with
 `APP_CONFIG_FILE`; partial environment overlays are rejected.
 
 The V1B recorder and B3-B6 strategy and advisory roles may instead select
-`deploy/config/platform-shadow-v1b.json`. That immutable graph composes the
+`deploy/config/platform-research.json`. That immutable graph composes the
 compiled Binance and Bybit production-public endpoint sets, three approved
 spot instruments per venue, 15m/1h/4h candles, and the complete immutable
 `mean-reversion.v1b.1` 1h/4h and `triangular.v1b.1` exact-depth parameter
 contracts, B5's closed-cycle concurrent cross-exchange contract, and B6's
-reviewed `rebalancing.v1b.1` advisory-only route contract. B4 and B5 remain
+reviewed `inventory-rebalancing@1.0.0` advisory-only route contract. B4 and B5 remain
 simulation-only, while B6 contains no transfer or withdrawal executor. The
 graph contains no secret references and does not enable authenticated exchange
 behavior. Older V1A and V1B.1 through V1B.4 configuration schemas remain
@@ -70,7 +70,7 @@ Required for PostgreSQL:
 - `.secrets/postgres_readonly_password`
 - `.secrets/postgres_binance_engine_password`
 - `.secrets/postgres_bybit_engine_password`
-- `.secrets/postgres_c6_qualification_password`
+- `.secrets/postgres_sandbox_qualification_password`
 
 The A11 `api` service exposes redacted public liveness/readiness/build data and
 uses the independent health-detail token for authenticated component status.
@@ -159,7 +159,7 @@ openssl rand -base64 32 > .secrets/backup_encryption_key
 openssl rand -base64 48 > .secrets/postgres_readonly_password
 openssl rand -base64 48 > .secrets/postgres_binance_engine_password
 openssl rand -base64 48 > .secrets/postgres_bybit_engine_password
-openssl rand -base64 48 > .secrets/postgres_c6_qualification_password
+openssl rand -base64 48 > .secrets/postgres_sandbox_qualification_password
 openssl rand -base64 48 > .secrets/grafana_admin_password
 openssl rand -base64 48 > .secrets/health_detail_token
 sudo chgrp 70 .secrets/postgres_*_password
@@ -213,18 +213,30 @@ docker compose ps
 ```
 
 The PostgreSQL initialization script creates distinct owner, migrator, runtime,
-recorder, backup, read-only, Binance-engine, Bybit-engine, and C6 qualification
+recorder, backup, read-only, Binance-engine, Bybit-engine, and sandbox-qualification
 roles only on an empty data volume. Later changes belong in migrations.
 Authenticated engines share no database login, and neither engine can append
-or update C6 qualification records.
+or update sandbox-qualification records.
 
 Before upgrading an existing database to migrations `000021` through `000024`, a
 database administrator must provision the separate Binance-engine and
-Bybit-engine login roles, the `axiom_c6_qualification` login role, and their
+Bybit-engine login roles, the `axiom_sandbox_qualification` login role, and their
 password files. Empty-volume initialization does not run again on an existing
 volume, and migration startup fails closed if a required role is absent. Do
-not reuse an existing application or authenticated-engine login for the C6
+not reuse an existing application or authenticated-engine login for the sandbox
 observer.
+
+Before applying migration `000054` to an older volume, a database administrator
+must rename the historical `axiom_c6_qualification` login to
+`axiom_sandbox_qualification`, unless the migrator itself has `CREATEROLE`:
+
+```sql
+ALTER ROLE axiom_c6_qualification RENAME TO axiom_sandbox_qualification;
+```
+
+The migration fails closed if both names exist or if the old login remains and
+the migrator lacks role-administration rights. Do not delete or recreate the
+login because its existing grants and ownership must remain attached.
 
 The `sandbox-foundation` profile starts only the two CONNECT-only proxies:
 
@@ -251,8 +263,8 @@ the complete built-in V1C graph with all four integration/submission switches
 off. The image also contains two complete, reviewed, single-exchange canary
 graphs:
 
-- `/etc/axiom/platform-binance-testnet-v1c.json`
-- `/etc/axiom/platform-bybit-demo-v1c.json`
+- `/etc/axiom/platform-binance-testnet.json`
+- `/etc/axiom/platform-bybit-demo.json`
 
 Selecting one is an explicit order-enablement action. Pass the matching
 `*_SANDBOX_CONFIG_FILE` path to every engine and coordinator command in the
@@ -305,9 +317,9 @@ user-namespaced Docker Desktop/WSL host, provision it from the container
 namespace:
 
 ```bash
-mkdir -p .local/v1c-pr2-canaries
+mkdir -p .local/sandbox-canaries
 docker run --rm --user 0:0 \
-  --volume "$PWD/.local/v1c-pr2-canaries:/evidence:rw" \
+  --volume "$PWD/.local/sandbox-canaries:/evidence:rw" \
   postgres:18.4-alpine \
   sh -c 'chown 10001:70 /evidence && chmod 0750 /evidence'
 ```
@@ -322,7 +334,7 @@ already-terminal, exactly-once canary and remains query/reconciliation-only.
 Prepare Binance without putting any factor or order value on the command line:
 
 ```bash
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   BINANCE_CANARY_REQUEST_SOURCE_FILE=./.secrets/binance_canary_request \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
@@ -350,7 +362,7 @@ read-only query and reconciliation evidence without creating or canceling an
 order:
 
 ```bash
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
   sandbox-canary --exchange binance --phase recover \
@@ -364,7 +376,7 @@ request and cannot submit an exchange mutation.
 
 ```bash
 docker compose --env-file .env restart binance-sandbox-engine
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
   sandbox-canary --exchange binance --phase verify \
@@ -384,7 +396,7 @@ terminal `CANCELED`, `FILLED`, or `REJECTED` state, explicitly revoke its arm
 and stop its session:
 
 ```bash
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
   sandbox-canary --exchange binance --phase abort \
@@ -396,7 +408,7 @@ multi-attempt orders. Use the matching Bybit service and exchange value for a
 Bybit canary. Do not clear canary sessions through direct database edits.
 
 Repeat the same sequence with
-`BYBIT_SANDBOX_CONFIG_FILE=/etc/axiom/platform-bybit-demo-v1c.json`,
+`BYBIT_SANDBOX_CONFIG_FILE=/etc/axiom/platform-bybit-demo.json`,
 `bybit-sandbox-canary`, `bybit_canary_request`, `--exchange bybit`, and
 `bybit-sandbox-engine`. Keep the two evidence files independent. A failed,
 missing, or unsealed file is not acceptance evidence. Never infer
@@ -419,26 +431,26 @@ appends, and the constrained terminal run transition.
 
 Use a new run ID and a new absent absolute terminal path. Record the exact
 clean commit, build hash, running executable SHA-256, image digest, and
-immutable configuration SHA-256. Set `AXIOM_C6_SOURCE_DIRTY=false`; formal
+immutable configuration SHA-256. Set `AXIOM_SANDBOX_QUALIFICATION_SOURCE_DIRTY=false`; formal
 validation rejects a dirty source, a missing image identity, either missing
 approved account environment, a duration other than 259,200 seconds, or a
 sample interval outside 15 seconds through 5 minutes.
 
 ```bash
 DB_HOST=127.0.0.1 \
-DB_USER=axiom_c6_qualification \
-DB_PASSWORD_FILE="$PWD/.secrets/postgres_c6_qualification_password" \
-AXIOM_C6_SOAK_ENABLED=1 \
-AXIOM_C6_SOAK_MODE=formal \
-AXIOM_C6_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
-AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
-AXIOM_C6_BUILD_HASH=REPLACE_WITH_64_HEX \
-AXIOM_C6_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
-AXIOM_C6_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
-AXIOM_C6_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
-AXIOM_C6_SOURCE_DIRTY=false \
-AXIOM_C6_EVIDENCE_PATH=/absolute/new/c6-terminal.json \
-make c6-soak
+DB_USER=axiom_sandbox_qualification \
+DB_PASSWORD_FILE="$PWD/.secrets/postgres_sandbox_qualification_password" \
+AXIOM_SANDBOX_QUALIFICATION_SOAK_ENABLED=1 \
+AXIOM_SANDBOX_QUALIFICATION_SOAK_MODE=formal \
+AXIOM_SANDBOX_QUALIFICATION_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
+AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA=REPLACE_WITH_40_HEX \
+AXIOM_SANDBOX_QUALIFICATION_BUILD_HASH=REPLACE_WITH_64_HEX \
+AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
+AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
+AXIOM_SANDBOX_QUALIFICATION_SOURCE_DIRTY=false \
+AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH=/absolute/new/c6-terminal.json \
+make sandbox-qualification-formal
 ```
 
 The approved deterministic chaos controller must append exactly one run-bound
@@ -451,7 +463,7 @@ memory-leak evidence.
 
 The terminal file is create-once, mode `0440`, and directory/file-synced.
 Never delete or overwrite it. A smoke result always remains non-qualified. A
-passed formal file still requires evidence review and explicit V1C
+passed formal file still requires evidence review and explicit sandbox-runtime
 owner/security acceptance, and always carries
 `profitability_evidence=false`.
 
@@ -530,8 +542,8 @@ book or create a reconnect, while journal, rolling-status, recorder-flush,
 capacity, or terminal-evidence failure remains fail-closed.
 
 The B2 service contract additionally requires one dedicated empty B2 root and
-log, exact `AXIOM_B2_SOURCE_COMMIT`, bounded `AXIOM_B2_COLLECTOR_REGION`, and
-`AXIOM_B2_SOAK=1`. It runs `TestB2Continuous72HourPublicSoak` with a 73-hour
+log, exact `AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT`, bounded `AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION`, and
+`AXIOM_COHERENT_MARKET_DATA_SOAK=1`. It runs `TestB2Continuous72HourPublicSoak` with a 73-hour
 timeout and `Restart=no`. This change documents that future contract only: no B2
 unit is installed or started, and the 20-second smoke cannot promote B2.
 
@@ -615,8 +627,8 @@ an approved clean database restore from the pre-upgrade artifact and explicit
 loss/RPO accounting; never restore over the active database. Preserve failed
 rollout evidence under an incident hold.
 
-Run local D5 logic and evidence smoke with `make d5-soak-smoke`. The formal
-command is `make d5-readiness` and is intentionally unusable without all exact
+Run local D5 logic and evidence smoke with `make operational-readiness-smoke`. The formal
+command is `make operational-readiness-formal` and is intentionally unusable without all exact
 identity and live-evidence inputs. Follow
 [`docs/operations/d5-readiness.md`](../docs/operations/d5-readiness.md). The
 reference server has not been selected by repository configuration, so local

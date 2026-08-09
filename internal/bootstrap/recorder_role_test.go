@@ -53,31 +53,31 @@ func TestRecorderStoragePressureFailsClosedAtCritical(t *testing.T) {
 type pressureWriterStub struct{ observations int }
 
 func (store *pressureWriterStub) Observe(_ context.Context, observation pressure.Observation,
-	_ pressure.Policy) (postgresstore.D5StoragePressureState, bool, error) {
+	_ pressure.Policy) (postgresstore.OperationalReadinessStoragePressureState, bool, error) {
 	store.observations++
-	return postgresstore.D5StoragePressureState{Observation: observation, Revision: 2,
+	return postgresstore.OperationalReadinessStoragePressureState{Observation: observation, Revision: 2,
 		SourceInstance: "test-recorder"}, true, nil
 }
 
-func TestB1RecorderRoleComposesBothPublicExchangesAndNativeTriangle(t *testing.T) {
+func TestExchangeExpansionRecorderRoleComposesBothPublicExchangesAndNativeTriangle(t *testing.T) {
 	started := time.Unix(1_700_000_000, 0).UTC()
 	clock, _ := domain.NewReplayClock(started)
-	runtimeConfig := config.Runtime{InstanceID: "instance-b1", Recorder: config.RecorderRuntime{
+	runtimeConfig := config.Runtime{InstanceID: "instance-exchange_expansion", Recorder: config.RecorderRuntime{
 		Root: t.TempDir(), CollectorRegion: "test-region", FlushInterval: 5 * time.Minute, QueueCapacity: 8192, BookDepth: 1000}}
-	product := config.DefaultV1BConfiguration()
+	product := config.DefaultMultiStrategyConfiguration()
 	work, err := newRecorderRoleWork(context.Background(), nil, runtimeConfig, product, clock)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(work.collectors) != 3 || len(work.bybitCollectors) != 3 || work.bybitClient == nil ||
 		work.bybitRecorder == nil || work.Ready() {
-		t.Fatalf("B1 recorder composition = binance:%d bybit:%d ready:%t",
+		t.Fatalf("exchange expansion recorder composition = binance:%d bybit:%d ready:%t",
 			len(work.collectors), len(work.bybitCollectors), work.Ready())
 	}
 	for _, exchange := range product.PublicExchanges() {
 		if len(exchange.CandleIntervals) != 3 || exchange.Instruments[2].Base != "ETH" ||
 			exchange.Instruments[2].Quote != "BTC" {
-			t.Fatalf("B1 exchange graph = %#v", exchange)
+			t.Fatalf("exchange expansion exchange graph = %#v", exchange)
 		}
 	}
 }

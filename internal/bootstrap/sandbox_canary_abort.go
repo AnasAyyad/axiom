@@ -11,7 +11,7 @@ import (
 
 func abortSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	configurationID string,
 	exchange sandbox.Exchange,
 	canaryID string,

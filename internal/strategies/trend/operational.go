@@ -35,7 +35,7 @@ type OperationalProcessor struct {
 	metricErr bool
 }
 
-// NewOperationalProcessor composes decision evidence with the real A8-A10 path.
+// NewOperationalProcessor composes decision evidence with the real shared execution and research path.
 func NewOperationalProcessor(
 	evaluator *Evaluator,
 	pipeline *backtest.PipelineProcessor,
@@ -45,7 +45,7 @@ func NewOperationalProcessor(
 		return nil, trendError(ReasonInvalidConfiguration)
 	}
 	snapshot := owned.Snapshot()
-	quote, ok := snapshot.Balances[domain.AssetSymbol(portfolio.V1ANumeraire)]
+	quote, ok := snapshot.Balances[domain.AssetSymbol(portfolio.TrendNumeraire)]
 	if !ok {
 		return nil, trendError(ReasonInvalidConfiguration)
 	}
@@ -225,8 +225,8 @@ func (processor *OperationalProcessor) Metrics() backtest.Metrics {
 	metrics.Exposure = exposure.stringValue()
 	metrics.TimeInMarket = exposure.stringValue()
 	metrics.FeesPaid = processor.fees.stringValue()
-	metrics.ByExchange[portfolio.V1AExchange] = metrics.TotalNetReturn
-	metrics.ByStrategy[portfolio.V1AStrategy] = metrics.TotalNetReturn
+	metrics.ByExchange[portfolio.TrendExchange] = metrics.TotalNetReturn
+	metrics.ByStrategy[portfolio.TrendStrategy] = metrics.TotalNetReturn
 	return metrics
 }
 

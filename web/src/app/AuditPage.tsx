@@ -68,7 +68,7 @@ export function AuditPage() {
       {includeDetail && detailedAudit.isError && (
         <StatePanel
           state="forbidden"
-          detail="The current role cannot inspect audit evidence identities."
+          detail="The current owner session cannot inspect audit evidence identities."
         />
       )}
       {displayedAudit.items.length === 0 ? (

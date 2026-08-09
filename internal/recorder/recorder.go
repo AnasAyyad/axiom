@@ -82,8 +82,8 @@ func New(
 	return newRecorder(root, datasetID, sessionID, exchange, ordinals, commit, kill, nil)
 }
 
-// NewB2 constructs a recorder that emits V2 per-exchange qualification manifests.
-func NewB2(
+// NewCoherentMarketData constructs a recorder that emits V2 per-exchange qualification manifests.
+func NewCoherentMarketData(
 	root, datasetID, sessionID, exchange string,
 	ordinals *runtimecore.IngestOrdinals,
 	commit segments.Committer,

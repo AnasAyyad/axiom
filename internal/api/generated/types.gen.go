@@ -1297,13 +1297,25 @@ func (e LabInputManifestSpeed) Valid() bool {
 
 // Defines values for LabInputManifestStrategyVersion.
 const (
-	LabInputManifestStrategyVersionTrendV1a1 LabInputManifestStrategyVersion = "trend.v1a.1"
+	LabInputManifestStrategyVersionCrossExchangeArbitrage100 LabInputManifestStrategyVersion = "cross-exchange-arbitrage@1.0.0"
+	LabInputManifestStrategyVersionInventoryRebalancing100   LabInputManifestStrategyVersion = "inventory-rebalancing@1.0.0"
+	LabInputManifestStrategyVersionMeanReversion100          LabInputManifestStrategyVersion = "mean-reversion@1.0.0"
+	LabInputManifestStrategyVersionTrendFollowing100         LabInputManifestStrategyVersion = "trend-following@1.0.0"
+	LabInputManifestStrategyVersionTriangularArbitrage100    LabInputManifestStrategyVersion = "triangular-arbitrage@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the LabInputManifestStrategyVersion enum.
 func (e LabInputManifestStrategyVersion) Valid() bool {
 	switch e {
-	case LabInputManifestStrategyVersionTrendV1a1:
+	case LabInputManifestStrategyVersionCrossExchangeArbitrage100:
+		return true
+	case LabInputManifestStrategyVersionInventoryRebalancing100:
+		return true
+	case LabInputManifestStrategyVersionMeanReversion100:
+		return true
+	case LabInputManifestStrategyVersionTrendFollowing100:
+		return true
+	case LabInputManifestStrategyVersionTriangularArbitrage100:
 		return true
 	default:
 		return false
@@ -1327,16 +1339,25 @@ func (e ManualChecklistStepManualOnly) Valid() bool {
 
 // Defines values for OfflineJobRequestStrategyVersion.
 const (
-	OfflineJobRequestStrategyVersionMeanReversionV1b1 OfflineJobRequestStrategyVersion = "mean-reversion.v1b.1"
-	OfflineJobRequestStrategyVersionTrendV1a1         OfflineJobRequestStrategyVersion = "trend.v1a.1"
+	OfflineJobRequestStrategyVersionCrossExchangeArbitrage100 OfflineJobRequestStrategyVersion = "cross-exchange-arbitrage@1.0.0"
+	OfflineJobRequestStrategyVersionInventoryRebalancing100   OfflineJobRequestStrategyVersion = "inventory-rebalancing@1.0.0"
+	OfflineJobRequestStrategyVersionMeanReversion100          OfflineJobRequestStrategyVersion = "mean-reversion@1.0.0"
+	OfflineJobRequestStrategyVersionTrendFollowing100         OfflineJobRequestStrategyVersion = "trend-following@1.0.0"
+	OfflineJobRequestStrategyVersionTriangularArbitrage100    OfflineJobRequestStrategyVersion = "triangular-arbitrage@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the OfflineJobRequestStrategyVersion enum.
 func (e OfflineJobRequestStrategyVersion) Valid() bool {
 	switch e {
-	case OfflineJobRequestStrategyVersionMeanReversionV1b1:
+	case OfflineJobRequestStrategyVersionCrossExchangeArbitrage100:
 		return true
-	case OfflineJobRequestStrategyVersionTrendV1a1:
+	case OfflineJobRequestStrategyVersionInventoryRebalancing100:
+		return true
+	case OfflineJobRequestStrategyVersionMeanReversion100:
+		return true
+	case OfflineJobRequestStrategyVersionTrendFollowing100:
+		return true
+	case OfflineJobRequestStrategyVersionTriangularArbitrage100:
 		return true
 	default:
 		return false
@@ -1822,16 +1843,25 @@ func (e ReplayJobRequestSpeed) Valid() bool {
 
 // Defines values for ReplayJobRequestStrategyVersion.
 const (
-	ReplayJobRequestStrategyVersionMeanReversionV1b1 ReplayJobRequestStrategyVersion = "mean-reversion.v1b.1"
-	ReplayJobRequestStrategyVersionTrendV1a1         ReplayJobRequestStrategyVersion = "trend.v1a.1"
+	ReplayJobRequestStrategyVersionCrossExchangeArbitrage100 ReplayJobRequestStrategyVersion = "cross-exchange-arbitrage@1.0.0"
+	ReplayJobRequestStrategyVersionInventoryRebalancing100   ReplayJobRequestStrategyVersion = "inventory-rebalancing@1.0.0"
+	ReplayJobRequestStrategyVersionMeanReversion100          ReplayJobRequestStrategyVersion = "mean-reversion@1.0.0"
+	ReplayJobRequestStrategyVersionTrendFollowing100         ReplayJobRequestStrategyVersion = "trend-following@1.0.0"
+	ReplayJobRequestStrategyVersionTriangularArbitrage100    ReplayJobRequestStrategyVersion = "triangular-arbitrage@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the ReplayJobRequestStrategyVersion enum.
 func (e ReplayJobRequestStrategyVersion) Valid() bool {
 	switch e {
-	case ReplayJobRequestStrategyVersionMeanReversionV1b1:
+	case ReplayJobRequestStrategyVersionCrossExchangeArbitrage100:
 		return true
-	case ReplayJobRequestStrategyVersionTrendV1a1:
+	case ReplayJobRequestStrategyVersionInventoryRebalancing100:
+		return true
+	case ReplayJobRequestStrategyVersionMeanReversion100:
+		return true
+	case ReplayJobRequestStrategyVersionTrendFollowing100:
+		return true
+	case ReplayJobRequestStrategyVersionTriangularArbitrage100:
 		return true
 	default:
 		return false
@@ -2318,6 +2348,7 @@ const (
 	RunChoiceModeDemo          RunChoiceMode = "demo"
 	RunChoiceModeDemonstration RunChoiceMode = "demonstration"
 	RunChoiceModeReplay        RunChoiceMode = "replay"
+	RunChoiceModeSandbox       RunChoiceMode = "sandbox"
 	RunChoiceModeShadow        RunChoiceMode = "shadow"
 	RunChoiceModeTestnet       RunChoiceMode = "testnet"
 )
@@ -2333,6 +2364,8 @@ func (e RunChoiceMode) Valid() bool {
 		return true
 	case RunChoiceModeReplay:
 		return true
+	case RunChoiceModeSandbox:
+		return true
 	case RunChoiceModeShadow:
 		return true
 	case RunChoiceModeTestnet:
@@ -2344,16 +2377,16 @@ func (e RunChoiceMode) Valid() bool {
 
 // Defines values for RunCreateRequestExchanges.
 const (
-	Binance RunCreateRequestExchanges = "binance"
-	Bybit   RunCreateRequestExchanges = "bybit"
+	RunCreateRequestExchangesBinance RunCreateRequestExchanges = "binance"
+	RunCreateRequestExchangesBybit   RunCreateRequestExchanges = "bybit"
 )
 
 // Valid indicates whether the value is a known member of the RunCreateRequestExchanges enum.
 func (e RunCreateRequestExchanges) Valid() bool {
 	switch e {
-	case Binance:
+	case RunCreateRequestExchangesBinance:
 		return true
-	case Bybit:
+	case RunCreateRequestExchangesBybit:
 		return true
 	default:
 		return false
@@ -2366,6 +2399,7 @@ const (
 	RunCreateRequestModeDemo          RunCreateRequestMode = "demo"
 	RunCreateRequestModeDemonstration RunCreateRequestMode = "demonstration"
 	RunCreateRequestModeReplay        RunCreateRequestMode = "replay"
+	RunCreateRequestModeSandbox       RunCreateRequestMode = "sandbox"
 	RunCreateRequestModeShadow        RunCreateRequestMode = "shadow"
 	RunCreateRequestModeTestnet       RunCreateRequestMode = "testnet"
 )
@@ -2380,6 +2414,8 @@ func (e RunCreateRequestMode) Valid() bool {
 	case RunCreateRequestModeDemonstration:
 		return true
 	case RunCreateRequestModeReplay:
+		return true
+	case RunCreateRequestModeSandbox:
 		return true
 	case RunCreateRequestModeShadow:
 		return true
@@ -2471,6 +2507,60 @@ func (e RunOutputKind) Valid() bool {
 	}
 }
 
+// Defines values for RunPortfolioFeeExchange.
+const (
+	RunPortfolioFeeExchangeBinance RunPortfolioFeeExchange = "binance"
+	RunPortfolioFeeExchangeBybit   RunPortfolioFeeExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioFeeExchange enum.
+func (e RunPortfolioFeeExchange) Valid() bool {
+	switch e {
+	case RunPortfolioFeeExchangeBinance:
+		return true
+	case RunPortfolioFeeExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunPortfolioPositionExchange.
+const (
+	RunPortfolioPositionExchangeBinance RunPortfolioPositionExchange = "binance"
+	RunPortfolioPositionExchangeBybit   RunPortfolioPositionExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioPositionExchange enum.
+func (e RunPortfolioPositionExchange) Valid() bool {
+	switch e {
+	case RunPortfolioPositionExchangeBinance:
+		return true
+	case RunPortfolioPositionExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunPortfolioPositionValuationState.
+const (
+	RunPortfolioPositionValuationComplete         RunPortfolioPositionValuationState = "complete"
+	RunPortfolioPositionValuationUnvaluedFeeAsset RunPortfolioPositionValuationState = "unvalued_fee_asset"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioPositionValuationState enum.
+func (e RunPortfolioPositionValuationState) Valid() bool {
+	switch e {
+	case RunPortfolioPositionValuationComplete:
+		return true
+	case RunPortfolioPositionValuationUnvaluedFeeAsset:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RunPortfolioProjectionState.
 const (
 	RunPortfolioProjectionStateNotRecorded RunPortfolioProjectionState = "not_recorded"
@@ -2491,16 +2581,43 @@ func (e RunPortfolioProjectionState) Valid() bool {
 
 // Defines values for RunResourceEnvironment.
 const (
-	ProductionPublic RunResourceEnvironment = "production_public"
-	RecordedData     RunResourceEnvironment = "recorded_data"
+	BinanceSpotTestnet    RunResourceEnvironment = "binance_spot_testnet"
+	BybitDemo             RunResourceEnvironment = "bybit_demo"
+	PairedExchangeSandbox RunResourceEnvironment = "paired_exchange_sandbox"
+	ProductionPublic      RunResourceEnvironment = "production_public"
+	RecordedData          RunResourceEnvironment = "recorded_data"
 )
 
 // Valid indicates whether the value is a known member of the RunResourceEnvironment enum.
 func (e RunResourceEnvironment) Valid() bool {
 	switch e {
+	case BinanceSpotTestnet:
+		return true
+	case BybitDemo:
+		return true
+	case PairedExchangeSandbox:
+		return true
 	case ProductionPublic:
 		return true
 	case RecordedData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunResourceExchanges.
+const (
+	RunResourceExchangesBinance RunResourceExchanges = "binance"
+	RunResourceExchangesBybit   RunResourceExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunResourceExchanges enum.
+func (e RunResourceExchanges) Valid() bool {
+	switch e {
+	case RunResourceExchangesBinance:
+		return true
+	case RunResourceExchangesBybit:
 		return true
 	default:
 		return false
@@ -2511,6 +2628,7 @@ func (e RunResourceEnvironment) Valid() bool {
 const (
 	RunResourceModeBacktest RunResourceMode = "backtest"
 	RunResourceModeReplay   RunResourceMode = "replay"
+	RunResourceModeSandbox  RunResourceMode = "sandbox"
 	RunResourceModeShadow   RunResourceMode = "shadow"
 )
 
@@ -2521,7 +2639,27 @@ func (e RunResourceMode) Valid() bool {
 		return true
 	case RunResourceModeReplay:
 		return true
+	case RunResourceModeSandbox:
+		return true
 	case RunResourceModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunRiskObservationExchange.
+const (
+	RunRiskObservationExchangeBinance RunRiskObservationExchange = "binance"
+	RunRiskObservationExchangeBybit   RunRiskObservationExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunRiskObservationExchange enum.
+func (e RunRiskObservationExchange) Valid() bool {
+	switch e {
+	case RunRiskObservationExchangeBinance:
+		return true
+	case RunRiskObservationExchangeBybit:
 		return true
 	default:
 		return false
@@ -2530,13 +2668,37 @@ func (e RunResourceMode) Valid() bool {
 
 // Defines values for RunRiskProjectionState.
 const (
-	NotRecorded RunRiskProjectionState = "not_recorded"
+	RunRiskProjectionStateNotRecorded RunRiskProjectionState = "not_recorded"
+	RunRiskProjectionStateRecorded    RunRiskProjectionState = "recorded"
 )
 
 // Valid indicates whether the value is a known member of the RunRiskProjectionState enum.
 func (e RunRiskProjectionState) Valid() bool {
 	switch e {
-	case NotRecorded:
+	case RunRiskProjectionStateNotRecorded:
+		return true
+	case RunRiskProjectionStateRecorded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunRiskProjectionStatus.
+const (
+	RunRiskProjectionStatusBlocked RunRiskProjectionStatus = "blocked"
+	RunRiskProjectionStatusNormal  RunRiskProjectionStatus = "normal"
+	RunRiskProjectionStatusWaiting RunRiskProjectionStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the RunRiskProjectionStatus enum.
+func (e RunRiskProjectionStatus) Valid() bool {
+	switch e {
+	case RunRiskProjectionStatusBlocked:
+		return true
+	case RunRiskProjectionStatusNormal:
+		return true
+	case RunRiskProjectionStatusWaiting:
 		return true
 	default:
 		return false
@@ -3191,6 +3353,63 @@ func (e SandboxStrategySessionState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxStrategySessionCreateRequestInstrument.
+const (
+	SandboxStrategySessionCreateRequestInstrumentBTCUSDT SandboxStrategySessionCreateRequestInstrument = "BTCUSDT"
+	SandboxStrategySessionCreateRequestInstrumentETHUSDT SandboxStrategySessionCreateRequestInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionCreateRequestInstrument enum.
+func (e SandboxStrategySessionCreateRequestInstrument) Valid() bool {
+	switch e {
+	case SandboxStrategySessionCreateRequestInstrumentBTCUSDT:
+		return true
+	case SandboxStrategySessionCreateRequestInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxStrategySessionCreateRequestPreset.
+const (
+	SandboxStrategySessionCreateRequestPresetLatestQualifiedInputs SandboxStrategySessionCreateRequestPreset = "latest-qualified-inputs"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionCreateRequestPreset enum.
+func (e SandboxStrategySessionCreateRequestPreset) Valid() bool {
+	switch e {
+	case SandboxStrategySessionCreateRequestPresetLatestQualifiedInputs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxStrategySessionCreateRequestStrategyId.
+const (
+	SandboxStrategySessionCreateRequestStrategyIdCrossExchangeArbitrage SandboxStrategySessionCreateRequestStrategyId = "cross-exchange-arbitrage"
+	SandboxStrategySessionCreateRequestStrategyIdMeanReversion          SandboxStrategySessionCreateRequestStrategyId = "mean-reversion"
+	SandboxStrategySessionCreateRequestStrategyIdTrendFollowing         SandboxStrategySessionCreateRequestStrategyId = "trend-following"
+	SandboxStrategySessionCreateRequestStrategyIdTriangularArbitrage    SandboxStrategySessionCreateRequestStrategyId = "triangular-arbitrage"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionCreateRequestStrategyId enum.
+func (e SandboxStrategySessionCreateRequestStrategyId) Valid() bool {
+	switch e {
+	case SandboxStrategySessionCreateRequestStrategyIdCrossExchangeArbitrage:
+		return true
+	case SandboxStrategySessionCreateRequestStrategyIdMeanReversion:
+		return true
+	case SandboxStrategySessionCreateRequestStrategyIdTrendFollowing:
+		return true
+	case SandboxStrategySessionCreateRequestStrategyIdTriangularArbitrage:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxTestOrderRequestInstrument.
 const (
 	SandboxTestOrderRequestInstrumentBTCUSDT SandboxTestOrderRequestInstrument = "BTCUSDT"
@@ -3302,6 +3521,57 @@ func (e ShadowDecisionSummaryRiskOutcome) Valid() bool {
 	}
 }
 
+// Defines values for ShadowInputHealthExchange.
+const (
+	Binance ShadowInputHealthExchange = "binance"
+	Bybit   ShadowInputHealthExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the ShadowInputHealthExchange enum.
+func (e ShadowInputHealthExchange) Valid() bool {
+	switch e {
+	case Binance:
+		return true
+	case Bybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowInputHealthState.
+const (
+	ShadowInputHealthStateCONNECTING   ShadowInputHealthState = "CONNECTING"
+	ShadowInputHealthStateDISCONNECTED ShadowInputHealthState = "DISCONNECTED"
+	ShadowInputHealthStateHEALTHY      ShadowInputHealthState = "HEALTHY"
+	ShadowInputHealthStatePAUSED       ShadowInputHealthState = "PAUSED"
+	ShadowInputHealthStateSTALE        ShadowInputHealthState = "STALE"
+	ShadowInputHealthStateSYNCING      ShadowInputHealthState = "SYNCING"
+	ShadowInputHealthStateUNAVAILABLE  ShadowInputHealthState = "UNAVAILABLE"
+)
+
+// Valid indicates whether the value is a known member of the ShadowInputHealthState enum.
+func (e ShadowInputHealthState) Valid() bool {
+	switch e {
+	case ShadowInputHealthStateCONNECTING:
+		return true
+	case ShadowInputHealthStateDISCONNECTED:
+		return true
+	case ShadowInputHealthStateHEALTHY:
+		return true
+	case ShadowInputHealthStatePAUSED:
+		return true
+	case ShadowInputHealthStateSTALE:
+		return true
+	case ShadowInputHealthStateSYNCING:
+		return true
+	case ShadowInputHealthStateUNAVAILABLE:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ShadowPnlAttributionValuationBasis.
 const (
 	SealedLedgerFunctionalValue ShadowPnlAttributionValuationBasis = "sealed_ledger_functional_value"
@@ -3319,13 +3589,49 @@ func (e ShadowPnlAttributionValuationBasis) Valid() bool {
 
 // Defines values for ShadowSessionRequestStrategyVersion.
 const (
-	ShadowSessionRequestStrategyVersionTrendV1a1 ShadowSessionRequestStrategyVersion = "trend.v1a.1"
+	ShadowSessionRequestStrategyVersionTrendFollowing100 ShadowSessionRequestStrategyVersion = "trend-following@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the ShadowSessionRequestStrategyVersion enum.
 func (e ShadowSessionRequestStrategyVersion) Valid() bool {
 	switch e {
-	case ShadowSessionRequestStrategyVersionTrendV1a1:
+	case ShadowSessionRequestStrategyVersionTrendFollowing100:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionResourceActivityState.
+const (
+	ShadowSessionResourceActivityStateBlocked    ShadowSessionResourceActivityState = "blocked"
+	ShadowSessionResourceActivityStateEvaluating ShadowSessionResourceActivityState = "evaluating"
+	ShadowSessionResourceActivityStatePaused     ShadowSessionResourceActivityState = "paused"
+	ShadowSessionResourceActivityStatePreparing  ShadowSessionResourceActivityState = "preparing"
+	ShadowSessionResourceActivityStateRunning    ShadowSessionResourceActivityState = "running"
+	ShadowSessionResourceActivityStateStopped    ShadowSessionResourceActivityState = "stopped"
+	ShadowSessionResourceActivityStateWaiting    ShadowSessionResourceActivityState = "waiting"
+	ShadowSessionResourceActivityStateWarmingUp  ShadowSessionResourceActivityState = "warming_up"
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionResourceActivityState enum.
+func (e ShadowSessionResourceActivityState) Valid() bool {
+	switch e {
+	case ShadowSessionResourceActivityStateBlocked:
+		return true
+	case ShadowSessionResourceActivityStateEvaluating:
+		return true
+	case ShadowSessionResourceActivityStatePaused:
+		return true
+	case ShadowSessionResourceActivityStatePreparing:
+		return true
+	case ShadowSessionResourceActivityStateRunning:
+		return true
+	case ShadowSessionResourceActivityStateStopped:
+		return true
+	case ShadowSessionResourceActivityStateWaiting:
+		return true
+	case ShadowSessionResourceActivityStateWarmingUp:
 		return true
 	default:
 		return false
@@ -3490,13 +3796,16 @@ func (e ShadowSessionSummaryState) Valid() bool {
 
 // Defines values for ShadowSessionSummaryStrategyVersion.
 const (
-	ShadowSessionSummaryStrategyVersionTrendV1a1 ShadowSessionSummaryStrategyVersion = "trend.v1a.1"
+	ShadowSessionSummaryStrategyVersionMeanReversion100  ShadowSessionSummaryStrategyVersion = "mean-reversion@1.0.0"
+	ShadowSessionSummaryStrategyVersionTrendFollowing100 ShadowSessionSummaryStrategyVersion = "trend-following@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the ShadowSessionSummaryStrategyVersion enum.
 func (e ShadowSessionSummaryStrategyVersion) Valid() bool {
 	switch e {
-	case ShadowSessionSummaryStrategyVersionTrendV1a1:
+	case ShadowSessionSummaryStrategyVersionMeanReversion100:
+		return true
+	case ShadowSessionSummaryStrategyVersionTrendFollowing100:
 		return true
 	default:
 		return false
@@ -3847,19 +4156,19 @@ func (e SystemStatusRealTradingEnabled) Valid() bool {
 
 // Defines values for SystemStatusRiskState.
 const (
-	LOCKED  SystemStatusRiskState = "LOCKED"
-	PAUSED  SystemStatusRiskState = "PAUSED"
-	RESUMED SystemStatusRiskState = "RESUMED"
+	SystemStatusRiskStateLOCKED  SystemStatusRiskState = "LOCKED"
+	SystemStatusRiskStatePAUSED  SystemStatusRiskState = "PAUSED"
+	SystemStatusRiskStateRESUMED SystemStatusRiskState = "RESUMED"
 )
 
 // Valid indicates whether the value is a known member of the SystemStatusRiskState enum.
 func (e SystemStatusRiskState) Valid() bool {
 	switch e {
-	case LOCKED:
+	case SystemStatusRiskStateLOCKED:
 		return true
-	case PAUSED:
+	case SystemStatusRiskStatePAUSED:
 		return true
-	case RESUMED:
+	case SystemStatusRiskStateRESUMED:
 		return true
 	default:
 		return false
@@ -3943,25 +4252,25 @@ func (e TrendStatusEvidenceMaturity) Valid() bool {
 
 // Defines values for TrendStatusHealth.
 const (
-	Degraded TrendStatusHealth = "degraded"
-	Healthy  TrendStatusHealth = "healthy"
-	Locked   TrendStatusHealth = "locked"
-	Paused   TrendStatusHealth = "paused"
-	Warming  TrendStatusHealth = "warming"
+	TrendStatusHealthDegraded TrendStatusHealth = "degraded"
+	TrendStatusHealthHealthy  TrendStatusHealth = "healthy"
+	TrendStatusHealthLocked   TrendStatusHealth = "locked"
+	TrendStatusHealthPaused   TrendStatusHealth = "paused"
+	TrendStatusHealthWarming  TrendStatusHealth = "warming"
 )
 
 // Valid indicates whether the value is a known member of the TrendStatusHealth enum.
 func (e TrendStatusHealth) Valid() bool {
 	switch e {
-	case Degraded:
+	case TrendStatusHealthDegraded:
 		return true
-	case Healthy:
+	case TrendStatusHealthHealthy:
 		return true
-	case Locked:
+	case TrendStatusHealthLocked:
 		return true
-	case Paused:
+	case TrendStatusHealthPaused:
 		return true
-	case Warming:
+	case TrendStatusHealthWarming:
 		return true
 	default:
 		return false
@@ -3985,13 +4294,13 @@ func (e TrendStatusTimeframe) Valid() bool {
 
 // Defines values for TrendStatusVersion.
 const (
-	TrendStatusVersionTrendV1a1 TrendStatusVersion = "trend.v1a.1"
+	TrendFollowing100 TrendStatusVersion = "trend-following@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the TrendStatusVersion enum.
 func (e TrendStatusVersion) Valid() bool {
 	switch e {
-	case TrendStatusVersionTrendV1a1:
+	case TrendFollowing100:
 		return true
 	default:
 		return false
@@ -4505,30 +4814,6 @@ type ConfigurationActivationRequest struct {
 	Reason             string   `json:"reason"`
 }
 
-// D1Resource defines model for D1Resource.
-type D1Resource struct {
-	Attributes    map[string]interface{} `json:"attributes"`
-	CorrelationId string                 `json:"correlation_id"`
-	Id            string                 `json:"id"`
-	Kind          string                 `json:"kind"`
-	Links         map[string]string      `json:"links"`
-
-	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
-	OccurredAt *Timestamp          `json:"occurred_at,omitempty"`
-	Reason     *ReasonPresentation `json:"reason,omitempty"`
-	Revision   Revision            `json:"revision"`
-	State      string              `json:"state"`
-}
-
-// D1ResourcePage defines model for D1ResourcePage.
-type D1ResourcePage struct {
-	HasMore          bool         `json:"has_more"`
-	Items            []D1Resource `json:"items"`
-	NextCursor       *string      `json:"next_cursor,omitempty"`
-	Revision         Revision     `json:"revision"`
-	SnapshotRevision Revision     `json:"snapshot_revision"`
-}
-
 // DataCatalogueItem defines model for DataCatalogueItem.
 type DataCatalogueItem struct {
 	// CoverageEnd RFC 3339 timestamp with an explicit UTC offset.
@@ -4536,7 +4821,9 @@ type DataCatalogueItem struct {
 
 	// CoverageStart RFC 3339 timestamp with an explicit UTC offset.
 	CoverageStart  Timestamp                         `json:"coverage_start"`
+	CoverageTypes  []string                          `json:"coverage_types"`
 	Exchanges      []DataCatalogueItemExchanges      `json:"exchanges"`
+	Instruments    []string                          `json:"instruments"`
 	KnownGapCount  int                               `json:"known_gap_count"`
 	ManifestHash   string                            `json:"manifest_hash"`
 	Name           string                            `json:"name"`
@@ -5246,6 +5533,30 @@ type OpportunitySummarySimulationOnly bool
 // OpportunitySummaryStatus defines model for OpportunitySummary.Status.
 type OpportunitySummaryStatus string
 
+// OwnerControlResource defines model for OwnerControlResource.
+type OwnerControlResource struct {
+	Attributes    map[string]interface{} `json:"attributes"`
+	CorrelationId string                 `json:"correlation_id"`
+	Id            string                 `json:"id"`
+	Kind          string                 `json:"kind"`
+	Links         map[string]string      `json:"links"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt *Timestamp          `json:"occurred_at,omitempty"`
+	Reason     *ReasonPresentation `json:"reason,omitempty"`
+	Revision   Revision            `json:"revision"`
+	State      string              `json:"state"`
+}
+
+// OwnerControlResourcePage defines model for OwnerControlResourcePage.
+type OwnerControlResourcePage struct {
+	HasMore          bool                   `json:"has_more"`
+	Items            []OwnerControlResource `json:"items"`
+	NextCursor       *string                `json:"next_cursor,omitempty"`
+	Revision         Revision               `json:"revision"`
+	SnapshotRevision Revision               `json:"snapshot_revision"`
+}
+
 // Page defines model for Page.
 type Page struct {
 	HasMore    bool     `json:"has_more"`
@@ -5879,12 +6190,52 @@ type RunPage struct {
 	Items []RunResource `json:"items"`
 }
 
+// RunPortfolioFee defines model for RunPortfolioFee.
+type RunPortfolioFee struct {
+	Asset      string                  `json:"asset"`
+	Exchange   RunPortfolioFeeExchange `json:"exchange"`
+	Fee        NonnegativeDecimal      `json:"fee"`
+	Instrument string                  `json:"instrument"`
+	Rebate     NonnegativeDecimal      `json:"rebate"`
+}
+
+// RunPortfolioFeeExchange defines model for RunPortfolioFee.Exchange.
+type RunPortfolioFeeExchange string
+
+// RunPortfolioPosition defines model for RunPortfolioPosition.
+type RunPortfolioPosition struct {
+	Exchange    RunPortfolioPositionExchange `json:"exchange"`
+	Instrument  string                       `json:"instrument"`
+	Quantity    NonnegativeDecimal           `json:"quantity"`
+	RealizedPnl Decimal                      `json:"realized_pnl"`
+	TotalCost   NonnegativeDecimal           `json:"total_cost"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt           Timestamp                          `json:"updated_at"`
+	ValuationState      RunPortfolioPositionValuationState `json:"valuation_state"`
+	WeightedAverageCost NonnegativeDecimal                 `json:"weighted_average_cost"`
+}
+
+// RunPortfolioPositionExchange defines model for RunPortfolioPosition.Exchange.
+type RunPortfolioPositionExchange string
+
+// RunPortfolioPositionValuationState defines model for RunPortfolioPosition.ValuationState.
+type RunPortfolioPositionValuationState string
+
 // RunPortfolioProjection defines model for RunPortfolioProjection.
 type RunPortfolioProjection struct {
+	AccountDrawdown  *NonnegativeDecimal         `json:"account_drawdown,omitempty"`
 	CanonicalPayload *string                     `json:"canonical_payload,omitempty"`
 	ContentHash      *string                     `json:"content_hash,omitempty"`
+	Fees             *[]RunPortfolioFee          `json:"fees,omitempty"`
 	Ordinal          *Revision                   `json:"ordinal,omitempty"`
+	Positions        *[]RunPortfolioPosition     `json:"positions,omitempty"`
+	RealizedPnl      *Decimal                    `json:"realized_pnl,omitempty"`
+	Slippage         *NonnegativeDecimal         `json:"slippage,omitempty"`
 	State            RunPortfolioProjectionState `json:"state"`
+	Summary          *string                     `json:"summary,omitempty"`
+	TotalPnl         *Decimal                    `json:"total_pnl,omitempty"`
+	UnrealizedPnl    *Decimal                    `json:"unrealized_pnl,omitempty"`
 	WaitingReason    *string                     `json:"waiting_reason,omitempty"`
 }
 
@@ -5896,16 +6247,21 @@ type RunResource struct {
 	AvailableActions []RunAction `json:"available_actions"`
 
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
-	CreatedAt       Timestamp              `json:"created_at"`
-	Environment     RunResourceEnvironment `json:"environment"`
-	FriendlyName    string                 `json:"friendly_name"`
-	Id              string                 `json:"id"`
-	Mode            RunResourceMode        `json:"mode"`
-	OrderCapable    bool                   `json:"order_capable"`
-	Revision        Revision               `json:"revision"`
-	State           string                 `json:"state"`
-	StrategyId      string                 `json:"strategy_id"`
-	StrategyVersion string                 `json:"strategy_version"`
+	CreatedAt    Timestamp               `json:"created_at"`
+	Environment  RunResourceEnvironment  `json:"environment"`
+	Exchanges    *[]RunResourceExchanges `json:"exchanges,omitempty"`
+	FriendlyName string                  `json:"friendly_name"`
+	Id           string                  `json:"id"`
+	Instrument   *string                 `json:"instrument,omitempty"`
+	Mode         RunResourceMode         `json:"mode"`
+
+	// NextEvaluationAt RFC 3339 timestamp with an explicit UTC offset.
+	NextEvaluationAt *Timestamp `json:"next_evaluation_at,omitempty"`
+	OrderCapable     bool       `json:"order_capable"`
+	Revision         Revision   `json:"revision"`
+	State            string     `json:"state"`
+	StrategyId       string     `json:"strategy_id"`
+	StrategyVersion  string     `json:"strategy_version"`
 
 	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
 	UpdatedAt     *Timestamp `json:"updated_at,omitempty"`
@@ -5915,17 +6271,54 @@ type RunResource struct {
 // RunResourceEnvironment defines model for RunResource.Environment.
 type RunResourceEnvironment string
 
+// RunResourceExchanges defines model for RunResource.Exchanges.
+type RunResourceExchanges string
+
 // RunResourceMode defines model for RunResource.Mode.
 type RunResourceMode string
 
+// RunRiskObservation defines model for RunRiskObservation.
+type RunRiskObservation struct {
+	AccountDrawdown  NonnegativeDecimal         `json:"account_drawdown"`
+	AssetExposure    NonnegativeDecimal         `json:"asset_exposure"`
+	CombinedExposure NonnegativeDecimal         `json:"combined_exposure"`
+	EvidenceHash     string                     `json:"evidence_hash"`
+	Exchange         RunRiskObservationExchange `json:"exchange"`
+	ExchangeExposure NonnegativeDecimal         `json:"exchange_exposure"`
+	HealthBlockers   []string                   `json:"health_blockers"`
+	Instrument       string                     `json:"instrument"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt        Timestamp          `json:"observed_at"`
+	OpenOrders        int                `json:"open_orders"`
+	PolicyVersion     Revision           `json:"policy_version"`
+	QualityScore      int                `json:"quality_score"`
+	Reserve           NonnegativeDecimal `json:"reserve"`
+	ReservedCapital   NonnegativeDecimal `json:"reserved_capital"`
+	Rolling24HourLoss NonnegativeDecimal `json:"rolling_24_hour_loss"`
+	Slippage          NonnegativeDecimal `json:"slippage"`
+	Spread            NonnegativeDecimal `json:"spread"`
+	StrategyLoss      NonnegativeDecimal `json:"strategy_loss"`
+	UtcDayLoss        NonnegativeDecimal `json:"utc_day_loss"`
+}
+
+// RunRiskObservationExchange defines model for RunRiskObservation.Exchange.
+type RunRiskObservationExchange string
+
 // RunRiskProjection defines model for RunRiskProjection.
 type RunRiskProjection struct {
-	State   RunRiskProjectionState `json:"state"`
-	Summary string                 `json:"summary"`
+	Blockers     *[]string                `json:"blockers,omitempty"`
+	Observations *[]RunRiskObservation    `json:"observations,omitempty"`
+	State        RunRiskProjectionState   `json:"state"`
+	Status       *RunRiskProjectionStatus `json:"status,omitempty"`
+	Summary      string                   `json:"summary"`
 }
 
 // RunRiskProjectionState defines model for RunRiskProjection.State.
 type RunRiskProjectionState string
+
+// RunRiskProjectionStatus defines model for RunRiskProjection.Status.
+type RunRiskProjectionStatus string
 
 // RuntimeControlRequest defines model for RuntimeControlRequest.
 type RuntimeControlRequest struct {
@@ -6323,6 +6716,24 @@ type SandboxStrategySessionInstrument string
 // SandboxStrategySessionState defines model for SandboxStrategySession.State.
 type SandboxStrategySessionState string
 
+// SandboxStrategySessionCreateRequest defines model for SandboxStrategySessionCreateRequest.
+type SandboxStrategySessionCreateRequest struct {
+	Exchanges  []SandboxExchange                             `json:"exchanges"`
+	Instrument SandboxStrategySessionCreateRequestInstrument `json:"instrument"`
+	Preset     SandboxStrategySessionCreateRequestPreset     `json:"preset"`
+	Reason     string                                        `json:"reason"`
+	StrategyId SandboxStrategySessionCreateRequestStrategyId `json:"strategy_id"`
+}
+
+// SandboxStrategySessionCreateRequestInstrument defines model for SandboxStrategySessionCreateRequest.Instrument.
+type SandboxStrategySessionCreateRequestInstrument string
+
+// SandboxStrategySessionCreateRequestPreset defines model for SandboxStrategySessionCreateRequest.Preset.
+type SandboxStrategySessionCreateRequestPreset string
+
+// SandboxStrategySessionCreateRequestStrategyId defines model for SandboxStrategySessionCreateRequest.StrategyId.
+type SandboxStrategySessionCreateRequestStrategyId string
+
 // SandboxStrategySessionStartRequest defines model for SandboxStrategySessionStartRequest.
 type SandboxStrategySessionStartRequest struct {
 	AuthorizationToken string   `json:"authorization_token"`
@@ -6417,6 +6828,26 @@ type ShadowDecisionSummary struct {
 // ShadowDecisionSummaryRiskOutcome defines model for ShadowDecisionSummary.RiskOutcome.
 type ShadowDecisionSummaryRiskOutcome string
 
+// ShadowInputHealth defines model for ShadowInputHealth.
+type ShadowInputHealth struct {
+	AgeMilliseconds Revision                  `json:"age_milliseconds"`
+	BookVersion     Revision                  `json:"book_version"`
+	Exchange        ShadowInputHealthExchange `json:"exchange"`
+	Fresh           bool                      `json:"fresh"`
+	Instrument      string                    `json:"instrument"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt Timestamp              `json:"observed_at"`
+	Reason     string                 `json:"reason"`
+	State      ShadowInputHealthState `json:"state"`
+}
+
+// ShadowInputHealthExchange defines model for ShadowInputHealth.Exchange.
+type ShadowInputHealthExchange string
+
+// ShadowInputHealthState defines model for ShadowInputHealth.State.
+type ShadowInputHealthState string
+
 // ShadowPnlAttribution defines model for ShadowPnlAttribution.
 type ShadowPnlAttribution struct {
 	FeeExpense     Decimal                            `json:"fee_expense"`
@@ -6462,43 +6893,54 @@ type ShadowSessionRequestStrategyVersion string
 
 // ShadowSessionResource defines model for ShadowSessionResource.
 type ShadowSessionResource struct {
-	AcceptedDecisions int              `json:"accepted_decisions"`
-	Balances          *[]ShadowBalance `json:"balances,omitempty"`
-	ConfigurationId   string           `json:"configuration_id"`
+	AcceptedDecisions int                                `json:"accepted_decisions"`
+	ActivityState     ShadowSessionResourceActivityState `json:"activity_state"`
+	Balances          *[]ShadowBalance                   `json:"balances,omitempty"`
+	ConfigurationId   string                             `json:"configuration_id"`
 
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
-	CreatedAt           Timestamp                           `json:"created_at"`
-	DataHealth          *ShadowDataHealth                   `json:"data_health,omitempty"`
-	DecisionDatasetId   string                              `json:"decision_dataset_id"`
-	Decisions           *[]ShadowDecisionSummary            `json:"decisions,omitempty"`
-	EntriesEnabled      bool                                `json:"entries_enabled"`
-	ExchangeId          *string                             `json:"exchange_id,omitempty"`
-	FailureCode         *string                             `json:"failure_code,omitempty"`
-	GapModelId          *string                             `json:"gap_model_id,omitempty"`
-	Id                  string                              `json:"id"`
-	JournalTransactions int                                 `json:"journal_transactions"`
-	Label               ShadowSessionResourceLabel          `json:"label"`
-	ModelNamespaceId    string                              `json:"model_namespace_id"`
-	Orders              *[]SimulatedOrder                   `json:"orders,omitempty"`
-	PnlAttribution      *ShadowPnlAttribution               `json:"pnl_attribution,omitempty"`
-	PortfolioId         *string                             `json:"portfolio_id,omitempty"`
-	Positions           *[]ShadowPosition                   `json:"positions,omitempty"`
-	PublicOnly          ShadowSessionResourcePublicOnly     `json:"public_only"`
-	RejectedDecisions   int                                 `json:"rejected_decisions"`
-	Revision            Revision                            `json:"revision"`
-	RiskState           *ShadowSessionResourceRiskState     `json:"risk_state,omitempty"`
-	RunId               *string                             `json:"run_id,omitempty"`
-	SimulationOnly      ShadowSessionResourceSimulationOnly `json:"simulation_only"`
-	SlippageModelId     *string                             `json:"slippage_model_id,omitempty"`
+	CreatedAt           Timestamp                  `json:"created_at"`
+	DataHealth          *ShadowDataHealth          `json:"data_health,omitempty"`
+	DecisionDatasetId   string                     `json:"decision_dataset_id"`
+	Decisions           *[]ShadowDecisionSummary   `json:"decisions,omitempty"`
+	EntriesEnabled      bool                       `json:"entries_enabled"`
+	ExchangeId          *string                    `json:"exchange_id,omitempty"`
+	FailureCode         *string                    `json:"failure_code,omitempty"`
+	GapModelId          *string                    `json:"gap_model_id,omitempty"`
+	Id                  string                     `json:"id"`
+	InputHealth         []ShadowInputHealth        `json:"input_health"`
+	JournalTransactions int                        `json:"journal_transactions"`
+	Label               ShadowSessionResourceLabel `json:"label"`
+	ModelNamespaceId    string                     `json:"model_namespace_id"`
+
+	// NextEvaluationAt RFC 3339 timestamp with an explicit UTC offset.
+	NextEvaluationAt  *Timestamp                          `json:"next_evaluation_at,omitempty"`
+	Orders            *[]SimulatedOrder                   `json:"orders,omitempty"`
+	PnlAttribution    *ShadowPnlAttribution               `json:"pnl_attribution,omitempty"`
+	PortfolioId       *string                             `json:"portfolio_id,omitempty"`
+	Positions         *[]ShadowPosition                   `json:"positions,omitempty"`
+	PublicOnly        ShadowSessionResourcePublicOnly     `json:"public_only"`
+	RejectedDecisions int                                 `json:"rejected_decisions"`
+	Revision          Revision                            `json:"revision"`
+	RiskState         *ShadowSessionResourceRiskState     `json:"risk_state,omitempty"`
+	RunId             *string                             `json:"run_id,omitempty"`
+	SimulationOnly    ShadowSessionResourceSimulationOnly `json:"simulation_only"`
+	SlippageModelId   *string                             `json:"slippage_model_id,omitempty"`
 
 	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
 	StartedAt *Timestamp                 `json:"started_at,omitempty"`
 	State     ShadowSessionResourceState `json:"state"`
 
 	// StoppedAt RFC 3339 timestamp with an explicit UTC offset.
-	StoppedAt       *Timestamp `json:"stopped_at,omitempty"`
-	StrategyVersion string     `json:"strategy_version"`
+	StoppedAt         *Timestamp `json:"stopped_at,omitempty"`
+	StrategyVersion   string     `json:"strategy_version"`
+	TriggerCondition  string     `json:"trigger_condition"`
+	WaitingReason     string     `json:"waiting_reason"`
+	WaitingReasonCode string     `json:"waiting_reason_code"`
 }
+
+// ShadowSessionResourceActivityState defines model for ShadowSessionResource.ActivityState.
+type ShadowSessionResourceActivityState string
 
 // ShadowSessionResourceLabel defines model for ShadowSessionResource.Label.
 type ShadowSessionResourceLabel string
@@ -7340,6 +7782,13 @@ type CreateSandboxArmParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// CreateSandboxStrategySessionParams defines parameters for CreateSandboxStrategySession.
+type CreateSandboxStrategySessionParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // StartSandboxStrategySessionParams defines parameters for StartSandboxStrategySession.
 type StartSandboxStrategySessionParams struct {
 	Origin         Origin         `json:"Origin"`
@@ -7554,6 +8003,9 @@ type QuerySandboxOrderJSONRequestBody = RevisionCommandRequest
 
 // CreateSandboxArmJSONRequestBody defines body for CreateSandboxArm for application/json ContentType.
 type CreateSandboxArmJSONRequestBody = SandboxArmRequest
+
+// CreateSandboxStrategySessionJSONRequestBody defines body for CreateSandboxStrategySession for application/json ContentType.
+type CreateSandboxStrategySessionJSONRequestBody = SandboxStrategySessionCreateRequest
 
 // StartSandboxStrategySessionJSONRequestBody defines body for StartSandboxStrategySession for application/json ContentType.
 type StartSandboxStrategySessionJSONRequestBody = SandboxStrategySessionStartRequest

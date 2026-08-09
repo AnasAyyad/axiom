@@ -129,6 +129,37 @@ func TestEvaluateIsPermutationIndependent(t *testing.T) {
 	}
 }
 
+func TestEvaluateDeductsDetachedUSDTFeeFromCycleEconomics(t *testing.T) {
+	input := profitableInput(t, false)
+	input.Markets[2].Rules.Fee.Asset = asset("USDT")
+	input.Markets[2].Rules.Fee.ThirdAssetPriceInQuote = price("0.01")
+	input.FeeBalances = map[domain.AssetSymbol]domain.Balance{asset("USDT"): balance("10")}
+	candidates, err := Evaluate(input)
+	if err != nil || len(candidates) == 0 {
+		t.Fatalf("detached settlement fee input rejected: %v", err)
+	}
+	for _, candidate := range candidates {
+		raw := candidate.Legs[len(candidate.Legs)-1].NetOutput
+		detached, _ := domain.ParseQuantity("0")
+		for _, leg := range candidate.Legs {
+			if leg.FeeAsset == "USDT" && leg.FeeAsset != leg.Source && leg.FeeAsset != leg.Target {
+				detached, err = detached.Add(leg.FeeQuantity)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		if detached.String() == "0" {
+			t.Fatalf("candidate has no detached fee: %#v", candidate)
+		}
+		want, subtractErr := raw.Subtract(detached)
+		if subtractErr != nil || candidate.Final.Compare(want) != 0 {
+			t.Fatalf("candidate final=%s raw=%s detached=%s want=%s error=%v",
+				candidate.Final, raw, detached, want, subtractErr)
+		}
+	}
+}
+
 func BenchmarkTriangularEvaluator(b *testing.B) {
 	input := profitableInput(b, false)
 	b.ReportAllocs()

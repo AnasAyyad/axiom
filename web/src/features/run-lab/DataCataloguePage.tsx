@@ -54,6 +54,22 @@ export function DataCataloguePage() {
                 <dd>{dataset.exchanges.join(" and ")}</dd>
               </div>
               <div>
+                <dt>Instrument scope</dt>
+                <dd>
+                  {dataset.instruments.length > 0
+                    ? dataset.instruments.join(", ")
+                    : "Not recorded for this historical manifest"}
+                </dd>
+              </div>
+              <div>
+                <dt>Recorded data</dt>
+                <dd>
+                  {dataset.coverage_types.length > 0
+                    ? dataset.coverage_types.join(", ")
+                    : "No segment-type summary is recorded"}
+                </dd>
+              </div>
+              <div>
                 <dt>Time range</dt>
                 <dd>
                   {displayDate(dataset.coverage_start)} to{" "}

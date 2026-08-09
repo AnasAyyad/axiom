@@ -6,7 +6,7 @@ import (
 	"axiom/internal/risk"
 )
 
-func newB4PerformanceRiskEngine(now time.Time) (*risk.Engine, error) {
+func newTriangularArbitragePerformanceRiskEngine(now time.Time) (*risk.Engine, error) {
 	engine, err := risk.NewEngine(&triangularRiskAudit{}, &triangularRiskAlerts{})
 	if err != nil {
 		return nil, err

@@ -1,32 +1,66 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
 
+import {
+  APIError,
+  newIdempotencyKey,
+  postAPI,
+  type APIModel,
+} from "../../api/client";
 import { runCatalogQuery, runsQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { WhyNothingPanel } from "../../components/WhyNothingPanel";
 import styles from "../shared/ConsoleSurface.module.css";
+import { RunChoiceWizard } from "./RunChoiceWizard";
 
-const destinations: Record<string, string> = {
-  backtest: "/backtests",
-  replay: "/replays",
-  shadow: "/shadow",
-  demonstration: "/guided-demonstrations",
-  testnet: "/operations/sandbox",
-  demo: "/operations/sandbox",
-};
+type RunMode = APIModel<"RunChoice">["mode"];
 
-function modeLabel(mode: string) {
-  return mode === "testnet"
-    ? "Binance Spot Testnet"
-    : mode === "demo"
-      ? "Bybit Demo"
-      : mode;
+function runFailureDetail(error: unknown) {
+  if (!(error instanceof APIError))
+    return "The server did not accept this reviewed run. No partial run was created; review the workflow prerequisites and try again.";
+  const parts = [
+    error.details?.summary,
+    error.details?.detail,
+    error.details?.impact,
+    error.details?.suggestedAction,
+    error.details?.blockingPrerequisites?.length
+      ? `Required before retrying: ${error.details.blockingPrerequisites.join(", ")}.`
+      : undefined,
+  ].filter((part): part is string => part !== undefined);
+  return parts.length > 0
+    ? parts.join(" ")
+    : "The server did not accept this reviewed run. No partial run was created; review the workflow prerequisites and try again.";
 }
 
 export function RunLabPage() {
   const catalog = useQuery(runCatalogQuery);
   const history = useQuery(runsQuery);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [purpose, setPurpose] = useState<RunMode | "">("");
+  const [strategyID, setStrategyID] = useState("");
+  const [selectedChoiceKey, setSelectedChoiceKey] = useState("");
+  const createRun = useMutation({
+    mutationFn: (choice: APIModel<"RunChoice">) =>
+      postAPI<"RunResource">(
+        "/api/v1/runs",
+        {
+          strategy_id: choice.strategy_id,
+          strategy_version: choice.strategy_version,
+          mode: choice.mode,
+          exchanges: choice.exchanges,
+          instrument: choice.instrument,
+          preset: "latest-qualified-inputs",
+        } satisfies APIModel<"RunCreateRequest">,
+        newIdempotencyKey("run-create"),
+      ),
+    onSuccess: async (run) => {
+      await queryClient.invalidateQueries({ queryKey: ["runs"] });
+      navigate(`/runs/${encodeURIComponent(run.id)}`);
+    },
+  });
   if (catalog.isLoading) return <StatePanel state="loading" />;
   if (catalog.isError || !catalog.data)
     return (
@@ -35,6 +69,18 @@ export function RunLabPage() {
         detail="Approved run choices are unavailable."
       />
     );
+
+  function choosePurpose(mode: RunMode) {
+    setPurpose(mode);
+    setStrategyID("");
+    setSelectedChoiceKey("");
+  }
+
+  function chooseStrategy(id: string) {
+    setStrategyID(id);
+    setSelectedChoiceKey("");
+  }
+
   return (
     <Page
       title="New Run"
@@ -56,59 +102,26 @@ export function RunLabPage() {
           detail={`${catalog.data.blocker.summary} ${catalog.data.blocker.suggested_action}`}
         />
       )}
-      <div className={styles.cardGrid}>
-        {catalog.data.choices.map((choice) => {
-          const destination = destinations[choice.mode];
-          return (
-            <article
-              className={styles.card}
-              key={`${choice.strategy_id}-${choice.mode}-${choice.instrument}-${choice.exchanges.join("-")}`}
-            >
-              <div className={styles.cardHeader}>
-                <h2>{choice.strategy_name}</h2>
-                <span>{modeLabel(choice.mode)}</span>
-              </div>
-              <p>
-                {choice.instrument} · {choice.exchanges.join(" and ")}
-              </p>
-              <dl className={styles.facts}>
-                <div>
-                  <dt>When it evaluates</dt>
-                  <dd>{choice.cadence}</dd>
-                </div>
-                <div>
-                  <dt>Before it can start</dt>
-                  <dd>{choice.warmup}</dd>
-                </div>
-                <div>
-                  <dt>What it can do</dt>
-                  <dd>
-                    {choice.order_capable
-                      ? "Uses the shared simulated or sandbox order pipeline."
-                      : "Advisory recommendations only; it never submits a transfer or order."}
-                  </dd>
-                </div>
-              </dl>
-              {destination ? (
-                <Link className={styles.linkButton} to={destination}>
-                  Continue with this run
-                </Link>
-              ) : (
-                <p className={styles.notice}>
-                  This reviewed workflow will be available when its guided
-                  scenario is installed.
-                </p>
-              )}
-            </article>
-          );
-        })}
-      </div>
+      {createRun.isError && (
+        <StatePanel state="error" detail={runFailureDetail(createRun.error)} />
+      )}
+      <RunChoiceWizard
+        catalog={catalog.data}
+        purpose={purpose}
+        strategyID={strategyID}
+        selectedChoiceKey={selectedChoiceKey}
+        createPending={createRun.isPending}
+        onPurpose={choosePurpose}
+        onStrategy={chooseStrategy}
+        onChoice={setSelectedChoiceKey}
+        onCreate={(choice) => createRun.mutate(choice)}
+      />
       <section className={styles.section} aria-labelledby="recent-runs-heading">
         <h2 id="recent-runs-heading">Recent runs</h2>
         <p>
-          This is the durable history of recorded-data and public-data shadow
-          work. A run can wait safely when no worker or fresh public input is
-          ready.
+          This is the durable history of recorded-data, public-data shadow, and
+          explicitly armed exchange-sandbox work. A run can wait safely when no
+          worker, fresh input, reconciliation, or owner arm is ready.
         </p>
         {history.isLoading && <StatePanel state="loading" />}
         {history.isError && (

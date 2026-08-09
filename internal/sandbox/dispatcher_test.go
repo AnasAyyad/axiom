@@ -444,6 +444,7 @@ func TestPairedPlanIsAtomicWhenOpenCapacityRejects(t *testing.T) {
 	accounts := []AccountID{"binance-testnet-a", "bybit-demo-a"}
 	first := sandboxPlan(t, at, accounts, []string{"10", "10"})
 	setPlanStrategy(t, &first, StrategyCrossExchangeArbitrage)
+	configureCrossExchangePair(t, &first)
 	if err := repository.ApprovePlan(
 		context.Background(), first,
 		defaultLimits(), NoKillPoint{},
@@ -454,6 +455,7 @@ func TestPairedPlanIsAtomicWhenOpenCapacityRejects(t *testing.T) {
 	// not. A second atomic pair taking the total above 50 must fail wholly.
 	second := sandboxPlan(t, at.Add(time.Minute), accounts, []string{"10", "10"})
 	setPlanStrategy(t, &second, StrategyCrossExchangeArbitrage)
+	configureCrossExchangePair(t, &second)
 	second.ID = "execution_plan:plan-2"
 	for index := range second.Submissions {
 		second.Submissions[index].PlanID = mustPlanID(t, "plan-2")
@@ -469,6 +471,305 @@ func TestPairedPlanIsAtomicWhenOpenCapacityRejects(t *testing.T) {
 	}
 	if len(repository.plans) != 1 || len(repository.outbox) != 2 {
 		t.Fatal("paired plan partially committed")
+	}
+}
+
+func TestSandboxMultilegTopologiesAreClosedAndDispatchPolicyIsDeterministic(t *testing.T) {
+	at := time.Date(2026, 7, 27, 0, 15, 0, 0, time.UTC)
+	cross := sandboxPlan(t, at,
+		[]AccountID{"binance-testnet-a", "bybit-demo-a"}, []string{"10", "10"})
+	setPlanStrategy(t, &cross, StrategyCrossExchangeArbitrage)
+	configureCrossExchangePair(t, &cross)
+	policy, err := ValidatePlanSaga(cross)
+	if err != nil || policy != execution.DispatchConcurrent ||
+		ValidateSubmissionTopology(cross.Submissions, map[AccountID]Exchange{
+			"binance-testnet-a": ExchangeBinance,
+			"bybit-demo-a":      ExchangeBybit,
+		}) != nil {
+		t.Fatalf("cross-exchange topology policy=%s error=%v", policy, err)
+	}
+
+	triangular := triangularSandboxPlan(t, at)
+	policy, err = ValidatePlanSaga(triangular)
+	if err != nil || policy != execution.DispatchSequential ||
+		ValidateSubmissionTopology(triangular.Submissions, map[AccountID]Exchange{
+			"binance-testnet-a": ExchangeBinance,
+		}) != nil {
+		t.Fatalf("triangular topology policy=%s error=%v", policy, err)
+	}
+	broken := triangular
+	broken.Submissions = append([]Submission(nil), triangular.Submissions...)
+	broken.Submissions[2].Side = domain.SideBuy
+	if ValidateSubmissionTopology(broken.Submissions, map[AccountID]Exchange{
+		"binance-testnet-a": ExchangeBinance,
+	}) == nil {
+		t.Fatal("non-closing triangular asset flow was accepted")
+	}
+}
+
+func TestCrossExchangePlanUsesSeparateAccountClaimsWithoutDuplicateCreates(t *testing.T) {
+	at := time.Date(2026, 7, 27, 0, 17, 0, 0, time.UTC)
+	repository := newMemoryDispatcherRepository()
+	plan := sandboxPlan(t, at,
+		[]AccountID{"binance-testnet-a", "bybit-demo-a"}, []string{"10", "10"})
+	setPlanStrategy(t, &plan, StrategyCrossExchangeArbitrage)
+	configureCrossExchangePair(t, &plan)
+	if err := repository.ApprovePlan(context.Background(), plan, defaultLimits(), NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	broker := &deterministicBroker{events: map[string]PrivateEvent{}, now: at}
+	binance, err := NewSandboxDispatcher(
+		"binance-testnet-a", 1, "binance-worker", 11, repository, broker, NoKillPoint{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bybit, err := NewSandboxDispatcher(
+		"bybit-demo-a", 1, "bybit-worker", 22, repository, broker, NoKillPoint{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, dispatchErr := binance.DispatchOnce(context.Background(), at, 2); dispatchErr != nil || count != 1 {
+		t.Fatalf("binance pair dispatch count=%d error=%v", count, dispatchErr)
+	}
+	if count, dispatchErr := bybit.DispatchOnce(context.Background(), at, 2); dispatchErr != nil || count != 1 {
+		t.Fatalf("bybit pair dispatch count=%d error=%v", count, dispatchErr)
+	}
+	if count, dispatchErr := binance.DispatchOnce(context.Background(), at, 2); dispatchErr != nil || count != 0 {
+		t.Fatalf("duplicate binance pair dispatch count=%d error=%v", count, dispatchErr)
+	}
+	if count, dispatchErr := bybit.DispatchOnce(context.Background(), at, 2); dispatchErr != nil || count != 0 {
+		t.Fatalf("duplicate bybit pair dispatch count=%d error=%v", count, dispatchErr)
+	}
+	if broker.native != 2 {
+		t.Fatalf("paired native creates=%d", broker.native)
+	}
+	for _, record := range repository.outbox {
+		wantFence := uint64(11)
+		if record.Submission.AccountID == "bybit-demo-a" {
+			wantFence = 22
+		}
+		if record.State != OutboxAcknowledged || record.FencingToken != wantFence {
+			t.Fatalf("paired account=%s state=%s fence=%d want=%d",
+				record.Submission.AccountID, record.State, record.FencingToken, wantFence)
+		}
+	}
+}
+
+func TestTriangularPlanReservesOnlyItsFirstOpenOrderSlot(t *testing.T) {
+	at := time.Date(2026, 7, 27, 0, 20, 0, 0, time.UTC)
+	repository := newMemoryDispatcherRepository()
+	plan := triangularSandboxPlan(t, at)
+	if err := repository.ApprovePlan(context.Background(), plan, defaultLimits(), NoKillPoint{}); err != nil {
+		t.Fatalf("triangular plan rejected: %v", err)
+	}
+	states := make(map[uint32]OutboxState)
+	for _, record := range repository.outbox {
+		states[record.LegIndex] = record.State
+		if record.LegIndex == 0 && record.DependsOn != nil {
+			t.Fatal("first triangular leg unexpectedly depends on another leg")
+		}
+		if record.LegIndex > 0 && (record.DependsOn == nil || *record.DependsOn != record.LegIndex-1) {
+			t.Fatalf("leg %d dependency=%v", record.LegIndex, record.DependsOn)
+		}
+	}
+	if states[0] != OutboxPending || states[1] != OutboxWaiting || states[2] != OutboxWaiting {
+		t.Fatalf("triangular outbox states=%v", states)
+	}
+	for index, reservation := range plan.Reservations {
+		want := ReservationWaiting
+		if index == 0 {
+			want = ReservationActive
+		}
+		if got := repository.reservations[reservation.ID].State; got != want {
+			t.Fatalf("triangular reservation %d state=%s want=%s", index, got, want)
+		}
+	}
+	byAccount, global := repository.openCapacity()
+	if global != 1 || byAccount["binance-testnet-a"] != 1 {
+		t.Fatalf("triangular open capacity account=%v global=%d", byAccount, global)
+	}
+}
+
+func TestTriangularPlanDispatchesSequentiallyAndCompletesExactlyOnce(t *testing.T) {
+	at := time.Date(2026, 7, 27, 0, 25, 0, 0, time.UTC)
+	repository := newMemoryDispatcherRepository()
+	plan := triangularSandboxPlan(t, at)
+	if err := repository.ApprovePlan(context.Background(), plan, defaultLimits(), NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	broker := &deterministicBroker{events: map[string]PrivateEvent{}, now: at}
+	dispatcher, err := NewSandboxDispatcher(
+		"binance-testnet-a", 1, "worker-a", 1, repository, broker, NoKillPoint{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, submission := range plan.Submissions {
+		now := at.Add(time.Duration(index) * 50 * time.Millisecond)
+		dispatchAndFillTriangularLeg(t, repository, broker, dispatcher, plan, index, submission, now)
+	}
+	if broker.native != 3 || repository.planStates[plan.ID] != "COMPLETED" {
+		t.Fatalf("native=%d plan=%s", broker.native, repository.planStates[plan.ID])
+	}
+	_, global := repository.openCapacity()
+	if global != 0 {
+		t.Fatalf("completed triangular plan retained %d open slots", global)
+	}
+}
+
+func dispatchAndFillTriangularLeg(t *testing.T, repository *memoryDispatcherRepository,
+	broker *deterministicBroker, dispatcher *SandboxDispatcher, plan ApprovedSandboxPlan,
+	index int, submission Submission, now time.Time,
+) {
+	t.Helper()
+	broker.now = now
+	count, err := dispatcher.DispatchOnce(context.Background(), now, 3)
+	if err != nil || count != 1 {
+		t.Fatalf("leg %d dispatch count=%d error=%v", index, count, err)
+	}
+	record := outboxAtLeg(t, repository, uint32(index))
+	if record.State != OutboxAcknowledged {
+		t.Fatalf("leg %d state after dispatch=%s", index, record.State)
+	}
+	fill := privateFillEvent(t, submission, now.Add(10*time.Millisecond))
+	if err = repository.AppendPrivateEvent(context.Background(), record.ID, 1, fill, NoKillPoint{}); err != nil {
+		t.Fatalf("leg %d fill failed: %v", index, err)
+	}
+	assertTriangularNextLegState(t, repository, plan, index)
+}
+
+func assertTriangularNextLegState(t *testing.T, repository *memoryDispatcherRepository,
+	plan ApprovedSandboxPlan, index int,
+) {
+	t.Helper()
+	if index+1 >= len(plan.Submissions) {
+		return
+	}
+	next := outboxAtLeg(t, repository, uint32(index+1))
+	if next.State != OutboxPending {
+		t.Fatalf("leg %d did not unlock leg %d: %s", index, index+1, next.State)
+	}
+	if got := repository.reservations[plan.Reservations[index+1].ID].State; got != ReservationActive {
+		t.Fatalf("leg %d dependent reservation=%s", index+1, got)
+	}
+	if index+2 < len(plan.Reservations) {
+		if got := repository.reservations[plan.Reservations[index+2].ID].State; got != ReservationWaiting {
+			t.Fatalf("leg %d future reservation=%s", index+2, got)
+		}
+	}
+}
+
+func TestTriangularCandidateExpiryStopsDependentReservationActivation(t *testing.T) {
+	at := time.Date(2026, 7, 27, 0, 32, 0, 0, time.UTC)
+	repository := newMemoryDispatcherRepository()
+	plan := triangularSandboxPlan(t, at)
+	if err := repository.ApprovePlan(context.Background(), plan, defaultLimits(), NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	broker := &deterministicBroker{events: map[string]PrivateEvent{}, now: at}
+	dispatcher, _ := NewSandboxDispatcher(
+		"binance-testnet-a", 1, "worker-a", 1, repository, broker, NoKillPoint{},
+	)
+	if count, err := dispatcher.DispatchOnce(context.Background(), at, 1); err != nil || count != 1 {
+		t.Fatalf("first dispatch count=%d error=%v", count, err)
+	}
+	first := outboxAtLeg(t, repository, 0)
+	if err := repository.AppendPrivateEvent(context.Background(), first.ID, 1,
+		privateFillEvent(t, plan.Submissions[0], *plan.ExecutionExpiresAt), NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	if next := outboxAtLeg(t, repository, 1); next.State != OutboxWaiting {
+		t.Fatalf("expired candidate exposed next leg: %s", next.State)
+	}
+	if got := repository.reservations[plan.Reservations[1].ID].State; got != ReservationQuarantined {
+		t.Fatalf("expired candidate reservation=%s", got)
+	}
+	if repository.planStates[plan.ID] != "RECOVERY_REQUIRED" {
+		t.Fatalf("expired candidate plan=%s", repository.planStates[plan.ID])
+	}
+}
+
+func TestTriangularArmExpiryStopsDependentEntryAndQuarantinesFutureClaims(t *testing.T) {
+	at := time.Date(2026, 7, 27, 0, 30, 0, 0, time.UTC)
+	repository := newMemoryDispatcherRepository()
+	plan := triangularSandboxPlan(t, at)
+	if err := repository.ApprovePlan(context.Background(), plan, defaultLimits(), NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	broker := &deterministicBroker{events: map[string]PrivateEvent{}, now: at}
+	dispatcher, _ := NewSandboxDispatcher(
+		"binance-testnet-a", 1, "worker-a", 1, repository, broker, NoKillPoint{},
+	)
+	if count, err := dispatcher.DispatchOnce(context.Background(), at, 1); err != nil || count != 1 {
+		t.Fatalf("first dispatch count=%d error=%v", count, err)
+	}
+	first := outboxAtLeg(t, repository, 0)
+	expiredAt := at.Add(ArmLifetime)
+	if err := repository.AppendPrivateEvent(context.Background(), first.ID, 1,
+		privateFillEvent(t, plan.Submissions[0], expiredAt), NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	if count, err := dispatcher.DispatchOnce(context.Background(), expiredAt, 3); err != nil || count != 0 {
+		t.Fatalf("post-expiry dispatch count=%d error=%v", count, err)
+	}
+	if repository.planStates[plan.ID] != "RECOVERY_REQUIRED" ||
+		outboxAtLeg(t, repository, 1).State != OutboxWaiting {
+		t.Fatalf("expired plan=%s next=%s", repository.planStates[plan.ID], outboxAtLeg(t, repository, 1).State)
+	}
+	for _, reservation := range repository.reservations {
+		if reservation.OrderID != plan.Submissions[0].OrderID.String() &&
+			reservation.State != ReservationQuarantined {
+			t.Fatalf("future reservation %s state=%s", reservation.ID, reservation.State)
+		}
+	}
+}
+
+func TestTriangularRejectedLegClosesUnsentDependentsAfterCleanReconciliation(t *testing.T) {
+	at := time.Date(2026, 7, 27, 0, 35, 0, 0, time.UTC)
+	repository := newMemoryDispatcherRepository()
+	plan := triangularSandboxPlan(t, at)
+	if err := repository.ApprovePlan(context.Background(), plan, defaultLimits(), NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := repository.ClaimOutbox(context.Background(), "binance-testnet-a", 1,
+		"worker-a", 1, at, time.Minute, 1, NoKillPoint{})
+	if err != nil || len(claimed) != 1 {
+		t.Fatalf("first claim count=%d error=%v", len(claimed), err)
+	}
+	if err = repository.MarkSubmitting(context.Background(), claimed[0].ID, 1, at, NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	first := outboxAtLeg(t, repository, 0)
+	rejectedAt := at.Add(time.Second)
+	rejected := privateOrderEvent(plan.Submissions[0], execution.OrderRejected, "REJECTED", 6, rejectedAt)
+	if err := repository.AppendPrivateEvent(context.Background(), first.ID, 1, rejected, NoKillPoint{}); err != nil {
+		t.Fatal(err)
+	}
+	reconciliation := ReconciliationResult{ID: "triangular-clean-reconciliation",
+		AccountID: "binance-testnet-a", AccountEpoch: 1, State: "clean",
+		EvidenceHash: hashText("triangular-reconciliation"), ReconciledAt: rejectedAt.Add(time.Second)}
+	if err := repository.RecordReconciliation(context.Background(), reconciliation); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := repository.ResolveReconciledTerminal(context.Background(), first.ID, 1,
+		reconciliation.ID, reconciliation.ReconciledAt, NoKillPoint{})
+	if err != nil || !resolved {
+		t.Fatalf("resolved=%t error=%v", resolved, err)
+	}
+	if repository.planStates[plan.ID] != "FAILED" {
+		t.Fatalf("rejected triangular plan=%s", repository.planStates[plan.ID])
+	}
+	for index := range plan.Submissions {
+		if state := outboxAtLeg(t, repository, uint32(index)).State; state != OutboxTerminal {
+			t.Fatalf("leg %d state=%s", index, state)
+		}
+	}
+	for _, reservation := range repository.reservations {
+		if reservation.State != ReservationReleased || reservation.ReleasedAt == nil {
+			t.Fatalf("reservation %s state=%s released=%v", reservation.ID, reservation.State, reservation.ReleasedAt)
+		}
 	}
 }
 
@@ -670,6 +971,13 @@ func sandboxPlan(t *testing.T, at time.Time, accounts []AccountID, notionals []s
 	)
 	eligibility := sandboxPlanEligibility(at, accounts)
 	entrySafety := sandboxPlanEntrySafety(at, accounts)
+	accountSnapshots := make(map[AccountID]AccountSnapshotReference, len(accounts))
+	for _, account := range accounts {
+		accountSnapshots[account] = AccountSnapshotReference{
+			AccountID: account, AccountEpoch: 1,
+			SnapshotHash: hashText("snapshot", string(account)), ObservedAt: at,
+		}
+	}
 	pipeline := ApprovalPipelineEvidence{
 		IntentKind: ApprovalStrategyIntent,
 		IntentHash: hashText("intent"), AllocatorHash: hashText("allocator"),
@@ -687,7 +995,8 @@ func sandboxPlan(t *testing.T, at time.Time, accounts []AccountID, notionals []s
 			CreatedAt: at, ExpiresAt: at.Add(ArmLifetime), Revision: 1,
 		},
 		Eligibility: eligibility, EntrySafety: entrySafety,
-		Pipeline: pipeline, ApprovedAt: at,
+		AccountSnapshots: accountSnapshots,
+		Pipeline:         pipeline, ApprovedAt: at,
 		ConfigurationID: "cfg-1",
 	}
 	plan.ApprovalHash = pipeline.HashFor(plan)
@@ -793,6 +1102,106 @@ func setPlanStrategy(t *testing.T, plan *ApprovedSandboxPlan, value string) {
 	plan.ApprovalHash = plan.Pipeline.HashFor(*plan)
 }
 
+func configureCrossExchangePair(t *testing.T, plan *ApprovedSandboxPlan) {
+	t.Helper()
+	if len(plan.Submissions) != 2 || len(plan.Reservations) != 2 {
+		t.Fatal("cross-exchange test plan must have two legs")
+	}
+	plan.Submissions[0].Side = domain.SideBuy
+	plan.Submissions[1].Side = domain.SideSell
+	plan.Reservations[1].Asset = string(plan.Submissions[1].Instrument.Base)
+	plan.Reservations[1].Quantity = plan.Submissions[1].Quantity.String()
+	expiresAt := plan.ApprovedAt.Add(250 * time.Millisecond)
+	plan.ExecutionExpiresAt = &expiresAt
+	plan.ApprovalHash = plan.Pipeline.HashFor(*plan)
+}
+
+func triangularSandboxPlan(t *testing.T, at time.Time) ApprovedSandboxPlan {
+	t.Helper()
+	plan := sandboxPlan(t, at, []AccountID{"binance-testnet-a"}, []string{"10"})
+	setPlanStrategy(t, &plan, StrategyTriangular)
+	base := plan.Submissions[0]
+	btcUSDT := mustInstrument(t, "BTC", "USDT")
+	ethBTC := mustInstrument(t, "ETH", "BTC")
+	ethUSDT := mustInstrument(t, "ETH", "USDT")
+	plan.Submissions = []Submission{base, base, base}
+	plan.Reservations = []DurableReservation{plan.Reservations[0], plan.Reservations[0], plan.Reservations[0]}
+	for index := range plan.Submissions {
+		orderID := mustOrderID(t, fmt.Sprintf("triangular-order-%d", index))
+		plan.Submissions[index].OrderID = orderID
+		plan.Submissions[index].ClientOrderID = fmt.Sprintf("ax-triangular-%d", index)
+		plan.Submissions[index].RequestHash = hashText("triangular-request", fmt.Sprint(index))
+		plan.Reservations[index].ID = fmt.Sprintf("triangular-reservation-%d", index)
+		plan.Reservations[index].OrderID = orderID.String()
+	}
+	plan.Submissions[0].Instrument, plan.Submissions[0].Side = btcUSDT, domain.SideBuy
+	plan.Submissions[1].Instrument, plan.Submissions[1].Side = ethBTC, domain.SideBuy
+	plan.Submissions[2].Instrument, plan.Submissions[2].Side = ethUSDT, domain.SideSell
+	quantities := []domain.Quantity{
+		mustSandboxQuantity(t, "0.1"), mustSandboxQuantity(t, "1"), mustSandboxQuantity(t, "1"),
+	}
+	prices := []domain.Price{
+		mustSandboxPrice(t, "100"), mustSandboxPrice(t, "0.1"), mustSandboxPrice(t, "10"),
+	}
+	for index := range plan.Submissions {
+		plan.Submissions[index].Quantity = quantities[index]
+		plan.Submissions[index].LimitPrice = prices[index]
+		notional, err := domain.CalculateNotional(prices[index], quantities[index], 18)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan.Submissions[index].Notional = notional
+	}
+	plan.Reservations[0].Asset, plan.Reservations[0].Quantity = "USDT", plan.Submissions[0].Notional.String()
+	plan.Reservations[1].Asset, plan.Reservations[1].Quantity = "BTC", plan.Submissions[1].Notional.String()
+	plan.Reservations[2].Asset, plan.Reservations[2].Quantity = "ETH", plan.Submissions[2].Quantity.String()
+	plan.MarketEligibility = []EligibilitySnapshot{
+		{ObservedAt: at, Exchange: "binance", Instrument: "BTCUSDT", BookHealthy: true, BookFresh: true, BookEligible: true, ClockEligible: true, Eligible: true},
+		{ObservedAt: at, Exchange: "binance", Instrument: "ETHBTC", BookHealthy: true, BookFresh: true, BookEligible: true, ClockEligible: true, Eligible: true},
+		{ObservedAt: at, Exchange: "binance", Instrument: "ETHUSDT", BookHealthy: true, BookFresh: true, BookEligible: true, ClockEligible: true, Eligible: true},
+	}
+	expiresAt := at.Add(250 * time.Millisecond)
+	plan.ExecutionExpiresAt = &expiresAt
+	plan.Eligibility = nil
+	plan.ApprovalHash = plan.Pipeline.HashFor(plan)
+	return plan
+}
+
+func mustInstrument(t *testing.T, base, quote string) domain.Instrument {
+	t.Helper()
+	baseAsset, err := domain.ParseAssetSymbol(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	quoteAsset, err := domain.ParseAssetSymbol(quote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := domain.NewSpotInstrument(baseAsset, quoteAsset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return instrument
+}
+
+func mustSandboxQuantity(t *testing.T, value string) domain.Quantity {
+	t.Helper()
+	quantity, err := domain.ParseQuantity(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return quantity
+}
+
+func mustSandboxPrice(t *testing.T, value string) domain.Price {
+	t.Helper()
+	price, err := domain.ParsePrice(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return price
+}
+
 func privateOrderEvent(
 	submission Submission,
 	state execution.OrderState,
@@ -845,6 +1254,21 @@ func onlyOutbox(t *testing.T, repository *memoryDispatcherRepository) Submission
 	for _, record := range repository.outbox {
 		return record
 	}
+	return SubmissionOutbox{}
+}
+
+func outboxAtLeg(
+	t *testing.T,
+	repository *memoryDispatcherRepository,
+	leg uint32,
+) SubmissionOutbox {
+	t.Helper()
+	for _, record := range repository.outbox {
+		if record.LegIndex == leg {
+			return record
+		}
+	}
+	t.Fatalf("outbox leg %d missing", leg)
 	return SubmissionOutbox{}
 }
 

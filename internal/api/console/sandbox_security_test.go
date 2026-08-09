@@ -22,10 +22,10 @@ import (
 	"axiom/internal/domain"
 )
 
-func TestC6RoutesRequireSessionExactPermissionOriginCSRFAndIdempotency(
+func TestSandboxQualificationRoutesRequireSessionExactPermissionOriginCSRFAndIdempotency(
 	t *testing.T,
 ) {
-	readOnly, _ := a11HTTPTestHandler(
+	readOnly, _ := ownerConsoleHTTPTestHandler(
 		t,
 		[]string{authentication.PermissionSandboxRead},
 	)
@@ -37,30 +37,30 @@ func TestC6RoutesRequireSessionExactPermissionOriginCSRFAndIdempotency(
 	if unauthorized.Code != http.StatusUnauthorized {
 		t.Fatalf("unauthorized read = %d", unauthorized.Code)
 	}
-	session, csrf := a11HTTPLogin(t, readOnly)
-	assertC6MutationStatus(
+	session, csrf := ownerConsoleHTTPLogin(t, readOnly)
+	assertSandboxQualificationMutationStatus(
 		t, readOnly, session, csrf, "", "", http.StatusForbidden,
 	)
 
-	armed, _ := a11HTTPTestHandler(
+	armed, _ := ownerConsoleHTTPTestHandler(
 		t,
 		[]string{
 			authentication.PermissionSandboxRead,
 			authentication.PermissionSandboxArm,
 		},
 	)
-	armSession, armCSRF := a11HTTPLogin(t, armed)
-	assertC6MutationStatus(
+	armSession, armCSRF := ownerConsoleHTTPLogin(t, armed)
+	assertSandboxQualificationMutationStatus(
 		t, armed, armSession, armCSRF,
-		"http://attacker.example", "key-c6", http.StatusForbidden,
+		"http://attacker.example", "key-sandbox_qualification", http.StatusForbidden,
 	)
-	assertC6MutationStatus(
+	assertSandboxQualificationMutationStatus(
 		t, armed, armSession, armCSRF,
 		"http://localhost:4173", "", http.StatusBadRequest,
 	)
 }
 
-func assertC6MutationStatus(
+func assertSandboxQualificationMutationStatus(
 	t *testing.T,
 	handler http.Handler,
 	session, csrf *http.Cookie,
@@ -70,9 +70,9 @@ func assertC6MutationStatus(
 	t.Helper()
 	request := httptest.NewRequest(
 		http.MethodPost,
-		"/api/v1/sandbox/sessions/session-c6/arms",
+		"/api/v1/sandbox/sessions/session-sandbox_qualification/arms",
 		bytes.NewBufferString(
-			`{"authorization_token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","expected_revision":"1","account_ids":["binance-c6"],"reason":"operator bounded arm"}`,
+			`{"authorization_token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","expected_revision":"1","account_ids":["binance-sandbox_qualification"],"reason":"operator bounded arm"}`,
 		),
 	)
 	request.Header.Set("Origin", origin)
@@ -87,7 +87,7 @@ func assertC6MutationStatus(
 	handler.ServeHTTP(response, request)
 	if response.Code != expected {
 		t.Fatalf(
-			"C6 mutation = %d, want %d: %s",
+			"sandbox qualification mutation = %d, want %d: %s",
 			response.Code,
 			expected,
 			response.Body.String(),
@@ -95,28 +95,28 @@ func assertC6MutationStatus(
 	}
 }
 
-func TestC6OneUseAuthorizationRejectsReasonTamperingAndReplay(t *testing.T) {
+func TestSandboxQualificationOneUseAuthorizationRejectsReasonTamperingAndReplay(t *testing.T) {
 	now := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
 	seed := []byte("12345678901234567890")
-	mux, commands := newC6AuthorizationHTTPFixture(t, now, seed)
-	session, csrf := a11HTTPLogin(t, mux)
+	mux, commands := newSandboxQualificationAuthorizationHTTPFixture(t, now, seed)
+	session, csrf := ownerConsoleHTTPLogin(t, mux)
 	reason := "arm bounded sandbox qualification"
-	token := issueC6Authorization(
+	token := issueSandboxQualificationAuthorization(
 		t,
 		mux,
 		session,
 		csrf,
-		c6TOTPCode(seed, uint64(now.Unix()/30)),
+		sandboxQualificationTOTPCode(seed, uint64(now.Unix()/30)),
 		reason,
 	)
-	status, body := submitC6Arm(
+	status, body := submitSandboxQualificationArm(
 		t, mux, session, csrf, token, reason+" tampered", "arm-key-tampered-0001",
 	)
 	if status != http.StatusForbidden ||
 		!bytes.Contains(body, []byte("authorization_binding_mismatch")) {
 		t.Fatalf("tampered binding = %d %s", status, body)
 	}
-	status, body = submitC6Arm(
+	status, body = submitSandboxQualificationArm(
 		t, mux, session, csrf, token, reason, "arm-key-replay-000002",
 	)
 	if status != http.StatusForbidden ||
@@ -129,11 +129,11 @@ func TestC6OneUseAuthorizationRejectsReasonTamperingAndReplay(t *testing.T) {
 func TestSandboxStrategyStartRequiresItsOwnBoundOneUseAuthorization(t *testing.T) {
 	now := time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
 	seed := []byte("12345678901234567890")
-	mux, commands := newC6AuthorizationHTTPFixture(t, now, seed)
-	session, csrf := a11HTTPLogin(t, mux)
+	mux, commands := newSandboxQualificationAuthorizationHTTPFixture(t, now, seed)
+	session, csrf := ownerConsoleHTTPLogin(t, mux)
 	reason := "start bounded strategy session"
-	token := issueC6Authorization(t, mux, session, csrf,
-		c6TOTPCode(seed, uint64(now.Unix()/30)), reason)
+	token := issueSandboxQualificationAuthorization(t, mux, session, csrf,
+		sandboxQualificationTOTPCode(seed, uint64(now.Unix()/30)), reason)
 	status, body := submitSandboxStrategyStart(t, mux, session, csrf, token, reason, "strategy-start-key-0001")
 	if status != http.StatusAccepted || commands.strategyStartCalls != 1 {
 		t.Fatalf("strategy start = %d %s calls=%d", status, body, commands.strategyStartCalls)
@@ -144,17 +144,64 @@ func TestSandboxStrategyStartRequiresItsOwnBoundOneUseAuthorization(t *testing.T
 	}
 }
 
-func newC6AuthorizationHTTPFixture(
+func TestSandboxStrategyPrepareRequiresExactOwnerMutationGuards(t *testing.T) {
+	mux, commands := newSandboxQualificationAuthorizationHTTPFixture(t,
+		time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC),
+		[]byte("12345678901234567890"))
+	session, csrf := ownerConsoleHTTPLogin(t, mux)
+	payload, err := json.Marshal(generated.SandboxStrategySessionCreateRequest{
+		StrategyId: generated.SandboxStrategySessionCreateRequestStrategyIdTrendFollowing,
+		Exchanges:  []generated.SandboxExchange{generated.SandboxExchangeBinance},
+		Instrument: generated.SandboxStrategySessionCreateRequestInstrumentBTCUSDT,
+		Preset:     generated.SandboxStrategySessionCreateRequestPresetLatestQualifiedInputs,
+		Reason:     "prepare bounded Testnet strategy session",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost,
+		"/api/v1/sandbox/strategy-sessions", bytes.NewReader(payload))
+	request.Header.Set("Origin", "http://localhost:4173")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-CSRF-Token", csrf.Value)
+	request.Header.Set("Idempotency-Key", "strategy-prepare-key-0001")
+	request.AddCookie(session)
+	request.AddCookie(csrf)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted || commands.strategyPrepareCalls != 1 {
+		t.Fatalf("strategy prepare = %d %s calls=%d", response.Code,
+			response.Body.String(), commands.strategyPrepareCalls)
+	}
+
+	badPayload := bytes.NewBufferString(`{"strategy_id":"cross-exchange-arbitrage","exchanges":["binance"],"instrument":"BTCUSDT","preset":"latest-qualified-inputs","reason":"prepare malformed topology"}`)
+	bad := httptest.NewRequest(http.MethodPost,
+		"/api/v1/sandbox/strategy-sessions", badPayload)
+	bad.Header.Set("Origin", "http://localhost:4173")
+	bad.Header.Set("Content-Type", "application/json")
+	bad.Header.Set("X-CSRF-Token", csrf.Value)
+	bad.Header.Set("Idempotency-Key", "strategy-prepare-key-0002")
+	bad.AddCookie(session)
+	bad.AddCookie(csrf)
+	badResponse := httptest.NewRecorder()
+	mux.ServeHTTP(badResponse, bad)
+	if badResponse.Code != http.StatusAccepted || commands.strategyPrepareCalls != 2 {
+		t.Fatalf("topology ownership belongs to service = %d %s calls=%d", badResponse.Code,
+			badResponse.Body.String(), commands.strategyPrepareCalls)
+	}
+}
+
+func newSandboxQualificationAuthorizationHTTPFixture(
 	t *testing.T,
 	now time.Time,
 	seed []byte,
-) (http.Handler, *c6HTTPCommands) {
+) (http.Handler, *sandboxQualificationHTTPCommands) {
 	t.Helper()
 	clock, err := domain.NewReplayClock(now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := newC6HTTPAuthorizationStore(t)
+	store := newSandboxQualificationHTTPAuthorizationStore(t)
 	auth, err := authentication.NewService(
 		store, clock, []byte("cccccccccccccccccccccccccccccccc"),
 	)
@@ -162,12 +209,12 @@ func newC6AuthorizationHTTPFixture(
 		t.Fatal(err)
 	}
 	authorization, err := authentication.NewSandboxAuthorizationService(
-		store, store, clock, writeC6TOTPSeed(t, seed),
+		store, store, clock, writeSandboxQualificationTOTPSeed(t, seed),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	commands := &c6HTTPCommands{}
+	commands := &sandboxQualificationHTTPCommands{}
 	mux := http.NewServeMux()
 	Register(mux, Options{
 		Authentication: auth, SandboxAuthorizations: authorization,
@@ -177,23 +224,18 @@ func newC6AuthorizationHTTPFixture(
 	return mux, commands
 }
 
-func newC6HTTPAuthorizationStore(t *testing.T) *c6HTTPAuthorizationStore {
+func newSandboxQualificationHTTPAuthorizationStore(t *testing.T) *sandboxQualificationHTTPAuthorizationStore {
 	t.Helper()
 	hash, err := (authentication.PasswordHasher{}).Hash("console-password")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &c6HTTPAuthorizationStore{
-		a11HTTPStore: &a11HTTPStore{
+	return &sandboxQualificationHTTPAuthorizationStore{
+		ownerConsoleHTTPStore: &ownerConsoleHTTPStore{
 			user: authentication.User{
-				ID: "user-c6", Email: "owner@example.test",
+				ID: "user-sandbox_qualification", Email: "owner@example.test",
 				NormalizedEmail: "owner@example.test",
-				PasswordHash:    hash, Status: "active", Roles: []string{"owner"},
-				Permissions: []string{
-					authentication.PermissionSandboxRead,
-					authentication.PermissionSandboxArm,
-				},
-				RoleRevision: 1,
+				PasswordHash:    hash, Status: "active",
 			},
 			sessions: map[string]authentication.Session{},
 		},
@@ -201,7 +243,7 @@ func newC6HTTPAuthorizationStore(t *testing.T) *c6HTTPAuthorizationStore {
 	}
 }
 
-func writeC6TOTPSeed(t *testing.T, seed []byte) string {
+func writeSandboxQualificationTOTPSeed(t *testing.T, seed []byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "totp")
 	encoded := base32.StdEncoding.WithPadding(base32.NoPadding).
@@ -212,7 +254,7 @@ func writeC6TOTPSeed(t *testing.T, seed []byte) string {
 	return path
 }
 
-func issueC6Authorization(
+func issueSandboxQualificationAuthorization(
 	t *testing.T,
 	handler http.Handler,
 	session, csrf *http.Cookie,
@@ -252,7 +294,7 @@ func issueC6Authorization(
 	return grant.Token
 }
 
-func submitC6Arm(
+func submitSandboxQualificationArm(
 	t *testing.T,
 	handler http.Handler,
 	session, csrf *http.Cookie,
@@ -262,12 +304,12 @@ func submitC6Arm(
 	payload, _ := json.Marshal(generated.SandboxArmRequest{
 		AuthorizationToken: token,
 		ExpectedRevision:   "1",
-		AccountIds:         []string{"binance-c6"},
+		AccountIds:         []string{"binance-sandbox_qualification"},
 		Reason:             reason,
 	})
 	request := httptest.NewRequest(
 		http.MethodPost,
-		"/api/v1/sandbox/sessions/session-c6/arms",
+		"/api/v1/sandbox/sessions/session-sandbox_qualification/arms",
 		bytes.NewReader(payload),
 	)
 	request.RemoteAddr = "127.0.0.1:61616"
@@ -306,14 +348,14 @@ func submitSandboxStrategyStart(
 	return response.Code, response.Body.Bytes()
 }
 
-type c6HTTPAuthorizationStore struct {
-	*a11HTTPStore
+type sandboxQualificationHTTPAuthorizationStore struct {
+	*ownerConsoleHTTPStore
 	grants  map[string]authentication.NewSandboxAuthorization
 	used    map[string]bool
 	counter int64
 }
 
-func (store *c6HTTPAuthorizationStore) CreateSandboxAuthorization(
+func (store *sandboxQualificationHTTPAuthorizationStore) CreateSandboxAuthorization(
 	_ context.Context,
 	value authentication.NewSandboxAuthorization,
 ) error {
@@ -325,7 +367,7 @@ func (store *c6HTTPAuthorizationStore) CreateSandboxAuthorization(
 	return nil
 }
 
-func (store *c6HTTPAuthorizationStore) ConsumeSandboxAuthorization(
+func (store *sandboxQualificationHTTPAuthorizationStore) ConsumeSandboxAuthorization(
 	_ context.Context,
 	hash, session string,
 	purpose authentication.AuthorizationPurpose,
@@ -347,7 +389,7 @@ func (store *c6HTTPAuthorizationStore) ConsumeSandboxAuthorization(
 	}, nil
 }
 
-func (*c6HTTPAuthorizationStore) RevokeAllUserSessions(
+func (*sandboxQualificationHTTPAuthorizationStore) RevokeAllUserSessions(
 	context.Context,
 	string,
 	string,
@@ -359,16 +401,28 @@ func (*c6HTTPAuthorizationStore) RevokeAllUserSessions(
 	return 0, nil
 }
 
-func (*c6HTTPAuthorizationStore) AppendHighRiskAudit(
+func (*sandboxQualificationHTTPAuthorizationStore) AppendHighRiskAudit(
 	context.Context,
 	authentication.HighRiskAudit,
 ) error {
 	return nil
 }
 
-type c6HTTPCommands struct{ armCalls, strategyStartCalls, strategyStopCalls int }
+type sandboxQualificationHTTPCommands struct {
+	armCalls, strategyPrepareCalls, strategyStartCalls, strategyStopCalls int
+}
 
-func (commands *c6HTTPCommands) CreateSandboxArm(
+func (commands *sandboxQualificationHTTPCommands) CreateSandboxStrategySession(
+	context.Context,
+	authentication.Principal,
+	string,
+	generated.SandboxStrategySessionCreateRequest,
+) (generated.CommandAccepted, error) {
+	commands.strategyPrepareCalls++
+	return generated.CommandAccepted{}, nil
+}
+
+func (commands *sandboxQualificationHTTPCommands) CreateSandboxArm(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -380,7 +434,7 @@ func (commands *c6HTTPCommands) CreateSandboxArm(
 	return generated.SandboxArm{}, nil
 }
 
-func (commands *c6HTTPCommands) StartSandboxStrategySession(
+func (commands *sandboxQualificationHTTPCommands) StartSandboxStrategySession(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -392,7 +446,7 @@ func (commands *c6HTTPCommands) StartSandboxStrategySession(
 	return generated.CommandAccepted{}, nil
 }
 
-func (commands *c6HTTPCommands) StopSandboxStrategySession(
+func (commands *sandboxQualificationHTTPCommands) StopSandboxStrategySession(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -403,7 +457,7 @@ func (commands *c6HTTPCommands) StopSandboxStrategySession(
 	return generated.CommandAccepted{}, nil
 }
 
-func (*c6HTTPCommands) RevokeSandboxArm(
+func (*sandboxQualificationHTTPCommands) RevokeSandboxArm(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -413,7 +467,7 @@ func (*c6HTTPCommands) RevokeSandboxArm(
 	return generated.CommandAccepted{}, nil
 }
 
-func (*c6HTTPCommands) UnlockSandboxAccount(
+func (*sandboxQualificationHTTPCommands) UnlockSandboxAccount(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -424,7 +478,7 @@ func (*c6HTTPCommands) UnlockSandboxAccount(
 	return generated.CommandAccepted{}, nil
 }
 
-func (*c6HTTPCommands) CreateSandboxTestOrder(
+func (*sandboxQualificationHTTPCommands) CreateSandboxTestOrder(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -433,7 +487,7 @@ func (*c6HTTPCommands) CreateSandboxTestOrder(
 	return generated.CommandAccepted{}, nil
 }
 
-func (*c6HTTPCommands) QueueSandboxOrderCommand(
+func (*sandboxQualificationHTTPCommands) QueueSandboxOrderCommand(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -444,7 +498,7 @@ func (*c6HTTPCommands) QueueSandboxOrderCommand(
 	return generated.CommandAccepted{}, nil
 }
 
-func (*c6HTTPCommands) QueueSandboxAccountReconciliation(
+func (*sandboxQualificationHTTPCommands) QueueSandboxAccountReconciliation(
 	context.Context,
 	authentication.Principal,
 	string,
@@ -454,7 +508,7 @@ func (*c6HTTPCommands) QueueSandboxAccountReconciliation(
 	return generated.CommandAccepted{}, nil
 }
 
-func c6TOTPCode(seed []byte, counter uint64) string {
+func sandboxQualificationTOTPCode(seed []byte, counter uint64) string {
 	message := make([]byte, 8)
 	binary.BigEndian.PutUint64(message, counter)
 	mac := hmac.New(sha1.New, seed)
@@ -465,5 +519,5 @@ func c6TOTPCode(seed []byte, counter uint64) string {
 	return fmt.Sprintf("%06d", number%1_000_000)
 }
 
-var _ authentication.SandboxAuthorizationStore = (*c6HTTPAuthorizationStore)(nil)
-var _ SandboxCommandService = (*c6HTTPCommands)(nil)
+var _ authentication.SandboxAuthorizationStore = (*sandboxQualificationHTTPAuthorizationStore)(nil)
+var _ SandboxCommandService = (*sandboxQualificationHTTPCommands)(nil)

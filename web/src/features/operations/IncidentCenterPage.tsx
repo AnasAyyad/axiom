@@ -7,7 +7,6 @@ import { incidentsQueryForState, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { StatusBadge } from "../shared/StatusBadge";
-import { hasAccess } from "../shared/access";
 import styles from "../shared/ConsoleSurface.module.css";
 
 export function IncidentCenterPage() {
@@ -18,7 +17,6 @@ export function IncidentCenterPage() {
     return <StatePanel state="loading" />;
   if (incidents.isError || session.isError || !incidents.data || !session.data)
     return <StatePanel state="forbidden" />;
-  const canWrite = hasAccess(session.data.user, ["incident.write"]);
   return (
     <Page
       title="Incident Center"
@@ -39,7 +37,7 @@ export function IncidentCenterPage() {
           </select>
         </label>
       </div>
-      {canWrite && <CreateIncident ownerID={session.data.user.id} />}
+      <CreateIncident ownerID={session.data.user.id} />
       {incidents.isFetching && (
         <StatePanel
           state="stale"
@@ -169,7 +167,7 @@ function CreateIncident({ ownerID }: { readonly ownerID: string }) {
       </button>
       {mutation.isError && (
         <p className={styles.error} role="alert">
-          Incident creation failed. Verify owner, reason code, permission, and
+          Incident creation failed. Verify owner session, reason code, and
           revision.
         </p>
       )}

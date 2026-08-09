@@ -68,6 +68,10 @@ func evaluateCycle(
 	if err = requireFeeBalances(input.FeeBalances, legs); err != nil {
 		return Candidate{}, err
 	}
+	final, err = deductDetachedSettlementFees(final, legs)
+	if err != nil {
+		return Candidate{}, err
+	}
 	economics, err := calculateCycleEconomics(input.Configuration, start, final, len(legs))
 	if err != nil {
 		return Candidate{}, err
@@ -79,6 +83,29 @@ func evaluateCycle(
 	candidate := newCandidate(input, cycle, start, legs, claims, economics)
 	candidate.ID = candidateIdentity(candidate)
 	return candidate, nil
+}
+
+// deductDetachedSettlementFees accounts for a separately owned USDT fee that
+// Convert cannot subtract from a leg's source or target flow. The fee remains
+// an explicit atomic fee-buffer claim, but it must also reduce settlement
+// economics so a third-asset commission can never create false profit.
+func deductDetachedSettlementFees(
+	final domain.Quantity,
+	legs []arbitrage.Result,
+) (domain.Quantity, error) {
+	settlement, _ := domain.ParseAssetSymbol("USDT")
+	adjusted := final
+	for _, leg := range legs {
+		if leg.FeeAsset != settlement || leg.FeeAsset == leg.Source || leg.FeeAsset == leg.Target {
+			continue
+		}
+		var err error
+		adjusted, err = adjusted.Subtract(leg.FeeQuantity)
+		if err != nil {
+			return domain.Quantity{}, strategyError("fee_exceeds_settlement_output")
+		}
+	}
+	return adjusted, nil
 }
 
 func convertCycle(
@@ -205,7 +232,7 @@ func validateInput(input EvaluationInput) error {
 		input.DecisionOffsetNanos < input.FirstDetectedOffset ||
 		input.DecisionOffsetNanos-input.FirstDetectedOffset > uint64(configuration.CandidateLifetime) ||
 		input.ConfigurationHash == "" || input.InstrumentMetadataID == "" ||
-		configuration.StrategyVersion != "triangular.v1b.1" ||
+		configuration.StrategyVersion != "triangular-arbitrage@1.0.0" ||
 		configuration.ModelVersion != "triangular-exact-depth.v1" ||
 		len(configuration.SizeLadder) != 4 || configuration.MaximumBookAge <= 0 ||
 		configuration.CandidateLifetime <= 0 ||

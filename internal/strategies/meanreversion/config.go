@@ -10,7 +10,7 @@ import (
 	"axiom/internal/config"
 )
 
-// Configuration is the parsed immutable B3 baseline rule graph.
+// Configuration is the parsed immutable mean reversion baseline rule graph.
 type Configuration struct {
 	Version                  string
 	Hash                     string
@@ -74,7 +74,7 @@ func NewConfiguration(source config.MeanReversionConfiguration) (Configuration, 
 }
 
 func configurationValues(source config.MeanReversionConfiguration) (map[string]string, string, error) {
-	if source.StrategyVersion != "mean-reversion.v1b.1" || source.PrimaryTimeframe != "1h" ||
+	if source.StrategyVersion != "mean-reversion@1.0.0" || source.PrimaryTimeframe != "1h" ||
 		source.HigherTimeframe != "4h" || len(source.Parameters) != config.MeanReversionParameterCount {
 		return nil, "", strategyError(ReasonInvalidConfiguration)
 	}

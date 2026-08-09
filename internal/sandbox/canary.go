@@ -10,8 +10,8 @@ import (
 	"axiom/internal/domain"
 )
 
-// CanaryIntent is the typed, explicitly requested PR2 sandbox canary input.
-// V1C canaries are buy-only so the bounded runner never assumes ownership of a
+// CanaryIntent is the typed, explicitly requested sandbox connectivity sandbox canary input.
+// sandbox runtime canaries are buy-only so the bounded runner never assumes ownership of a
 // base asset that is not represented in the durable allocator.
 type CanaryIntent struct {
 	ID           string
@@ -50,7 +50,7 @@ type CanaryApprovalContext struct {
 	ApprovedAt                 time.Time
 }
 
-// BuildCanaryPlan runs one typed request through the V1C intent, allocator,
+// BuildCanaryPlan runs one typed request through the sandbox runtime intent, allocator,
 // central-risk, planner, and durable-dispatch approval contract.
 func BuildCanaryPlan(
 	intent CanaryIntent,

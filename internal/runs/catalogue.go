@@ -9,11 +9,13 @@ import (
 // absent: it is not a catalogue choice and cannot be introduced by a request.
 type Mode string
 
+// Supported run modes exposed by the owner catalogue.
 const (
 	ModeDemonstration Mode = "demonstration"
 	ModeBacktest      Mode = "backtest"
 	ModeReplay        Mode = "replay"
 	ModeShadow        Mode = "shadow"
+	ModeSandbox       Mode = "sandbox"
 	ModeTestnet       Mode = "testnet"
 	ModeDemo          Mode = "demo"
 )
@@ -21,6 +23,7 @@ const (
 // Exchange identifies the only V1 spot venues.
 type Exchange string
 
+// Supported public and sandbox exchanges exposed by the owner catalogue.
 const (
 	ExchangeBinance Exchange = "binance"
 	ExchangeBybit   Exchange = "bybit"
@@ -35,6 +38,12 @@ type Strategy struct {
 	Instruments                    []string
 	Cadence, Warmup                string
 	OrderCapable                   bool
+	// IndependentExchanges emits one single-venue choice per supported exchange.
+	// ExactExchangeSet requires the whole listed venue set (for a paired saga).
+	// They are mutually exclusive so the catalogue cannot advertise a partial
+	// multi-venue run as if it were valid.
+	IndependentExchanges bool
+	ExactExchangeSet     bool
 }
 
 // Selection is the stable semantic input to a unified run request.
@@ -141,10 +150,20 @@ func filterStrategy(strategy Strategy, selection Selection) []Combination {
 		}
 		exchanges := exchangesForMode(strategy, mode)
 		if len(selection.Exchanges) > 0 {
-			if !allSupported(exchanges, selection.Exchanges) {
+			if !allSupported(exchanges, selection.Exchanges) ||
+				(strategy.IndependentExchanges && len(selection.Exchanges) != 1) ||
+				(strategy.ExactExchangeSet && !sameExchanges(exchanges, selection.Exchanges)) {
 				continue
 			}
 			exchanges = sortedExchanges(selection.Exchanges)
+		}
+		if len(selection.Exchanges) == 0 && strategy.IndependentExchanges {
+			for _, exchange := range exchanges {
+				combinations = append(combinations, Combination{StrategyID: strategy.ID, StrategyVersion: strategy.Version,
+					StrategyName: strategy.Name, Mode: mode, Exchanges: []Exchange{exchange}, Instrument: instrument,
+					Cadence: strategy.Cadence, Warmup: strategy.Warmup, OrderCapable: strategy.OrderCapable})
+			}
+			continue
 		}
 		combinations = append(combinations, Combination{StrategyID: strategy.ID, StrategyVersion: strategy.Version,
 			StrategyName: strategy.Name, Mode: mode, Exchanges: append([]Exchange(nil), exchanges...), Instrument: instrument,
@@ -169,7 +188,8 @@ func selectionBlocker(strategy Strategy, selection Selection) *Blocker {
 func validStrategy(strategy Strategy) bool {
 	if !semanticID(strategy.ID) || strings.TrimSpace(strategy.Name) == "" || strings.TrimSpace(strategy.Explanation) == "" ||
 		!strings.Contains(strategy.Version, "@") || len(strategy.Modes) == 0 || len(strategy.Exchanges) == 0 ||
-		len(strategy.Instruments) == 0 || strings.TrimSpace(strategy.Cadence) == "" || strings.TrimSpace(strategy.Warmup) == "" {
+		len(strategy.Instruments) == 0 || strings.TrimSpace(strategy.Cadence) == "" || strings.TrimSpace(strategy.Warmup) == "" ||
+		(strategy.IndependentExchanges && strategy.ExactExchangeSet) {
 		return false
 	}
 	for _, mode := range strategy.Modes {
@@ -198,7 +218,8 @@ func exchangesForMode(strategy Strategy, mode Mode) []Exchange {
 }
 
 func validMode(mode Mode) bool {
-	return mode == ModeDemonstration || mode == ModeBacktest || mode == ModeReplay || mode == ModeShadow || mode == ModeTestnet || mode == ModeDemo
+	return mode == ModeDemonstration || mode == ModeBacktest || mode == ModeReplay ||
+		mode == ModeShadow || mode == ModeSandbox || mode == ModeTestnet || mode == ModeDemo
 }
 
 func semanticID(value string) bool {
@@ -245,6 +266,17 @@ func containsExchange(values []Exchange, value Exchange) bool {
 		}
 	}
 	return false
+}
+func sameExchanges(left, right []Exchange) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for _, exchange := range left {
+		if !containsExchange(right, exchange) {
+			return false
+		}
+	}
+	return true
 }
 func sortedStrings(values []string) []string {
 	value := append([]string(nil), values...)
