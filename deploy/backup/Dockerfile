@@ -26,6 +26,8 @@ RUN set -eu; \
     tar -xjf postgresql.tar.bz2; \
     mv postgresql-18.4 postgresql
 WORKDIR /build/postgresql
+# PostgreSQL client sub-builds share generated prerequisites such as
+# src/port/pg_config_paths.h, so keep these invocations serial.
 RUN set -eu; \
     ./configure \
       --prefix=/usr/local/pgsql \
@@ -39,8 +41,8 @@ RUN set -eu; \
       --without-pam \
       --without-readline; \
     make -C src/backend generated-headers; \
-    make -j2 -C src/bin/pg_dump; \
-    make -j2 -C src/bin/psql; \
+    make -C src/bin/pg_dump; \
+    make -C src/bin/psql; \
     make -C src/interfaces/libpq install; \
     make -C src/bin/pg_dump install; \
     make -C src/bin/psql install
