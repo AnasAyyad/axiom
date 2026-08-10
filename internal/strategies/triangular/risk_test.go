@@ -93,7 +93,7 @@ func triangularRecoveryEvidence(at time.Time) risk.RecoveryEvidence {
 	return risk.RecoveryEvidence{
 		Reconciled: true, PersistenceHealthy: true, BooksFresh: true,
 		UnknownOrdersResolved: true, Reauthenticated: true, AuditDurable: true,
-		Actor: "owner", Reason: "b4-test", At: at,
+		Actor: "owner", Reason: "triangular_arbitrage-test", At: at,
 	}
 }
 

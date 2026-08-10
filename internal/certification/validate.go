@@ -17,11 +17,11 @@ var (
 	identityPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 )
 
-var requiredPhaseGates = []string{
-	"A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11",
-	"B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8",
-	"C1", "C2", "C3", "C4", "C5", "C6",
-	"D1", "D2", "D3", "D4", "D5",
+var requiredReadinessGates = []string{
+	"traceability", "application-baseline", "configuration-reference", "runtime-recovery", "durable-storage", "observability", "exchange-integration", "public-data-qualification", "strategy-execution", "portfolio-risk", "research-registry", "owner-console",
+	"exchange-expansion", "coherent-market-data", "mean-reversion", "triangular-arbitrage", "cross-exchange-arbitrage", "inventory-rebalancing", "research-promotion", "multi-exchange-console",
+	"credential-security", "authentication-control", "dispatcher-recovery", "binance-testnet", "bybit-demo", "sandbox-qualification",
+	"owner-control", "owner-experience", "run-lab", "operational-evidence", "operational-readiness",
 }
 
 var requiredReviewAreas = []string{
@@ -63,15 +63,15 @@ var requiredSignedDestinations = []SignedDestination{
 	{Exchange: "bybit", Transport: "websocket", Host: "stream-demo.bybit.com"},
 }
 
-// RequiredPhaseGates returns the exact cumulative V1 phase set.
-func RequiredPhaseGates() []string { return append([]string(nil), requiredPhaseGates...) }
+// RequiredReadinessGates returns the exact cumulative product-readiness set.
+func RequiredReadinessGates() []string { return append([]string(nil), requiredReadinessGates...) }
 
-// RequiredReviewAreas returns the exact D6 independent-review set.
+// RequiredReviewAreas returns the exact release certification independent-review set.
 func RequiredReviewAreas() []string { return append([]string(nil), requiredReviewAreas...) }
 
-func reject(reason string) error { return fmt.Errorf("d6_certification_rejected: %s", reason) }
+func reject(reason string) error { return fmt.Errorf("release_certification_rejected: %s", reason) }
 
-// ValidateCandidate checks every signed, current, exact-source D6 prerequisite.
+// ValidateCandidate checks every signed, current, exact-source release certification prerequisite.
 func ValidateCandidate(candidate Candidate, trust TrustStore, now time.Time) error {
 	now = now.UTC()
 	if candidate.SchemaVersion != CandidateSchema || !identityPattern.MatchString(candidate.CandidateID) ||
@@ -195,13 +195,13 @@ func exactSignedDestinations(actual []SignedDestination) bool {
 
 func validatePrerequisites(verdicts []PrerequisiteVerdict, sourceSHA string,
 	artifacts map[string]ArtifactIdentity, trusted map[string]TrustedReviewer, now time.Time) error {
-	if len(verdicts) != len(requiredPhaseGates) {
+	if len(verdicts) != len(requiredReadinessGates) {
 		return reject("formal_prerequisites_missing")
 	}
 	gates, evidenceIDs, evidenceHashes := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, verdict := range verdicts {
 		if verdict.SchemaVersion != PrerequisiteSchema || !identityPattern.MatchString(verdict.EvidenceID) ||
-			!slices.Contains(requiredPhaseGates, verdict.GateID) || verdict.SourceSHA != sourceSHA ||
+			!slices.Contains(requiredReadinessGates, verdict.GateID) || verdict.SourceSHA != sourceSHA ||
 			verdict.State != "PASSED" || !verdict.Formal || !verdict.Qualified || verdict.ProfitabilityEvidence ||
 			!validReviewer(verdict.Reviewer) || !verdict.Reviewer.Independent ||
 			!validWindow(verdict.IssuedAt, verdict.ValidUntil, now) ||

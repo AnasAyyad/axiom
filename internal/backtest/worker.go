@@ -14,6 +14,9 @@ type JobClaim struct {
 	ID            string
 	Manifest      RunManifest
 	Configuration config.Configuration
+	// ExchangeID is populated only by a production-public shadow composition.
+	// Offline jobs derive venue identity from their immutable event evidence.
+	ExchangeID    string
 	Source        replay.Source
 	TimingMode    replay.TimingMode
 	Acceleration  uint64

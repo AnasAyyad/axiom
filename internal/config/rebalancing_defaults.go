@@ -1,6 +1,6 @@
 package config
 
-// RebalancingParameterCount is the immutable B6 advisory graph size.
+// RebalancingParameterCount is the immutable inventory rebalancing advisory graph size.
 const RebalancingParameterCount = 12
 
 func rebalancingParameter(
@@ -21,14 +21,14 @@ func rebalancingParameter(
 		ApprovalActor:     "authoritative_specification",
 		ApprovalReference: "AX-V1B-B06-FUN-001/AX-V1B-B06-SAF-001",
 		ApprovedAt:        "2026-07-23T00:00:00Z",
-		ChangeReason:      "initial immutable B6 advisory inventory and rebalancing optimizer",
+		ChangeReason:      "initial immutable inventory rebalancing advisory inventory and rebalancing optimizer",
 	}
 }
 
 func defaultRebalancingConfiguration() RebalancingConfiguration {
 	parameter := rebalancingParameter
 	return RebalancingConfiguration{
-		OptimizerVersion:      "rebalancing.v1b.1",
+		OptimizerVersion:      "inventory-rebalancing@1.0.0",
 		FactSchemaVersion:     "rebalancing-fact.v1",
 		CostModelVersion:      "rebalancing-cost.v1",
 		Mode:                  "advisory_only",

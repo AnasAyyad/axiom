@@ -62,7 +62,7 @@ type ReportInput struct {
 	CreatedAt            time.Time                `json:"created_at"`
 }
 
-// ReportManifest is immutable canonical A10 report evidence.
+// ReportManifest is immutable canonical research registry report evidence.
 type ReportManifest struct {
 	ReportInput
 	Stability  Stability `json:"stability"`

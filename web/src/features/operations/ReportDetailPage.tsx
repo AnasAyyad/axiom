@@ -7,10 +7,9 @@ import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
-import { hasAccess } from "../shared/access";
 import { downloadArtifact } from "./artifactDownload";
 import { reportLabel } from "./reportModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function ReportDetailPage() {
   const { id = "" } = useParams();
@@ -36,7 +35,6 @@ export function ReportDetailPage() {
   if (report.isError || session.isError || !report.data || !session.data)
     return <StatePanel state="forbidden" />;
   const item = report.data;
-  const canExport = hasAccess(session.data.user, ["artifacts.read"]);
   return (
     <Page
       title={reportLabel(item.report_type)}
@@ -93,7 +91,7 @@ export function ReportDetailPage() {
           </dl>
         </article>
       </div>
-      {canExport && item.state === "SUCCEEDED" && (
+      {item.state === "SUCCEEDED" && (
         <section
           className={styles.controlCard}
           aria-label="Audited report download"

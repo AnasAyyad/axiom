@@ -8,7 +8,7 @@ import (
 	"axiom/internal/strategies/arbitrage"
 )
 
-// JournalContext fixes durable ownership and causation for one B4 cycle.
+// JournalContext fixes durable ownership and causation for one triangular arbitrage cycle.
 type JournalContext struct {
 	RunID             domain.RunID
 	PortfolioID       domain.PortfolioID
@@ -18,13 +18,13 @@ type JournalContext struct {
 	FirstOrdinal      uint64
 }
 
-// CycleJournal emits economically separated, exact, balanced B4 facts.
+// CycleJournal emits economically separated, exact, balanced triangular arbitrage facts.
 type CycleJournal struct {
 	journal accounting.Journal
 	context JournalContext
 }
 
-// NewCycleJournal constructs the B4 journal boundary.
+// NewCycleJournal constructs the triangular arbitrage journal boundary.
 func NewCycleJournal(journal accounting.Journal, context JournalContext) (*CycleJournal, error) {
 	if journal == nil || context.RunID.Value() == "" || context.PortfolioID.Value() == "" ||
 		context.Owner == "" || context.ConfigurationHash == "" || context.RecordedAt.Validate() != nil ||
@@ -169,17 +169,17 @@ func (journal *CycleJournal) transaction(
 		suffix = suffix[:16]
 	}
 	transactionID, err := domain.NewJournalTransactionID(
-		fmt.Sprintf("b4-%s-%s-%d", suffix, posting.name, ordinal),
+		fmt.Sprintf("triangular_arbitrage-%s-%s-%d", suffix, posting.name, ordinal),
 	)
 	if err != nil {
 		return accounting.Transaction{}, strategyError("journal_identity_invalid")
 	}
-	eventID, err := domain.NewEventID(fmt.Sprintf("b4-event-%s-%d", suffix, ordinal))
+	eventID, err := domain.NewEventID(fmt.Sprintf("triangular_arbitrage-event-%s-%d", suffix, ordinal))
 	if err != nil {
 		return accounting.Transaction{}, strategyError("journal_identity_invalid")
 	}
 	return accounting.Transaction{
-		ID: transactionID, Type: "b4_" + posting.name,
+		ID: transactionID, Type: "triangular_arbitrage_" + posting.name,
 		RunID: journal.context.RunID, PortfolioID: journal.context.PortfolioID,
 		ConfigurationHash: journal.context.ConfigurationHash, CausationID: eventID,
 		RecordedAt: journal.context.RecordedAt, IngestOrdinal: ordinal,

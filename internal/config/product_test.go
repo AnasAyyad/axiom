@@ -50,16 +50,16 @@ func TestLoadProductConfigurationRejectsModeMismatchAndSymlink(t *testing.T) {
 	}
 }
 
-func TestLoadProductConfigurationUsesDefaultOffV1CSandboxGraph(t *testing.T) {
+func TestLoadProductConfigurationUsesDefaultOffSandboxRuntimeSandboxGraph(t *testing.T) {
 	t.Setenv("APP_CONFIG_FILE", "")
 	t.Setenv("EXECUTION_MODE", "testnet")
 	configuration, source, err := LoadProductConfiguration(ModeTestnet)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if source != SourceDefault || configuration.SchemaVersion != SchemaVersionV1C ||
+	if source != SourceDefault || configuration.SchemaVersion != SchemaVersionSandboxRuntime ||
 		configuration.Environment != EnvironmentSandbox ||
 		configuration.Sandbox.IntegrationsEnabled || configuration.Sandbox.SubmissionEnabled {
-		t.Fatalf("V1C default graph = %#v source=%s", configuration.Sandbox, source)
+		t.Fatalf("sandbox runtime default graph = %#v source=%s", configuration.Sandbox, source)
 	}
 }

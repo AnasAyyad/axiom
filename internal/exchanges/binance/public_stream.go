@@ -15,50 +15,50 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-// Compatibility aliases preserve the V1A Binance API while recording facts are
+// Compatibility aliases preserve the initial trend Binance API while recording facts are
 // now owned by the exchange-neutral consumer contract.
 type ObservedStreamEvent = exchangecontracts.ObservedStreamEvent
 
-// StreamRecordToken is the V1A name for the common recording link.
+// StreamRecordToken is the initial trend name for the common recording link.
 type StreamRecordToken = exchangecontracts.StreamRecordToken
 
-// PublicRecordKind is the V1A name for a common public recording class.
+// PublicRecordKind is the initial trend name for a common public recording class.
 type PublicRecordKind = exchangecontracts.PublicRecordKind
 
-// PublicRawRecord is the V1A name for a common raw public fact.
+// PublicRawRecord is the initial trend name for a common raw public fact.
 type PublicRawRecord = exchangecontracts.PublicRawRecord
 
-// PublicCanonicalRecord is the V1A name for a common canonical public fact.
+// PublicCanonicalRecord is the initial trend name for a common canonical public fact.
 type PublicCanonicalRecord = exchangecontracts.PublicCanonicalRecord
 
-// PublicRecorder is the V1A name for the common public recorder contract.
+// PublicRecorder is the initial trend name for the common public recorder contract.
 type PublicRecorder = exchangecontracts.PublicRecorder
 
-// SourceGap is the V1A name for a common public source gap.
+// SourceGap is the initial trend name for a common public source gap.
 type SourceGap = exchangecontracts.SourceGap
 
-// ObservedStream is the V1A name for the common raw-plus-canonical stream.
+// ObservedStream is the initial trend name for the common raw-plus-canonical stream.
 type ObservedStream = exchangecontracts.ObservedStream
 
-// V1A public recording constants remain aliases of the common contract.
+// initial trend public recording constants remain aliases of the common contract.
 const (
-	// RecordStreamFrame preserves the V1A stream-frame constant.
+	// RecordStreamFrame preserves the initial trend stream-frame constant.
 	RecordStreamFrame = exchangecontracts.RecordStreamFrame
-	// RecordSnapshot preserves the V1A snapshot constant.
+	// RecordSnapshot preserves the initial trend snapshot constant.
 	RecordSnapshot = exchangecontracts.RecordSnapshot
-	// RecordClockSample preserves the V1A clock-sample constant.
+	// RecordClockSample preserves the initial trend clock-sample constant.
 	RecordClockSample = exchangecontracts.RecordClockSample
-	// RecordLifecycle preserves the V1A lifecycle constant.
+	// RecordLifecycle preserves the initial trend lifecycle constant.
 	RecordLifecycle = exchangecontracts.RecordLifecycle
-	// RecordSubscription preserves the V1A subscription constant.
+	// RecordSubscription preserves the initial trend subscription constant.
 	RecordSubscription = exchangecontracts.RecordSubscription
 	// RecordHeartbeat exposes the common heartbeat recording class.
 	RecordHeartbeat = exchangecontracts.RecordHeartbeat
-	// RecordRebuild preserves the V1A rebuild constant.
+	// RecordRebuild preserves the initial trend rebuild constant.
 	RecordRebuild = exchangecontracts.RecordRebuild
-	// RecordGap preserves the V1A gap constant.
+	// RecordGap preserves the initial trend gap constant.
 	RecordGap = exchangecontracts.RecordGap
-	// RecordDecoderError preserves the V1A decoder-error constant.
+	// RecordDecoderError preserves the initial trend decoder-error constant.
 	RecordDecoderError = exchangecontracts.RecordDecoderError
 )
 
@@ -139,7 +139,7 @@ func (client *PublicClient) subscribe(
 		instrument: request.Instrument, monotonic: client.monotonic, recorder: recorder}, nil
 }
 
-// Receive returns only the normalized event for the shared A6 contract.
+// Receive returns only the normalized event for the shared exchange integration contract.
 func (stream *publicStream) Receive(ctx context.Context) (exchangecontracts.StreamEvent, error) {
 	observed, err := stream.ReceiveObserved(ctx)
 	return observed.Event, err

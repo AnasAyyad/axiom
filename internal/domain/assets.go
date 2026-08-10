@@ -32,7 +32,7 @@ type Asset struct {
 	Status AssetStatus `json:"status"`
 }
 
-// DefaultAssets returns the only approved assets in the initial V1A registry.
+// DefaultAssets returns the only approved assets in the initial initial trend registry.
 func DefaultAssets() []Asset {
 	return []Asset{
 		{Symbol: "USDT", Status: AssetApproved},

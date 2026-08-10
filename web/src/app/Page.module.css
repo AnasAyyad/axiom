@@ -9,6 +9,13 @@
   justify-content: space-between;
   gap: 1rem;
 }
+
+.pageHelp {
+  max-width: 42rem;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
 .header h1 {
   margin: 0;
   font: 700 clamp(2rem, 5vw, 3.4rem) / 1 var(--font-display);

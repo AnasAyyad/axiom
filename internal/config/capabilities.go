@@ -1,9 +1,9 @@
 package config
 
-// CapabilityDisposition is a non-activatable declaration of V1A unavailability.
+// CapabilityDisposition is a non-activatable declaration of initial trend unavailability.
 type CapabilityDisposition string
 
-// Every restricted capability is fixed to an unsupported disposition in V1A.
+// Every restricted capability is fixed to an unsupported disposition in initial trend.
 const (
 	CapabilityExternalOrdersUnsupported    CapabilityDisposition = "external_orders_unsupported"
 	CapabilityAuthenticatedAPIUnsupported  CapabilityDisposition = "authenticated_api_unsupported"
@@ -23,7 +23,7 @@ const (
 	CapabilityAuthenticatedSandboxCompiled CapabilityDisposition = "authenticated_sandbox_compiled"
 )
 
-// UnsupportedCapabilities returns the complete, non-activatable V1A declaration.
+// UnsupportedCapabilities returns the complete, non-activatable initial trend declaration.
 func UnsupportedCapabilities() []CapabilityDisposition {
 	return []CapabilityDisposition{
 		CapabilityExternalOrdersUnsupported,
@@ -42,10 +42,10 @@ func UnsupportedCapabilities() []CapabilityDisposition {
 	}
 }
 
-// V1CCapabilities returns the descriptive C1-C6 boundary. The compiled
+// SandboxRuntimeCapabilities returns the descriptive sandbox boundary. The compiled
 // sandbox capabilities are still inert until all independent runtime gates
 // pass, while production and prohibited products remain unavailable.
-func V1CCapabilities() []CapabilityDisposition {
+func SandboxRuntimeCapabilities() []CapabilityDisposition {
 	return []CapabilityDisposition{
 		CapabilityProductionOrdersUnsupported,
 		CapabilitySandboxOrdersCompiled,
@@ -77,8 +77,8 @@ func capabilitiesExactlyUnsupported(actual []CapabilityDisposition) bool {
 	return true
 }
 
-func capabilitiesExactlyV1C(actual []CapabilityDisposition) bool {
-	expected := V1CCapabilities()
+func capabilitiesExactlySandboxRuntime(actual []CapabilityDisposition) bool {
+	expected := SandboxRuntimeCapabilities()
 	if len(actual) != len(expected) {
 		return false
 	}

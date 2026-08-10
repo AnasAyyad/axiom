@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { APIError } from "../api/client";
 import {
-  c6QualificationQuery,
+  sandboxQualificationQuery,
   sandboxOrdersQuery,
   sandboxOverviewQuery,
   sandboxReconciliationsQuery,
@@ -17,13 +17,14 @@ import {
   SandboxReconciliationGrid,
   SandboxResetGrid,
 } from "./SandboxReconciliationEvidence";
+import { SandboxStrategySessions } from "./SandboxStrategySessions";
 import styles from "./SandboxOperationsPage.module.css";
 
 export function SandboxOperationsPage() {
   const overview = useQuery(sandboxOverviewQuery);
   const orders = useQuery(sandboxOrdersQuery);
   const reconciliations = useQuery(sandboxReconciliationsQuery);
-  const qualification = useQuery(c6QualificationQuery);
+  const qualification = useQuery(sandboxQualificationQuery);
   if (
     overview.isLoading ||
     orders.isLoading ||
@@ -56,13 +57,13 @@ export function SandboxOperationsPage() {
   return (
     <Page
       title="Sandbox Operations"
-      eyebrow="V1C · C6 controlled execution"
+      eyebrow="Controlled Testnet and Demo execution"
       description="Authoritative redacted Testnet and Demo state. Every value comes from the durable account, order, reconciliation, and qualification stores."
     >
       <section className={styles.environment} aria-label="Execution boundary">
         <strong>BINANCE SPOT TESTNET</strong>
         <strong>BYBIT DEMO</strong>
-        <span>REAL TRADING DISABLED</span>
+        <span>REAL-MONEY TRADING IS NOT AVAILABLE</span>
       </section>
       {data.stale && (
         <StatePanel
@@ -94,7 +95,7 @@ export function SandboxOperationsPage() {
           }
         />
         <MetricCard
-          label="Formal C6 soak"
+          label="Formal sandbox soak"
           value={
             qualification.data.formal_soak_pending
               ? "PENDING"
@@ -108,6 +109,7 @@ export function SandboxOperationsPage() {
         orders={orders.data.items}
         reconciliations={reconciliations.data.items}
       />
+      <SandboxStrategySessions sessions={data.strategy_sessions} />
       <SandboxAccountGrid accounts={data.accounts} />
       <SandboxOrderLedger orders={orders.data.items} />
       <SandboxReconciliationGrid reconciliations={reconciliations.data.items} />

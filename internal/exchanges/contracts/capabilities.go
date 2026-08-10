@@ -14,7 +14,7 @@ type Environment string
 // AccountMode identifies whether a capability set has any account scope.
 type AccountMode string
 
-// V1A environment and account-mode values.
+// initial trend environment and account-mode values.
 const (
 	EnvironmentProductionPublic Environment = "production_public"
 	AccountModePublicOnly       AccountMode = "public_only"

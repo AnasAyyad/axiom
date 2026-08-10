@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { postAPI, type APIModel } from "../../api/client";
-import styles from "./D2.module.css";
+import styles from "./ConsoleSurface.module.css";
 
 type Purpose = APIModel<"HighRiskAuthorizationRequest">["purpose"];
 
@@ -121,8 +121,8 @@ export function HighRiskAuthorizationForm({
       </button>
       {mutation.isError && (
         <p className={styles.error} role="alert">
-          The command was not applied. Verify permission, credentials, TOTP,
-          reason, and exact revision before retrying.
+          The command was not applied. Verify owner-session state, credentials,
+          TOTP, reason, and exact revision before retrying.
         </p>
       )}
       {mutation.isSuccess && (

@@ -16,7 +16,7 @@ type ExposureSnapshot struct {
 // Exposure marks owned BTC/ETH and derives exact portfolio risk fractions.
 func (portfolio *Portfolio) Exposure(marks map[domain.AssetSymbol]domain.Price) (ExposureSnapshot, error) {
 	snapshot := portfolio.Snapshot()
-	quote := snapshot.Balances[domain.AssetSymbol(V1ANumeraire)]
+	quote := snapshot.Balances[domain.AssetSymbol(TrendNumeraire)]
 	equity, err := domain.ParseMoney(quote.Available.String())
 	if err != nil {
 		return ExposureSnapshot{}, portfolioError("exposure_quote_invalid")

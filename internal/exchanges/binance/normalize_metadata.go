@@ -47,7 +47,7 @@ func normalizeInstrument(
 	if baseErr != nil || quoteErr != nil || instrumentErr != nil || instrument.Symbol() != native.Symbol {
 		return exchangecontracts.InstrumentRecord{}, metadataError()
 	}
-	priceTick, quantityStep, minimumQuantity, minimumNotional, err := normalizeFilters(native.Filters)
+	priceTick, quantityStep, minimumQuantity, maximumQuantity, minimumNotional, err := normalizeFilters(native.Filters)
 	if err != nil {
 		return exchangecontracts.InstrumentRecord{}, err
 	}
@@ -64,11 +64,12 @@ func normalizeInstrument(
 		return exchangecontracts.InstrumentRecord{}, metadataError()
 	}
 	return exchangecontracts.InstrumentRecord{
-		Exchange:       "binance",
-		NativeSymbol:   native.Symbol,
-		NativeStatus:   native.Status,
-		Metadata:       metadata,
-		RawPayloadHash: rawHash,
+		Exchange:        "binance",
+		NativeSymbol:    native.Symbol,
+		NativeStatus:    native.Status,
+		Metadata:        metadata,
+		MaximumQuantity: maximumQuantity,
+		RawPayloadHash:  rawHash,
 	}, nil
 }
 
@@ -76,16 +77,17 @@ func normalizeFilters(filters []filterPayload) (
 	domain.Price,
 	domain.Quantity,
 	domain.Quantity,
+	domain.Quantity,
 	domain.Notional,
 	error,
 ) {
 	var tick domain.Price
-	var step, minimum domain.Quantity
+	var step, minimum, maximum domain.Quantity
 	var notional domain.Notional
 	seen := make(map[string]bool, 3)
 	for _, filter := range filters {
 		if seen[filter.Type] {
-			return tick, step, minimum, notional, metadataError()
+			return tick, step, minimum, maximum, notional, metadataError()
 		}
 		seen[filter.Type] = true
 		var err error
@@ -94,6 +96,9 @@ func normalizeFilters(filters []filterPayload) (
 			tick, err = domain.ParsePrice(filter.TickSize)
 		case "LOT_SIZE":
 			minimum, err = domain.ParseQuantity(filter.MinimumQty)
+			if err == nil {
+				maximum, err = domain.ParseQuantity(filter.MaximumQty)
+			}
 			if err == nil {
 				step, err = domain.ParseQuantity(filter.StepSize)
 			}
@@ -106,16 +111,22 @@ func normalizeFilters(filters []filterPayload) (
 			"MAX_NUM_ORDER_AMENDS":
 			// Known public constraints that do not define the canonical price/size minima.
 		default:
-			return tick, step, minimum, notional, metadataError()
+			return tick, step, minimum, maximum, notional, metadataError()
 		}
 		if err != nil {
-			return tick, step, minimum, notional, metadataError()
+			return tick, step, minimum, maximum, notional, metadataError()
 		}
 	}
-	if !seen["PRICE_FILTER"] || !seen["LOT_SIZE"] || (seen["NOTIONAL"] == seen["MIN_NOTIONAL"]) {
-		return tick, step, minimum, notional, metadataError()
+	zero, _ := domain.ParseQuantity("0")
+	if !validNormalizedFilters(seen, minimum, maximum, zero) {
+		return tick, step, minimum, maximum, notional, metadataError()
 	}
-	return tick, step, minimum, notional, nil
+	return tick, step, minimum, maximum, notional, nil
+}
+
+func validNormalizedFilters(seen map[string]bool, minimum, maximum, zero domain.Quantity) bool {
+	return seen["PRICE_FILTER"] && seen["LOT_SIZE"] && seen["NOTIONAL"] != seen["MIN_NOTIONAL"] &&
+		maximum.Compare(zero) > 0 && maximum.Compare(minimum) >= 0
 }
 
 func metadataError() error {

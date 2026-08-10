@@ -51,7 +51,7 @@ func TestSandboxEngineAttestationIsExactAndExchangeScoped(t *testing.T) {
 }
 
 func TestSandboxEngineRequiresBothSubmissionSwitchLayers(t *testing.T) {
-	product, err := config.DefaultV1CConfiguration(config.ModeTestnet)
+	product, err := config.DefaultSandboxConfiguration(config.ModeTestnet)
 	if err != nil {
 		t.Fatal(err)
 	}

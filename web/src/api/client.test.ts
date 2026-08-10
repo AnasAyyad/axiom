@@ -11,11 +11,12 @@ it("rejects an unsafe or structurally invalid system response", async () => {
       Promise.resolve(
         new Response(
           JSON.stringify({
-            release: "V1A",
-            phase: "A11",
-            role: "api",
+            application_version: "test",
+            build_commit: "test-commit",
+            configuration_identity: "test-configuration",
+            readiness_state: "ready",
             lifecycle_state: "RUNNING",
-            strategy_activation: "trend.v1a.1",
+            strategy_activation: "trend-following@1.0.0",
             real_trading_enabled: true,
           }),
           { status: 200 },
@@ -30,17 +31,50 @@ it("rejects an unsafe or structurally invalid system response", async () => {
   );
 });
 
+it("keeps an owner-actionable workflow blocker without exposing its code to the UI", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            code: "PUBLIC_SHADOW_EXCHANGE_UNAVAILABLE",
+            correlation_id: "correlation-run-1",
+            message: "Public shadow is not available on this exchange.",
+            summary: "Public shadow is currently available on Binance only.",
+            detail:
+              "The active worker has a Binance public-data boundary and does not substitute another exchange.",
+            impact: "No shadow session was created.",
+            suggested_action: "Choose Binance or wait for the Bybit worker.",
+            blocking_prerequisites: ["Bybit worker installed"],
+          }),
+          { status: 412 },
+        ),
+      ),
+    ),
+  );
+  await expect(getAPI<"RunResource">("/api/v1/runs/run-1")).rejects.toEqual(
+    expect.objectContaining<Partial<APIError>>({
+      code: "PUBLIC_SHADOW_EXCHANGE_UNAVAILABLE",
+      details: expect.objectContaining({
+        summary: "Public shadow is currently available on Binance only.",
+        suggestedAction: "Choose Binance or wait for the Bybit worker.",
+      }),
+    }),
+  );
+});
+
 it("accepts only versioned monotonic stream envelopes", () => {
   const valid = parseStreamEvent(
     JSON.stringify({
-      id: "event-a11",
+      id: "event-owner_console",
       stream: "risk",
       schema_version: "axiom.stream.v1",
       revision: "12",
       entity_revision: "2",
       occurred_at: "2026-07-16T12:00:00Z",
-      correlation_id: "correlation-a11",
-      causation_id: "command-a11",
+      correlation_id: "correlation-owner_console",
+      causation_id: "command-owner_console",
       event_type: "resume",
       payload: { state: "NORMAL" },
     }),
@@ -59,7 +93,7 @@ it("rejects malformed canonical replay evidence", async () => {
       Promise.resolve(
         new Response(
           JSON.stringify({
-            id: "replay-a11",
+            id: "replay-owner_console",
             kind: "replay",
             state: "PAUSED",
             mode_label: "REPLAY",
@@ -82,7 +116,7 @@ it("rejects malformed canonical replay evidence", async () => {
     ),
   );
   await expect(
-    getAPI<"JobResource">("/api/v1/replays/replay-a11"),
+    getAPI<"JobResource">("/api/v1/replays/replay-owner_console"),
   ).rejects.toEqual(
     expect.objectContaining<Partial<APIError>>({
       code: "invalid_server_response",
@@ -97,22 +131,22 @@ it("rejects malformed registered research evidence", async () => {
       Promise.resolve(
         new Response(
           JSON.stringify({
-            id: "backtest-a11",
+            id: "backtest-owner_console",
             kind: "backtest",
             state: "SUCCEEDED",
             mode_label: "BACKTEST",
             revision: "2",
             created_at: "2026-07-16T12:00:00Z",
             registered_report: {
-              id: "report-a11",
-              research_generation_id: "generation-a10-1",
+              id: "report-owner_console",
+              research_generation_id: "generation-research_registry-1",
               manifest_hash: "a".repeat(64),
               confidence_label: "local_tier_b",
               platform_correctness: "deterministic suite validated",
               strategy_evidence: "provisional local evidence",
               viability: "undetermined",
               disclaimer: "Research evidence only.",
-              run_references: ["run-a11"],
+              run_references: ["run-owner_console"],
               benchmarks: [],
               stress: [],
               capacity: [],
@@ -126,7 +160,7 @@ it("rejects malformed registered research evidence", async () => {
     ),
   );
   await expect(
-    getAPI<"JobResource">("/api/v1/backtests/backtest-a11"),
+    getAPI<"JobResource">("/api/v1/backtests/backtest-owner_console"),
   ).rejects.toEqual(
     expect.objectContaining<Partial<APIError>>({
       code: "invalid_server_response",
@@ -134,7 +168,7 @@ it("rejects malformed registered research evidence", async () => {
   );
 });
 
-it("accepts isolated B8 inventory and rejects a combined balance", async () => {
+it("accepts isolated multi-exchange console inventory and rejects a combined balance", async () => {
   const response = {
     items: [
       {

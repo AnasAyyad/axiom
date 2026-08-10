@@ -2,19 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
 import { APIError } from "../../api/client";
-import { d1CollectionQuery, sessionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
-import { hasAccess } from "../shared/access";
 import { stringAttribute } from "../strategies/strategyModel";
 import { AlertRoutePanel } from "./AlertRoutePanel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function AlertCenterPage() {
   const session = useQuery(sessionQuery);
-  const query = useQuery(d1CollectionQuery("alerts"));
+  const query = useQuery(ownerControlCollectionQuery("alerts"));
   if (session.isLoading || query.isLoading)
     return <StatePanel state="loading" />;
   if (
@@ -24,7 +23,6 @@ export function AlertCenterPage() {
     return <StatePanel state="forbidden" />;
   if (session.isError || query.isError || !session.data || !query.data)
     return <StatePanel state="error" detail="Alert state is unavailable." />;
-  const canControl = hasAccess(session.data.user, ["alert.write"]);
   return (
     <Page
       title="Alert Center"
@@ -40,7 +38,7 @@ export function AlertCenterPage() {
       {query.data.items.length === 0 ? (
         <StatePanel
           state="empty"
-          detail="No alerts are visible to this role."
+          detail="No alerts match the current authoritative projection."
         />
       ) : (
         <div className={styles.cardGrid}>
@@ -88,7 +86,7 @@ export function AlertCenterPage() {
           ))}
         </div>
       )}
-      <AlertRoutePanel canTest={canControl} />
+      <AlertRoutePanel canTest />
     </Page>
   );
 }

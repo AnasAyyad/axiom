@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import axe from "axe-core";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -7,11 +7,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SandboxOperationsPage } from "./SandboxOperationsPage";
 
 const at = "2026-07-30T12:00:00Z";
-const audit = "/api/v1/audit-events?event_type=c6";
+const audit = "/api/v1/audit-events?event_type=sandbox_qualification";
 const arm = {
-  id: "arm-c6",
-  session_id: "session-c6",
-  account_ids: ["binance-c6"],
+  id: "arm-sandbox_qualification",
+  session_id: "session-sandbox_qualification",
+  account_ids: ["binance-sandbox_qualification"],
   state: "active",
   created_at: at,
   expires_at: "2099-07-30T12:15:00Z",
@@ -19,7 +19,7 @@ const arm = {
   audit_url: audit,
 };
 const account = {
-  id: "binance-c6",
+  id: "binance-sandbox_qualification",
   exchange: "binance",
   environment: "spot_testnet",
   state: "ARMED",
@@ -27,7 +27,7 @@ const account = {
   account_epoch: 3,
   credential_generation: 2,
   revision: "4",
-  session_id: "session-c6",
+  session_id: "session-sandbox_qualification",
   session_revision: "5",
   startup_cycle: 7,
   private_stream_healthy: true,
@@ -51,7 +51,7 @@ const account = {
   audit_url: audit,
 };
 const order = {
-  id: "order-c6",
+  id: "order-sandbox_qualification",
   account_id: account.id,
   exchange: "binance",
   environment: "spot_testnet",
@@ -73,7 +73,7 @@ const order = {
   audit_url: audit,
 };
 const reconciliation = {
-  id: "reconciliation-c6",
+  id: "reconciliation-sandbox_qualification",
   account_id: account.id,
   exchange: "binance",
   account_epoch: 3,
@@ -117,12 +117,25 @@ const qualification = {
   formal_soak_pending: true,
   audit_url: audit,
 };
+const strategySession = {
+  id: "strategy-session-sandbox_qualification",
+  display_name: "Trend Following · Binance Spot Testnet · BTCUSDT",
+  strategy_name: "Trend Following",
+  exchanges: ["binance"],
+  instrument: "BTCUSDT",
+  state: "prepared",
+  waiting_reason:
+    "This session is prepared. Complete owner reauthentication and arm its selected account before the strategy can begin evaluating.",
+  created_at: at,
+  revision: "1",
+  audit_url: audit,
+};
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("C6 sandbox console", () => {
+describe("sandbox qualification sandbox console", () => {
   it("shows authoritative boundaries and accessible recovery controls", async () => {
-    vi.stubGlobal("fetch", vi.fn(c6FetchFixture));
+    vi.stubGlobal("fetch", vi.fn(sandboxQualificationFetchFixture));
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -139,16 +152,33 @@ describe("C6 sandbox console", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("BINANCE SPOT TESTNET")).toBeInTheDocument();
     expect(screen.getByText("BYBIT DEMO")).toBeInTheDocument();
-    expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
+    expect(
+      screen.getByText("REAL-MONEY TRADING IS NOT AVAILABLE"),
+    ).toBeInTheDocument();
     expect(screen.getByText("UNKNOWN", { exact: true })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Strategy sessions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /complete owner reauthentication and arm its selected account/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("list", { name: "Strategy session steps" }),
+    ).toHaveTextContent(
+      /Use the account controls above to arm every selected/i,
+    );
     expect(
       await screen.findByRole("heading", { name: "Virtual/test actions only" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Cancel order-c6" }),
+      screen.getByRole("button", {
+        name: "Cancel order-sandbox_qualification",
+      }),
     ).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "Query order-c6" }),
+      screen.getByRole("button", { name: "Query order-sandbox_qualification" }),
     ).toBeEnabled();
     expect(
       screen.queryByText(/production environment/i),
@@ -157,25 +187,51 @@ describe("C6 sandbox console", () => {
     const result = await axe.run(view.container);
     expect(result.violations).toHaveLength(0);
   });
+
+  it("requires owner reauthentication before starting a prepared strategy session", async () => {
+    vi.stubGlobal("fetch", vi.fn(sandboxQualificationFetchFixture));
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SandboxOperationsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Start after reauthentication",
+      }),
+    );
+    expect(screen.getByLabelText("Owner password")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    expect(screen.getByLabelText("One-time code")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reauthenticate and start" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Starting evaluates the strategy; it does not create an order by itself/i,
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
-function c6FetchFixture(input: RequestInfo | URL) {
+function sandboxQualificationFetchFixture(input: RequestInfo | URL) {
   const path = String(input);
   let body: unknown;
   if (path.includes("/session/me")) {
     body = {
       user: {
-        id: "owner-c6",
+        id: "owner-sandbox_qualification",
         email: "owner@example.test",
-        roles: ["owner"],
-        permissions: [
-          "sandbox.read",
-          "sandbox.arm",
-          "sandbox.cancel",
-          "sandbox.admin",
-        ],
       },
-      session_id: "browser-c6",
+      session_id: "browser-sandbox_qualification",
       session_revision: "1",
       reauthenticated_at: at,
     };
@@ -187,6 +243,7 @@ function c6FetchFixture(input: RequestInfo | URL) {
       stale: false,
       accounts: [account],
       active_arms: [arm],
+      strategy_sessions: [strategySession],
       orders: [order],
       reconciliations: [reconciliation],
       reset_incidents: [],

@@ -59,7 +59,7 @@ type BinanceTestnetAttestation struct {
 	TestnetOnly         bool
 }
 
-// NewSandboxClient resolves credentials from the fixed V1C file references and
+// NewSandboxClient resolves credentials from the fixed sandbox runtime file references and
 // sends all HTTPS traffic through the fixed Binance CONNECT proxy.
 func NewSandboxClient(
 	evidence exchangecontracts.AuthenticatedEvidenceSink,

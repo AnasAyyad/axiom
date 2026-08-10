@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { newIdempotencyKey, postAPI, type APIModel } from "../../api/client";
 import { reportLabel, reportTypes } from "./reportModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 const minutes = Array.from({ length: 60 }, (_, value) => value);
 const hours = Array.from({ length: 24 }, (_, value) => value);
@@ -147,8 +147,8 @@ export function CreateReportSchedule() {
       </button>
       {mutation.isError && (
         <p className={styles.error} role="alert">
-          Schedule creation failed. Verify UTC values, quota, permission, and
-          reason.
+          Schedule creation failed. Verify UTC values, quota, owner-session
+          state, and reason.
         </p>
       )}
       {mutation.isSuccess && (

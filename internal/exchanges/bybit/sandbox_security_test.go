@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"axiom/internal/domain"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/sandbox"
 )
 
@@ -200,40 +202,7 @@ func TestBybitDemoRulesAcceptUTAMetadataWithoutEnablingLeverage(t *testing.T) {
 	}
 }
 
-func TestBybitStartupBookRejectsStalePublicFacts(t *testing.T) {
-	now := time.UnixMilli(1_700_000_000_000).UTC()
-	client, err := newSandboxClientForTest(
-		authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
-			return nil, errors.New("demo network not expected")
-		}),
-		sandbox.CredentialPair{APIKey: "key", APISecret: "secret"},
-		&captureEvidence{},
-		"cfg",
-		func() time.Time { return now },
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	client.publicDoer = authenticatedRoundTripFunc(
-		func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     make(http.Header),
-				Body: io.NopCloser(strings.NewReader(
-					`{"retCode":0,"retMsg":"OK","result":{"s":"BTCUSDT","b":[["99","1"]],"a":[["101","1"]],"ts":1699999997000,"u":42,"seq":42,"cts":1699999997000},"retExtInfo":{},"time":1700000000000}`,
-				)),
-			}, nil
-		},
-	)
-	if err = client.validateStartupBook(
-		context.Background(),
-		approvedInstruments()[0],
-	); !errors.Is(err, ErrDemoRequest) {
-		t.Fatalf("stale public book error=%v", err)
-	}
-}
-
-func TestBybitStartupEligibilityValidatesItsDeclaredInstrumentOnly(
+func TestBybitStartupEligibilityUsesCredentialFreePublicMarketData(
 	t *testing.T,
 ) {
 	now := time.UnixMilli(1_700_000_000_000).UTC()
@@ -251,34 +220,102 @@ func TestBybitStartupEligibilityValidatesItsDeclaredInstrumentOnly(
 	}
 	client.clockValidated = true
 	client.clockObservedAt = now
-	calls := 0
-	client.publicDoer = authenticatedRoundTripFunc(
-		func(request *http.Request) (*http.Response, error) {
-			calls++
-			if symbol := request.URL.Query().Get("symbol"); symbol != "BTCUSDT" {
-				t.Fatalf("eligibility requested unrelated book %s", symbol)
-			}
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     make(http.Header),
-				Body: io.NopCloser(strings.NewReader(
-					`{"retCode":0,"retMsg":"OK","result":{"s":"BTCUSDT","b":[["99","1"]],"a":[["101","1"]],"ts":1700000000000,"u":42,"seq":42,"cts":1700000000000},"retExtInfo":{},"time":1700000000000}`,
-				)),
-			}, nil
-		},
-	)
-	eligibility, err := (&SandboxAdapter{client: client}).
-		StartupEligibility(context.Background())
+	privateCalls := 0
+	client.publicDoer = authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		privateCalls++
+		return nil, errors.New("demo_private_public_route_not_expected")
+	})
+	market := &bybitSandboxMarketData{snapshots: bybitStartupSnapshots(t)}
+	eligibilities, err := (&SandboxAdapter{client: client, marketData: market}).
+		StrategyEligibility(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls != 1 || eligibility.Instrument != "BTCUSDT" ||
-		!eligibility.Eligible {
+	if market.calls != len(approvedInstruments()) || privateCalls != 0 ||
+		len(eligibilities) != len(approvedInstruments()) {
 		t.Fatalf(
-			"calls=%d instrument=%s eligible=%t",
-			calls,
-			eligibility.Instrument,
-			eligibility.Eligible,
+			"market_calls=%d private_calls=%d eligibilities=%#v",
+			market.calls, privateCalls,
+			eligibilities,
 		)
 	}
+	for index, instrument := range approvedInstruments() {
+		if !eligibilities[index].Eligible || eligibilities[index].Instrument != instrument.Symbol() {
+			t.Fatalf("eligibility[%d]=%#v", index, eligibilities[index])
+		}
+	}
+}
+
+func TestBybitStartupEligibilityRejectsMalformedCredentialFreeBook(t *testing.T) {
+	now := time.UnixMilli(1_700_000_000_000).UTC()
+	client, err := newSandboxClientForTest(
+		authenticatedRoundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, errors.New("demo_network_not_expected")
+		}),
+		sandbox.CredentialPair{APIKey: "key", APISecret: "secret"},
+		&captureEvidence{}, "cfg", func() time.Time { return now },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.clockValidated = true
+	client.clockObservedAt = now
+	market := &bybitSandboxMarketData{snapshots: bybitStartupSnapshots(t)}
+	broken := market.snapshots["BTCUSDT"]
+	broken.Asks[0].Price = broken.Bids[0].Price
+	market.snapshots["BTCUSDT"] = broken
+	if _, err = (&SandboxAdapter{client: client, marketData: market}).
+		StartupEligibility(context.Background()); !errors.Is(err, ErrDemoRequest) {
+		t.Fatalf("malformed public book error=%v", err)
+	}
+}
+
+type bybitSandboxMarketData struct {
+	snapshots map[string]exchangecontracts.BookSnapshot
+	calls     int
+}
+
+func (source *bybitSandboxMarketData) Snapshot(
+	_ context.Context,
+	request exchangecontracts.SnapshotRequest,
+) (exchangecontracts.BookSnapshot, error) {
+	source.calls++
+	snapshot, found := source.snapshots[request.Instrument.Symbol()]
+	if !found {
+		return exchangecontracts.BookSnapshot{}, errors.New("bybit_sandbox_market_snapshot_missing")
+	}
+	return snapshot, nil
+}
+
+func (*bybitSandboxMarketData) Subscribe(
+	context.Context,
+	exchangecontracts.StreamRequest,
+) (exchangecontracts.Stream, error) {
+	return nil, errors.New("bybit_sandbox_market_stream_not_configured")
+}
+
+func bybitStartupSnapshots(t *testing.T) map[string]exchangecontracts.BookSnapshot {
+	t.Helper()
+	bid, err := domain.ParsePrice("100")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ask, err := domain.ParsePrice("101")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quantity, err := domain.ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := make(map[string]exchangecontracts.BookSnapshot, len(approvedInstruments()))
+	for index, instrument := range approvedInstruments() {
+		result[instrument.Symbol()] = exchangecontracts.BookSnapshot{
+			Exchange: "bybit", Instrument: instrument, LastSequence: uint64(index + 1),
+			ReceivedAt: domain.EventTime{UTC: time.UnixMilli(1_700_000_000_000).UTC(), Sequence: uint64(index + 1)},
+			Bids:       []exchangecontracts.PriceLevel{{Price: bid, Quantity: quantity}},
+			Asks:       []exchangecontracts.PriceLevel{{Price: ask, Quantity: quantity}},
+		}
+	}
+	return result
 }

@@ -38,13 +38,8 @@ export async function getReadiness(): Promise<HealthResponse> {
   if (status !== "ready" && status !== "not_ready") {
     throw new Error("invalid_health_response");
   }
-  if (value.phase !== "A1") {
-    throw new Error("invalid_health_response");
-  }
   return {
     status,
-    role: requiredString(value, "role"),
-    phase: "A1",
     ...(typeof value.reason_code === "string"
       ? { reason_code: value.reason_code }
       : {}),
@@ -68,23 +63,27 @@ export async function getBuild(): Promise<BuildInformation> {
 export async function getStatus(): Promise<SystemStatus> {
   const value = record(await requestJSON("/api/v1/system/status"));
   const lifecycle = requiredString(value, "lifecycle_state");
+  const readiness = requiredString(value, "readiness_state");
+  const activation = requiredString(value, "strategy_activation");
   if (
     value.real_trading_enabled !== false ||
-    value.release !== "V1A" ||
-    value.phase !== "A1" ||
-    value.strategy_activation !== "unavailable" ||
+    !["ready", "blocked", "degraded"].includes(readiness) ||
+    !["unavailable", "trend-following@1.0.0"].includes(activation) ||
     (lifecycle !== "STARTING" &&
       lifecycle !== "READY_PAUSED" &&
-      lifecycle !== "STOPPING")
+      lifecycle !== "STOPPING" &&
+      lifecycle !== "RUNNING" &&
+      lifecycle !== "DEGRADED")
   ) {
     throw new Error("unsafe_system_status");
   }
   return {
-    release: "V1A",
-    phase: "A1",
-    role: requiredString(value, "role"),
+    application_version: requiredString(value, "application_version"),
+    build_commit: requiredString(value, "build_commit"),
+    configuration_identity: requiredString(value, "configuration_identity"),
+    readiness_state: readiness as SystemStatus["readiness_state"],
     lifecycle_state: lifecycle,
-    strategy_activation: "unavailable",
+    strategy_activation: activation as SystemStatus["strategy_activation"],
     real_trading_enabled: false,
   };
 }

@@ -7,19 +7,18 @@ import {
   postAPI,
   type APIModel,
 } from "../../api/client";
-import { d1CollectionQuery, sessionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { ConfirmAction } from "../../components/ConfirmAction";
 import { StatePanel } from "../../components/StatePanel";
-import { hasAccess } from "../shared/access";
 import { HighRiskAuthorizationForm } from "../shared/HighRiskAuthorizationForm";
 import { StatusBadge } from "../shared/StatusBadge";
 import { stringAttribute } from "../strategies/strategyModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function RiskControlsPage() {
   const session = useQuery(sessionQuery);
-  const query = useQuery(d1CollectionQuery("risk/controls"));
+  const query = useQuery(ownerControlCollectionQuery("risk/controls"));
   if (session.isLoading || query.isLoading)
     return <StatePanel state="loading" />;
   if (
@@ -34,8 +33,8 @@ export function RiskControlsPage() {
         detail="Scoped risk controls are unavailable."
       />
     );
-  const canControl = hasAccess(session.data.user, ["operations.control"]);
-  const isOwner = session.data.user.roles.includes("owner");
+  const canControl = true;
+  const isOwner = true;
   return (
     <Page
       title="Scoped Risk Controls"
@@ -73,7 +72,7 @@ function RiskControlCard({
   canControl,
   isOwner,
 }: {
-  readonly control: APIModel<"D1Resource">;
+  readonly control: APIModel<"OwnerControlResource">;
   readonly canControl: boolean;
   readonly isOwner: boolean;
 }) {
@@ -84,7 +83,9 @@ function RiskControlCard({
   const scope = stringAttribute(control.attributes, "scope", "global");
   const scopeID = stringAttribute(control.attributes, "scope_id", "all");
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["d1", "risk/controls"] });
+    queryClient.invalidateQueries({
+      queryKey: ["owner_control", "risk/controls"],
+    });
   const mutation = useMutation({
     mutationFn: (state: "paused" | "locked") =>
       postAPI<"CommandAccepted">(
@@ -179,7 +180,8 @@ function RiskControlCard({
         </>
       ) : (
         <p className={styles.heroNote}>
-          Your role can inspect this risk state but cannot mutate it.
+          This risk state is currently read-only. Refresh the authoritative
+          snapshot before requesting an audited control change.
         </p>
       )}
     </article>

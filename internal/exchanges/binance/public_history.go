@@ -9,7 +9,7 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-// Instruments loads only the approved V1A universe with monotonic versions.
+// Instruments loads only the approved initial trend universe with monotonic versions.
 func (client *PublicClient) Instruments(
 	ctx context.Context,
 	instruments []domain.Instrument,

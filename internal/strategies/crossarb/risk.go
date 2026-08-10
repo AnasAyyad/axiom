@@ -13,10 +13,10 @@ type RiskEvaluator interface {
 
 // RiskInput contains the complete central-risk snapshot for both legs.
 type RiskInput struct {
-	Policies     []risk.Policy
-	Observations risk.Observations
-	EvaluatedAt  time.Time
-	Cautious     risk.CautiousControls
+	Policies     []risk.Policy         `json:"policies"`
+	Observations risk.Observations     `json:"observations"`
+	EvaluatedAt  time.Time             `json:"evaluated_at"`
+	Cautious     risk.CautiousControls `json:"cautious"`
 }
 
 // ApproveCandidate requires one explicit central-risk approval before claims

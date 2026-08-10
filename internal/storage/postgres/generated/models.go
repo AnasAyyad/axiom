@@ -22,6 +22,27 @@ type AccountSnapshot struct {
 	RiskStateHash    interface{}        `db:"risk_state_hash" json:"risk_state_hash"`
 }
 
+type ActivityRecord struct {
+	Revision       int64              `db:"revision" json:"revision"`
+	ID             string             `db:"id" json:"id"`
+	ViewKind       string             `db:"view_kind" json:"view_kind"`
+	SourceType     string             `db:"source_type" json:"source_type"`
+	SourceID       string             `db:"source_id" json:"source_id"`
+	SourceRevision string             `db:"source_revision" json:"source_revision"`
+	ReasonCode     string             `db:"reason_code" json:"reason_code"`
+	Outcome        string             `db:"outcome" json:"outcome"`
+	StrategyID     *string            `db:"strategy_id" json:"strategy_id"`
+	InstrumentID   *string            `db:"instrument_id" json:"instrument_id"`
+	ExchangeID     *string            `db:"exchange_id" json:"exchange_id"`
+	Side           *string            `db:"side" json:"side"`
+	Mode           *string            `db:"mode" json:"mode"`
+	CorrelationID  string             `db:"correlation_id" json:"correlation_id"`
+	CausationID    *string            `db:"causation_id" json:"causation_id"`
+	OccurredAt     pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	Details        []byte             `db:"details" json:"details"`
+	ProjectedAt    pgtype.Timestamptz `db:"projected_at" json:"projected_at"`
+}
+
 type Alert struct {
 	ID               string             `db:"id" json:"id"`
 	IncidentID       *string            `db:"incident_id" json:"incident_id"`
@@ -144,7 +165,7 @@ type AuthorizationRole struct {
 	Name string `db:"name" json:"name"`
 }
 
-type B4ClaimGroup struct {
+type TriangularArbitrageClaimGroup struct {
 	ID            string             `db:"id" json:"id"`
 	DecisionID    string             `db:"decision_id" json:"decision_id"`
 	AccountID     string             `db:"account_id" json:"account_id"`
@@ -157,14 +178,14 @@ type B4ClaimGroup struct {
 	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type B4ClaimItem struct {
+type TriangularArbitrageClaimItem struct {
 	GroupID           string      `db:"group_id" json:"group_id"`
 	ResourceID        string      `db:"resource_id" json:"resource_id"`
 	RequestedQuantity interface{} `db:"requested_quantity" json:"requested_quantity"`
 	RemainingQuantity interface{} `db:"remaining_quantity" json:"remaining_quantity"`
 }
 
-type B4ClaimResource struct {
+type TriangularArbitrageClaimResource struct {
 	ID                string             `db:"id" json:"id"`
 	AccountID         string             `db:"account_id" json:"account_id"`
 	ExchangeID        string             `db:"exchange_id" json:"exchange_id"`
@@ -176,7 +197,7 @@ type B4ClaimResource struct {
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type B5ClaimGroup struct {
+type CrossExchangeArbitrageClaimGroup struct {
 	ID            string             `db:"id" json:"id"`
 	DecisionID    string             `db:"decision_id" json:"decision_id"`
 	State         string             `db:"state" json:"state"`
@@ -188,14 +209,14 @@ type B5ClaimGroup struct {
 	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type B5ClaimItem struct {
+type CrossExchangeArbitrageClaimItem struct {
 	GroupID           string      `db:"group_id" json:"group_id"`
 	ResourceID        string      `db:"resource_id" json:"resource_id"`
 	RequestedQuantity interface{} `db:"requested_quantity" json:"requested_quantity"`
 	RemainingQuantity interface{} `db:"remaining_quantity" json:"remaining_quantity"`
 }
 
-type B5ClaimResource struct {
+type CrossExchangeArbitrageClaimResource struct {
 	ID                string             `db:"id" json:"id"`
 	AccountID         string             `db:"account_id" json:"account_id"`
 	ExchangeID        string             `db:"exchange_id" json:"exchange_id"`
@@ -207,7 +228,7 @@ type B5ClaimResource struct {
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type B7ChampionChallengerReport struct {
+type ResearchPromotionChampionChallengerReport struct {
 	ID                          string             `db:"id" json:"id"`
 	ChampionStrategyVersionID   string             `db:"champion_strategy_version_id" json:"champion_strategy_version_id"`
 	ChallengerStrategyVersionID string             `db:"challenger_strategy_version_id" json:"challenger_strategy_version_id"`
@@ -222,7 +243,7 @@ type B7ChampionChallengerReport struct {
 	CreatedAt                   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-type B7ExperimentPreregistration struct {
+type ResearchPromotionExperimentPreregistration struct {
 	ID                               string             `db:"id" json:"id"`
 	ResearchGenerationID             string             `db:"research_generation_id" json:"research_generation_id"`
 	StrategyVersionID                string             `db:"strategy_version_id" json:"strategy_version_id"`
@@ -237,7 +258,7 @@ type B7ExperimentPreregistration struct {
 	CreatedAt                        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-type B7ValidationSuite struct {
+type ResearchPromotionValidationSuite struct {
 	ID                        string             `db:"id" json:"id"`
 	PreregistrationID         string             `db:"preregistration_id" json:"preregistration_id"`
 	ResearchGenerationID      string             `db:"research_generation_id" json:"research_generation_id"`
@@ -257,7 +278,7 @@ type B7ValidationSuite struct {
 	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-type B8ReplayFaultSchedule struct {
+type MultiExchangeConsoleReplayFaultSchedule struct {
 	ID               string             `db:"id" json:"id"`
 	ReplayID         string             `db:"replay_id" json:"replay_id"`
 	CommandID        string             `db:"command_id" json:"command_id"`
@@ -274,13 +295,13 @@ type B8ReplayFaultSchedule struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-type B8ReplayFaultScheduleState struct {
+type MultiExchangeConsoleReplayFaultScheduleState struct {
 	ReplayID  string             `db:"replay_id" json:"replay_id"`
 	Revision  int64              `db:"revision" json:"revision"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type B8ReportExport struct {
+type MultiExchangeConsoleReportExport struct {
 	ID             string             `db:"id" json:"id"`
 	ReportID       string             `db:"report_id" json:"report_id"`
 	CommandID      string             `db:"command_id" json:"command_id"`
@@ -335,6 +356,14 @@ type ConfigurationActivation struct {
 	Actor           string             `db:"actor" json:"actor"`
 	Reason          string             `db:"reason" json:"reason"`
 	ActivatedAt     pgtype.Timestamptz `db:"activated_at" json:"activated_at"`
+}
+
+type ConfigurationRecord struct {
+	ID                string             `db:"id" json:"id"`
+	Version           int64              `db:"version" json:"version"`
+	ConfigurationHash interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	Actor             string             `db:"actor" json:"actor"`
+	RecordedAt        pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
 type ConfigurationVersion struct {
@@ -1043,6 +1072,12 @@ type OutboxEvent struct {
 	Payload        []byte             `db:"payload" json:"payload"`
 }
 
+type OwnerAccount struct {
+	Singleton     bool               `db:"singleton" json:"singleton"`
+	UserID        string             `db:"user_id" json:"user_id"`
+	EstablishedAt pgtype.Timestamptz `db:"established_at" json:"established_at"`
+}
+
 type Portfolio struct {
 	ID             string             `db:"id" json:"id"`
 	Name           string             `db:"name" json:"name"`
@@ -1136,35 +1171,35 @@ type RebalancingFactSet struct {
 }
 
 type RebalancingRecommendation struct {
-	ID                     string             `db:"id" json:"id"`
-	RequestID              string             `db:"request_id" json:"request_id"`
-	ConfigurationID        string             `db:"configuration_id" json:"configuration_id"`
-	ConfigurationHash      interface{}        `db:"configuration_hash" json:"configuration_hash"`
-	FactSetID              string             `db:"fact_set_id" json:"fact_set_id"`
-	FactSetHash            interface{}        `db:"fact_set_hash" json:"fact_set_hash"`
-	SourceB5DecisionID     *string            `db:"source_b5_decision_id" json:"source_b5_decision_id"`
-	Method                 string             `db:"method" json:"method"`
-	SourceExchangeID       string             `db:"source_exchange_id" json:"source_exchange_id"`
-	SourceAssetSymbol      string             `db:"source_asset_symbol" json:"source_asset_symbol"`
-	DestinationExchangeID  string             `db:"destination_exchange_id" json:"destination_exchange_id"`
-	DestinationAssetSymbol string             `db:"destination_asset_symbol" json:"destination_asset_symbol"`
-	Quantity               interface{}        `db:"quantity" json:"quantity"`
-	FeeCost                interface{}        `db:"fee_cost" json:"fee_cost"`
-	SpreadCost             interface{}        `db:"spread_cost" json:"spread_cost"`
-	DepthCost              interface{}        `db:"depth_cost" json:"depth_cost"`
-	DelayCost              interface{}        `db:"delay_cost" json:"delay_cost"`
-	NetworkFeeCost         interface{}        `db:"network_fee_cost" json:"network_fee_cost"`
-	CompatibilityCost      interface{}        `db:"compatibility_cost" json:"compatibility_cost"`
-	VolatilityRiskCost     interface{}        `db:"volatility_risk_cost" json:"volatility_risk_cost"`
-	OperationalRiskCost    interface{}        `db:"operational_risk_cost" json:"operational_risk_cost"`
-	TotalCost              interface{}        `db:"total_cost" json:"total_cost"`
-	MinimumDurationNanos   int64              `db:"minimum_duration_nanos" json:"minimum_duration_nanos"`
-	MaximumDurationNanos   int64              `db:"maximum_duration_nanos" json:"maximum_duration_nanos"`
-	RiskScore              interface{}        `db:"risk_score" json:"risk_score"`
-	Warnings               []string           `db:"warnings" json:"warnings"`
-	AdvisoryOnly           bool               `db:"advisory_only" json:"advisory_only"`
-	CanonicalHash          interface{}        `db:"canonical_hash" json:"canonical_hash"`
-	RecordedAt             pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
+	ID                                     string             `db:"id" json:"id"`
+	RequestID                              string             `db:"request_id" json:"request_id"`
+	ConfigurationID                        string             `db:"configuration_id" json:"configuration_id"`
+	ConfigurationHash                      interface{}        `db:"configuration_hash" json:"configuration_hash"`
+	FactSetID                              string             `db:"fact_set_id" json:"fact_set_id"`
+	FactSetHash                            interface{}        `db:"fact_set_hash" json:"fact_set_hash"`
+	SourceCrossExchangeArbitrageDecisionID *string            `db:"source_cross_exchange_arbitrage_decision_id" json:"source_cross_exchange_arbitrage_decision_id"`
+	Method                                 string             `db:"method" json:"method"`
+	SourceExchangeID                       string             `db:"source_exchange_id" json:"source_exchange_id"`
+	SourceAssetSymbol                      string             `db:"source_asset_symbol" json:"source_asset_symbol"`
+	DestinationExchangeID                  string             `db:"destination_exchange_id" json:"destination_exchange_id"`
+	DestinationAssetSymbol                 string             `db:"destination_asset_symbol" json:"destination_asset_symbol"`
+	Quantity                               interface{}        `db:"quantity" json:"quantity"`
+	FeeCost                                interface{}        `db:"fee_cost" json:"fee_cost"`
+	SpreadCost                             interface{}        `db:"spread_cost" json:"spread_cost"`
+	DepthCost                              interface{}        `db:"depth_cost" json:"depth_cost"`
+	DelayCost                              interface{}        `db:"delay_cost" json:"delay_cost"`
+	NetworkFeeCost                         interface{}        `db:"network_fee_cost" json:"network_fee_cost"`
+	CompatibilityCost                      interface{}        `db:"compatibility_cost" json:"compatibility_cost"`
+	VolatilityRiskCost                     interface{}        `db:"volatility_risk_cost" json:"volatility_risk_cost"`
+	OperationalRiskCost                    interface{}        `db:"operational_risk_cost" json:"operational_risk_cost"`
+	TotalCost                              interface{}        `db:"total_cost" json:"total_cost"`
+	MinimumDurationNanos                   int64              `db:"minimum_duration_nanos" json:"minimum_duration_nanos"`
+	MaximumDurationNanos                   int64              `db:"maximum_duration_nanos" json:"maximum_duration_nanos"`
+	RiskScore                              interface{}        `db:"risk_score" json:"risk_score"`
+	Warnings                               []string           `db:"warnings" json:"warnings"`
+	AdvisoryOnly                           bool               `db:"advisory_only" json:"advisory_only"`
+	CanonicalHash                          interface{}        `db:"canonical_hash" json:"canonical_hash"`
+	RecordedAt                             pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
 type RebalancingRecommendationStep struct {
@@ -1448,6 +1483,58 @@ type RunResult struct {
 	ResultHash       interface{}        `db:"result_hash" json:"result_hash"`
 	CanonicalPayload []byte             `db:"canonical_payload" json:"canonical_payload"`
 	CompletedAt      pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+}
+
+type SandboxStrategyDecision struct {
+	ID                string             `db:"id" json:"id"`
+	StrategySessionID string             `db:"strategy_session_id" json:"strategy_session_id"`
+	PlanID            *string            `db:"plan_id" json:"plan_id"`
+	AccountID         string             `db:"account_id" json:"account_id"`
+	AccountEpoch      int64              `db:"account_epoch" json:"account_epoch"`
+	StrategyRevision  int64              `db:"strategy_revision" json:"strategy_revision"`
+	Strategy          string             `db:"strategy" json:"strategy"`
+	Instrument        string             `db:"instrument" json:"instrument"`
+	DecisionID        string             `db:"decision_id" json:"decision_id"`
+	EventOrdinal      int64              `db:"event_ordinal" json:"event_ordinal"`
+	EventLogicalTime  int64              `db:"event_logical_time" json:"event_logical_time"`
+	InputHash         interface{}        `db:"input_hash" json:"input_hash"`
+	DecisionHash      interface{}        `db:"decision_hash" json:"decision_hash"`
+	CanonicalInput    []byte             `db:"canonical_input" json:"canonical_input"`
+	CanonicalDecision []byte             `db:"canonical_decision" json:"canonical_decision"`
+	OccurredAt        pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+type SandboxStrategySession struct {
+	ID               string             `db:"id" json:"id"`
+	SandboxSessionID string             `db:"sandbox_session_id" json:"sandbox_session_id"`
+	StrategyID       string             `db:"strategy_id" json:"strategy_id"`
+	State            string             `db:"state" json:"state"`
+	CreatedBy        string             `db:"created_by" json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	StartedAt        pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	StoppedAt        pgtype.Timestamptz `db:"stopped_at" json:"stopped_at"`
+	BlockingReason   *string            `db:"blocking_reason" json:"blocking_reason"`
+	Revision         int64              `db:"revision" json:"revision"`
+	Instrument       *string            `db:"instrument" json:"instrument"`
+}
+
+type SandboxStrategySessionAccount struct {
+	StrategySessionID string `db:"strategy_session_id" json:"strategy_session_id"`
+	AccountID         string `db:"account_id" json:"account_id"`
+	AccountEpoch      int64  `db:"account_epoch" json:"account_epoch"`
+	Exchange          string `db:"exchange" json:"exchange"`
+}
+
+type SandboxStrategySessionEvaluation struct {
+	ID                string             `db:"id" json:"id"`
+	StrategySessionID string             `db:"strategy_session_id" json:"strategy_session_id"`
+	AccountID         string             `db:"account_id" json:"account_id"`
+	AccountEpoch      int64              `db:"account_epoch" json:"account_epoch"`
+	StrategyRevision  int64              `db:"strategy_revision" json:"strategy_revision"`
+	State             string             `db:"state" json:"state"`
+	Reason            string             `db:"reason" json:"reason"`
+	EvidenceHash      interface{}        `db:"evidence_hash" json:"evidence_hash"`
+	OccurredAt        pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
 type Session struct {
@@ -1747,7 +1834,7 @@ type UserRole struct {
 	GrantedAt pgtype.Timestamptz `db:"granted_at" json:"granted_at"`
 }
 
-type V1cAccountEpoch struct {
+type SandboxRuntimeAccountEpoch struct {
 	AccountID string             `db:"account_id" json:"account_id"`
 	Epoch     int64              `db:"epoch" json:"epoch"`
 	Reason    string             `db:"reason" json:"reason"`
@@ -1755,7 +1842,7 @@ type V1cAccountEpoch struct {
 	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
-type V1cAccountLease struct {
+type SandboxRuntimeAccountLease struct {
 	AccountID    string             `db:"account_id" json:"account_id"`
 	Environment  string             `db:"environment" json:"environment"`
 	Owner        string             `db:"owner" json:"owner"`
@@ -1764,7 +1851,7 @@ type V1cAccountLease struct {
 	ExpiresAt    pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 }
 
-type V1cAccountSnapshot struct {
+type SandboxRuntimeAccountSnapshot struct {
 	ID              string             `db:"id" json:"id"`
 	AccountID       string             `db:"account_id" json:"account_id"`
 	AccountEpoch    int64              `db:"account_epoch" json:"account_epoch"`
@@ -1775,7 +1862,7 @@ type V1cAccountSnapshot struct {
 	ObservedAt      pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
 }
 
-type V1cAuthenticatedRequestEvidence struct {
+type SandboxRuntimeAuthenticatedRequestEvidence struct {
 	Exchange         string             `db:"exchange" json:"exchange"`
 	Host             string             `db:"host" json:"host"`
 	Method           string             `db:"method" json:"method"`
@@ -1787,7 +1874,7 @@ type V1cAuthenticatedRequestEvidence struct {
 	RecordedAt       pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
-type V1cC6ChaosEvent struct {
+type SandboxQualificationChaosEvent struct {
 	ID                    string             `db:"id" json:"id"`
 	RunID                 *string            `db:"run_id" json:"run_id"`
 	Scenario              string             `db:"scenario" json:"scenario"`
@@ -1797,7 +1884,7 @@ type V1cC6ChaosEvent struct {
 	OccurredAt            pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1cC6OrderObservation struct {
+type SandboxQualificationOrderObservation struct {
 	Exchange                   string             `db:"exchange" json:"exchange"`
 	ApprovedAt                 pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
 	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -1809,7 +1896,7 @@ type V1cC6OrderObservation struct {
 	DoublePostedFills          int64              `db:"double_posted_fills" json:"double_posted_fills"`
 }
 
-type V1cC6QualificationAccount struct {
+type SandboxQualificationAccount struct {
 	RunID                string      `db:"run_id" json:"run_id"`
 	AccountID            string      `db:"account_id" json:"account_id"`
 	Exchange             string      `db:"exchange" json:"exchange"`
@@ -1819,7 +1906,7 @@ type V1cC6QualificationAccount struct {
 	ConfigurationHash    interface{} `db:"configuration_hash" json:"configuration_hash"`
 }
 
-type V1cC6QualificationFailure struct {
+type SandboxQualificationFailure struct {
 	ID           string             `db:"id" json:"id"`
 	RunID        string             `db:"run_id" json:"run_id"`
 	Reason       string             `db:"reason" json:"reason"`
@@ -1827,7 +1914,7 @@ type V1cC6QualificationFailure struct {
 	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1cC6QualificationRun struct {
+type SandboxQualificationRun struct {
 	ID                      string             `db:"id" json:"id"`
 	Mode                    string             `db:"mode" json:"mode"`
 	State                   string             `db:"state" json:"state"`
@@ -1849,7 +1936,7 @@ type V1cC6QualificationRun struct {
 	UpdatedAt               pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1cC6QualificationSample struct {
+type SandboxQualificationSample struct {
 	RunID                    string             `db:"run_id" json:"run_id"`
 	SampleOrdinal            int64              `db:"sample_ordinal" json:"sample_ordinal"`
 	ObservedAt               pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
@@ -1878,7 +1965,7 @@ type V1cC6QualificationSample struct {
 	ProductionTargetObserved bool               `db:"production_target_observed" json:"production_target_observed"`
 }
 
-type V1cCanaryEvidence struct {
+type SandboxRuntimeCanaryEvidence struct {
 	ID               string             `db:"id" json:"id"`
 	CanaryID         string             `db:"canary_id" json:"canary_id"`
 	Exchange         string             `db:"exchange" json:"exchange"`
@@ -1892,7 +1979,7 @@ type V1cCanaryEvidence struct {
 	ObservedAt       pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
 }
 
-type V1cCredentialGeneration struct {
+type SandboxRuntimeCredentialGeneration struct {
 	AccountID           string             `db:"account_id" json:"account_id"`
 	Generation          int64              `db:"generation" json:"generation"`
 	KeyFingerprint      string             `db:"key_fingerprint" json:"key_fingerprint"`
@@ -1901,7 +1988,7 @@ type V1cCredentialGeneration struct {
 	RetiredAt           pgtype.Timestamptz `db:"retired_at" json:"retired_at"`
 }
 
-type V1cCredentialRotation struct {
+type SandboxRuntimeCredentialRotation struct {
 	ID                     string             `db:"id" json:"id"`
 	AccountID              string             `db:"account_id" json:"account_id"`
 	AuthorizationID        string             `db:"authorization_id" json:"authorization_id"`
@@ -1921,14 +2008,14 @@ type V1cCredentialRotation struct {
 	Revision               int64              `db:"revision" json:"revision"`
 }
 
-type V1cDailyCapCounter struct {
+type SandboxRuntimeDailyCapCounter struct {
 	UtcDay           pgtype.Date        `db:"utc_day" json:"utc_day"`
 	ReservedNotional interface{}        `db:"reserved_notional" json:"reserved_notional"`
 	Revision         int64              `db:"revision" json:"revision"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1cEngineCommand struct {
+type SandboxRuntimeEngineCommand struct {
 	ID             string             `db:"id" json:"id"`
 	AccountID      string             `db:"account_id" json:"account_id"`
 	AccountEpoch   int64              `db:"account_epoch" json:"account_epoch"`
@@ -1944,7 +2031,17 @@ type V1cEngineCommand struct {
 	EvidenceHash   interface{}        `db:"evidence_hash" json:"evidence_hash"`
 }
 
-type V1cEngineObservation struct {
+type SandboxRuntimeEngineMarketObservation struct {
+	AccountID    string             `db:"account_id" json:"account_id"`
+	AccountEpoch int64              `db:"account_epoch" json:"account_epoch"`
+	Exchange     string             `db:"exchange" json:"exchange"`
+	Instrument   string             `db:"instrument" json:"instrument"`
+	StartupCycle int64              `db:"startup_cycle" json:"startup_cycle"`
+	Eligibility  []byte             `db:"eligibility" json:"eligibility"`
+	ObservedAt   pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type SandboxRuntimeEngineObservation struct {
 	AccountID            string             `db:"account_id" json:"account_id"`
 	AccountEpoch         int64              `db:"account_epoch" json:"account_epoch"`
 	Exchange             string             `db:"exchange" json:"exchange"`
@@ -1956,7 +2053,7 @@ type V1cEngineObservation struct {
 	ObservedAt           pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
 }
 
-type V1cEngineRuntimeEvent struct {
+type SandboxRuntimeEngineRuntimeEvent struct {
 	ID           string             `db:"id" json:"id"`
 	AccountID    string             `db:"account_id" json:"account_id"`
 	AccountEpoch int64              `db:"account_epoch" json:"account_epoch"`
@@ -1969,7 +2066,7 @@ type V1cEngineRuntimeEvent struct {
 	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1cEngineStartupEvidence struct {
+type SandboxRuntimeEngineStartupEvidence struct {
 	ID             string             `db:"id" json:"id"`
 	AccountID      string             `db:"account_id" json:"account_id"`
 	Exchange       string             `db:"exchange" json:"exchange"`
@@ -1980,7 +2077,7 @@ type V1cEngineStartupEvidence struct {
 	ObservedAt     pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
 }
 
-type V1cExchangeAccount struct {
+type SandboxRuntimeExchangeAccount struct {
 	ID                   string             `db:"id" json:"id"`
 	Exchange             string             `db:"exchange" json:"exchange"`
 	Environment          string             `db:"environment" json:"environment"`
@@ -1993,7 +2090,7 @@ type V1cExchangeAccount struct {
 	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1cExchangeFill struct {
+type SandboxRuntimeExchangeFill struct {
 	AccountID        string             `db:"account_id" json:"account_id"`
 	AccountEpoch     int64              `db:"account_epoch" json:"account_epoch"`
 	NativeFillIDHash interface{}        `db:"native_fill_id_hash" json:"native_fill_id_hash"`
@@ -2002,7 +2099,7 @@ type V1cExchangeFill struct {
 	OccurredAt       pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1cExchangeMetadatum struct {
+type SandboxRuntimeExchangeMetadatum struct {
 	Exchange         string             `db:"exchange" json:"exchange"`
 	Instrument       string             `db:"instrument" json:"instrument"`
 	MetadataHash     interface{}        `db:"metadata_hash" json:"metadata_hash"`
@@ -2010,7 +2107,7 @@ type V1cExchangeMetadatum struct {
 	ObservedAt       pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
 }
 
-type V1cExternalAdjustment struct {
+type SandboxRuntimeExternalAdjustment struct {
 	ID              string             `db:"id" json:"id"`
 	ResetIncidentID string             `db:"reset_incident_id" json:"reset_incident_id"`
 	AccountID       string             `db:"account_id" json:"account_id"`
@@ -2021,7 +2118,7 @@ type V1cExternalAdjustment struct {
 	RecordedAt      pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
-type V1cHighRiskAuditEvent struct {
+type SandboxRuntimeHighRiskAuditEvent struct {
 	ID             string             `db:"id" json:"id"`
 	ChainSequence  *int64             `db:"chain_sequence" json:"chain_sequence"`
 	ActorUserID    string             `db:"actor_user_id" json:"actor_user_id"`
@@ -2039,14 +2136,22 @@ type V1cHighRiskAuditEvent struct {
 	TargetRevision *int64             `db:"target_revision" json:"target_revision"`
 }
 
-type V1cPlanEligibility struct {
+type SandboxRuntimePlanAccountSnapshot struct {
+	PlanID       string             `db:"plan_id" json:"plan_id"`
+	AccountID    string             `db:"account_id" json:"account_id"`
+	AccountEpoch int64              `db:"account_epoch" json:"account_epoch"`
+	SnapshotHash interface{}        `db:"snapshot_hash" json:"snapshot_hash"`
+	ObservedAt   pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
+}
+
+type SandboxRuntimePlanEligibility struct {
 	PlanID     string             `db:"plan_id" json:"plan_id"`
 	Exchange   string             `db:"exchange" json:"exchange"`
 	Snapshot   []byte             `db:"snapshot" json:"snapshot"`
 	ObservedAt pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
 }
 
-type V1cPlanEntrySafety struct {
+type SandboxRuntimePlanEntrySafety struct {
 	PlanID                     string             `db:"plan_id" json:"plan_id"`
 	AccountID                  string             `db:"account_id" json:"account_id"`
 	AccountEpoch               int64              `db:"account_epoch" json:"account_epoch"`
@@ -2068,7 +2173,7 @@ type V1cPlanEntrySafety struct {
 	ObservedAt                 pgtype.Timestamptz `db:"observed_at" json:"observed_at"`
 }
 
-type V1cPrivateInbox struct {
+type SandboxRuntimePrivateInbox struct {
 	ID              string             `db:"id" json:"id"`
 	AccountID       string             `db:"account_id" json:"account_id"`
 	AccountEpoch    int64              `db:"account_epoch" json:"account_epoch"`
@@ -2085,7 +2190,7 @@ type V1cPrivateInbox struct {
 	ReducedAt       pgtype.Timestamptz `db:"reduced_at" json:"reduced_at"`
 }
 
-type V1cReconciliation struct {
+type SandboxRuntimeReconciliation struct {
 	ID           string             `db:"id" json:"id"`
 	AccountID    string             `db:"account_id" json:"account_id"`
 	AccountEpoch int64              `db:"account_epoch" json:"account_epoch"`
@@ -2094,7 +2199,7 @@ type V1cReconciliation struct {
 	ReconciledAt pgtype.Timestamptz `db:"reconciled_at" json:"reconciled_at"`
 }
 
-type V1cReconciliationDifference struct {
+type SandboxRuntimeReconciliationDifference struct {
 	ID               string             `db:"id" json:"id"`
 	ReconciliationID string             `db:"reconciliation_id" json:"reconciliation_id"`
 	AccountID        string             `db:"account_id" json:"account_id"`
@@ -2110,7 +2215,7 @@ type V1cReconciliationDifference struct {
 	RecordedAt       pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
-type V1cResetIncident struct {
+type SandboxRuntimeResetIncident struct {
 	ID           string             `db:"id" json:"id"`
 	AccountID    string             `db:"account_id" json:"account_id"`
 	PriorEpoch   int64              `db:"prior_epoch" json:"prior_epoch"`
@@ -2121,7 +2226,7 @@ type V1cResetIncident struct {
 	ResolvedAt   pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 }
 
-type V1cRiskUnlock struct {
+type SandboxRuntimeRiskUnlock struct {
 	ID               string             `db:"id" json:"id"`
 	AccountID        string             `db:"account_id" json:"account_id"`
 	AccountEpoch     int64              `db:"account_epoch" json:"account_epoch"`
@@ -2137,7 +2242,7 @@ type V1cRiskUnlock struct {
 	Revision         int64              `db:"revision" json:"revision"`
 }
 
-type V1cSandboxArm struct {
+type SandboxRuntimeSandboxArm struct {
 	ID               string             `db:"id" json:"id"`
 	SandboxSessionID string             `db:"sandbox_session_id" json:"sandbox_session_id"`
 	AuthorizationID  string             `db:"authorization_id" json:"authorization_id"`
@@ -2151,7 +2256,7 @@ type V1cSandboxArm struct {
 	Revision         int64              `db:"revision" json:"revision"`
 }
 
-type V1cSandboxAuthorization struct {
+type SandboxRuntimeSandboxAuthorization struct {
 	ID              string             `db:"id" json:"id"`
 	TokenHash       interface{}        `db:"token_hash" json:"token_hash"`
 	UserID          string             `db:"user_id" json:"user_id"`
@@ -2167,7 +2272,7 @@ type V1cSandboxAuthorization struct {
 	TargetRevision  *int64             `db:"target_revision" json:"target_revision"`
 }
 
-type V1cSandboxReservation struct {
+type SandboxRuntimeSandboxReservation struct {
 	ID            string             `db:"id" json:"id"`
 	PlanID        string             `db:"plan_id" json:"plan_id"`
 	AccountID     string             `db:"account_id" json:"account_id"`
@@ -2181,7 +2286,7 @@ type V1cSandboxReservation struct {
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-type V1cSandboxSession struct {
+type SandboxRuntimeSandboxSession struct {
 	ID              string             `db:"id" json:"id"`
 	State           string             `db:"state" json:"state"`
 	ConfigurationID string             `db:"configuration_id" json:"configuration_id"`
@@ -2192,13 +2297,13 @@ type V1cSandboxSession struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1cSandboxSessionAccount struct {
+type SandboxRuntimeSandboxSessionAccount struct {
 	SessionID    string `db:"session_id" json:"session_id"`
 	AccountID    string `db:"account_id" json:"account_id"`
 	AccountEpoch int64  `db:"account_epoch" json:"account_epoch"`
 }
 
-type V1cSessionControlEvent struct {
+type SandboxRuntimeSessionControlEvent struct {
 	ID               string             `db:"id" json:"id"`
 	ActorUserID      string             `db:"actor_user_id" json:"actor_user_id"`
 	ActorSessionID   string             `db:"actor_session_id" json:"actor_session_id"`
@@ -2210,7 +2315,23 @@ type V1cSessionControlEvent struct {
 	OccurredAt       pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1cSubmissionOutbox struct {
+type SandboxRuntimeStrategyPlanDecision struct {
+	PlanID            string      `db:"plan_id" json:"plan_id"`
+	SandboxSessionID  string      `db:"sandbox_session_id" json:"sandbox_session_id"`
+	AccountID         string      `db:"account_id" json:"account_id"`
+	AccountEpoch      int64       `db:"account_epoch" json:"account_epoch"`
+	Strategy          string      `db:"strategy" json:"strategy"`
+	Instrument        string      `db:"instrument" json:"instrument"`
+	DecisionID        string      `db:"decision_id" json:"decision_id"`
+	EventOrdinal      int64       `db:"event_ordinal" json:"event_ordinal"`
+	EventLogicalTime  int64       `db:"event_logical_time" json:"event_logical_time"`
+	InputHash         interface{} `db:"input_hash" json:"input_hash"`
+	DecisionHash      interface{} `db:"decision_hash" json:"decision_hash"`
+	CanonicalInput    []byte      `db:"canonical_input" json:"canonical_input"`
+	CanonicalDecision []byte      `db:"canonical_decision" json:"canonical_decision"`
+}
+
+type SandboxRuntimeSubmissionOutbox struct {
 	ID               string             `db:"id" json:"id"`
 	PlanID           string             `db:"plan_id" json:"plan_id"`
 	AccountID        string             `db:"account_id" json:"account_id"`
@@ -2237,7 +2358,7 @@ type V1cSubmissionOutbox struct {
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1cSubmissionPlan struct {
+type SandboxRuntimeSubmissionPlan struct {
 	ID                string             `db:"id" json:"id"`
 	SandboxSessionID  string             `db:"sandbox_session_id" json:"sandbox_session_id"`
 	ArmID             string             `db:"arm_id" json:"arm_id"`
@@ -2259,13 +2380,13 @@ type V1cSubmissionPlan struct {
 	Revision          int64              `db:"revision" json:"revision"`
 }
 
-type V1cTotpReplayState struct {
+type SandboxRuntimeTotpReplayState struct {
 	UserID          string             `db:"user_id" json:"user_id"`
 	LastUsedCounter int64              `db:"last_used_counter" json:"last_used_counter"`
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1dActivityExplanation struct {
+type OwnerConsoleActivityExplanation struct {
 	ActivityRevision  int64              `db:"activity_revision" json:"activity_revision"`
 	ID                string             `db:"id" json:"id"`
 	ViewKind          string             `db:"view_kind" json:"view_kind"`
@@ -2292,7 +2413,7 @@ type V1dActivityExplanation struct {
 	UnknownReason     interface{}        `db:"unknown_reason" json:"unknown_reason"`
 }
 
-type V1dActivityProjection struct {
+type OwnerConsoleActivityProjection struct {
 	ActivityRevision int64              `db:"activity_revision" json:"activity_revision"`
 	ID               string             `db:"id" json:"id"`
 	ViewKind         string             `db:"view_kind" json:"view_kind"`
@@ -2313,7 +2434,7 @@ type V1dActivityProjection struct {
 	ProjectedAt      pgtype.Timestamptz `db:"projected_at" json:"projected_at"`
 }
 
-type V1dAlertDeliveryAttempt struct {
+type OwnerConsoleAlertDeliveryAttempt struct {
 	ID          string             `db:"id" json:"id"`
 	DeliveryID  string             `db:"delivery_id" json:"delivery_id"`
 	AlertID     string             `db:"alert_id" json:"alert_id"`
@@ -2326,7 +2447,7 @@ type V1dAlertDeliveryAttempt struct {
 	LatencyMs   int64              `db:"latency_ms" json:"latency_ms"`
 }
 
-type V1dAlertEscalation struct {
+type OwnerConsoleAlertEscalation struct {
 	ID          string             `db:"id" json:"id"`
 	AlertID     string             `db:"alert_id" json:"alert_id"`
 	Revision    int64              `db:"revision" json:"revision"`
@@ -2335,7 +2456,7 @@ type V1dAlertEscalation struct {
 	EscalatedAt pgtype.Timestamptz `db:"escalated_at" json:"escalated_at"`
 }
 
-type V1dAlertRoute struct {
+type OwnerConsoleAlertRoute struct {
 	ID              string             `db:"id" json:"id"`
 	SinkName        string             `db:"sink_name" json:"sink_name"`
 	Enabled         bool               `db:"enabled" json:"enabled"`
@@ -2345,7 +2466,7 @@ type V1dAlertRoute struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1dAlertRouteTest struct {
+type OwnerConsoleAlertRouteTest struct {
 	ID          string             `db:"id" json:"id"`
 	CommandID   string             `db:"command_id" json:"command_id"`
 	RouteID     string             `db:"route_id" json:"route_id"`
@@ -2357,7 +2478,7 @@ type V1dAlertRouteTest struct {
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 }
 
-type V1dArtifactAccessEvent struct {
+type OwnerConsoleArtifactAccessEvent struct {
 	ID            string             `db:"id" json:"id"`
 	ArtifactID    string             `db:"artifact_id" json:"artifact_id"`
 	ActorUserID   string             `db:"actor_user_id" json:"actor_user_id"`
@@ -2367,7 +2488,7 @@ type V1dArtifactAccessEvent struct {
 	OccurredAt    pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1dArtifactHold struct {
+type OwnerConsoleArtifactHold struct {
 	ID          string             `db:"id" json:"id"`
 	ArtifactID  string             `db:"artifact_id" json:"artifact_id"`
 	HoldType    string             `db:"hold_type" json:"hold_type"`
@@ -2379,7 +2500,7 @@ type V1dArtifactHold struct {
 	ReleasedBy  *string            `db:"released_by" json:"released_by"`
 }
 
-type V1dAuditChain struct {
+type OwnerConsoleAuditChain struct {
 	ChainSequence     int64              `db:"chain_sequence" json:"chain_sequence"`
 	AuditEventID      string             `db:"audit_event_id" json:"audit_event_id"`
 	PreviousEventHash interface{}        `db:"previous_event_hash" json:"previous_event_hash"`
@@ -2387,7 +2508,7 @@ type V1dAuditChain struct {
 	RecordedAt        pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
-type V1dExportArtifact struct {
+type OwnerConsoleExportArtifact struct {
 	ID               string             `db:"id" json:"id"`
 	CommandID        string             `db:"command_id" json:"command_id"`
 	JobID            string             `db:"job_id" json:"job_id"`
@@ -2406,21 +2527,21 @@ type V1dExportArtifact struct {
 	DeletionReason   *string            `db:"deletion_reason" json:"deletion_reason"`
 }
 
-type V1dIncidentActivityLink struct {
+type OwnerConsoleIncidentActivityLink struct {
 	IncidentID string             `db:"incident_id" json:"incident_id"`
 	ActivityID string             `db:"activity_id" json:"activity_id"`
 	LinkedBy   string             `db:"linked_by" json:"linked_by"`
 	LinkedAt   pgtype.Timestamptz `db:"linked_at" json:"linked_at"`
 }
 
-type V1dIncidentAlertLink struct {
+type OwnerConsoleIncidentAlertLink struct {
 	IncidentID string             `db:"incident_id" json:"incident_id"`
 	AlertID    string             `db:"alert_id" json:"alert_id"`
 	LinkedBy   string             `db:"linked_by" json:"linked_by"`
 	LinkedAt   pgtype.Timestamptz `db:"linked_at" json:"linked_at"`
 }
 
-type V1dIncidentEvent struct {
+type OwnerConsoleIncidentEvent struct {
 	ID               string             `db:"id" json:"id"`
 	IncidentID       string             `db:"incident_id" json:"incident_id"`
 	IncidentRevision int64              `db:"incident_revision" json:"incident_revision"`
@@ -2436,7 +2557,7 @@ type V1dIncidentEvent struct {
 	OccurredAt       pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1dIncidentReplayInput struct {
+type OwnerConsoleIncidentReplayInput struct {
 	IncidentID     string             `db:"incident_id" json:"incident_id"`
 	DatasetID      string             `db:"dataset_id" json:"dataset_id"`
 	FirstOrdinal   int64              `db:"first_ordinal" json:"first_ordinal"`
@@ -2446,7 +2567,7 @@ type V1dIncidentReplayInput struct {
 	LinkedAt       pgtype.Timestamptz `db:"linked_at" json:"linked_at"`
 }
 
-type V1dIncidentResolutionEvidence struct {
+type OwnerConsoleIncidentResolutionEvidence struct {
 	IncidentID   string             `db:"incident_id" json:"incident_id"`
 	Evidence     string             `db:"evidence" json:"evidence"`
 	EvidenceHash interface{}        `db:"evidence_hash" json:"evidence_hash"`
@@ -2454,7 +2575,7 @@ type V1dIncidentResolutionEvidence struct {
 	RecordedAt   pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
-type V1dQualificationCatalogue struct {
+type OwnerConsoleQualificationCatalogue struct {
 	ID                 string             `db:"id" json:"id"`
 	Name               string             `db:"name" json:"name"`
 	Kind               string             `db:"kind" json:"kind"`
@@ -2466,7 +2587,7 @@ type V1dQualificationCatalogue struct {
 	RecordedAt         pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
-type V1dQualificationRun struct {
+type OwnerConsoleQualificationRun struct {
 	ID                string             `db:"id" json:"id"`
 	QualificationID   string             `db:"qualification_id" json:"qualification_id"`
 	CommandID         string             `db:"command_id" json:"command_id"`
@@ -2485,7 +2606,7 @@ type V1dQualificationRun struct {
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1dReasonCatalogue struct {
+type OwnerConsoleReasonCatalogue struct {
 	Code            string             `db:"code" json:"code"`
 	Version         int64              `db:"version" json:"version"`
 	Summary         string             `db:"summary" json:"summary"`
@@ -2496,7 +2617,7 @@ type V1dReasonCatalogue struct {
 	RecordedAt      pgtype.Timestamptz `db:"recorded_at" json:"recorded_at"`
 }
 
-type V1dReport struct {
+type OwnerConsoleReport struct {
 	ID              string             `db:"id" json:"id"`
 	JobID           string             `db:"job_id" json:"job_id"`
 	ScheduleID      *string            `db:"schedule_id" json:"schedule_id"`
@@ -2519,7 +2640,7 @@ type V1dReport struct {
 	Revision        int64              `db:"revision" json:"revision"`
 }
 
-type V1dReportSchedule struct {
+type OwnerConsoleReportSchedule struct {
 	ID          string             `db:"id" json:"id"`
 	ReportType  string             `db:"report_type" json:"report_type"`
 	Frequency   string             `db:"frequency" json:"frequency"`
@@ -2535,7 +2656,7 @@ type V1dReportSchedule struct {
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1dRiskControl struct {
+type OwnerConsoleRiskControl struct {
 	ScopeType  string             `db:"scope_type" json:"scope_type"`
 	ScopeID    string             `db:"scope_id" json:"scope_id"`
 	State      string             `db:"state" json:"state"`
@@ -2545,7 +2666,7 @@ type V1dRiskControl struct {
 	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type V1dRoleChangeEvent struct {
+type OwnerConsoleRoleChangeEvent struct {
 	ID           string             `db:"id" json:"id"`
 	CommandID    string             `db:"command_id" json:"command_id"`
 	TargetUserID string             `db:"target_user_id" json:"target_user_id"`
@@ -2557,7 +2678,7 @@ type V1dRoleChangeEvent struct {
 	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
 }
 
-type V1dStoragePressureEvent struct {
+type OwnerConsoleStoragePressureEvent struct {
 	ID                string             `db:"id" json:"id"`
 	ScopeID           string             `db:"scope_id" json:"scope_id"`
 	PriorLevel        *string            `db:"prior_level" json:"prior_level"`
@@ -2572,7 +2693,7 @@ type V1dStoragePressureEvent struct {
 	EvidenceHash      interface{}        `db:"evidence_hash" json:"evidence_hash"`
 }
 
-type V1dStoragePressureState struct {
+type OwnerConsoleStoragePressureState struct {
 	ScopeID           string             `db:"scope_id" json:"scope_id"`
 	Level             string             `db:"level" json:"level"`
 	AvailableBytes    int64              `db:"available_bytes" json:"available_bytes"`
@@ -2584,7 +2705,7 @@ type V1dStoragePressureState struct {
 	SourceInstance    string             `db:"source_instance" json:"source_instance"`
 }
 
-type V1dStrategyControl struct {
+type OwnerConsoleStrategyControl struct {
 	StrategyID            string             `db:"strategy_id" json:"strategy_id"`
 	ConfiguredState       string             `db:"configured_state" json:"configured_state"`
 	RuntimeState          string             `db:"runtime_state" json:"runtime_state"`

@@ -19,7 +19,7 @@ function job(
       configuration_id: "configuration-a",
       dataset_id: dataset,
       research_generation_id: "generation-a",
-      strategy_version: "trend.v1a.1",
+      strategy_version: "trend-following@1.0.0",
       root_seed_hash: "a".repeat(64),
     },
     result: {

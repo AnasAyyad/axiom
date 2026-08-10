@@ -9,7 +9,6 @@ import { DataTable } from "../../components/DataTable";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
-import { hasAccess } from "../shared/access";
 import { IncidentControls } from "./IncidentControls";
 import { IncidentEvidenceBundle } from "./IncidentEvidenceBundle";
 import {
@@ -17,7 +16,7 @@ import {
   IncidentRelations,
   IncidentReplayFacts,
 } from "./IncidentEvidenceSummary";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function IncidentWorkspacePage() {
   const { id = "" } = useParams();
@@ -36,9 +35,6 @@ export function IncidentWorkspacePage() {
     return <StatePanel state="loading" />;
   if (incident.isError || session.isError || !incident.data || !session.data)
     return <StatePanel state="forbidden" />;
-  const canWrite = hasAccess(session.data.user, ["incident.write"]);
-  const canExport = hasAccess(session.data.user, ["artifacts.read"]);
-  const canHold = hasAccess(session.data.user, ["artifacts.manage"]);
   return (
     <Page
       title={`Incident ${incident.data.id}`}
@@ -64,12 +60,10 @@ export function IncidentWorkspacePage() {
           ? "Use redacted evidence"
           : "Show authorized evidence hashes"}
       </button>
-      {canWrite && incident.data.state !== "resolved" && (
+      {incident.data.state !== "resolved" && (
         <IncidentControls incident={incident.data} />
       )}
-      {canExport && (
-        <IncidentEvidenceBundle incident={incident.data} canHold={canHold} />
-      )}
+      <IncidentEvidenceBundle incident={incident.data} canHold />
       <IncidentRelations incident={incident.data} />
       <h2>Hash-linked timeline</h2>
       {incident.data.timeline.length === 0 ? (
@@ -98,7 +92,7 @@ export function IncidentWorkspacePage() {
         />
       )}
       <EvidenceDetails
-        summary="Incident evidence remains redacted unless this role is authorized for hashes and allowlisted detail."
+        summary="Incident evidence remains redacted unless the audited owner action authorizes hashes and allowlisted detail."
         value={incident.data}
       />
     </Page>

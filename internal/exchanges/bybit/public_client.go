@@ -59,6 +59,13 @@ func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, err
 	return NewPublicClientWithMonotonic(endpointSet, clock, exchangecontracts.NewProcessMonotonicSource())
 }
 
+// NewMarketPublicClient constructs the fixed, credential-free production
+// Spot market source used by Demo strategy coordination. No endpoint, header,
+// signer, key, or authenticated route is caller-configurable.
+func NewMarketPublicClient(clock domain.Clock) (*PublicClient, error) {
+	return NewPublicClient(publicEndpointSet, clock)
+}
+
 // NewPublicClientWithMonotonic binds Bybit to a caller-owned cross-exchange ordering epoch.
 func NewPublicClientWithMonotonic(
 	endpointSet string,

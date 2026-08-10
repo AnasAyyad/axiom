@@ -72,7 +72,7 @@ groups:
         annotations:
           summary: Exact journal persistence or validation failed
           runbook: docs/operations/incident-response.md#journal-reservation-or-reconciliation-mismatch
-  - name: axiom-v1c-c6-sandbox
+  - name: axiom-sandbox_runtime-sandbox_qualification-sandbox
     interval: 15s
     rules:
       - alert: AxiomSandboxUnknownOrder
@@ -81,74 +81,74 @@ groups:
         labels: { severity: critical, reason_code: unresolved_unknown }
         annotations:
           summary: A test or demo order remains UNKNOWN
-          runbook: docs/operations/incident-response.md#v1c-sandbox-order-recovery
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-order-recovery
       - alert: AxiomSandboxOrderIntegrityFailure
         expr: increase(axiom_sandbox_order_anomalies_total[5m]) > 0
         for: 0m
         labels: { severity: critical, reason_code: order_integrity }
         annotations:
           summary: Duplicate create, lost fill, or double-posted fill detected
-          runbook: docs/operations/incident-response.md#v1c-sandbox-order-recovery
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-order-recovery
       - alert: AxiomSandboxReconciliationBlocked
         expr: axiom_sandbox_reconciliation_items{kind=~"mismatch|suspense"} > 0
         for: 0m
         labels: { severity: critical, reason_code: reconciliation_mismatch }
         annotations:
           summary: Test/demo reconciliation requires operator review
-          runbook: docs/operations/incident-response.md#v1c-sandbox-reconciliation-or-account-reset
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-reconciliation-or-account-reset
       - alert: AxiomSandboxEngineNotReady
         expr: axiom_sandbox_engine_ready == 0
         for: 30s
         labels: { severity: critical, reason_code: sandbox_engine_unready }
         annotations:
           summary: Credential-owning test/demo engine is not entry-ready
-          runbook: docs/operations/incident-response.md#v1c-sandbox-engine-or-lease-failure
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-engine-or-lease-failure
       - alert: AxiomSandboxEngineRestart
         expr: increase(axiom_sandbox_engine_events_total{kind="restart"}[5m]) > 0
         for: 0m
         labels: { severity: warning, reason_code: sandbox_engine_restart }
         annotations:
           summary: A test or demo engine restarted
-          runbook: docs/operations/incident-response.md#v1c-sandbox-engine-or-lease-failure
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-engine-or-lease-failure
       - alert: AxiomSandboxArmExpired
         expr: axiom_sandbox_arms{state="expired",measure="count"} > 0
         for: 0m
         labels: { severity: warning, reason_code: sandbox_arm_expired }
         annotations:
           summary: A sandbox arm expired and cannot authorize new entry
-          runbook: docs/operations/incident-response.md#v1c-sandbox-cap-or-arm-refusal
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-cap-or-arm-refusal
       - alert: AxiomSandboxCapRejected
         expr: increase(axiom_sandbox_cap_rejections_total[5m]) > 0
         for: 0m
         labels: { severity: warning, reason_code: cap_violation }
         annotations:
           summary: A sandbox request was rejected by a fixed cap
-          runbook: docs/operations/incident-response.md#v1c-sandbox-cap-or-arm-refusal
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-cap-or-arm-refusal
       - alert: AxiomSandboxAccountReset
         expr: increase(axiom_sandbox_account_resets_total{state=~"OPEN|QUARANTINED"}[5m]) > 0
         for: 0m
         labels: { severity: critical, reason_code: sandbox_account_reset }
         annotations:
           summary: A test or demo account epoch reset requires reconciliation
-          runbook: docs/operations/incident-response.md#v1c-sandbox-reconciliation-or-account-reset
-      - alert: AxiomC6QualificationFailed
-        expr: axiom_c6_soak_state{state="FAILED"} == 1
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox-reconciliation-or-account-reset
+      - alert: AxiomSandboxQualificationFailed
+        expr: axiom_sandbox_qualification_soak_state{state="FAILED"} == 1
         for: 0m
-        labels: { severity: critical, reason_code: c6_qualification_failed }
+        labels: { severity: critical, reason_code: sandbox_qualification_failed }
         annotations:
-          summary: C6 smoke or formal qualification terminated with failure
-          runbook: docs/operations/incident-response.md#v1c-c6-qualification-failure
+          summary: sandbox qualification smoke or formal qualification terminated with failure
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox_qualification-qualification-failure
       - alert: AxiomCriticalAlertLatencySLO
         expr: histogram_quantile(0.95, sum by (le) (rate(axiom_critical_alert_latency_seconds_bucket[5m]))) > 5
         for: 5m
         labels: { severity: critical, reason_code: critical_alert_slo }
         annotations:
           summary: Critical in-app alert creation exceeds five seconds
-          runbook: docs/operations/incident-response.md#v1c-c6-qualification-failure
-      - alert: AxiomC6MemoryTrend
-        expr: axiom_c6_memory_trend_bytes{window="run"} > 67108864
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox_qualification-qualification-failure
+      - alert: AxiomSandboxQualificationMemoryTrend
+        expr: axiom_sandbox_qualification_memory_trend_bytes{window="run"} > 67108864
         for: 15m
-        labels: { severity: warning, reason_code: c6_memory_trend }
+        labels: { severity: warning, reason_code: sandbox_qualification_memory_trend }
         annotations:
-          summary: C6 resident-memory trend exceeds the bounded review threshold
-          runbook: docs/operations/incident-response.md#v1c-c6-qualification-failure
+          summary: sandbox qualification resident-memory trend exceeds the bounded review threshold
+          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox_qualification-qualification-failure

@@ -8,7 +8,7 @@ import {
   postAPI,
   type APIModel,
 } from "../../api/client";
-import { d1CollectionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery } from "../../api/queries";
 import { ConfirmAction } from "../../components/ConfirmAction";
 import { DataTable } from "../../components/DataTable";
 import { StatePanel } from "../../components/StatePanel";
@@ -38,7 +38,7 @@ export function LabRunTools({
       ),
     enabled: compareID !== "",
   });
-  const history = useQuery(d1CollectionQuery("lab-runs"));
+  const history = useQuery(ownerControlCollectionQuery("lab-runs"));
   const control = useMutation({
     mutationFn: (action: "pause" | "resume" | "cancel" | "reproduce") =>
       postAPI<"CommandAccepted">(
@@ -51,7 +51,9 @@ export function LabRunTools({
       ),
     onSuccess: async () => {
       await refresh();
-      await client.invalidateQueries({ queryKey: ["d1", "lab-runs"] });
+      await client.invalidateQueries({
+        queryKey: ["owner_control", "lab-runs"],
+      });
     },
   });
   const exportRun = useMutation({
@@ -117,7 +119,7 @@ export function LabRunTools({
         {control.isError && (
           <StatePanel
             state="error"
-            detail="The control was rejected because the revision, state, quota, or permission changed."
+            detail="The control was rejected because the revision, state, quota, or server safety check changed."
           />
         )}
       </section>
@@ -156,18 +158,23 @@ export function LabRunTools({
       </section>
       <section className={styles.card}>
         <h2>Compare exact run evidence</h2>
-        <form
-          className={styles.form}
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <label>
-            Comparison run ID
-            <input
-              value={compareID}
-              onChange={(event) => setCompareID(event.target.value.trim())}
-            />
-          </label>
-        </form>
+        <label className={styles.field}>
+          Compare with
+          <select
+            value={compareID}
+            onChange={(event) => setCompareID(event.target.value)}
+          >
+            <option value="">Choose an existing durable run</option>
+            {durableRuns
+              .filter((item) => item.id !== job.id)
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {String(item.attributes.job_type)} · {item.state} · revision{" "}
+                  {item.revision}
+                </option>
+              ))}
+          </select>
+        </label>
         {compare.data && (
           <DataTable
             caption={`Comparison: ${job.id} and ${compare.data.id}`}
@@ -183,7 +190,7 @@ export function LabRunTools({
         {compare.isError && (
           <StatePanel
             state="error"
-            detail="The comparison run was not found or is not available to this role."
+            detail="The comparison run was not found or is no longer available."
           />
         )}
       </section>

@@ -11,7 +11,7 @@ import (
 // MeanReversionReportContract is separate from the immutable Trend contract.
 const MeanReversionReportContract = "mean-reversion-report.v1"
 
-// MeanReversionReportManifest is canonical registered B3 research evidence.
+// MeanReversionReportManifest is canonical registered mean reversion research evidence.
 type MeanReversionReportManifest struct {
 	Contract string `json:"report_contract"`
 	ReportInput
@@ -20,7 +20,7 @@ type MeanReversionReportManifest struct {
 	ManifestHash string    `json:"-"`
 }
 
-// BuildMeanReversionReport validates B3-specific failure and regime coverage
+// BuildMeanReversionReport validates mean-reversion-specific failure and regime coverage
 // without relaxing the existing Trend report contract.
 func BuildMeanReversionReport(input ReportInput) (MeanReversionReportManifest, error) {
 	if err := validateMeanReversionReportInput(input); err != nil {
@@ -41,7 +41,7 @@ func BuildMeanReversionReport(input ReportInput) (MeanReversionReportManifest, e
 	return manifest, nil
 }
 
-// ValidateMeanReversionReportCanonical proves exact stored B3 report bytes.
+// ValidateMeanReversionReportCanonical proves exact stored mean reversion report bytes.
 func ValidateMeanReversionReportCanonical(canonical []byte, expectedHash, generationID, runID string) (MeanReversionReportManifest, error) {
 	var stored MeanReversionReportManifest
 	if !json.Valid(canonical) || json.Unmarshal(canonical, &stored) != nil || expectedHash == "" ||

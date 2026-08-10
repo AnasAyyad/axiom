@@ -36,17 +36,17 @@ func TestLegacyV1ManifestEncodingAndValidationRemainUnchanged(t *testing.T) {
 	}
 }
 
-func TestB2TierAManifestProvesPerExchangeCoverageAndCombinedLinkage(t *testing.T) {
+func TestCoherentMarketDataTierAManifestProvesPerExchangeCoverageAndCombinedLinkage(t *testing.T) {
 	base := t.TempDir()
 	ordinals := &runtimecore.IngestOrdinals{}
 	profile := CollectorProfile{Instance: "collector-1", Region: "test-region", MinimumReaderVersion: "dataset-reader.v2"}
 	binanceRoot, bybitRoot := filepath.Join(base, "binance"), filepath.Join(base, "bybit")
-	binanceRecorder, err := NewB2(binanceRoot, "binance-b2", "binance-session", "binance", ordinals,
+	binanceRecorder, err := NewCoherentMarketData(binanceRoot, "binance-coherent_market_data", "binance-session", "binance", ordinals,
 		func(segments.Manifest) error { return nil }, nil, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bybitRecorder, err := NewB2(bybitRoot, "bybit-b2", "bybit-session", "bybit", ordinals,
+	bybitRecorder, err := NewCoherentMarketData(bybitRoot, "bybit-coherent_market_data", "bybit-session", "bybit", ordinals,
 		func(segments.Manifest) error { return nil }, nil, profile)
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestB2TierAManifestProvesPerExchangeCoverageAndCombinedLinkage(t *testing.T
 		len(binanceManifest.ExchangeCoverage) != 1 ||
 		len(binanceManifest.ExchangeCoverage[0].GenerationHistory) != 2 ||
 		!binanceManifest.ExchangeCoverage[0].RawCanonicalLinkageComplete {
-		t.Fatalf("Binance B2 coverage = %#v", binanceManifest.ExchangeCoverage)
+		t.Fatalf("Binance coherent market data coverage = %#v", binanceManifest.ExchangeCoverage)
 	}
 	createdAt := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
 	tierA, err := BuildTierAManifest("combined-tier-a", createdAt,
@@ -97,16 +97,16 @@ func assertStoredTierAManifest(t *testing.T, base string, tierA TierAManifest) {
 	}
 }
 
-func TestB2TierAManifestRejectsCombinedOrdinalHole(t *testing.T) {
+func TestCoherentMarketDataTierAManifestRejectsCombinedOrdinalHole(t *testing.T) {
 	base := t.TempDir()
 	profile := CollectorProfile{Instance: "collector-1", Region: "test-region", MinimumReaderVersion: "dataset-reader.v2"}
 	firstOrdinals, secondOrdinals := &runtimecore.IngestOrdinals{}, &runtimecore.IngestOrdinals{}
-	first, err := NewB2(filepath.Join(base, "binance"), "binance-hole", "binance-hole-session", "binance",
+	first, err := NewCoherentMarketData(filepath.Join(base, "binance"), "binance-hole", "binance-hole-session", "binance",
 		firstOrdinals, func(segments.Manifest) error { return nil }, nil, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := NewB2(filepath.Join(base, "bybit"), "bybit-hole", "bybit-hole-session", "bybit",
+	second, err := NewCoherentMarketData(filepath.Join(base, "bybit"), "bybit-hole", "bybit-hole-session", "bybit",
 		secondOrdinals, func(segments.Manifest) error { return nil }, nil, profile)
 	if err != nil {
 		t.Fatal(err)

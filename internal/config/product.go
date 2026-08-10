@@ -13,7 +13,7 @@ func LoadProductConfiguration(requestedMode ExecutionMode) (Configuration, Sourc
 	path, configured := os.LookupEnv("APP_CONFIG_FILE")
 	if !configured || path == "" {
 		if requestedMode == ModeTestnet || requestedMode == ModeDemo {
-			configuration, err := DefaultV1CConfiguration(requestedMode)
+			configuration, err := DefaultSandboxConfiguration(requestedMode)
 			if err != nil {
 				return Configuration{}, "", err
 			}

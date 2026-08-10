@@ -6,17 +6,17 @@ import (
 	"axiom/internal/risk"
 )
 
-// RiskEvaluator is the central risk boundary used by the B4 strategy.
+// RiskEvaluator is the central risk boundary used by the triangular arbitrage strategy.
 type RiskEvaluator interface {
 	Evaluate(risk.Request) (risk.Decision, error)
 }
 
 // RiskInput contains the complete immutable central-risk snapshot for a cycle.
 type RiskInput struct {
-	Policies     []risk.Policy
-	Observations risk.Observations
-	EvaluatedAt  time.Time
-	Cautious     risk.CautiousControls
+	Policies     []risk.Policy         `json:"policies"`
+	Observations risk.Observations     `json:"observations"`
+	EvaluatedAt  time.Time             `json:"evaluated_at"`
+	Cautious     risk.CautiousControls `json:"cautious"`
 }
 
 // ApproveCandidate requires an explicit central-risk approval for the complete

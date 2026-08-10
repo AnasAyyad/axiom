@@ -4,7 +4,7 @@ import { newIdempotencyKey, postAPI, type APIModel } from "../../api/client";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
 import { safeDownloadName } from "./activityModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 interface ActivityDetailPanelProps {
   readonly activity: APIModel<"ActivityResource">;
@@ -108,7 +108,7 @@ export function ActivityDetailPanel({
       {exportRecord.isError && (
         <p className={styles.error} role="alert">
           The audited export could not be created. Check the revision and your
-          artifact permission, then retry.
+          artifact availability, then retry.
         </p>
       )}
       <EvidenceDetails

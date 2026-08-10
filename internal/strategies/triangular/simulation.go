@@ -11,10 +11,10 @@ import (
 	"axiom/internal/strategies/arbitrage"
 )
 
-// SimulationOutcome is one bounded B4 sequential-cycle result.
+// SimulationOutcome is one bounded triangular arbitrage sequential-cycle result.
 type SimulationOutcome string
 
-// B4 records every required success, failure, recovery, and quarantine class.
+// triangular arbitrage records every required success, failure, recovery, and quarantine class.
 const (
 	OutcomeFullSuccess          SimulationOutcome = "full_success"
 	OutcomePartialCycle         SimulationOutcome = "partial_cycle"
@@ -22,6 +22,8 @@ const (
 	OutcomeNegativeAfterLatency SimulationOutcome = "negative_after_latency"
 	OutcomeStrandedAsset        SimulationOutcome = "stranded_asset"
 )
+
+const triangularSagaIDPrefix = "triangular_arbitrage-"
 
 // Timeline provides the deterministic future book/rules at one leg arrival.
 type Timeline interface {
@@ -85,7 +87,7 @@ func Simulate(candidate Candidate, timeline Timeline, latency LatencyModel) (Sim
 		return finishFailedSimulation(candidate, timeline, latency, saga, planID, result,
 			failure.index, failure.current, failure.asset, failure.outcome, failure.arrival)
 	}
-	return finishSuccessfulSimulation(candidate, saga, result), nil
+	return finishSuccessfulSimulation(candidate, saga, result)
 }
 
 type simulationFailure struct {
@@ -153,14 +155,19 @@ func finishSuccessfulSimulation(
 	candidate Candidate,
 	saga *execution.SagaReducer,
 	result SimulationResult,
-) SimulationResult {
+) (SimulationResult, error) {
+	adjusted, err := deductDetachedSettlementFees(result.FinalUSDT, result.Legs)
+	if err != nil {
+		return SimulationResult{}, err
+	}
+	result.FinalUSDT = adjusted
 	result.Outcome = OutcomeFullSuccess
 	if result.FinalUSDT.Compare(candidate.Start) <= 0 {
 		result.Outcome = OutcomeNegativeAfterLatency
 	}
 	result.Saga = saga.Snapshot()
 	result.CanonicalHash = simulationHash(result)
-	return result
+	return result, nil
 }
 
 func validSimulationInput(candidate Candidate, timeline Timeline, latency LatencyModel) bool {
@@ -239,6 +246,15 @@ func recoverFailedSimulation(
 	disposition, loss := recoveryDisposition(recovery)
 	if recovery.Recovered {
 		result.FinalUSDT = recovery.OutputUSDT
+		legs := append([]arbitrage.Result(nil), result.Legs...)
+		if recovery.Leg != nil {
+			legs = append(legs, *recovery.Leg)
+		}
+		adjusted, adjustErr := deductDetachedSettlementFees(result.FinalUSDT, legs)
+		if adjustErr != nil {
+			return SimulationResult{}, adjustErr
+		}
+		result.FinalUSDT = adjusted
 	}
 	if err = saga.AddRecovery(execution.RecoveryAttempt{
 		Attempt: 1, Action: "convert_to_usdt", Disposition: disposition,
@@ -291,15 +307,19 @@ func recoverToUSDT(
 }
 
 func newSequentialSaga(candidate Candidate) (*execution.SagaReducer, domain.ExecutionPlanID, error) {
-	planID, err := domain.NewExecutionPlanID("b4-" + candidate.ID[:24])
+	planID, err := domain.NewExecutionPlanID(triangularSagaIDPrefix + candidate.ID[:24])
 	if err != nil {
 		var zero domain.ExecutionPlanID
 		return nil, zero, err
 	}
-	reservation, _ := domain.NewReservationID("b4-claims-" + candidate.ID[:20])
+	reservation, err := sagaReservationID(candidate.ID)
+	if err != nil {
+		var zero domain.ExecutionPlanID
+		return nil, zero, err
+	}
 	legs := make([]execution.SagaLeg, 3)
 	for index := range legs {
-		orderID, _ := domain.NewVirtualOrderID("b4-" + candidate.ID[:16] + "-leg-" + uintString(uint64(index+1)))
+		orderID, _ := domain.NewVirtualOrderID("triangular_arbitrage-" + candidate.ID[:16] + "-leg-" + uintString(uint64(index+1)))
 		var dependency *uint32
 		if index > 0 {
 			value := uint32(index - 1)
@@ -319,10 +339,11 @@ func sagaOrder(
 	leg arbitrage.Result,
 	state execution.OrderState,
 ) execution.Order {
-	orderID, _ := domain.NewVirtualOrderID("b4-" + planID.Value()[3:19] + "-leg-" + uintString(uint64(index+1)))
+	candidatePrefix := planID.Value()[len(triangularSagaIDPrefix):]
+	orderID, _ := domain.NewVirtualOrderID("triangular_arbitrage-" + candidatePrefix[:16] + "-leg-" + uintString(uint64(index+1)))
 	return execution.Order{
 		Identity: execution.OrderIdentity{
-			ID: orderID, PlanID: planID, ClientOrderID: "b4-sim-" + uintString(uint64(index+1)),
+			ID: orderID, PlanID: planID, ClientOrderID: "triangular-arbitrage-sim-" + uintString(uint64(index+1)),
 			Instrument: leg.Instrument, Side: leg.Side, Quantity: leg.TradeQuantity,
 		},
 		State: state, CumulativeQuantity: filledQuantity(state, leg.TradeQuantity), Revision: 1,

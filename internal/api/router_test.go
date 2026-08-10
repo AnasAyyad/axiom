@@ -42,16 +42,16 @@ func TestPanicRecoveryReturnsOnlyStableRedactedError(t *testing.T) {
 		panic(secret)
 	})))
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/system/status", nil)
-	request.Header.Set("X-Correlation-ID", "correlation-a11")
+	request.Header.Set("X-Correlation-ID", "correlation-owner_console")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusInternalServerError || strings.Contains(response.Body.String(), secret) ||
-		strings.Contains(response.Body.String(), "/run/secrets") || !strings.Contains(response.Body.String(), `"correlation_id":"correlation-a11"`) {
+		strings.Contains(response.Body.String(), "/run/secrets") || !strings.Contains(response.Body.String(), `"correlation_id":"correlation-owner_console"`) {
 		t.Fatalf("panic response = %d %q", response.Code, response.Body.String())
 	}
 }
 
-func TestA11RouterRegistersEveryRequiredMethodAndPath(t *testing.T) {
+func TestOwnerConsoleRouterRegistersEveryRequiredMethodAndPath(t *testing.T) {
 	handler := NewRouter(health.Options{
 		Role: "api", Build: buildinfo.Current(), Dependency: healthyDependency{},
 	}, console.Options{AllowedOrigins: []string{"http://localhost:4173"}})
@@ -65,26 +65,26 @@ func TestA11RouterRegistersEveryRequiredMethodAndPath(t *testing.T) {
 		{http.MethodGet, "/api/v1/exchanges/binance/health"},
 		{http.MethodGet, "/api/v1/exchanges/binance/instruments"},
 		{http.MethodGet, "/api/v1/portfolios"},
-		{http.MethodGet, "/api/v1/portfolios/portfolio-a11"},
-		{http.MethodGet, "/api/v1/portfolios/portfolio-a11/journal"},
+		{http.MethodGet, "/api/v1/portfolios/portfolio-owner_console"},
+		{http.MethodGet, "/api/v1/portfolios/portfolio-owner_console/journal"},
 		{http.MethodGet, "/api/v1/risk/status"},
 		{http.MethodPost, "/api/v1/risk/pause"},
 		{http.MethodPost, "/api/v1/risk/resume"},
 		{http.MethodGet, "/api/v1/strategies/trend"},
 		{http.MethodGet, "/api/v1/strategies/trend/decisions"},
 		{http.MethodPost, "/api/v1/backtests"},
-		{http.MethodGet, "/api/v1/backtests/backtest-a11"},
+		{http.MethodGet, "/api/v1/backtests/backtest-owner_console"},
 		{http.MethodPost, "/api/v1/replays"},
-		{http.MethodGet, "/api/v1/replays/replay-a11"},
-		{http.MethodPost, "/api/v1/replays/replay-a11/pause"},
-		{http.MethodPost, "/api/v1/replays/replay-a11/resume"},
-		{http.MethodPost, "/api/v1/replays/replay-a11/step"},
+		{http.MethodGet, "/api/v1/replays/replay-owner_console"},
+		{http.MethodPost, "/api/v1/replays/replay-owner_console/pause"},
+		{http.MethodPost, "/api/v1/replays/replay-owner_console/resume"},
+		{http.MethodPost, "/api/v1/replays/replay-owner_console/step"},
 		{http.MethodPost, "/api/v1/shadow-sessions"},
 		{http.MethodGet, "/api/v1/shadow-sessions"},
-		{http.MethodPost, "/api/v1/shadow-sessions/shadow-a11/stop"},
-		{http.MethodGet, "/api/v1/shadow-sessions/shadow-a11"},
+		{http.MethodPost, "/api/v1/shadow-sessions/shadow-owner_console/stop"},
+		{http.MethodGet, "/api/v1/shadow-sessions/shadow-owner_console"},
 		{http.MethodGet, "/api/v1/incidents"},
-		{http.MethodGet, "/api/v1/incidents/incident-a11"},
+		{http.MethodGet, "/api/v1/incidents/incident-owner_console"},
 		{http.MethodGet, "/api/v1/audit-events"},
 		{http.MethodGet, "/api/v1/stream"},
 	}

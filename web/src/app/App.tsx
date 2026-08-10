@@ -35,10 +35,16 @@ import { IncidentWorkspacePage } from "../features/operations/IncidentWorkspaceP
 import { ReportCenterPage } from "../features/operations/ReportCenterPage";
 import { ReportDetailPage } from "../features/operations/ReportDetailPage";
 import { ResourceCollectionPage } from "../features/operations/ResourceCollectionPage";
-import { UserAccessPage } from "../features/operations/UserAccessPage";
 import { QualificationCenterPage } from "../features/qualifications/QualificationCenterPage";
 import { RiskControlsPage } from "../features/risk/RiskControlsPage";
 import { RunLabPage } from "../features/run-lab/RunLabPage";
+import { RunDetailPage } from "../features/run-lab/RunDetailPage";
+import { DataCataloguePage } from "../features/run-lab/DataCataloguePage";
+import {
+  GettingStartedPage,
+  GlossaryPage,
+  GuidedDemonstrationsPage,
+} from "../features/run-lab/OwnerGuidancePages";
 import { StrategyCenterPage } from "../features/strategies/StrategyCenterPage";
 
 const BacktestLab = lazy(() =>
@@ -62,7 +68,7 @@ const queryClient = new QueryClient({
   },
 });
 
-/** App composes the authenticated A11 console and authoritative server-state cache. */
+/** App composes the authenticated owner console and authoritative server-state cache. */
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -78,7 +84,10 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route element={<AuthenticatedShell />}>
               <Route index element={<CommandCenter />} />
+              <Route path="getting-started" element={<GettingStartedPage />} />
+              <Route path="glossary" element={<GlossaryPage />} />
               <Route path="exchanges" element={<ExchangesPage />} />
+              <Route path="data-catalogue" element={<DataCataloguePage />} />
               <Route path="exchanges/binance" element={<BinancePage />} />
               <Route
                 path="assets"
@@ -113,6 +122,11 @@ export function App() {
                 element={<ActivityPage view="system_events" />}
               />
               <Route path="run-lab" element={<RunLabPage />} />
+              <Route path="runs/:id" element={<RunDetailPage />} />
+              <Route
+                path="guided-demonstrations"
+                element={<GuidedDemonstrationsPage />}
+              />
               <Route path="backtests" element={<BacktestLab />} />
               <Route path="backtests/:id" element={<BacktestLab />} />
               <Route path="replays" element={<ReplayLab />} />
@@ -143,7 +157,6 @@ export function App() {
                 path="operations/configuration"
                 element={<ConfigurationCenterPage />}
               />
-              <Route path="operations/users" element={<UserAccessPage />} />
               <Route
                 path="operations/orders"
                 element={

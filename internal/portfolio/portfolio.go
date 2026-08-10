@@ -11,17 +11,20 @@ import (
 	"axiom/internal/domain"
 )
 
-// V1AExchange is the only virtual exchange owner in the initial portfolio.
-const V1AExchange = "binance"
+// TrendExchange is the only virtual exchange owner in the initial portfolio.
+const TrendExchange = "binance"
 
-// V1AStrategy is the isolated initial research strategy owner.
-const V1AStrategy = "trend"
+// TrendStrategy is the isolated initial research strategy owner.
+const TrendStrategy = "trend"
 
-// V1BMeanReversionStrategy is the isolated B3 research strategy owner.
-const V1BMeanReversionStrategy = "mean_reversion"
+// MultiStrategyResearchMeanReversionStrategy is the isolated mean reversion research strategy owner.
+const MultiStrategyResearchMeanReversionStrategy = "mean_reversion"
 
-// V1ANumeraire is the only functional reporting asset in V1A.
-const V1ANumeraire = "USDT"
+// TriangularStrategyOwner is the isolated single-exchange cycle owner.
+const TriangularStrategyOwner = "triangular"
+
+// TrendNumeraire is the only functional reporting asset in initial trend.
+const TrendNumeraire = "USDT"
 
 // Ownership fixes every virtual unit to one strategy/account/exchange/portfolio.
 type Ownership struct {
@@ -51,7 +54,7 @@ type Snapshot struct {
 	Revision  uint64
 }
 
-// Portfolio owns exact projections and delegates exclusive funds to the A4 ledger.
+// Portfolio owns exact projections and delegates exclusive funds to the durable storage ledger.
 type Portfolio struct {
 	mutex     sync.Mutex
 	ownership Ownership
@@ -62,8 +65,53 @@ type Portfolio struct {
 	revision  uint64
 }
 
-// InitializeV1ATrend creates the locked V1A baseline of 500 USDT and zero BTC/ETH.
-func InitializeV1ATrend(
+// AccountBalance is one free, authoritative asset amount copied from an
+// immutable account snapshot. It deliberately excludes externally reserved
+// funds: callers must reject or account for those before creating an
+// allocation projection.
+type AccountBalance struct {
+	Asset     domain.AssetSymbol
+	Available domain.Balance
+}
+
+// NewAccountBalancePortfolio constructs an isolated decision-time ownership
+// projection from already-validated free account balances. It creates no
+// accounting journal entries and must not be used as a substitute for durable
+// fill accounting or reconciliation; those remain authoritative elsewhere.
+func NewAccountBalancePortfolio(
+	ownership Ownership,
+	numeraire domain.AssetSymbol,
+	balances []AccountBalance,
+) (*Portfolio, error) {
+	if ownership.PortfolioID.Value() == "" || ownership.AccountID.Value() == "" ||
+		ownership.Strategy == "" || ownership.Exchange == "" || len(balances) == 0 {
+		return nil, portfolioError("account_balance_portfolio_invalid")
+	}
+	if _, err := domain.ParseAssetSymbol(string(numeraire)); err != nil {
+		return nil, portfolioError("account_balance_portfolio_invalid")
+	}
+	portfolio := newOwnedPortfolio(ownership, numeraire)
+	hasNumeraire := false
+	for _, balance := range balances {
+		if _, err := domain.ParseAssetSymbol(string(balance.Asset)); err != nil ||
+			portfolio.balances[balance.Asset].Asset != "" {
+			return nil, portfolioError("account_balance_portfolio_invalid")
+		}
+		key := accounting.BalanceKey{Account: ownership.AccountID, Asset: balance.Asset}
+		if err := portfolio.ledger.OpenBalance(key, balance.Available); err != nil {
+			return nil, portfolioError("account_balance_portfolio_invalid")
+		}
+		portfolio.balances[balance.Asset] = key
+		hasNumeraire = hasNumeraire || balance.Asset == numeraire
+	}
+	if !hasNumeraire {
+		return nil, portfolioError("account_balance_portfolio_invalid")
+	}
+	return portfolio, nil
+}
+
+// InitializeDefaultTrend creates the locked 500 USDT baseline with zero BTC/ETH.
+func InitializeDefaultTrend(
 	runID domain.RunID,
 	portfolioID domain.PortfolioID,
 	accountID domain.VirtualAccountID,
@@ -87,10 +135,10 @@ func InitializeTrend(
 	recordedAt domain.EventTime,
 ) (*Portfolio, error) {
 	return initializeStrategy(runID, portfolioID, accountID, configurationHash, startingCapital,
-		V1AStrategy, journal, recordedAt)
+		TrendStrategy, journal, recordedAt)
 }
 
-// InitializeMeanReversion creates an isolated B3 portfolio whose inventory,
+// InitializeMeanReversion creates an isolated mean reversion portfolio whose inventory,
 // reservations, journal lines, and fills cannot be attributed to Trend.
 func InitializeMeanReversion(
 	runID domain.RunID,
@@ -102,7 +150,24 @@ func InitializeMeanReversion(
 	recordedAt domain.EventTime,
 ) (*Portfolio, error) {
 	return initializeStrategy(runID, portfolioID, accountID, configurationHash, startingCapital,
-		V1BMeanReversionStrategy, journal, recordedAt)
+		MultiStrategyResearchMeanReversionStrategy, journal, recordedAt)
+}
+
+// InitializeTriangular creates one isolated triangular portfolio at an explicit
+// production-public venue. Independent triangular experiments begin with
+// settlement capital only; BTC and ETH remain zero until a simulated cycle.
+func InitializeTriangular(
+	runID domain.RunID,
+	portfolioID domain.PortfolioID,
+	accountID domain.VirtualAccountID,
+	configurationHash string,
+	startingCapital domain.Balance,
+	exchange string,
+	journal accounting.Journal,
+	recordedAt domain.EventTime,
+) (*Portfolio, error) {
+	return initializeStrategyAtExchange(runID, portfolioID, accountID, configurationHash, startingCapital,
+		TriangularStrategyOwner, exchange, journal, recordedAt)
 }
 
 func initializeStrategy(
@@ -115,13 +180,28 @@ func initializeStrategy(
 	journal accounting.Journal,
 	recordedAt domain.EventTime,
 ) (*Portfolio, error) {
+	return initializeStrategyAtExchange(runID, portfolioID, accountID, configurationHash, startingCapital,
+		strategy, TrendExchange, journal, recordedAt)
+}
+
+func initializeStrategyAtExchange(
+	runID domain.RunID,
+	portfolioID domain.PortfolioID,
+	accountID domain.VirtualAccountID,
+	configurationHash string,
+	startingCapital domain.Balance,
+	strategy string,
+	exchange string,
+	journal accounting.Journal,
+	recordedAt domain.EventTime,
+) (*Portfolio, error) {
 	zero, _ := domain.ParseBalance("0")
 	if runID.Value() == "" || portfolioID.Value() == "" || accountID.Value() == "" ||
 		configurationHash == "" || startingCapital.Compare(zero) <= 0 || !supportedStrategy(strategy) ||
-		journal == nil || recordedAt.Validate() != nil {
+		!supportedExchange(exchange) || journal == nil || recordedAt.Validate() != nil {
 		return nil, portfolioError("initialization_invalid")
 	}
-	portfolio := newPortfolio(portfolioID, accountID, strategy)
+	portfolio := newPortfolioAtExchange(portfolioID, accountID, strategy, exchange)
 	if err := portfolio.openInitialBalances(startingCapital); err != nil {
 		return nil, err
 	}
@@ -131,9 +211,14 @@ func initializeStrategy(
 	return portfolio, nil
 }
 
-func newPortfolio(portfolioID domain.PortfolioID, accountID domain.VirtualAccountID, strategy string) *Portfolio {
-	return &Portfolio{ownership: Ownership{PortfolioID: portfolioID, AccountID: accountID,
-		Strategy: strategy, Exchange: V1AExchange}, numeraire: V1ANumeraire,
+func newPortfolioAtExchange(portfolioID domain.PortfolioID, accountID domain.VirtualAccountID,
+	strategy, exchange string) *Portfolio {
+	return newOwnedPortfolio(Ownership{PortfolioID: portfolioID, AccountID: accountID,
+		Strategy: strategy, Exchange: exchange}, TrendNumeraire)
+}
+
+func newOwnedPortfolio(ownership Ownership, numeraire domain.AssetSymbol) *Portfolio {
+	return &Portfolio{ownership: ownership, numeraire: numeraire,
 		ledger: accounting.NewReservationLedger(), balances: make(map[domain.AssetSymbol]accounting.BalanceKey),
 		positions: make(map[domain.Instrument]Position), revision: 1}
 }
@@ -159,13 +244,16 @@ func initializationTransaction(
 	strategy string,
 	recordedAt domain.EventTime,
 ) accounting.Transaction {
-	prefix := "v1a-trend"
-	if strategy == V1BMeanReversionStrategy {
-		prefix = "v1b-mean-reversion"
+	prefix := "trend-following"
+	switch strategy {
+	case MultiStrategyResearchMeanReversionStrategy:
+		prefix = "mean-reversion"
+	case TriangularStrategyOwner:
+		prefix = "triangular-arbitrage"
 	}
 	id, _ := domain.NewJournalTransactionID(prefix + "-initialization")
 	cause, _ := domain.NewEventID(prefix + "-initialization")
-	asset, _ := domain.ParseAssetSymbol(V1ANumeraire)
+	asset, _ := domain.ParseAssetSymbol(TrendNumeraire)
 	return accounting.Transaction{ID: id, Type: "portfolio_initialization", RunID: runID,
 		PortfolioID: portfolioID, ConfigurationHash: configurationHash, CausationID: cause,
 		RecordedAt: recordedAt, IngestOrdinal: recordedAt.Sequence, Lines: []accounting.Line{
@@ -175,8 +263,10 @@ func initializationTransaction(
 }
 
 func supportedStrategy(strategy string) bool {
-	return strategy == V1AStrategy || strategy == V1BMeanReversionStrategy
+	return strategy == TrendStrategy || strategy == MultiStrategyResearchMeanReversionStrategy || strategy == TriangularStrategyOwner
 }
+
+func supportedExchange(exchange string) bool { return exchange == "binance" || exchange == "bybit" }
 
 // Snapshot returns exact ownership, balances, and sorted positions.
 func (portfolio *Portfolio) Snapshot() Snapshot {

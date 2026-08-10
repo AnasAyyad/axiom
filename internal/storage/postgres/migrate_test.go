@@ -27,50 +27,551 @@ func TestEmbeddedMigrationsAreOrderedForwardOnlyAndChecksummed(t *testing.T) {
 	}
 }
 
-func TestB1MigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
+func TestOwnerConsoleMigrationFailsClosedAndPreservesHistoricalEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000028")
+	if migration.Name == "" {
+		t.Fatal("owner console migration is missing")
+	}
+	assertMigrationContains(t, migration, "owner console", []string{
+		"create table owner_accounts", "owner_console_multiple_active_users",
+		"create view configuration_records", "create view activity_records",
+		"create trigger users_single_active_owner",
+	})
+}
+
+func TestSingleOwnerAuthorizationBoundaryMakesLegacyRecordsReadOnly(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000036")
+	if migration.Name == "" {
+		t.Fatal("single-owner authorization migration is missing")
+	}
+	assertMigrationContains(t, migration, "single owner authorization", []string{
+		"legacy_authorization_records_are_historical",
+		"authorization_permissions_historical", "authorization_roles_historical",
+		"role_permissions_historical", "user_roles_historical",
+		"from owner_accounts owner", "owner.user_id = p_actor_user_id",
+	})
+}
+
+func TestSandboxStrategySessionMigrationPreservesArmableAccountTopology(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000029")
+	if migration.Name == "" {
+		t.Fatal("sandbox strategy-session migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox strategy session", []string{
+		"create table sandbox_strategy_sessions",
+		"create table sandbox_strategy_session_accounts",
+		"cross-exchange-arbitrage",
+		"sandbox_strategy_session_account_membership_invalid",
+		"sandbox_strategy_session_topology_invalid",
+		"sandbox_strategy_session_membership_immutable",
+	})
+}
+
+func TestSandboxStrategySessionInstrumentMigrationPreservesHistoricalUnknowns(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000030")
+	if migration.Name == "" {
+		t.Fatal("sandbox strategy-session instrument migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox strategy session instrument", []string{
+		"add column instrument text", "instrument is null or instrument in ('btcusdt','ethusdt')",
+		"rather than receiving a guessed historical value",
+	})
+}
+
+func TestInstrumentEligibilityObservationMigrationKeepsAdmissionInstrumentScoped(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000031")
+	if migration.Name == "" {
+		t.Fatal("instrument eligibility observation migration is missing")
+	}
+	assertMigrationContains(t, migration, "instrument eligibility observation", []string{
+		"create table v1c_engine_market_observations",
+		"primary key (account_id,instrument)",
+		"instrument in ('btcusdt','ethusdt')",
+		"eligibility->>'instrument'=instrument",
+	})
+}
+
+func TestTriangularMarketObservationMigrationAddsOnlyTheApprovedThirdSpotMarket(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000044")
+	if migration.Name == "" {
+		t.Fatal("triangular market observation migration is missing")
+	}
+	assertMigrationContains(t, migration, "triangular market observation", []string{
+		"drop constraint v1c_engine_market_observations_instrument_check",
+		"instrument in ('btcusdt','ethusdt','ethbtc')",
+	})
+}
+
+func TestShadowSessionSelectionMigrationPreservesUnknownHistoryAndGuardsNewRuns(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000047")
+	if migration.Name == "" {
+		t.Fatal("shadow session selection migration is missing")
+	}
+	assertMigrationContains(t, migration, "shadow session selection", []string{
+		"add column instrument_id text references instruments(id)",
+		"historical shadow sessions", "no honest single-instrument value to backfill",
+		"shadow_session_instrument_exchange_mismatch",
+		"exchange.environment = 'production_public'",
+	})
+}
+
+func TestShadowStrategyDecisionEvidenceMigrationPreservesExactSemanticInputs(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000048")
+	if migration.Name == "" {
+		t.Fatal("shadow strategy decision evidence migration is missing")
+	}
+	assertMigrationContains(t, migration, "shadow strategy decision evidence", []string{
+		"create table shadow_strategy_decision_evidence",
+		"canonical_input bytea not null",
+		"canonical_decision bytea not null",
+		"mean_reversion_input",
+		"shadow_strategy_decision_parent_mismatch",
+		"shadow_strategy_decision_evidence_immutable",
+	})
+}
+
+func TestShadowSessionMarketScopeMigrationGuardsExactMultiMarketTopology(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000049")
+	if migration.Name == "" {
+		t.Fatal("shadow session market scope migration is missing")
+	}
+	assertMigrationContains(t, migration, "shadow session market scope", []string{
+		"add column market_scope_required boolean not null default false",
+		"create table shadow_session_market_scopes",
+		"shadow_market_scope_reference_invalid",
+		"shadow_single_market_scope_invalid",
+		"shadow_triangle_market_scope_invalid",
+		"shadow_paired_market_scope_invalid",
+		"deferrable initially deferred",
+		"shadow_session_market_scopes_immutable",
+	})
+}
+
+func TestShadowSessionActivityMigrationKeepsWaitingAndInputHealthImmutable(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000050")
+	if migration.Name == "" {
+		t.Fatal("shadow session activity migration is missing")
+	}
+	assertMigrationContains(t, migration, "shadow session activity", []string{
+		"create table shadow_session_activity_observations",
+		"create table shadow_session_input_health_observations",
+		"'preparing','warming_up','waiting','evaluating','running','paused','blocked','stopped'",
+		"shadow_input_health_outside_market_scope",
+		"shadow_activity_input_health_incomplete",
+		"deferrable initially deferred",
+		"shadow_session_activity_observations_immutable",
+		"shadow_session_input_health_observations_immutable",
+	})
+}
+
+func TestPublicInstrumentMaximumQuantityMigrationPreservesHistoricalUnknowns(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000051")
+	if migration.Name == "" {
+		t.Fatal("public instrument maximum-quantity migration is missing")
+	}
+	assertMigrationContains(t, migration, "public instrument maximum quantity", []string{
+		"add column maximum_quantity financial_amount",
+		"maximum_quantity is null", "historical rows", "rather than receiving a guessed value",
+	})
+}
+
+func TestShadowMultilegExecutionEvidenceMigrationIsAcceptedOnlyAndImmutable(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000052")
+	if migration.Name == "" {
+		t.Fatal("shadow multi-leg execution-evidence migration is missing")
+	}
+	assertMigrationContains(t, migration, "shadow multi-leg execution evidence", []string{
+		"create table shadow_multileg_execution_evidence",
+		"canonical_execution_plan bytea not null",
+		"canonical_simulation bytea not null",
+		"canonical_reduction bytea not null",
+		"canonical_projected_balances bytea not null",
+		"parent_outcome is distinct from 'accepted'",
+		"shadow_multileg_execution_parent_mismatch",
+		"shadow_multileg_execution_evidence_immutable",
+	})
+}
+
+func TestShadowCrossExchangeInventoryMigrationKeepsVenueOwnershipImmutable(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000053")
+	if migration.Name == "" {
+		t.Fatal("paired shadow inventory migration is missing")
+	}
+	assertMigrationContains(t, migration, "shadow cross-exchange inventory", []string{
+		"create table shadow_cross_exchange_inventory_initializations",
+		"account_id text not null unique references virtual_accounts",
+		"cross-exchange-single-instrument-prefund.v1",
+		"retain_unselected_volatile_allocation_as_usdt",
+		"shadow_cross_exchange_inventory_reference_mismatch",
+		"shadow_cross_exchange_inventory_initializations_immutable",
+	})
+}
+
+func TestStrategyPlanSnapshotMigrationKeepsInventoryProofImmutable(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000032")
+	if migration.Name == "" {
+		t.Fatal("strategy plan snapshot migration is missing")
+	}
+	assertMigrationContains(t, migration, "strategy plan account snapshot", []string{
+		"create table v1c_plan_account_snapshots",
+		"foreign key (account_id,account_epoch,snapshot_hash)",
+		"references v1c_account_snapshots(account_id,account_epoch,snapshot_hash)",
+		"v1c_plan_account_snapshots_immutable",
+	})
+}
+
+func TestStrategySessionEvaluationMigrationPreservesSanitizedImmutableTimeline(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000033")
+	if migration.Name == "" {
+		t.Fatal("strategy session evaluation migration is missing")
+	}
+	assertMigrationContains(t, migration, "strategy session evaluation", []string{
+		"create table sandbox_strategy_session_evaluations",
+		"state in ('waiting','evaluated','blocked')",
+		"reason ~ '^[a-z0-9_]{1,96}$'",
+		"sandbox_strategy_session_evaluations_immutable",
+	})
+}
+
+func TestStrategyPlanDecisionMigrationPreservesExactImmutableProvenance(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000034")
+	if migration.Name == "" {
+		t.Fatal("strategy plan decision migration is missing")
+	}
+	assertMigrationContains(t, migration, "strategy plan decision", []string{
+		"create table v1c_strategy_plan_decisions",
+		"canonical_input bytea not null", "canonical_decision bytea not null",
+		"strategy in ('trend','mean-reversion')",
+		"v1c_strategy_plan_decisions_immutable",
+	})
+}
+
+func TestStrategyDecisionJournalMigrationPreservesNoOrderStateTransitions(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000035")
+	if migration.Name == "" {
+		t.Fatal("strategy decision journal migration is missing")
+	}
+	assertMigrationContains(t, migration, "strategy decision journal", []string{
+		"create table sandbox_strategy_decisions",
+		"plan_id text references v1c_submission_plans(id)",
+		"unique (strategy_session_id,account_id,account_epoch,event_ordinal)",
+		"sandbox_strategy_decisions_immutable",
+	})
+}
+
+func TestMultiLegStrategyDecisionMigrationExpandsBothImmutableDecisionStores(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000045")
+	if migration.Name == "" {
+		t.Fatal("multi-leg strategy decision migration is missing")
+	}
+	assertMigrationContains(t, migration, "multi-leg strategy decisions", []string{
+		"alter table v1c_strategy_plan_decisions",
+		"drop constraint v1c_strategy_plan_decisions_strategy_check",
+		"alter table sandbox_strategy_decisions",
+		"drop constraint sandbox_strategy_decisions_strategy_check",
+		"'triangular','cross-exchange-arbitrage'",
+	})
+}
+
+func TestTriangularAccountingMigrationRetainsEverySpotLegAndFailsRiskClosed(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000046")
+	if migration.Name == "" {
+		t.Fatal("triangular accounting projection migration is missing")
+	}
+	assertMigrationContains(t, migration, "triangular accounting projection", []string{
+		"alter table sandbox_accounting_transactions",
+		"instrument in ('btcusdt','ethusdt','ethbtc')",
+		"sandbox_accounting_transaction_session_identity",
+		"sandbox_accounting_positions_last_transaction_session_fkey",
+		"'cross_asset_open','inventory_unresolved'",
+	})
+}
+
+func TestStrategyRiskObservationMigrationBindsCompleteImmutableInputs(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000037")
+	if migration.Name == "" {
+		t.Fatal("strategy risk observation migration is missing")
+	}
+	assertMigrationContains(t, migration, "strategy risk observation", []string{
+		"create table sandbox_strategy_risk_observations",
+		"foreign key (account_id,account_epoch,snapshot_hash)",
+		"foreign key (policy_id,policy_version)",
+		"account_drawdown financial_amount not null",
+		"book_age_nanoseconds bigint not null",
+		"lease_lost boolean not null",
+		"scope_kind='global' and scope_id='platform'",
+		"sandbox_strategy_risk_policy_mismatch",
+		"sandbox_strategy_risk_state_not_normal",
+		"sandbox_strategy_risk_snapshot_stale",
+		"sandbox_strategy_risk_observations_immutable",
+	})
+}
+
+func TestSandboxAccountingJournalMigrationBindsAndBalancesEveryStrategyFill(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000038")
+	if migration.Name == "" {
+		t.Fatal("sandbox accounting journal migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox accounting journal", []string{
+		"create table sandbox_accounting_transactions",
+		"create table sandbox_accounting_entries",
+		"transaction_type text not null",
+		"source_mode text not null",
+		"configuration_id text not null references configuration_versions(id)",
+		"policy_hash sha256_hex not null",
+		"client_order_id text not null",
+		"intent_action text not null",
+		"foreign key (strategy_session_id,account_id)",
+		"foreign key (account_id,account_epoch,native_fill_id_hash)",
+		"unique (account_id,account_epoch,fill_id)",
+		"unbalanced_sandbox_accounting_transaction",
+		"sandbox_accounting_transactions_immutable",
+		"sandbox_accounting_entries_immutable",
+		"sandbox_accounting_balanced_on_commit",
+	})
+}
+
+func TestSandboxStrategySessionMembershipGuardUsesSemanticParentColumn(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000039")
+	if migration.Name == "" {
+		t.Fatal("sandbox strategy-session membership repair is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox strategy session membership guard", []string{
+		"create or replace function enforce_sandbox_strategy_session_account",
+		"select sandbox_session_id into parent_session",
+		"membership.session_id = parent_session",
+		"sandbox_strategy_session_account_membership_invalid",
+		"sandbox_strategy_session_account_exchange_invalid",
+	})
+}
+
+func TestSandboxStrategySessionLifecycleMigrationPreservesStartHistory(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000040")
+	if migration.Name == "" {
+		t.Fatal("sandbox strategy-session lifecycle repair is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox strategy session lifecycle", []string{
+		"drop constraint sandbox_strategy_sessions_check",
+		"drop constraint sandbox_strategy_sessions_check1",
+		"drop constraint sandbox_strategy_sessions_check2",
+		"sandbox_strategy_sessions_lifecycle_valid",
+		"state = 'blocked'",
+		"started_at is not null",
+		"blocking_reason is not null",
+		"state = 'stopped'",
+		"stopped_at is not null",
+		"sandbox_strategy_sessions_lifecycle_chronology_valid",
+		"stopped_at >= coalesce(started_at, created_at)",
+	})
+}
+
+func TestSandboxAccountingProjectionMigrationIsJournalRebuildable(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000041")
+	if migration.Name == "" {
+		t.Fatal("sandbox accounting projection migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox accounting projection", []string{
+		"sandbox_accounting_transaction_projection_identity",
+		"create table sandbox_accounting_positions",
+		"weighted_average_cost financial_amount not null",
+		"realized_pnl signed_financial_amount not null",
+		"valuation_state text not null",
+		"source_transaction_count bigint not null",
+		"projection_hash sha256_hex not null",
+		"create table sandbox_accounting_position_fees",
+		"fee_quantity financial_amount not null",
+		"rebate_quantity financial_amount not null",
+	})
+}
+
+func TestSandboxRiskValuationMigrationBindsExactProjectionAndOperationalEvidence(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000042")
+	if migration.Name == "" {
+		t.Fatal("sandbox strategy risk valuation migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox strategy risk valuation", []string{
+		"sandbox_accounting_position_risk_identity",
+		"create table sandbox_strategy_risk_valuations",
+		"purpose text not null",
+		"accounting_projection_hash sha256_hex",
+		"account_equity financial_amount not null",
+		"strategy_total_pnl signed_financial_amount not null",
+		"account_peak_equity financial_amount not null",
+		"utc_day_baseline_equity financial_amount not null",
+		"rolling_24_hour_baseline_equity financial_amount not null",
+		"risk_observation_id text unique references sandbox_strategy_risk_observations(id)",
+		"sandbox_strategy_risk_accounting_projection_missing",
+		"sandbox_strategy_risk_reconciliation_stale",
+		"sandbox_strategy_risk_storage_stale",
+		"sandbox_strategy_risk_valuations_immutable",
+	})
+}
+
+func TestSandboxMultilegMigrationKeepsDependentReservationsInert(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration := migrationForVersion(migrations, "000043")
+	if migration.Name == "" {
+		t.Fatal("sandbox multileg dispatch migration is missing")
+	}
+	assertMigrationContains(t, migration, "sandbox multileg dispatch", []string{
+		"leg_count between 1 and 3",
+		"execution_expires_at <= approved_at + interval '250 milliseconds'",
+		"primary key (plan_id,exchange,instrument)",
+		"depends_on_leg_index integer",
+		"state in ('waiting','pending','claimed','acknowledged','unknown','terminal')",
+		"state in ('waiting','active','consumed','released','quarantined')",
+		"old.state='waiting' and new.state in",
+		"'active','released','quarantined'",
+	})
+}
+
+func TestExchangeExpansionMigrationSeedsBybitAndImmutablePublicEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(migrations) < 2 {
-		t.Fatal("B1 migrations are missing")
+		t.Fatal("exchange expansion migrations are missing")
 	}
-	var b1 []Migration
+	var exchange_expansion []Migration
 	for _, migration := range migrations {
 		if migration.Version == "000012" || migration.Version == "000013" {
-			b1 = append(b1, migration)
+			exchange_expansion = append(exchange_expansion, migration)
 		}
 	}
-	if len(b1) != 2 {
-		t.Fatalf("B1 migration count = %d", len(b1))
+	if len(exchange_expansion) != 2 {
+		t.Fatalf("exchange expansion migration count = %d", len(exchange_expansion))
 	}
-	lower := strings.ToLower(b1[0].SQL + "\n" + b1[1].SQL)
+	lower := strings.ToLower(exchange_expansion[0].SQL + "\n" + exchange_expansion[1].SQL)
 	for _, required := range []string{"'bybit'", "public_clock_samples", "public_connection_events",
 		"public_clock_samples_immutable", "public_connection_events_immutable",
 		"enforce_portfolio_ownership_strategy_reference", "shadow_sessions_public_exchange_alias",
 		"exchange_id text references exchanges(id)"} {
 		if !strings.Contains(lower, required) {
-			t.Fatalf("B1 migration missing %q", required)
+			t.Fatalf("exchange expansion migration missing %q", required)
 		}
 	}
-	if b1[0].Version != "000012" || b1[1].Version != "000013" {
-		t.Fatalf("B1 migration versions = %s/%s", b1[0].Version, b1[1].Version)
+	if exchange_expansion[0].Version != "000012" || exchange_expansion[1].Version != "000013" {
+		t.Fatalf("exchange expansion migration versions = %s/%s", exchange_expansion[0].Version, exchange_expansion[1].Version)
 	}
 }
 
-func TestB2MigrationDefinesCoherentViewsAndTierACompleteness(t *testing.T) {
+func TestCoherentMarketDataMigrationDefinesCoherentViewsAndTierACompleteness(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var b2 Migration
+	var coherent_market_data Migration
 	for _, migration := range migrations {
 		if migration.Version == "000014" {
-			b2 = migration
+			coherent_market_data = migration
 			break
 		}
 	}
-	lower := strings.ToLower(b2.SQL)
+	lower := strings.ToLower(coherent_market_data.SQL)
 	for _, required := range []string{
 		"create table cross_market_view_headers", "create table cross_market_view_members",
 		"enforce_cross_market_view_complete", "cross_market_view_headers_immutable",
@@ -79,27 +580,27 @@ func TestB2MigrationDefinesCoherentViewsAndTierACompleteness(t *testing.T) {
 		"raw_canonical_linkage_complete", "hidden_gap_count",
 	} {
 		if !strings.Contains(lower, required) {
-			t.Fatalf("B2 migration missing %q", required)
+			t.Fatalf("coherent market data migration missing %q", required)
 		}
 	}
-	if b2.Version != "000014" {
-		t.Fatalf("B2 migration version = %s", b2.Version)
+	if coherent_market_data.Version != "000014" {
+		t.Fatalf("coherent market data migration version = %s", coherent_market_data.Version)
 	}
 }
 
-func TestB3MigrationDefinesImmutableMeanReversionEvidence(t *testing.T) {
+func TestMeanReversionMigrationDefinesImmutableMeanReversionEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var b3 Migration
+	var mean_reversion Migration
 	for _, migration := range migrations {
 		if migration.Version == "000015" {
-			b3 = migration
+			mean_reversion = migration
 			break
 		}
 	}
-	lower := strings.ToLower(b3.SQL)
+	lower := strings.ToLower(mean_reversion.SQL)
 	for _, required := range []string{
 		"create table mean_reversion_decisions", "primary_candle_view_id", "higher_candle_view_id",
 		"coherent_version_vector_hash", "portfolio_ownership_account_id", "risk_policy_id",
@@ -108,27 +609,27 @@ func TestB3MigrationDefinesImmutableMeanReversionEvidence(t *testing.T) {
 		"security definer set search_path = pg_catalog, public",
 	} {
 		if !strings.Contains(lower, required) {
-			t.Fatalf("B3 migration missing %q", required)
+			t.Fatalf("mean reversion migration missing %q", required)
 		}
 	}
-	if b3.Version != "000015" {
-		t.Fatalf("B3 migration version = %s", b3.Version)
+	if mean_reversion.Version != "000015" {
+		t.Fatalf("mean reversion migration version = %s", mean_reversion.Version)
 	}
 }
 
-func TestB4MigrationDefinesAtomicClaimsSequentialEvidenceAndBalancedLinks(t *testing.T) {
+func TestTriangularArbitrageMigrationDefinesAtomicClaimsSequentialEvidenceAndBalancedLinks(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var b4 Migration
+	var triangular_arbitrage Migration
 	for _, migration := range migrations {
 		if migration.Version == "000016" {
-			b4 = migration
+			triangular_arbitrage = migration
 			break
 		}
 	}
-	lower := strings.ToLower(b4.SQL)
+	lower := strings.ToLower(triangular_arbitrage.SQL)
 	for _, required := range []string{
 		"create table triangular_candidates", "create table triangular_candidate_legs",
 		"create table b4_claim_resources", "create table b4_claim_groups",
@@ -141,27 +642,27 @@ func TestB4MigrationDefinesAtomicClaimsSequentialEvidenceAndBalancedLinks(t *tes
 		"create table triangular_journal_links", "triangular_candidates_immutable",
 	} {
 		if !strings.Contains(lower, required) {
-			t.Fatalf("B4 migration missing %q", required)
+			t.Fatalf("triangular arbitrage migration missing %q", required)
 		}
 	}
-	if b4.Version != "000016" {
-		t.Fatalf("B4 migration version = %s", b4.Version)
+	if triangular_arbitrage.Version != "000016" {
+		t.Fatalf("triangular arbitrage migration version = %s", triangular_arbitrage.Version)
 	}
 }
 
-func TestB5MigrationDefinesCoherentConcurrentClosedCycleEvidence(t *testing.T) {
+func TestCrossExchangeArbitrageMigrationDefinesCoherentConcurrentClosedCycleEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var b5 Migration
+	var cross_exchange_arbitrage Migration
 	for _, migration := range migrations {
 		if migration.Version == "000017" {
-			b5 = migration
+			cross_exchange_arbitrage = migration
 			break
 		}
 	}
-	lower := strings.ToLower(b5.SQL)
+	lower := strings.ToLower(cross_exchange_arbitrage.SQL)
 	for _, required := range []string{
 		"create table cross_exchange_candidates",
 		"create table cross_exchange_candidate_members",
@@ -182,27 +683,27 @@ func TestB5MigrationDefinesCoherentConcurrentClosedCycleEvidence(t *testing.T) {
 		"cross_exchange_candidates_immutable",
 	} {
 		if !strings.Contains(lower, required) {
-			t.Fatalf("B5 migration missing %q", required)
+			t.Fatalf("cross-exchange arbitrage migration missing %q", required)
 		}
 	}
-	if b5.Version != "000017" {
-		t.Fatalf("B5 migration version = %s", b5.Version)
+	if cross_exchange_arbitrage.Version != "000017" {
+		t.Fatalf("cross-exchange arbitrage migration version = %s", cross_exchange_arbitrage.Version)
 	}
 }
 
-func TestB6MigrationDefinesImmutableReviewedAdvisoryEvidence(t *testing.T) {
+func TestInventoryRebalancingMigrationDefinesImmutableReviewedAdvisoryEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var b6 Migration
+	var inventory_rebalancing Migration
 	for _, migration := range migrations {
 		if migration.Version == "000018" {
-			b6 = migration
+			inventory_rebalancing = migration
 			break
 		}
 	}
-	lower := strings.ToLower(b6.SQL)
+	lower := strings.ToLower(inventory_rebalancing.SQL)
 	for _, required := range []string{
 		"create table rebalancing_fact_sets",
 		"create table rebalancing_route_facts",
@@ -224,11 +725,11 @@ func TestB6MigrationDefinesImmutableReviewedAdvisoryEvidence(t *testing.T) {
 		"rebalancing_recommendations_immutable",
 	} {
 		if !strings.Contains(lower, required) {
-			t.Fatalf("B6 migration missing %q", required)
+			t.Fatalf("inventory rebalancing migration missing %q", required)
 		}
 	}
-	if b6.Version != "000018" {
-		t.Fatalf("B6 migration version = %s", b6.Version)
+	if inventory_rebalancing.Version != "000018" {
+		t.Fatalf("inventory rebalancing migration version = %s", inventory_rebalancing.Version)
 	}
 }
 
@@ -243,19 +744,19 @@ func TestMigrationVersionRejectsNonCanonicalNames(t *testing.T) {
 	}
 }
 
-func TestB8MigrationDefinesImmutableSimulationOnlyConsoleEvidence(t *testing.T) {
+func TestMultiExchangeConsoleMigrationDefinesImmutableSimulationOnlyConsoleEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var b8 Migration
+	var multi_exchange_console Migration
 	for _, migration := range migrations {
 		if migration.Version == "000020" {
-			b8 = migration
+			multi_exchange_console = migration
 			break
 		}
 	}
-	lower := strings.ToLower(b8.SQL)
+	lower := strings.ToLower(multi_exchange_console.SQL)
 	for _, required := range []string{
 		"create table b8_replay_fault_schedule_states",
 		"create table b8_replay_fault_schedules",
@@ -267,40 +768,40 @@ func TestB8MigrationDefinesImmutableSimulationOnlyConsoleEvidence(t *testing.T) 
 		"b8_report_exports_immutable",
 	} {
 		if !strings.Contains(lower, required) {
-			t.Fatalf("B8 migration missing %q", required)
+			t.Fatalf("multi-exchange console migration missing %q", required)
 		}
 	}
 }
 
-func TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
+func TestSandboxRuntimeMigrationsDefineClosedDurableAuthenticatedEvidence(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	v1cAuth := migrationForVersion(migrations, "000021")
-	v1cExecution := migrationForVersion(migrations, "000022")
-	v1cBinanceStream := migrationForVersion(migrations, "000023")
-	v1cC6 := migrationForVersion(migrations, "000024")
-	if v1cAuth.SQL == "" || v1cExecution.SQL == "" ||
-		v1cBinanceStream.SQL == "" || v1cC6.SQL == "" {
-		t.Fatal("V1C migrations are missing")
+	sandboxRuntimeAuth := migrationForVersion(migrations, "000021")
+	sandboxRuntimeExecution := migrationForVersion(migrations, "000022")
+	sandboxRuntimeBinanceStream := migrationForVersion(migrations, "000023")
+	sandboxQualification := migrationForVersion(migrations, "000024")
+	if sandboxRuntimeAuth.SQL == "" || sandboxRuntimeExecution.SQL == "" ||
+		sandboxRuntimeBinanceStream.SQL == "" || sandboxQualification.SQL == "" {
+		t.Fatal("sandbox runtime migrations are missing")
 	}
-	assertV1CBinanceStreamMigration(t, v1cBinanceStream)
-	assertV1CAuthMigration(t, v1cAuth)
-	assertV1CExecutionMigration(t, v1cExecution)
-	assertV1CC6Migration(t, v1cC6)
+	assertSandboxRuntimeBinanceStreamMigration(t, sandboxRuntimeBinanceStream)
+	assertSandboxRuntimeAuthMigration(t, sandboxRuntimeAuth)
+	assertSandboxRuntimeExecutionMigration(t, sandboxRuntimeExecution)
+	assertSandboxQualificationMigration(t, sandboxQualification)
 }
 
-func TestV1DD1MigrationDefinesFailClosedControlPlane(t *testing.T) {
+func TestOwnerControlMigrationDefinesFailClosedControlPlane(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)
 	}
-	d1 := migrationForVersion(migrations, "000025")
-	if d1.SQL == "" {
-		t.Fatal("V1D D1 migration is missing")
+	owner_control := migrationForVersion(migrations, "000025")
+	if owner_control.SQL == "" {
+		t.Fatal("owner-console release owner control migration is missing")
 	}
-	assertMigrationContains(t, d1, "V1D D1", []string{
+	assertMigrationContains(t, owner_control, "historical owner-control", []string{
 		"create table v1d_reason_catalogue",
 		"create table v1d_activity_projection",
 		"create view v1d_activity_explanations",
@@ -316,9 +817,9 @@ func TestV1DD1MigrationDefinesFailClosedControlPlane(t *testing.T) {
 	})
 }
 
-func assertV1CBinanceStreamMigration(t *testing.T, migration Migration) {
+func assertSandboxRuntimeBinanceStreamMigration(t *testing.T, migration Migration) {
 	t.Helper()
-	assertMigrationContains(t, migration, "V1C Binance stream", []string{
+	assertMigrationContains(t, migration, "historical sandbox runtime Binance stream", []string{
 		"ws-api.testnet.binance.vision",
 		"/ws-api/v3/userdatastream.subscribe.signature",
 		"stream-demo.bybit.com",
@@ -334,9 +835,9 @@ func assertV1CBinanceStreamMigration(t *testing.T, migration Migration) {
 	})
 }
 
-func assertV1CAuthMigration(t *testing.T, migration Migration) {
+func assertSandboxRuntimeAuthMigration(t *testing.T, migration Migration) {
 	t.Helper()
-	assertMigrationContains(t, migration, "V1C auth", []string{
+	assertMigrationContains(t, migration, "historical sandbox runtime auth", []string{
 		"create table v1c_totp_replay_state",
 		"create table v1c_sandbox_authorizations",
 		"create table v1c_high_risk_audit_events",
@@ -348,9 +849,9 @@ func assertV1CAuthMigration(t *testing.T, migration Migration) {
 	})
 }
 
-func assertV1CExecutionMigration(t *testing.T, migration Migration) {
+func assertSandboxRuntimeExecutionMigration(t *testing.T, migration Migration) {
 	t.Helper()
-	assertMigrationContains(t, migration, "V1C execution", []string{
+	assertMigrationContains(t, migration, "historical sandbox runtime execution", []string{
 		"create table v1c_authenticated_request_evidence",
 		"create table v1c_plan_entry_safety",
 		"v1c_authenticated_evidence_fields_valid",
@@ -364,9 +865,9 @@ func assertV1CExecutionMigration(t *testing.T, migration Migration) {
 	})
 }
 
-func assertV1CC6Migration(t *testing.T, migration Migration) {
+func assertSandboxQualificationMigration(t *testing.T, migration Migration) {
 	t.Helper()
-	assertMigrationContains(t, migration, "V1C C6 qualification", []string{
+	assertMigrationContains(t, migration, "historical sandbox qualification", []string{
 		"create table v1c_engine_runtime_events",
 		"create view v1c_c6_order_observations",
 		"create table v1c_c6_qualification_runs",
@@ -379,6 +880,31 @@ func assertV1CC6Migration(t *testing.T, migration Migration) {
 		"protect_v1c_c6_qualification_run",
 		"v1c_engine_runtime_events_immutable",
 		"v1c_c6_chaos_events_immutable",
+	})
+}
+
+func TestSemanticRuntimeNamesMigrationPreservesHistoricalRows(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	semanticNames := migrationForVersion(migrations, "000054")
+	if semanticNames.SQL == "" {
+		t.Fatal("semantic runtime names migration is missing")
+	}
+	assertMigrationContains(t, semanticNames, "semantic runtime names", []string{
+		"it never rewrites evidence payloads, hashes, or journal data",
+		"sandbox_runtime_",
+		"sandbox_qualification_",
+		"owner_console_",
+		"triangular_arbitrage_",
+		"cross_exchange_arbitrage_",
+		"research_promotion_",
+		"multi_exchange_console_",
+		"semantic_identifier_name",
+		"semantic_schema_name_conflict",
+		"semantic_role_name_conflict",
+		"semantic_role_rename_requires_database_administrator",
 	})
 }
 
@@ -406,7 +932,7 @@ func assertMigrationContains(
 	}
 }
 
-func TestMigrationsContainA4HistoryAndOwnershipGuards(t *testing.T) {
+func TestMigrationsContainDurableStorageHistoryAndOwnershipGuards(t *testing.T) {
 	migrations, err := Migrations()
 	if err != nil {
 		t.Fatal(err)

@@ -62,7 +62,7 @@ func TestConfigurationNegativeMatrix(t *testing.T) {
 
 func TestTrendConfigurationRecordsCompleteImmutableParameterContracts(t *testing.T) {
 	configuration := DefaultConfiguration()
-	if configuration.SchemaVersion != "axiom.config.v1a.2" || configuration.Trend.StrategyVersion != "trend.v1a.1" ||
+	if configuration.SchemaVersion != "axiom.configuration@1.0.0" || configuration.Trend.StrategyVersion != "trend-following@1.0.0" ||
 		configuration.Trend.Timeframe != "4h" || len(configuration.Trend.Parameters) != 16 {
 		t.Fatalf("trend graph = %#v", configuration.Trend)
 	}
@@ -129,8 +129,8 @@ func TestDecodeJSONRejectsUnknownFieldsAndTrailingDocuments(t *testing.T) {
 	}
 }
 
-func TestV1BConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T) {
-	configuration := DefaultV1BConfiguration()
+func TestMultiStrategyResearchConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T) {
+	configuration := DefaultMultiStrategyConfiguration()
 	if err := Validate(configuration); err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestV1BConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T)
 	if err != nil || len(decoded.PublicExchanges()) != 2 || decoded.Exchanges[1].ID != "bybit" ||
 		len(decoded.Exchanges[1].Instruments) != 3 || len(decoded.Exchanges[1].CandleIntervals) != 3 ||
 		len(decoded.Secrets) != 0 {
-		t.Fatalf("V1B graph = %#v, %v", decoded.Exchanges, err)
+		t.Fatalf("multi-strategy research graph = %#v, %v", decoded.Exchanges, err)
 	}
 	legacy := DefaultConfiguration().PublicExchanges()
 	if len(legacy) != 1 || legacy[0].ID != "binance" || len(legacy[0].Instruments) != 2 {
@@ -150,78 +150,78 @@ func TestV1BConfigurationIsOrderedPublicOnlyAndLegacyStillProjects(t *testing.T)
 	}
 	decoded.Exchanges[0].Instruments[0].Base = "MUTATED"
 	if configuration.Exchanges[0].Instruments[0].Base == "MUTATED" {
-		t.Fatal("V1B clone shares exchange instruments")
+		t.Fatal("multi-strategy research clone shares exchange instruments")
 	}
 }
 
-func TestB3ConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingOlderSchemas(t *testing.T) {
-	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
-		configuration.MeanReversion.StrategyVersion != "mean-reversion.v1b.1" ||
+func TestMeanReversionConfigurationRequiresCompleteMeanReversionGraphWithoutReinterpretingOlderSchemas(t *testing.T) {
+	configuration := DefaultMultiStrategyConfiguration()
+	if configuration.SchemaVersion != SchemaVersionInventoryRebalancing ||
+		configuration.MeanReversion.StrategyVersion != "mean-reversion@1.0.0" ||
 		configuration.MeanReversion.PrimaryTimeframe != "1h" || configuration.MeanReversion.HigherTimeframe != "4h" ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount {
-		t.Fatalf("B3 graph = %#v", configuration.MeanReversion)
+		t.Fatalf("mean reversion graph = %#v", configuration.MeanReversion)
 	}
 	for _, parameter := range configuration.MeanReversion.Parameters {
 		if parameter.ID == "" || parameter.Description == "" || parameter.AlgorithmVersion == "" ||
 			parameter.EvaluationTimezone != "UTC" || parameter.ChangeBehavior == "" || parameter.ApprovalActor == "" ||
 			parameter.ApprovalReference == "" || parameter.ApprovedAt == "" || parameter.ChangeReason == "" {
-			t.Fatalf("incomplete B3 parameter = %#v", parameter)
+			t.Fatalf("incomplete mean reversion parameter = %#v", parameter)
 		}
 	}
 
-	legacyV1B := configuration
-	legacyV1B.SchemaVersion = SchemaVersionV1B
-	legacyV1B.MeanReversion = MeanReversionConfiguration{}
-	legacyV1B.Triangular = TriangularConfiguration{}
-	legacyV1B.CrossExchange = CrossExchangeConfiguration{}
-	legacyV1B.Rebalancing = RebalancingConfiguration{}
-	if err := Validate(legacyV1B); err != nil {
-		t.Fatalf("original V1B.1 graph reinterpreted: %v", err)
+	legacyMultiStrategyResearch := configuration
+	legacyMultiStrategyResearch.SchemaVersion = SchemaVersionMultiStrategyResearch
+	legacyMultiStrategyResearch.MeanReversion = MeanReversionConfiguration{}
+	legacyMultiStrategyResearch.Triangular = TriangularConfiguration{}
+	legacyMultiStrategyResearch.CrossExchange = CrossExchangeConfiguration{}
+	legacyMultiStrategyResearch.Rebalancing = RebalancingConfiguration{}
+	if err := Validate(legacyMultiStrategyResearch); err != nil {
+		t.Fatalf("original multi-strategy research.1 graph reinterpreted: %v", err)
 	}
-	legacyV1A := DefaultConfiguration()
-	if err := Validate(legacyV1A); err != nil {
-		t.Fatalf("original V1A graph reinterpreted: %v", err)
+	legacyTrendFoundation := DefaultConfiguration()
+	if err := Validate(legacyTrendFoundation); err != nil {
+		t.Fatalf("original initial trend graph reinterpreted: %v", err)
 	}
-	legacyV1B.MeanReversion = configuration.MeanReversion
-	if code := configurationErrorCode(Validate(legacyV1B)); code != "invalid_configuration" {
-		t.Fatalf("B3 graph accepted under old schema: %q", code)
+	legacyMultiStrategyResearch.MeanReversion = configuration.MeanReversion
+	if code := configurationErrorCode(Validate(legacyMultiStrategyResearch)); code != "invalid_configuration" {
+		t.Fatalf("mean reversion graph accepted under old schema: %q", code)
 	}
 }
 
-func TestB4ConfigurationRequiresCompleteTriangularGraphAndPreservesB3Schema(t *testing.T) {
-	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
-		configuration.Triangular.StrategyVersion != "triangular.v1b.1" ||
+func TestTriangularArbitrageConfigurationRequiresCompleteTriangularGraphAndPreservesMeanReversionSchema(t *testing.T) {
+	configuration := DefaultMultiStrategyConfiguration()
+	if configuration.SchemaVersion != SchemaVersionInventoryRebalancing ||
+		configuration.Triangular.StrategyVersion != "triangular-arbitrage@1.0.0" ||
 		configuration.Triangular.SettlementAsset != "USDT" ||
 		configuration.Triangular.DispatchMode != "sequential" ||
 		len(configuration.Triangular.Cycles) != 2 ||
 		len(configuration.Triangular.Parameters) != TriangularParameterCount {
-		t.Fatalf("B4 graph = %#v", configuration.Triangular)
+		t.Fatalf("triangular arbitrage graph = %#v", configuration.Triangular)
 	}
 	for _, parameter := range configuration.Triangular.Parameters {
 		if parameter.ID == "" || parameter.Description == "" || parameter.AlgorithmVersion == "" ||
 			parameter.EvaluationTimezone != "UTC" || parameter.ChangeBehavior == "" ||
 			parameter.ApprovalActor == "" || parameter.ApprovalReference == "" ||
 			parameter.ApprovedAt == "" || parameter.ChangeReason == "" {
-			t.Fatalf("incomplete B4 parameter = %#v", parameter)
+			t.Fatalf("incomplete triangular arbitrage parameter = %#v", parameter)
 		}
 	}
-	legacyB3 := configuration
-	legacyB3.SchemaVersion = SchemaVersionV1BB3
-	legacyB3.Triangular = TriangularConfiguration{}
-	legacyB3.CrossExchange = CrossExchangeConfiguration{}
-	legacyB3.Rebalancing = RebalancingConfiguration{}
-	if err := Validate(legacyB3); err != nil {
-		t.Fatalf("B3 schema reinterpreted: %v", err)
+	legacyMeanReversion := configuration
+	legacyMeanReversion.SchemaVersion = SchemaVersionMeanReversion
+	legacyMeanReversion.Triangular = TriangularConfiguration{}
+	legacyMeanReversion.CrossExchange = CrossExchangeConfiguration{}
+	legacyMeanReversion.Rebalancing = RebalancingConfiguration{}
+	if err := Validate(legacyMeanReversion); err != nil {
+		t.Fatalf("mean reversion schema reinterpreted: %v", err)
 	}
-	legacyB3.Triangular = configuration.Triangular
-	if code := configurationErrorCode(Validate(legacyB3)); code != "invalid_configuration" {
-		t.Fatalf("B4 graph accepted under B3 schema: %q", code)
+	legacyMeanReversion.Triangular = configuration.Triangular
+	if code := configurationErrorCode(Validate(legacyMeanReversion)); code != "invalid_configuration" {
+		t.Fatalf("triangular arbitrage graph accepted under mean reversion schema: %q", code)
 	}
 }
 
-func TestB4ConfigurationRejectsMetadataRangeCycleAndMissingGraph(t *testing.T) {
+func TestTriangularArbitrageConfigurationRejectsMetadataRangeCycleAndMissingGraph(t *testing.T) {
 	tests := []struct {
 		name  string
 		alter func(*Configuration)
@@ -245,7 +245,7 @@ func TestB4ConfigurationRejectsMetadataRangeCycleAndMissingGraph(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			configuration := DefaultV1BConfiguration()
+			configuration := DefaultMultiStrategyConfiguration()
 			test.alter(&configuration)
 			if code := configurationErrorCode(Validate(configuration)); code != test.code {
 				t.Fatalf("error code = %q, want %q", code, test.code)
@@ -254,42 +254,42 @@ func TestB4ConfigurationRejectsMetadataRangeCycleAndMissingGraph(t *testing.T) {
 	}
 }
 
-func TestB5ConfigurationRequiresCompleteCrossExchangeGraphAndPreservesB4Schema(t *testing.T) {
-	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
-		configuration.CrossExchange.StrategyVersion != "cross-exchange.v1b.1" ||
+func TestCrossExchangeArbitrageConfigurationRequiresCompleteCrossExchangeGraphAndPreservesTriangularArbitrageSchema(t *testing.T) {
+	configuration := DefaultMultiStrategyConfiguration()
+	if configuration.SchemaVersion != SchemaVersionInventoryRebalancing ||
+		configuration.CrossExchange.StrategyVersion != "cross-exchange-arbitrage@1.0.0" ||
 		configuration.CrossExchange.DispatchMode != "concurrent" ||
 		configuration.CrossExchange.RebalancingMode != "advisory_only" ||
 		len(configuration.CrossExchange.Instruments) != 2 ||
 		len(configuration.CrossExchange.Directions) != 2 ||
 		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount {
-		t.Fatalf("B5 graph = %#v", configuration.CrossExchange)
+		t.Fatalf("cross-exchange arbitrage graph = %#v", configuration.CrossExchange)
 	}
 	for _, parameter := range configuration.CrossExchange.Parameters {
 		if parameter.ID == "" || parameter.Description == "" || parameter.AlgorithmVersion == "" ||
 			parameter.EvaluationTimezone != "UTC" || parameter.ChangeBehavior == "" ||
 			parameter.ApprovalActor == "" || parameter.ApprovalReference == "" ||
 			parameter.ApprovedAt == "" || parameter.ChangeReason == "" {
-			t.Fatalf("incomplete B5 parameter = %#v", parameter)
+			t.Fatalf("incomplete cross-exchange arbitrage parameter = %#v", parameter)
 		}
 	}
-	legacyB4 := configuration
-	legacyB4.SchemaVersion = SchemaVersionV1BB4
-	legacyB4.CrossExchange = CrossExchangeConfiguration{}
-	legacyB4.Rebalancing = RebalancingConfiguration{}
-	if err := Validate(legacyB4); err != nil {
-		t.Fatalf("B4 schema reinterpreted: %v", err)
+	legacyTriangularArbitrage := configuration
+	legacyTriangularArbitrage.SchemaVersion = SchemaVersionTriangularArbitrage
+	legacyTriangularArbitrage.CrossExchange = CrossExchangeConfiguration{}
+	legacyTriangularArbitrage.Rebalancing = RebalancingConfiguration{}
+	if err := Validate(legacyTriangularArbitrage); err != nil {
+		t.Fatalf("triangular arbitrage schema reinterpreted: %v", err)
 	}
-	legacyB4.CrossExchange = configuration.CrossExchange
-	if code := configurationErrorCode(Validate(legacyB4)); code != "invalid_configuration" {
-		t.Fatalf("B5 graph accepted under B4 schema: %q", code)
+	legacyTriangularArbitrage.CrossExchange = configuration.CrossExchange
+	if code := configurationErrorCode(Validate(legacyTriangularArbitrage)); code != "invalid_configuration" {
+		t.Fatalf("cross-exchange arbitrage graph accepted under triangular arbitrage schema: %q", code)
 	}
 }
 
-func TestB6ConfigurationRequiresCompleteAdvisoryGraphAndPreservesB5Schema(t *testing.T) {
-	configuration := DefaultV1BConfiguration()
-	if configuration.SchemaVersion != SchemaVersionV1BB6 ||
-		configuration.Rebalancing.OptimizerVersion != "rebalancing.v1b.1" ||
+func TestInventoryRebalancingConfigurationRequiresCompleteAdvisoryGraphAndPreservesCrossExchangeArbitrageSchema(t *testing.T) {
+	configuration := DefaultMultiStrategyConfiguration()
+	if configuration.SchemaVersion != SchemaVersionInventoryRebalancing ||
+		configuration.Rebalancing.OptimizerVersion != "inventory-rebalancing@1.0.0" ||
 		configuration.Rebalancing.FactSchemaVersion != "rebalancing-fact.v1" ||
 		configuration.Rebalancing.CostModelVersion != "rebalancing-cost.v1" ||
 		configuration.Rebalancing.Mode != "advisory_only" ||
@@ -297,14 +297,14 @@ func TestB6ConfigurationRequiresCompleteAdvisoryGraphAndPreservesB5Schema(t *tes
 		len(configuration.Rebalancing.ApprovedAssets) != 3 ||
 		len(configuration.Rebalancing.Exchanges) != 2 ||
 		len(configuration.Rebalancing.Parameters) != RebalancingParameterCount {
-		t.Fatalf("B6 graph = %#v", configuration.Rebalancing)
+		t.Fatalf("inventory rebalancing graph = %#v", configuration.Rebalancing)
 	}
 	for _, parameter := range configuration.Rebalancing.Parameters {
 		if parameter.ID == "" || parameter.Description == "" || parameter.AlgorithmVersion == "" ||
 			parameter.EvaluationTimezone != "UTC" || parameter.ChangeBehavior == "" ||
 			parameter.ApprovalActor == "" || parameter.ApprovalReference == "" ||
 			parameter.ApprovedAt == "" || parameter.ChangeReason == "" {
-			t.Fatalf("incomplete B6 parameter = %#v", parameter)
+			t.Fatalf("incomplete inventory rebalancing parameter = %#v", parameter)
 		}
 	}
 	cloned := cloneConfiguration(configuration)
@@ -314,22 +314,22 @@ func TestB6ConfigurationRequiresCompleteAdvisoryGraphAndPreservesB5Schema(t *tes
 	if configuration.Rebalancing.ApprovedAssets[0] == "MUTATED" ||
 		configuration.Rebalancing.Exchanges[0] == "mutated" ||
 		configuration.Rebalancing.Parameters[0].ModelDependencies[0] == "mutated" {
-		t.Fatal("configuration clone shares B6 slices")
+		t.Fatal("configuration clone shares inventory rebalancing slices")
 	}
 
-	legacyB5 := configuration
-	legacyB5.SchemaVersion = SchemaVersionV1BB5
-	legacyB5.Rebalancing = RebalancingConfiguration{}
-	if err := Validate(legacyB5); err != nil {
-		t.Fatalf("B5 schema reinterpreted: %v", err)
+	legacyCrossExchangeArbitrage := configuration
+	legacyCrossExchangeArbitrage.SchemaVersion = SchemaVersionCrossExchangeArbitrage
+	legacyCrossExchangeArbitrage.Rebalancing = RebalancingConfiguration{}
+	if err := Validate(legacyCrossExchangeArbitrage); err != nil {
+		t.Fatalf("cross-exchange arbitrage schema reinterpreted: %v", err)
 	}
-	legacyB5.Rebalancing = configuration.Rebalancing
-	if code := configurationErrorCode(Validate(legacyB5)); code != "invalid_configuration" {
-		t.Fatalf("B6 graph accepted under B5 schema: %q", code)
+	legacyCrossExchangeArbitrage.Rebalancing = configuration.Rebalancing
+	if code := configurationErrorCode(Validate(legacyCrossExchangeArbitrage)); code != "invalid_configuration" {
+		t.Fatalf("inventory rebalancing graph accepted under cross-exchange arbitrage schema: %q", code)
 	}
 }
 
-func TestB6ConfigurationRejectsMissingMetadataRangePolicyAndDuplicate(t *testing.T) {
+func TestInventoryRebalancingConfigurationRejectsMissingMetadataRangePolicyAndDuplicate(t *testing.T) {
 	tests := []struct {
 		name  string
 		alter func(*Configuration)
@@ -360,7 +360,7 @@ func TestB6ConfigurationRejectsMissingMetadataRangePolicyAndDuplicate(t *testing
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			configuration := DefaultV1BConfiguration()
+			configuration := DefaultMultiStrategyConfiguration()
 			test.alter(&configuration)
 			if code := configurationErrorCode(Validate(configuration)); code != test.code {
 				t.Fatalf("error code = %q, want %q", code, test.code)
@@ -369,7 +369,7 @@ func TestB6ConfigurationRejectsMissingMetadataRangePolicyAndDuplicate(t *testing
 	}
 }
 
-func TestB5ConfigurationRejectsMissingMetadataRangeDirectionAndDuplicate(t *testing.T) {
+func TestCrossExchangeArbitrageConfigurationRejectsMissingMetadataRangeDirectionAndDuplicate(t *testing.T) {
 	tests := []struct {
 		name  string
 		alter func(*Configuration)
@@ -393,7 +393,7 @@ func TestB5ConfigurationRejectsMissingMetadataRangeDirectionAndDuplicate(t *test
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			configuration := DefaultV1BConfiguration()
+			configuration := DefaultMultiStrategyConfiguration()
 			test.alter(&configuration)
 			if code := configurationErrorCode(Validate(configuration)); code != test.code {
 				t.Fatalf("error code = %q, want %q", code, test.code)
@@ -402,7 +402,7 @@ func TestB5ConfigurationRejectsMissingMetadataRangeDirectionAndDuplicate(t *test
 	}
 }
 
-func TestB3ConfigurationRejectsMetadataRangeAndMissingGraph(t *testing.T) {
+func TestMeanReversionConfigurationRejectsMetadataRangeAndMissingGraph(t *testing.T) {
 	tests := []struct {
 		name  string
 		alter func(*Configuration)
@@ -415,7 +415,7 @@ func TestB3ConfigurationRejectsMetadataRangeAndMissingGraph(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			configuration := DefaultV1BConfiguration()
+			configuration := DefaultMultiStrategyConfiguration()
 			test.alter(&configuration)
 			if code := configurationErrorCode(Validate(configuration)); code != test.code {
 				t.Fatalf("error code = %q, want %q", code, test.code)
@@ -424,31 +424,31 @@ func TestB3ConfigurationRejectsMetadataRangeAndMissingGraph(t *testing.T) {
 	}
 }
 
-func TestV1BConfigurationRejectsArbitraryPublicOriginsAndOrder(t *testing.T) {
-	configuration := DefaultV1BConfiguration()
+func TestMultiStrategyResearchConfigurationRejectsArbitraryPublicOriginsAndOrder(t *testing.T) {
+	configuration := DefaultMultiStrategyConfiguration()
 	configuration.Exchanges[1].REST = "https://example.invalid"
 	if code := configurationErrorCode(Validate(configuration)); code != "endpoint_rejected" {
 		t.Fatalf("origin error = %q", code)
 	}
-	configuration = DefaultV1BConfiguration()
+	configuration = DefaultMultiStrategyConfiguration()
 	configuration.Exchanges[0], configuration.Exchanges[1] = configuration.Exchanges[1], configuration.Exchanges[0]
 	if code := configurationErrorCode(Validate(configuration)); code != "invalid_configuration" {
 		t.Fatalf("order error = %q", code)
 	}
 }
 
-func TestReviewedV1BRecorderConfigurationDecodes(t *testing.T) {
-	payload, err := os.ReadFile(filepath.Join("..", "..", "deploy", "config", "platform-shadow-v1b.json"))
+func TestReviewedMultiStrategyResearchRecorderConfigurationDecodes(t *testing.T) {
+	payload, err := os.ReadFile(filepath.Join("..", "..", "deploy", "config", "platform-research.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	configuration, err := DecodeJSON(payload)
-	if err != nil || configuration.SchemaVersion != SchemaVersionV1BB6 || len(configuration.Exchanges) != 2 ||
+	if err != nil || configuration.SchemaVersion != SchemaVersionInventoryRebalancing || len(configuration.Exchanges) != 2 ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount ||
 		len(configuration.Triangular.Parameters) != TriangularParameterCount ||
 		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount ||
 		len(configuration.Rebalancing.Parameters) != RebalancingParameterCount {
-		t.Fatalf("reviewed V1B configuration = %#v, %v", configuration.Exchanges, err)
+		t.Fatalf("reviewed multi-strategy research configuration = %#v, %v", configuration.Exchanges, err)
 	}
 }
 

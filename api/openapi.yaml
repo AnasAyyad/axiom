@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Axiom V1D API
+  title: Axiom owner-console release API
   version: 1.3.0
   description: >-
     Authenticated research, operations, audit, sandbox, and qualification
@@ -34,7 +34,6 @@ tags:
   - name: Configuration
   - name: Exports
   - name: Qualification
-  - name: Roles
   - name: Stream
 paths:
   /health/live:
@@ -111,6 +110,290 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SessionMe" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/run-catalog:
+    get:
+      operationId: getRunCatalog
+      tags: [Research]
+      summary: Return server-approved strategy and run choices
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Semantic run choices and plain blockers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunCatalog" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/demonstrations:
+    get:
+      operationId: listGuidedDemonstrations
+      tags: [Research]
+      summary: List executable synthetic guided demonstrations
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Server-owned executable synthetic walkthroughs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GuidedDemonstrationPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/demonstrations/{id}:
+    get:
+      operationId: getGuidedDemonstration
+      tags: [Research]
+      summary: Execute and return one deterministic synthetic guided demonstration
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Canonical same-pipeline synthetic walkthrough result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GuidedDemonstrationResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs:
+    get:
+      operationId: listRuns
+      tags: [Research]
+      summary: List durable owner-facing run records
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Durable runs in reverse creation order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    post:
+      operationId: createRun
+      tags: [Research]
+      summary: Start one server-resolved durable owner run
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunCreateRequest" }
+      responses:
+        "202":
+          description: A durable run was created from server-resolved immutable inputs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/runs/{id}:
+    get:
+      operationId: getRun
+      tags: [Research]
+      summary: Get one owner-facing run record
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Semantic durable run projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/pause:
+    post:
+      operationId: pauseRun
+      tags: [Research]
+      security: [{ sessionCookie: [] }]
+      parameters: &runControlParameters
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody: { $ref: "#/components/requestBodies/RevisionCommand" }
+      responses: &runControlResponses
+        "202":
+          description: Durable run control accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/runs/{id}/resume:
+    post:
+      operationId: resumeRun
+      tags: [Research]
+      security: [{ sessionCookie: [] }]
+      parameters: *runControlParameters
+      requestBody: { $ref: "#/components/requestBodies/RevisionCommand" }
+      responses: *runControlResponses
+  /api/v1/runs/{id}/step:
+    post:
+      operationId: stepRun
+      tags: [Research]
+      security: [{ sessionCookie: [] }]
+      parameters: *runControlParameters
+      requestBody: { $ref: "#/components/requestBodies/RevisionCommand" }
+      responses: *runControlResponses
+  /api/v1/runs/{id}/stop:
+    post:
+      operationId: stopRun
+      tags: [Research]
+      security: [{ sessionCookie: [] }]
+      parameters: *runControlParameters
+      requestBody: { $ref: "#/components/requestBodies/RevisionCommand" }
+      responses: *runControlResponses
+  /api/v1/runs/{id}/timeline:
+    get:
+      operationId: getRunTimeline
+      tags: [Research]
+      summary: Read immutable event evidence for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Ordered recorded run events
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/RunOutputPage" } },
+            }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/decisions:
+    get:
+      operationId: getRunDecisions
+      tags: [Research]
+      summary: Read immutable strategy decisions for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Recorded decisions
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/RunOutputPage" } },
+            }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/orders:
+    get:
+      operationId: getRunOrders
+      tags: [Research]
+      summary: Read planned orders for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Recorded planned orders
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/RunOutputPage" } },
+            }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/fills:
+    get:
+      operationId: getRunFills
+      tags: [Research]
+      summary: Read simulated execution events for one run
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Recorded simulated execution events
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/RunOutputPage" } },
+            }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/portfolio:
+    get:
+      operationId: getRunPortfolio
+      tags: [Research]
+      summary: Read the latest recorded virtual portfolio projection
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Latest recorded portfolio state, if the run has produced one
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { $ref: "#/components/schemas/RunPortfolioProjection" },
+                },
+            }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/risk:
+    get:
+      operationId: getRunRisk
+      tags: [Research]
+      summary: Read the run risk-evidence availability state
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Run-specific risk evidence availability
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/RunRiskProjection" } },
+            }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{id}/evidence:
+    get:
+      operationId: getRunEvidence
+      tags: [Research]
+      summary: Read safe immutable run identity and evidence hashes
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Run evidence identity without storage paths or credentials
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/RunEvidence" } },
+            }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/data-catalogue:
+    get:
+      operationId: listDataCatalogue
+      tags: [Research]
+      summary: List protected server-registered data available to the owner
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Immutable data coverage and evidence identity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataCataloguePage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/system/version:
     get:
       operationId: getVersion
@@ -911,15 +1194,16 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
   /api/v1/sandbox/qualification:
     get:
-      operationId: getC6QualificationStatus
+      operationId: getSandboxQualificationStatus
       tags: [Sandbox]
       security: [{ sessionCookie: [] }]
       responses:
         "200":
-          description: Current deterministic chaos and C6 soak state
+          description: Current deterministic sandbox chaos and soak state
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/C6QualificationStatus" }
+              schema:
+                { $ref: "#/components/schemas/SandboxQualificationStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
   /api/v1/sandbox/authorizations:
@@ -971,6 +1255,89 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /api/v1/sandbox/strategy-sessions:
+    post:
+      operationId: createSandboxStrategySession
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              {
+                $ref: "#/components/schemas/SandboxStrategySessionCreateRequest",
+              }
+      responses:
+        "202":
+          description: Audited prepared sandbox strategy session accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/sandbox/strategy-sessions/{id}/start:
+    post:
+      operationId: startSandboxStrategySession
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              {
+                $ref: "#/components/schemas/SandboxStrategySessionStartRequest",
+              }
+      responses:
+        "202":
+          description: Audited durable sandbox strategy-session command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/sandbox/strategy-sessions/{id}/stop:
+    post:
+      operationId: stopSandboxStrategySession
+      tags: [Sandbox]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/RevisionCommand"
+      responses:
+        "202":
+          description: Audited durable sandbox strategy-session command accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /api/v1/sandbox/arms/{id}/revoke:
     post:
       operationId: revokeSandboxArm
@@ -1064,7 +1431,7 @@ paths:
       operationId: listAssets
       tags: [Assets]
       security: [{ sessionCookie: [] }]
-      parameters: &d1ListParameters
+      parameters: &ownerControlListParameters
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/PageSize"
         - $ref: "#/components/parameters/FromTime"
@@ -1072,12 +1439,12 @@ paths:
         - in: query
           name: state
           schema: { type: string, maxLength: 80 }
-      responses: &d1PageResponses
+      responses: &ownerControlPageResponses
         "200":
           description: Deterministically ordered redacted resources
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/D1ResourcePage" }
+              schema: { $ref: "#/components/schemas/OwnerControlResourcePage" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1090,12 +1457,12 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceID"
-      responses: &d1ResourceResponses
+      responses: &ownerControlResourceResponses
         "200":
           description: Redacted resource
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/D1Resource" }
+              schema: { $ref: "#/components/schemas/OwnerControlResource" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -1109,13 +1476,13 @@ paths:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/PageSize"
-      responses: *d1PageResponses
+      responses: *ownerControlPageResponses
   /api/v1/strategies/{id}/configuration:
     post:
       operationId: configureStrategy
       tags: [Strategies]
       security: [{ sessionCookie: [] }]
-      parameters: &d1CommandParameters
+      parameters: &ownerControlCommandParameters
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/Origin"
         - $ref: "#/components/parameters/CSRFToken"
@@ -1126,7 +1493,7 @@ paths:
           application/json:
             schema:
               { $ref: "#/components/schemas/StrategyConfigurationRequest" }
-      responses: &d1CommandResponses
+      responses: &ownerControlCommandResponses
         "202":
           description: Durable command accepted
           content:
@@ -1144,20 +1511,20 @@ paths:
       operationId: controlStrategyRuntime
       tags: [Strategies]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/RuntimeControlRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/risk/controls:
     get:
       operationId: listRiskControls
       tags: [Risk]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
   /api/v1/risk/controls/{scope}/{id}:
     post:
       operationId: controlRiskScope
@@ -1179,7 +1546,7 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/RiskControlRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/activity:
     get:
       operationId: listActivity
@@ -1254,8 +1621,8 @@ paths:
       operationId: listOrders
       tags: [Activity]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
   /api/v1/orders/{id}:
     get:
       operationId: getOrder
@@ -1263,21 +1630,21 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceID"
-      responses: *d1ResourceResponses
+      responses: *ownerControlResourceResponses
   /api/v1/fills:
     get:
       operationId: listFills
       tags: [Activity]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
   /api/v1/alerts:
     get:
       operationId: listAlerts
       tags: [Alerts]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
   /api/v1/alerts/{id}:
     get:
       operationId: getAlert
@@ -1299,19 +1666,19 @@ paths:
       operationId: acknowledgeAlert
       tags: [Alerts]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/alerts/{id}/escalate:
     post:
       operationId: escalateAlert
       tags: [Alerts]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/alert-routes:
     get:
       operationId: listAlertRoutes
@@ -1330,20 +1697,20 @@ paths:
       operationId: testAlertRoute
       tags: [Alerts]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/AlertTestRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/reports:
     get:
       operationId: listReports
       tags: [Reports]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
     post:
       operationId: createReport
       tags: [Reports]
@@ -1357,7 +1724,7 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/ReportRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/reports/{id}:
     get:
       operationId: getReport
@@ -1379,7 +1746,7 @@ paths:
       operationId: listReportSchedules
       tags: [Reports]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
+      parameters: *ownerControlListParameters
       responses:
         "200":
           description: Deterministic UTC report schedules
@@ -1404,20 +1771,20 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/ReportScheduleRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/report-schedules/{id}/transitions:
     post:
       operationId: transitionReportSchedule
       tags: [Reports]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         required: true
         content:
           application/json:
             schema:
               { $ref: "#/components/schemas/ReportScheduleTransitionRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/exports:
     post:
       operationId: createExport
@@ -1466,46 +1833,46 @@ paths:
       operationId: deleteExport
       tags: [Exports]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/exports/{id}/holds:
     post:
       operationId: holdExport
       tags: [Exports]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/ArtifactHoldRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/incidents/{id}/transitions:
     post:
       operationId: transitionIncident
       tags: [Incident]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/IncidentTransitionRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/incidents/{id}/updates:
     post:
       operationId: updateIncident
       tags: [Incident]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/IncidentUpdateRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/incidents/{id}/evidence-bundles:
     post:
       operationId: createIncidentEvidenceBundle
@@ -1538,8 +1905,8 @@ paths:
       operationId: listConfigurationRevisions
       tags: [Configuration]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
     post:
       operationId: activateConfigurationRevision
       tags: [Configuration]
@@ -1554,14 +1921,14 @@ paths:
           application/json:
             schema:
               { $ref: "#/components/schemas/ConfigurationActivationRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/lab-runs:
     get:
       operationId: listLabRuns
       tags: [Research]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
   /api/v1/lab-runs/{id}/{action}:
     post:
       operationId: controlLabRun
@@ -1578,14 +1945,14 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/qualifications:
     get:
       operationId: listQualifications
       tags: [Qualification]
       security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
+      parameters: *ownerControlListParameters
+      responses: *ownerControlPageResponses
     post:
       operationId: startQualification
       tags: [Qualification]
@@ -1599,35 +1966,16 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/QualificationStartRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/qualifications/{id}/abort:
     post:
       operationId: abortQualification
       tags: [Qualification]
       security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
+      parameters: *ownerControlCommandParameters
       requestBody:
         $ref: "#/components/requestBodies/RevisionCommand"
-      responses: *d1CommandResponses
-  /api/v1/users:
-    get:
-      operationId: listUsers
-      tags: [Roles]
-      security: [{ sessionCookie: [] }]
-      parameters: *d1ListParameters
-      responses: *d1PageResponses
-  /api/v1/users/{id}/roles:
-    post:
-      operationId: changeUserRoles
-      tags: [Roles]
-      security: [{ sessionCookie: [] }]
-      parameters: *d1CommandParameters
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/RoleChangeRequest" }
-      responses: *d1CommandResponses
+      responses: *ownerControlCommandResponses
   /api/v1/commands/{id}:
     get:
       operationId: getCommand
@@ -1635,7 +1983,7 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceID"
-      responses: *d1ResourceResponses
+      responses: *ownerControlResourceResponses
   /api/v1/stream:
     get:
       operationId: streamEvents
@@ -1791,6 +2139,16 @@ components:
         code: { type: string, minLength: 1, maxLength: 80 }
         message: { type: string, minLength: 1, maxLength: 240 }
         correlation_id: { type: string, minLength: 1, maxLength: 160 }
+        summary: { type: string, minLength: 1, maxLength: 240 }
+        detail: { type: string, minLength: 1, maxLength: 2000 }
+        impact: { type: string, minLength: 1, maxLength: 500 }
+        suggested_action: { type: string, minLength: 1, maxLength: 500 }
+        blocking_prerequisites:
+          type: array
+          maxItems: 16
+          items: { type: string, minLength: 1, maxLength: 240 }
+        current_state: { type: string, minLength: 1, maxLength: 160 }
+        required_state: { type: string, minLength: 1, maxLength: 160 }
         field_details:
           type: object
           additionalProperties: { type: string, maxLength: 160 }
@@ -1805,11 +2163,9 @@ components:
     HealthResponse:
       type: object
       additionalProperties: false
-      required: [status, role, phase]
+      required: [status]
       properties:
         status: { type: string, enum: [live, ready, not_ready] }
-        role: { type: string, minLength: 1 }
-        phase: { type: string, enum: [A1, A11] }
         reason_code: { type: string, minLength: 1 }
     VersionResponse:
       type: object
@@ -1846,12 +2202,10 @@ components:
     SessionUser:
       type: object
       additionalProperties: false
-      required: [id, email, roles, permissions]
+      required: [id, email]
       properties:
         id: { type: string }
         email: { type: string, format: email }
-        roles: { type: array, items: { type: string }, maxItems: 16 }
-        permissions: { type: array, items: { type: string }, maxItems: 64 }
     SessionMe:
       type: object
       additionalProperties: false
@@ -1861,28 +2215,518 @@ components:
         session_id: { type: string }
         session_revision: { $ref: "#/components/schemas/Revision" }
         reauthenticated_at: { $ref: "#/components/schemas/Timestamp" }
+    RunCatalog:
+      type: object
+      additionalProperties: false
+      required: [choices]
+      properties:
+        choices:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/RunChoice" }
+        blocker: { $ref: "#/components/schemas/RunBlocker" }
+    GuidedDemonstrationPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/GuidedDemonstration" }
+    GuidedDemonstration:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          title,
+          description,
+          strategy_id,
+          strategy_version,
+          synthetic,
+          expected_outcomes,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        strategy_id: { type: string, minLength: 1 }
+        strategy_version: { type: string, minLength: 1 }
+        synthetic: { type: boolean, const: true }
+        expected_outcomes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, minLength: 1 }
+    GuidedDemonstrationEvent:
+      type: object
+      additionalProperties: false
+      required: [ordinal, decision, orders, execution_events, balances]
+      properties:
+        ordinal: { type: integer, format: uint64 }
+        decision:
+          {
+            type: string,
+            minLength: 2,
+            description: Canonical JSON decision payload,
+          }
+        orders:
+          {
+            type: string,
+            minLength: 2,
+            description: Canonical JSON planned-order payload,
+          }
+        execution_events:
+          {
+            type: string,
+            minLength: 2,
+            description: Canonical JSON simulated-execution payload,
+          }
+        balances:
+          {
+            type: string,
+            minLength: 2,
+            description: Canonical JSON portfolio payload,
+          }
+    GuidedDemonstrationResult:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          strategy_id,
+          strategy_version,
+          synthetic,
+          advisory_only,
+          configuration_hash,
+          accepted,
+          rejected,
+          metrics,
+          result_hash,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        strategy_id: { type: string, minLength: 1 }
+        strategy_version: { type: string, minLength: 1 }
+        synthetic: { type: boolean, const: true }
+        advisory_only: { type: boolean }
+        advisory_evidence:
+          {
+            type: string,
+            minLength: 2,
+            description: Canonical JSON advisory evidence; present only for non-order-capable demonstrations,
+          }
+        configuration_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        accepted: { $ref: "#/components/schemas/GuidedDemonstrationEvent" }
+        rejected: { $ref: "#/components/schemas/GuidedDemonstrationEvent" }
+        metrics:
+          {
+            type: string,
+            minLength: 2,
+            description: Canonical JSON metric payload; not profitability evidence,
+          }
+        result_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+    RunChoice:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          strategy_id,
+          strategy_name,
+          strategy_version,
+          mode,
+          exchanges,
+          instrument,
+          cadence,
+          warmup,
+          order_capable,
+        ]
+      properties:
+        strategy_id: { type: string }
+        strategy_name: { type: string }
+        strategy_version: { type: string }
+        mode:
+          {
+            type: string,
+            enum:
+              [demonstration, backtest, replay, shadow, sandbox, testnet, demo],
+          }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: { type: string, enum: [binance, bybit] }
+        instrument: { type: string }
+        cadence: { type: string }
+        warmup: { type: string }
+        order_capable: { type: boolean }
+    RunBlocker:
+      type: object
+      additionalProperties: false
+      required: [code, summary, detail, suggested_action]
+      properties:
+        code: { type: string }
+        summary: { type: string }
+        detail: { type: string }
+        suggested_action: { type: string }
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/RunResource" }
+    RunResource:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          friendly_name,
+          strategy_id,
+          strategy_version,
+          mode,
+          environment,
+          state,
+          order_capable,
+          available_actions,
+          revision,
+          created_at,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        friendly_name: { type: string, minLength: 1 }
+        strategy_id: { type: string, minLength: 1 }
+        strategy_version: { type: string, minLength: 1 }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: { type: string, enum: [binance, bybit] }
+        instrument: { type: string, minLength: 3, maxLength: 32 }
+        mode: { type: string, enum: [backtest, replay, shadow, sandbox] }
+        environment:
+          {
+            type: string,
+            enum:
+              [
+                recorded_data,
+                production_public,
+                binance_spot_testnet,
+                bybit_demo,
+                paired_exchange_sandbox,
+              ],
+          }
+        state: { type: string, minLength: 1 }
+        order_capable: { type: boolean }
+        available_actions:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/RunAction" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        waiting_reason: { type: string, maxLength: 500 }
+        next_evaluation_at: { $ref: "#/components/schemas/Timestamp" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    RunAction:
+      type: string
+      enum: [pause, resume, step, stop]
+    RunOutput:
+      type: object
+      additionalProperties: false
+      required: [ordinal, kind, content_hash, canonical_payload]
+      properties:
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        kind: { type: string, enum: [event, decision, order, execution] }
+        content_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        canonical_payload: { type: string, minLength: 2, maxLength: 1048576 }
+    RunOutputPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/RunOutput" }
+    RunPortfolioProjection:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [recorded, not_recorded] }
+        summary: { type: string, minLength: 1, maxLength: 500 }
+        realized_pnl: { $ref: "#/components/schemas/Decimal" }
+        unrealized_pnl: { $ref: "#/components/schemas/Decimal" }
+        total_pnl: { $ref: "#/components/schemas/Decimal" }
+        account_drawdown: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        slippage: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        positions:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/RunPortfolioPosition" }
+        fees:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/RunPortfolioFee" }
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        content_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        canonical_payload: { type: string, minLength: 2, maxLength: 1048576 }
+        waiting_reason: { type: string, maxLength: 500 }
+    RunPortfolioPosition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          exchange,
+          instrument,
+          quantity,
+          total_cost,
+          weighted_average_cost,
+          realized_pnl,
+          valuation_state,
+          updated_at,
+        ]
+      properties:
+        exchange:
+          type: string
+          enum: [binance, bybit]
+          x-enum-varnames:
+            [
+              RunPortfolioPositionExchangeBinance,
+              RunPortfolioPositionExchangeBybit,
+            ]
+        instrument: { type: string, minLength: 3, maxLength: 32 }
+        quantity: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        total_cost: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        weighted_average_cost:
+          { $ref: "#/components/schemas/NonnegativeDecimal" }
+        realized_pnl: { $ref: "#/components/schemas/Decimal" }
+        valuation_state:
+          type: string
+          enum: [complete, unvalued_fee_asset]
+          x-enum-varnames:
+            [
+              RunPortfolioPositionValuationComplete,
+              RunPortfolioPositionValuationUnvaluedFeeAsset,
+            ]
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    RunPortfolioFee:
+      type: object
+      additionalProperties: false
+      required: [exchange, instrument, asset, fee, rebate]
+      properties:
+        exchange:
+          type: string
+          enum: [binance, bybit]
+          x-enum-varnames:
+            [RunPortfolioFeeExchangeBinance, RunPortfolioFeeExchangeBybit]
+        instrument: { type: string, minLength: 3, maxLength: 32 }
+        asset: { type: string, minLength: 2, maxLength: 32 }
+        fee: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        rebate: { $ref: "#/components/schemas/NonnegativeDecimal" }
+    RunRiskProjection:
+      type: object
+      additionalProperties: false
+      required: [state, summary]
+      properties:
+        state:
+          type: string
+          enum: [recorded, not_recorded]
+          x-enum-varnames:
+            [RunRiskProjectionStateRecorded, RunRiskProjectionStateNotRecorded]
+        summary: { type: string, maxLength: 500 }
+        status:
+          type: string
+          enum: [normal, waiting, blocked]
+          x-enum-varnames:
+            [
+              RunRiskProjectionStatusNormal,
+              RunRiskProjectionStatusWaiting,
+              RunRiskProjectionStatusBlocked,
+            ]
+        blockers:
+          type: array
+          maxItems: 20
+          items: { type: string, minLength: 1, maxLength: 160 }
+        observations:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/RunRiskObservation" }
+    RunRiskObservation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          exchange,
+          instrument,
+          policy_version,
+          account_drawdown,
+          utc_day_loss,
+          rolling_24_hour_loss,
+          strategy_loss,
+          asset_exposure,
+          combined_exposure,
+          exchange_exposure,
+          reserve,
+          reserved_capital,
+          spread,
+          slippage,
+          open_orders,
+          quality_score,
+          health_blockers,
+          observed_at,
+          evidence_hash,
+        ]
+      properties:
+        exchange:
+          type: string
+          enum: [binance, bybit]
+          x-enum-varnames:
+            [RunRiskObservationExchangeBinance, RunRiskObservationExchangeBybit]
+        instrument: { type: string, minLength: 3, maxLength: 32 }
+        policy_version: { $ref: "#/components/schemas/Revision" }
+        account_drawdown: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        utc_day_loss: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        rolling_24_hour_loss:
+          { $ref: "#/components/schemas/NonnegativeDecimal" }
+        strategy_loss: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        asset_exposure: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        combined_exposure: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        exchange_exposure: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        reserve: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        reserved_capital: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        spread: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        slippage: { $ref: "#/components/schemas/NonnegativeDecimal" }
+        open_orders: { type: integer, minimum: 0, maximum: 2 }
+        quality_score: { type: integer, minimum: 0, maximum: 100 }
+        health_blockers:
+          type: array
+          maxItems: 9
+          items: { type: string, minLength: 1, maxLength: 80 }
+        observed_at: { $ref: "#/components/schemas/Timestamp" }
+        evidence_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+    RunEvidence:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [recorded, not_recorded] }
+        manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        source_commit: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        configuration_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        dataset_manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        model_namespace: { type: string, minLength: 1, maxLength: 200 }
+        confidence_tier: { type: string, enum: [A, B, C, D] }
+    RunCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [strategy_id, strategy_version, mode, exchanges, instrument, preset]
+      properties:
+        strategy_id:
+          { type: string, minLength: 3, maxLength: 64, pattern: "^[a-z0-9-]+$" }
+        strategy_version: { type: string, minLength: 3, maxLength: 128 }
+        mode:
+          {
+            type: string,
+            enum:
+              [backtest, replay, shadow, sandbox, testnet, demo, demonstration],
+          }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: { type: string, enum: [binance, bybit] }
+        instrument: { type: string, minLength: 3, maxLength: 32 }
+        preset: { type: string, enum: [latest-qualified-inputs] }
+    DataCataloguePage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/DataCatalogueItem" }
+    DataCatalogueItem:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          name,
+          source,
+          state,
+          exchanges,
+          instruments,
+          coverage_types,
+          coverage_start,
+          coverage_end,
+          segment_count,
+          known_gap_count,
+          manifest_hash,
+          supported_modes,
+        ]
+      properties:
+        name: { type: string, minLength: 1 }
+        source:
+          {
+            type: string,
+            enum: [recorded_public_data, approved_historical_data],
+          }
+        state: { type: string, enum: [building, ready, qualified, rejected] }
+        quality_tier: { type: string, enum: [unclassified, tier_a] }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: { type: string, enum: [binance, bybit] }
+        instruments:
+          type: array
+          items: { type: string, minLength: 1, maxLength: 64 }
+        coverage_types:
+          type: array
+          items: { type: string, minLength: 1, maxLength: 64 }
+        coverage_start: { $ref: "#/components/schemas/Timestamp" }
+        coverage_end: { $ref: "#/components/schemas/Timestamp" }
+        segment_count: { type: integer, minimum: 0 }
+        known_gap_count: { type: integer, minimum: 0 }
+        manifest_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        supported_modes:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [backtest, replay, shadow] }
     SystemStatus:
       type: object
       additionalProperties: false
       required:
         [
-          release,
-          phase,
-          role,
+          application_version,
+          build_commit,
+          configuration_identity,
+          readiness_state,
           lifecycle_state,
           strategy_activation,
           real_trading_enabled,
         ]
       properties:
-        release: { type: string, enum: [V1A, V1B] }
-        phase: { type: string, enum: [A1, A11, B8] }
-        role: { type: string, minLength: 1 }
+        application_version: { type: string, minLength: 1 }
+        build_commit: { type: string, minLength: 1 }
+        configuration_identity: { type: string, minLength: 1 }
+        readiness_state: { type: string, enum: [ready, blocked, degraded] }
         lifecycle_state:
           {
             type: string,
             enum: [STARTING, READY_PAUSED, RUNNING, DEGRADED, STOPPING],
           }
-        strategy_activation: { type: string, enum: [unavailable, trend.v1a.1] }
+        strategy_activation:
+          { type: string, enum: [unavailable, trend-following@1.0.0] }
         real_trading_enabled: { type: boolean, enum: [false] }
         environment: { type: string }
         execution_mode:
@@ -2798,7 +3642,7 @@ components:
       required:
         [version, timeframe, health, evidence_maturity, parameters, revision]
       properties:
-        version: { type: string, enum: [trend.v1a.1] }
+        version: { type: string, enum: [trend-following@1.0.0] }
         timeframe: { type: string, enum: [4h] }
         health:
           { type: string, enum: [healthy, warming, paused, degraded, locked] }
@@ -2867,7 +3711,18 @@ components:
         ]
       properties:
         dataset_id: { type: string }
-        strategy_version: { type: string, enum: [trend.v1a.1] }
+        strategy_version:
+          {
+            type: string,
+            enum:
+              [
+                trend-following@1.0.0,
+                mean-reversion@1.0.0,
+                triangular-arbitrage@1.0.0,
+                cross-exchange-arbitrage@1.0.0,
+                inventory-rebalancing@1.0.0,
+              ],
+          }
         configuration_id: { type: string }
         research_generation_id: { type: string }
         root_seed_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
@@ -3042,7 +3897,18 @@ components:
         configuration_id: { type: string, minLength: 1 }
         dataset_id: { type: string, minLength: 1 }
         research_generation_id: { type: string, minLength: 1 }
-        strategy_version: { type: string, enum: [trend.v1a.1] }
+        strategy_version:
+          {
+            type: string,
+            enum:
+              [
+                trend-following@1.0.0,
+                mean-reversion@1.0.0,
+                triangular-arbitrage@1.0.0,
+                cross-exchange-arbitrage@1.0.0,
+                inventory-rebalancing@1.0.0,
+              ],
+          }
         root_seed_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
         speed: { type: string, enum: [original, accelerated, maximum] }
         incident_id: { type: string, minLength: 1 }
@@ -3139,7 +4005,7 @@ components:
       required: [configuration_id, strategy_version, portfolio_id]
       properties:
         configuration_id: { type: string }
-        strategy_version: { type: string, enum: [trend.v1a.1] }
+        strategy_version: { type: string, enum: [trend-following@1.0.0] }
         portfolio_id: { type: string }
     SimulatedOrder:
       type: object
@@ -3178,7 +4044,8 @@ components:
           }
         revision: { $ref: "#/components/schemas/Revision" }
         configuration_id: { type: string, minLength: 1 }
-        strategy_version: { type: string, enum: [trend.v1a.1] }
+        strategy_version:
+          { type: string, enum: [trend-following@1.0.0, mean-reversion@1.0.0] }
         public_only: { type: boolean, enum: [true] }
         simulation_only: { type: boolean, enum: [true] }
         created_at: { $ref: "#/components/schemas/Timestamp" }
@@ -3267,6 +4134,42 @@ components:
         reason: { type: string, minLength: 1, maxLength: 500 }
         observed_at: { $ref: "#/components/schemas/Timestamp" }
         fresh: { type: boolean }
+    ShadowInputHealth:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          exchange,
+          instrument,
+          state,
+          reason,
+          fresh,
+          book_version,
+          age_milliseconds,
+          observed_at,
+        ]
+      properties:
+        exchange: { type: string, enum: [binance, bybit] }
+        instrument: { type: string, minLength: 3, maxLength: 32 }
+        state:
+          {
+            type: string,
+            enum:
+              [
+                CONNECTING,
+                SYNCING,
+                HEALTHY,
+                STALE,
+                PAUSED,
+                DISCONNECTED,
+                UNAVAILABLE,
+              ],
+          }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        fresh: { type: boolean }
+        book_version: { $ref: "#/components/schemas/Revision" }
+        age_milliseconds: { $ref: "#/components/schemas/Revision" }
+        observed_at: { $ref: "#/components/schemas/Timestamp" }
     ShadowSessionResource:
       type: object
       additionalProperties: false
@@ -3287,6 +4190,11 @@ components:
           accepted_decisions,
           rejected_decisions,
           journal_transactions,
+          activity_state,
+          waiting_reason_code,
+          waiting_reason,
+          trigger_condition,
+          input_health,
         ]
       properties:
         id: { type: string }
@@ -3307,6 +4215,31 @@ components:
         accepted_decisions: { type: integer, minimum: 0 }
         rejected_decisions: { type: integer, minimum: 0 }
         journal_transactions: { type: integer, minimum: 0 }
+        activity_state:
+          {
+            type: string,
+            enum:
+              [
+                preparing,
+                warming_up,
+                waiting,
+                evaluating,
+                running,
+                paused,
+                blocked,
+                stopped,
+              ],
+          }
+        waiting_reason_code: { type: string, pattern: "^[a-z0-9_]{1,96}$" }
+        waiting_reason: { type: string, minLength: 1, maxLength: 500 }
+        next_evaluation_at: { $ref: "#/components/schemas/Timestamp" }
+        trigger_condition: { type: string, minLength: 1, maxLength: 500 }
+        input_health:
+          {
+            type: array,
+            maxItems: 16,
+            items: { $ref: "#/components/schemas/ShadowInputHealth" },
+          }
         risk_state: { type: string, enum: [PAUSED, RESUMED, LOCKED] }
         portfolio_id: { type: string }
         run_id: { type: string }
@@ -4034,7 +4967,7 @@ components:
             reset_incidents:
               type: array
               items: { $ref: "#/components/schemas/SandboxResetIncident" }
-    C6ChaosSummary:
+    SandboxChaosSummary:
       type: object
       additionalProperties: false
       required: [status, passed, failed, last_observed_at]
@@ -4044,14 +4977,14 @@ components:
           enum: [not_run, passed, failed]
           x-enum-varnames:
             [
-              C6ChaosSummaryStatusNotRun,
-              C6ChaosSummaryStatusPassed,
-              C6ChaosSummaryStatusFailed,
+              SandboxChaosSummaryStatusNotRun,
+              SandboxChaosSummaryStatusPassed,
+              SandboxChaosSummaryStatusFailed,
             ]
         passed: { type: integer, minimum: 0 }
         failed: { type: integer, minimum: 0 }
         last_observed_at: { $ref: "#/components/schemas/Timestamp" }
-    C6SLOSummary:
+    SandboxSLOSummary:
       type: object
       additionalProperties: false
       required:
@@ -4086,7 +5019,7 @@ components:
         resident_memory_delta_bytes: { type: integer, format: int64 }
         positive_memory_leak_trend: { type: boolean }
         passing: { type: boolean }
-    C6QualificationStatus:
+    SandboxQualificationStatus:
       type: object
       additionalProperties: false
       required:
@@ -4110,21 +5043,21 @@ components:
           enum: [not_started, PENDING, RUNNING, SMOKE_PASSED, PASSED, FAILED]
           x-enum-varnames:
             [
-              C6QualificationStatusStateNotStarted,
-              C6QualificationStatusStatePending,
-              C6QualificationStatusStateRunning,
-              C6QualificationStatusStateSmokePassed,
-              C6QualificationStatusStatePassed,
-              C6QualificationStatusStateFailed,
+              SandboxQualificationStatusStateNotStarted,
+              SandboxQualificationStatusStatePending,
+              SandboxQualificationStatusStateRunning,
+              SandboxQualificationStatusStateSmokePassed,
+              SandboxQualificationStatusStatePassed,
+              SandboxQualificationStatusStateFailed,
             ]
         mode:
           type: string
           enum: [none, smoke, formal]
           x-enum-varnames:
             [
-              C6QualificationStatusModeNone,
-              C6QualificationStatusModeSmoke,
-              C6QualificationStatusModeFormal,
+              SandboxQualificationStatusModeNone,
+              SandboxQualificationStatusModeSmoke,
+              SandboxQualificationStatusModeFormal,
             ]
         commit_sha: { type: string, pattern: "^[0-9a-f]{40}$" }
         build_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
@@ -4141,8 +5074,8 @@ components:
         failures:
           type: array
           items: { type: string, maxLength: 80 }
-        chaos: { $ref: "#/components/schemas/C6ChaosSummary" }
-        slo: { $ref: "#/components/schemas/C6SLOSummary" }
+        chaos: { $ref: "#/components/schemas/SandboxChaosSummary" }
+        slo: { $ref: "#/components/schemas/SandboxSLOSummary" }
         formal_soak_pending: { type: boolean }
         audit_url: { type: string, pattern: "^/api/v1/audit-events" }
     SandboxOverview:
@@ -4156,6 +5089,7 @@ components:
           stale,
           accounts,
           active_arms,
+          strategy_sessions,
           orders,
           reconciliations,
           reset_incidents,
@@ -4177,6 +5111,9 @@ components:
         active_arms:
           type: array
           items: { $ref: "#/components/schemas/SandboxArm" }
+        strategy_sessions:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxStrategySession" }
         orders:
           type: array
           items: { $ref: "#/components/schemas/SandboxOrder" }
@@ -4196,8 +5133,97 @@ components:
               SandboxOverviewRiskStatePaused,
               SandboxOverviewRiskStateLocked,
             ]
-        qualification: { $ref: "#/components/schemas/C6QualificationStatus" }
+        qualification:
+          { $ref: "#/components/schemas/SandboxQualificationStatus" }
         audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxStrategySession:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          display_name,
+          strategy_name,
+          exchanges,
+          state,
+          created_at,
+          revision,
+          audit_url,
+        ]
+      properties:
+        id: { type: string, minLength: 1 }
+        display_name: { type: string, minLength: 1 }
+        strategy_name: { type: string, minLength: 1 }
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: { $ref: "#/components/schemas/SandboxExchange" }
+        instrument:
+          type: string
+          enum: [BTCUSDT, ETHUSDT]
+          x-enum-varnames:
+            [
+              SandboxStrategySessionInstrumentBTCUSDT,
+              SandboxStrategySessionInstrumentETHUSDT,
+            ]
+        state:
+          type: string
+          enum: [prepared, running, blocked, stopped]
+          x-enum-varnames:
+            [
+              SandboxStrategySessionStatePrepared,
+              SandboxStrategySessionStateRunning,
+              SandboxStrategySessionStateBlocked,
+              SandboxStrategySessionStateStopped,
+            ]
+        waiting_reason: { type: string, maxLength: 500 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        stopped_at: { $ref: "#/components/schemas/Timestamp" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxStrategySessionCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [strategy_id, exchanges, instrument, preset, reason]
+      properties:
+        strategy_id:
+          type: string
+          enum:
+            [
+              trend-following,
+              mean-reversion,
+              triangular-arbitrage,
+              cross-exchange-arbitrage,
+            ]
+          x-enum-varnames:
+            [
+              SandboxStrategySessionCreateRequestStrategyIdTrendFollowing,
+              SandboxStrategySessionCreateRequestStrategyIdMeanReversion,
+              SandboxStrategySessionCreateRequestStrategyIdTriangularArbitrage,
+              SandboxStrategySessionCreateRequestStrategyIdCrossExchangeArbitrage,
+            ]
+        exchanges:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/SandboxExchange" }
+        instrument:
+          type: string
+          enum: [BTCUSDT, ETHUSDT]
+          x-enum-varnames:
+            [
+              SandboxStrategySessionCreateRequestInstrumentBTCUSDT,
+              SandboxStrategySessionCreateRequestInstrumentETHUSDT,
+            ]
+        preset:
+          type: string
+          enum: [latest-qualified-inputs]
+          x-enum-varnames:
+            [SandboxStrategySessionCreateRequestPresetLatestQualifiedInputs]
+        reason: { type: string, minLength: 8, maxLength: 500 }
     SandboxAuthorizationRequest:
       type: object
       additionalProperties: false
@@ -4242,6 +5268,14 @@ components:
           maxItems: 2
           uniqueItems: true
           items: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+    SandboxStrategySessionStartRequest:
+      type: object
+      additionalProperties: false
+      required: [authorization_token, expected_revision, reason]
+      properties:
+        authorization_token: { type: string, minLength: 32 }
+        expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }
     SandboxUnlockRequest:
       type: object
@@ -4313,7 +5347,6 @@ components:
               risk_control,
               qualification_start,
               configuration_activation,
-              role_change,
               artifact_hold,
             ]
         expected_revision: { $ref: "#/components/schemas/Revision" }
@@ -4334,7 +5367,6 @@ components:
               risk_control,
               qualification_start,
               configuration_activation,
-              role_change,
               artifact_hold,
             ]
         target_revision: { $ref: "#/components/schemas/Revision" }
@@ -4360,7 +5392,7 @@ components:
         suggested_action: { type: string }
         severity: { type: string, enum: [info, warning, error, critical] }
         unknown: { type: boolean }
-    D1Resource:
+    OwnerControlResource:
       type: object
       additionalProperties: false
       required: [id, kind, revision, state, correlation_id, attributes, links]
@@ -4376,7 +5408,7 @@ components:
         links:
           type: object
           additionalProperties: { type: string }
-    D1ResourcePage:
+    OwnerControlResourcePage:
       allOf:
         - $ref: "#/components/schemas/Page"
         - type: object
@@ -4385,7 +5417,7 @@ components:
             snapshot_revision: { $ref: "#/components/schemas/Revision" }
             items:
               type: array
-              items: { $ref: "#/components/schemas/D1Resource" }
+              items: { $ref: "#/components/schemas/OwnerControlResource" }
     ActivityResource:
       type: object
       additionalProperties: false
@@ -4745,22 +5777,6 @@ components:
         configuration_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
         image_digest: { type: string, maxLength: 200 }
         server_identity: { type: string, maxLength: 200 }
-        authorization_token: { type: string, minLength: 32 }
-        expected_revision: { $ref: "#/components/schemas/Revision" }
-        reason: { type: string, minLength: 8, maxLength: 500 }
-    RoleChangeRequest:
-      type: object
-      additionalProperties: false
-      required: [roles, authorization_token, expected_revision, reason]
-      properties:
-        roles:
-          type: array
-          minItems: 1
-          maxItems: 4
-          uniqueItems: true
-          items:
-            type: string
-            enum: [researcher, operator, auditor, owner]
         authorization_token: { type: string, minLength: 32 }
         expected_revision: { $ref: "#/components/schemas/Revision" }
         reason: { type: string, minLength: 8, maxLength: 500 }

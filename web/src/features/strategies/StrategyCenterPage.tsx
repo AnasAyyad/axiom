@@ -20,7 +20,7 @@ import {
   stringAttribute,
   stringListAttribute,
 } from "./strategyModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function StrategyCenterPage() {
   const [selectedID, setSelectedID] = useState("");
@@ -52,7 +52,7 @@ export function StrategyCenterPage() {
     <Page
       title="Strategy Center"
       eyebrow="Purpose, evidence, readiness, and control"
-      description="Understand what each strategy researches, why it is or is not ready, and which versioned or runtime action your role may take."
+      description="Understand what each strategy researches, why it is or is not ready, and which versioned or runtime action the Owner may take."
     >
       {summaries.data.items.length === 0 ? (
         <StatePanel state="empty" />
@@ -200,10 +200,7 @@ export function StrategyCenterPage() {
               />
             </article>
           </section>
-          <StrategyControlPanel
-            strategy={detail.data}
-            user={session.data.user}
-          />
+          <StrategyControlPanel strategy={detail.data} />
           <section className={styles.card}>
             <h2>Recent decisions</h2>
             {activity.isError ? (

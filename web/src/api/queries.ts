@@ -9,6 +9,99 @@ export const sessionQuery = queryOptions({
   staleTime: 30_000,
 });
 
+export const runCatalogQuery = queryOptions({
+  queryKey: ["run-catalog"],
+  queryFn: () => getAPI<"RunCatalog">("/api/v1/run-catalog"),
+  staleTime: 30_000,
+});
+
+export const guidedDemonstrationsQuery = queryOptions({
+  queryKey: ["guided-demonstrations"],
+  queryFn: () => getAPI<"GuidedDemonstrationPage">("/api/v1/demonstrations"),
+  staleTime: 30_000,
+});
+
+export function guidedDemonstrationQuery(id: string) {
+  return queryOptions({
+    queryKey: ["guided-demonstration", id],
+    queryFn: () =>
+      getAPI<"GuidedDemonstrationResult">(
+        `/api/v1/demonstrations/${encodeURIComponent(id)}`,
+      ),
+    enabled: id !== "",
+    staleTime: Infinity,
+  });
+}
+
+export const runsQuery = queryOptions({
+  queryKey: ["runs"],
+  queryFn: () => getAPI<"RunPage">("/api/v1/runs"),
+  refetchInterval: 5_000,
+});
+
+export function runQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id],
+    queryFn: () =>
+      getAPI<"RunResource">(`/api/v1/runs/${encodeURIComponent(id)}`),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runOutputsQuery(
+  id: string,
+  view: "timeline" | "decisions" | "orders" | "fills",
+) {
+  return queryOptions({
+    queryKey: ["run", id, view],
+    queryFn: () =>
+      getAPI<"RunOutputPage">(`/api/v1/runs/${encodeURIComponent(id)}/${view}`),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runPortfolioProjectionQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "portfolio"],
+    queryFn: () =>
+      getAPI<"RunPortfolioProjection">(
+        `/api/v1/runs/${encodeURIComponent(id)}/portfolio`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runRiskProjectionQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "risk"],
+    queryFn: () =>
+      getAPI<"RunRiskProjection">(
+        `/api/v1/runs/${encodeURIComponent(id)}/risk`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runEvidenceQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "evidence"],
+    queryFn: () =>
+      getAPI<"RunEvidence">(`/api/v1/runs/${encodeURIComponent(id)}/evidence`),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export const dataCatalogueQuery = queryOptions({
+  queryKey: ["data-catalogue"],
+  queryFn: () => getAPI<"DataCataloguePage">("/api/v1/data-catalogue"),
+  staleTime: 30_000,
+});
+
 export const systemQuery = queryOptions({
   queryKey: ["system"],
   queryFn: () => getAPI<"SystemStatus">("/api/v1/system/status"),
@@ -169,10 +262,10 @@ export const sandboxReconciliationsQuery = queryOptions({
   refetchInterval: 5_000,
 });
 
-export const c6QualificationQuery = queryOptions({
+export const sandboxQualificationQuery = queryOptions({
   queryKey: ["sandbox", "qualification"],
   queryFn: () =>
-    getAPI<"C6QualificationStatus">("/api/v1/sandbox/qualification"),
+    getAPI<"SandboxQualificationStatus">("/api/v1/sandbox/qualification"),
   refetchInterval: 5_000,
 });
 
@@ -237,7 +330,9 @@ export function strategyDetailQuery(id: string) {
   return queryOptions({
     queryKey: ["strategy", id],
     queryFn: () =>
-      getAPI<"D1Resource">(`/api/v1/strategies/${encodeURIComponent(id)}`),
+      getAPI<"OwnerControlResource">(
+        `/api/v1/strategies/${encodeURIComponent(id)}`,
+      ),
     enabled: id !== "",
   });
 }
@@ -246,14 +341,14 @@ export function strategyVersionsQuery(id: string) {
   return queryOptions({
     queryKey: ["strategy", id, "versions"],
     queryFn: () =>
-      getAPI<"D1ResourcePage">(
+      getAPI<"OwnerControlResourcePage">(
         `/api/v1/strategies/${encodeURIComponent(id)}/versions?page_size=50`,
       ),
     enabled: id !== "",
   });
 }
 
-export function d1CollectionQuery(
+export function ownerControlCollectionQuery(
   resource:
     | "assets"
     | "risk/controls"
@@ -269,7 +364,7 @@ export function d1CollectionQuery(
 ) {
   const path = filteredPath(`/api/v1/${resource}`, filters);
   return queryOptions({
-    queryKey: ["d1", resource, filters],
-    queryFn: () => getAPI<"D1ResourcePage">(path),
+    queryKey: ["owner_control", resource, filters],
+    queryFn: () => getAPI<"OwnerControlResourcePage">(path),
   });
 }

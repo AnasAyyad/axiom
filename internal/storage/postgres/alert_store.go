@@ -29,7 +29,7 @@ func NewAlertStore(pool *pgxpool.Pool) (*AlertStore, error) {
 // SetWebhookRouteEnabled makes the console route state match the validated
 // runtime sink configuration without persisting endpoints or credentials.
 func (store *AlertStore) SetWebhookRouteEnabled(ctx context.Context, enabled bool, at time.Time) error {
-	result, err := store.pool.Exec(ctx, `UPDATE v1d_alert_routes SET enabled=$1,
+	result, err := store.pool.Exec(ctx, `UPDATE owner_console_alert_routes SET enabled=$1,
 revision=revision+1,updated_at=$2 WHERE id='webhook' AND enabled IS DISTINCT FROM $1`,
 		enabled, at.UTC())
 	if err != nil {
@@ -128,7 +128,7 @@ func (store *AlertStore) CompleteDelivery(
 		deliveryID).Scan(&attempts); err != nil {
 		return fmt.Errorf("alert_delivery_complete_failed")
 	}
-	outcome := d4AlertDeliveryOutcome(delivered, reason, attempts, completed)
+	outcome := operationalEvidenceAlertDeliveryOutcome(delivered, reason, attempts, completed)
 	row, err := generated.New(tx).MarkAlertDelivery(ctx, generated.MarkAlertDeliveryParams{
 		ID: deliveryID, State: outcome.state, LastReasonCode: outcome.reasonCode,
 		NextAttemptAt: timestamp(outcome.next), DeliveredAt: outcome.deliveredAt,
@@ -136,11 +136,11 @@ func (store *AlertStore) CompleteDelivery(
 	if err != nil {
 		return fmt.Errorf("alert_delivery_complete_failed")
 	}
-	if err = recordD4DeliveryAttempt(ctx, tx, row, outcome, started, completed); err != nil {
+	if err = recordOperationalEvidenceDeliveryAttempt(ctx, tx, row, outcome, started, completed); err != nil {
 		return fmt.Errorf("alert_delivery_complete_failed")
 	}
 	if err = insertAlertAudit(ctx, generated.New(tx), "alert_delivery_"+outcome.state, "system",
-		row.AlertID, row.AlertID, uint64(row.Revision), completed, d4DeliveryReason(reason)); err != nil {
+		row.AlertID, row.AlertID, uint64(row.Revision), completed, operationalEvidenceDeliveryReason(reason)); err != nil {
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -149,38 +149,38 @@ func (store *AlertStore) CompleteDelivery(
 	return nil
 }
 
-type d4DeliveryOutcome struct {
+type operationalEvidenceDeliveryOutcome struct {
 	state       string
 	next        time.Time
 	deliveredAt pgtype.Timestamptz
 	reasonCode  *string
 }
 
-func d4AlertDeliveryOutcome(delivered bool, reason string, attempts int, completed time.Time) d4DeliveryOutcome {
+func operationalEvidenceAlertDeliveryOutcome(delivered bool, reason string, attempts int, completed time.Time) operationalEvidenceDeliveryOutcome {
 	if delivered {
-		return d4DeliveryOutcome{state: "delivered", next: completed, deliveredAt: timestamp(completed)}
+		return operationalEvidenceDeliveryOutcome{state: "delivered", next: completed, deliveredAt: timestamp(completed)}
 	}
-	return d4DeliveryOutcome{state: "failed", next: completed.Add(d4AlertRetryDelay(attempts)), reasonCode: &reason}
+	return operationalEvidenceDeliveryOutcome{state: "failed", next: completed.Add(operationalEvidenceAlertRetryDelay(attempts)), reasonCode: &reason}
 }
 
-func recordD4DeliveryAttempt(
+func recordOperationalEvidenceDeliveryAttempt(
 	ctx context.Context, tx pgx.Tx, row *generated.AlertDelivery,
-	outcome d4DeliveryOutcome, started, completed time.Time,
+	outcome operationalEvidenceDeliveryOutcome, started, completed time.Time,
 ) error {
-	attemptID := "alert-attempt-" + a11Hash([]byte(fmt.Sprintf("%s\x00%d", row.ID, row.Attempts)))[:24]
-	if _, err := tx.Exec(ctx, `INSERT INTO v1d_alert_delivery_attempts(
+	attemptID := "alert-attempt-" + ownerConsoleHash([]byte(fmt.Sprintf("%s\x00%d", row.ID, row.Attempts)))[:24]
+	if _, err := tx.Exec(ctx, `INSERT INTO owner_console_alert_delivery_attempts(
 id,delivery_id,alert_id,sink_name,attempt,state,reason_code,started_at,completed_at,latency_ms
 ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, attemptID, row.ID, row.AlertID,
 		row.SinkName, row.Attempts, outcome.state, outcome.reasonCode, started, completed,
 		completed.Sub(started).Milliseconds()); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `UPDATE v1d_alert_route_tests SET state=$2,completed_at=$3
+	_, err := tx.Exec(ctx, `UPDATE owner_console_alert_route_tests SET state=$2,completed_at=$3
 WHERE alert_id=$1`, row.AlertID, outcome.state, completed)
 	return err
 }
 
-func d4AlertRetryDelay(attempts int) time.Duration {
+func operationalEvidenceAlertRetryDelay(attempts int) time.Duration {
 	if attempts < 0 {
 		attempts = 0
 	}
@@ -190,7 +190,7 @@ func d4AlertRetryDelay(attempts int) time.Duration {
 	return time.Duration(1<<attempts) * time.Minute
 }
 
-func d4DeliveryReason(reason string) string {
+func operationalEvidenceDeliveryReason(reason string) string {
 	if reason == "" {
 		return "delivered"
 	}

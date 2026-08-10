@@ -2,14 +2,14 @@ package certification
 
 import "time"
 
-// CandidateSchema and the related constants pin every accepted D6 document and release state.
+// CandidateSchema and the related constants pin every accepted release certification document and release state.
 const (
 	// CandidateSchema is the only accepted cumulative candidate format.
 	CandidateSchema = "axiom.v1.release-candidate.v1"
 	// SafetyManifestSchema is the only accepted signed safety-manifest format.
 	SafetyManifestSchema = "axiom.v1.safety-manifest.v1"
-	// PrerequisiteSchema is the only accepted signed phase-verdict format.
-	PrerequisiteSchema = "axiom.v1.prerequisite-verdict.v1"
+	// PrerequisiteSchema is the only accepted signed readiness-verdict format.
+	PrerequisiteSchema = "axiom.readiness.prerequisite-verdict.v1"
 	// ReviewSchema is the only accepted signed independent-review format.
 	ReviewSchema = "axiom.v1.independent-review.v1"
 	// TrustStoreSchema is the only accepted reviewer trust-root format.
@@ -108,7 +108,7 @@ type EvidenceReference struct {
 	Digest       string `json:"digest"`
 }
 
-// PrerequisiteVerdict normalizes one independently signed phase verdict.
+// PrerequisiteVerdict normalizes one independently signed readiness verdict.
 type PrerequisiteVerdict struct {
 	SchemaVersion         string              `json:"schema_version"`
 	EvidenceID            string              `json:"evidence_id"`

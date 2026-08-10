@@ -9,7 +9,7 @@ import (
 // EdgeKind identifies one reviewed advisory graph fact.
 type EdgeKind string
 
-// B6 graph edges are either executable-depth trade facts or advisory transfer facts.
+// inventory rebalancing graph edges are either executable-depth trade facts or advisory transfer facts.
 const (
 	TradeEdge    EdgeKind = "trade"
 	TransferEdge EdgeKind = "transfer"
@@ -18,7 +18,7 @@ const (
 // RecommendationMethod identifies why one advisory route was selected.
 type RecommendationMethod string
 
-// B6 prefers an eligible natural reverse plan over a reviewed transfer route.
+// inventory rebalancing prefers an eligible natural reverse plan over a reviewed transfer route.
 const (
 	NaturalReverseMethod RecommendationMethod = "natural_reverse_arbitrage"
 	GraphRouteMethod     RecommendationMethod = "reviewed_graph_route"
@@ -88,15 +88,15 @@ type Edge struct {
 	Provenance          Provenance
 }
 
-// NaturalReversalPlan binds a B5 inventory imbalance to two reviewed trade
+// NaturalReversalPlan binds a cross-exchange arbitrage inventory imbalance to two reviewed trade
 // facts that restore venue distribution without a transfer.
 type NaturalReversalPlan struct {
-	ID           string
-	B5DecisionID string
-	Source       Node
-	Destination  Node
-	SellFactID   string
-	BuyFactID    string
+	ID                               string
+	CrossExchangeArbitrageDecisionID string
+	Source                           Node
+	Destination                      Node
+	SellFactID                       string
+	BuyFactID                        string
 }
 
 // Request is one immutable advisory route evaluation.
@@ -119,7 +119,7 @@ type Step struct {
 	Fact  Edge
 }
 
-// Recommendation is the complete B6 read-only route evidence.
+// Recommendation is the complete inventory rebalancing read-only route evidence.
 type Recommendation struct {
 	ID                string
 	RequestID         string

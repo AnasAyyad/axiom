@@ -8,6 +8,16 @@ import {
 type SchemaName = keyof components["schemas"];
 export type APIModel<Name extends SchemaName> = components["schemas"][Name];
 
+export interface APIErrorDetails {
+  readonly summary?: string | undefined;
+  readonly detail?: string | undefined;
+  readonly impact?: string | undefined;
+  readonly suggestedAction?: string | undefined;
+  readonly currentState?: string | undefined;
+  readonly requiredState?: string | undefined;
+  readonly blockingPrerequisites?: readonly string[] | undefined;
+}
+
 let csrfToken = readCookie("axiom_csrf");
 
 export class APIError extends Error {
@@ -15,6 +25,7 @@ export class APIError extends Error {
     readonly status: number,
     readonly code: string,
     readonly correlationID: string,
+    readonly details?: APIErrorDetails,
   ) {
     super(code);
   }
@@ -55,10 +66,22 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   const response = await fetch(path, { ...init, credentials: "same-origin" });
   if (!response.ok) {
     const parsed = parseAPIError(await safeJSON(response));
+    const details = parsed.success
+      ? {
+          summary: parsed.data.summary,
+          detail: parsed.data.detail,
+          impact: parsed.data.impact,
+          suggestedAction: parsed.data.suggested_action,
+          currentState: parsed.data.current_state,
+          requiredState: parsed.data.required_state,
+          blockingPrerequisites: parsed.data.blocking_prerequisites,
+        }
+      : undefined;
     throw new APIError(
       response.status,
       parsed.success ? parsed.data.code : "invalid_server_response",
       parsed.success ? parsed.data.correlation_id : "unavailable",
+      details,
     );
   }
   if (response.status === 204) return undefined as T;

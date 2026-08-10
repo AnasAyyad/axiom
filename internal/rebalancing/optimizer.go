@@ -81,7 +81,7 @@ func naturalCandidates(request Request, facts map[string]Edge) []routeCandidate 
 
 func validNaturalPlan(request Request, plan NaturalReversalPlan, sell, buy Edge) bool {
 	usdt, _ := domain.ParseAssetSymbol("USDT")
-	return boundedIdentifier.MatchString(plan.ID) && boundedIdentifier.MatchString(plan.B5DecisionID) &&
+	return boundedIdentifier.MatchString(plan.ID) && boundedIdentifier.MatchString(plan.CrossExchangeArbitrageDecisionID) &&
 		plan.Source == request.Source && plan.Destination == request.Destination &&
 		sell.Kind == TradeEdge && buy.Kind == TradeEdge &&
 		sell.From == request.Source &&
@@ -240,7 +240,7 @@ func recommendationFromCandidate(request Request, candidate routeCandidate) Reco
 		RecordedAt: request.DecisionTime, AdvisoryOnly: true,
 	}
 	recommendation.CanonicalHash = recommendationHash(recommendation)
-	recommendation.ID = "b6-" + recommendation.CanonicalHash[:24]
+	recommendation.ID = "inventory_rebalancing-" + recommendation.CanonicalHash[:24]
 	return recommendation
 }
 

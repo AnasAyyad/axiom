@@ -30,7 +30,7 @@ func newSandboxPublicHTTPClient(proxyURL *url.URL) sandboxDoer {
 
 // executePublicUnsigned is the only production-host path reachable from the
 // Demo engine. It is credential-free, GET-only, and constrained by the
-// existing B1 production-public route policy.
+// existing exchange expansion production-public route policy.
 func (client *SandboxClient) executePublicUnsigned(
 	ctx context.Context,
 	path string,

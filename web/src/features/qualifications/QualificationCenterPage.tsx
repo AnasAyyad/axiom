@@ -1,16 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { APIError } from "../../api/client";
-import { d1CollectionQuery, sessionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
-import { hasAccess } from "../shared/access";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 import { QualificationCard } from "./QualificationCard";
 
 export function QualificationCenterPage() {
   const session = useQuery(sessionQuery);
-  const query = useQuery(d1CollectionQuery("qualifications"));
+  const query = useQuery(ownerControlCollectionQuery("qualifications"));
   if (session.isLoading || query.isLoading)
     return <StatePanel state="loading" />;
   if (
@@ -25,8 +24,8 @@ export function QualificationCenterPage() {
         detail="Approved qualification state is unavailable."
       />
     );
-  const canStart = session.data.user.roles.includes("owner");
-  const canAbort = hasAccess(session.data.user, ["qualification.monitor"]);
+  const canStart = true;
+  const canAbort = true;
   return (
     <Page
       title="Qualification Center"
@@ -34,9 +33,9 @@ export function QualificationCenterPage() {
       description="Start only registered qualifications, inspect fail-closed preflight and progress, abort safely, and preserve exact-source evidence and terminal verdicts."
     >
       <p className={styles.notice} role="note">
-        C6 remains its own exact 72-hour sandbox qualification. D5 remains a
-        separate seven-day readiness soak, and B2 keeps its market-data verdict.
-        A smoke pass cannot become a formal pass.
+        Sandbox qualification, operational readiness, and market-data quality
+        each retain their own evidence window and verdict. A smoke pass cannot
+        become a formal pass.
       </p>
       {query.data.items.length === 0 ? (
         <StatePanel

@@ -161,7 +161,7 @@ func commandWithoutArguments(kind CommandKind, arguments []string) (Command, err
 func parseTrader(arguments []string) (Command, error) {
 	flags := flag.NewFlagSet("trader", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	modeValue := flags.String("mode", "", "credential-free V1A mode")
+	modeValue := flags.String("mode", "", "credential-free initial trend mode")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
 		return Command{}, errUsage
 	}

@@ -7,7 +7,7 @@ import (
 
 func TestConnectionPolicyIsDeterministicBoundedAndRenewable(t *testing.T) {
 	policy := ConnectionPolicy{MinimumBackoff: time.Second, MaximumBackoff: 30 * time.Second,
-		Renewal: 23 * time.Hour, Seed: "a7-reconnect"}
+		Renewal: 23 * time.Hour, Seed: "public-data-reconnect"}
 	prior := time.Duration(0)
 	for attempt := uint32(1); attempt <= 20; attempt++ {
 		left, err := policy.Backoff(attempt)

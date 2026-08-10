@@ -113,7 +113,7 @@ services:
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
-      POSTGRES_C6_QUALIFICATION_USER: ${POSTGRES_C6_QUALIFICATION_USER:-axiom_c6_qualification}
+      POSTGRES_SANDBOX_QUALIFICATION_USER: ${POSTGRES_SANDBOX_QUALIFICATION_USER:-axiom_sandbox_qualification}
       TZ: UTC
     secrets:
       - postgres_owner_password
@@ -124,7 +124,7 @@ services:
       - postgres_readonly_password
       - postgres_binance_engine_password
       - postgres_bybit_engine_password
-      - postgres_c6_qualification_password
+      - postgres_sandbox_qualification_password
     volumes:
       # PostgreSQL official images 18+ use versioned PGDATA below this parent.
       - postgres_data:/var/lib/postgresql
@@ -162,7 +162,7 @@ services:
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
-      POSTGRES_C6_QUALIFICATION_USER: ${POSTGRES_C6_QUALIFICATION_USER:-axiom_c6_qualification}
+      POSTGRES_SANDBOX_QUALIFICATION_USER: ${POSTGRES_SANDBOX_QUALIFICATION_USER:-axiom_sandbox_qualification}
     secrets:
       - postgres_migrator_password
     depends_on:
@@ -594,7 +594,7 @@ services:
       - totp_seed
       - binance_canary_request
     volumes:
-      - ${V1C_CANARY_EVIDENCE_ROOT:-./.local/v1c-pr2-canaries}:/var/lib/axiom/canary-evidence
+      - ${SANDBOX_RUNTIME_CANARY_EVIDENCE_ROOT:-./.local/sandbox_runtime-sandbox_connectivity-canaries}:/var/lib/axiom/canary-evidence
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -621,7 +621,7 @@ services:
       - totp_seed
       - bybit_canary_request
     volumes:
-      - ${V1C_CANARY_EVIDENCE_ROOT:-./.local/v1c-pr2-canaries}:/var/lib/axiom/canary-evidence
+      - ${SANDBOX_RUNTIME_CANARY_EVIDENCE_ROOT:-./.local/sandbox_runtime-sandbox_connectivity-canaries}:/var/lib/axiom/canary-evidence
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -772,8 +772,8 @@ secrets:
     file: ${SECRETS_DIR:-./.secrets}/postgres_binance_engine_password
   postgres_bybit_engine_password:
     file: ${SECRETS_DIR:-./.secrets}/postgres_bybit_engine_password
-  postgres_c6_qualification_password:
-    file: ${SECRETS_DIR:-./.secrets}/postgres_c6_qualification_password
+  postgres_sandbox_qualification_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_sandbox_qualification_password
   binance_testnet_api_key:
     file: ${SECRETS_DIR:-./.secrets}/binance_testnet_api_key
   binance_testnet_api_secret:

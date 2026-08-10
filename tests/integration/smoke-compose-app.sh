@@ -4,7 +4,7 @@ IFS=$'\n\t'
 
 image="${1:-axiom:local}"
 GO="${GO:-go}"
-project="axiom-a5-smoke-${$}"
+project="axiom-observability-smoke-${$}"
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/axiom-compose-smoke.XXXXXX")"
 secret_dir="${temp_dir}/secrets"
 market_dir="${temp_dir}/market-data"
@@ -50,7 +50,7 @@ readonly -a secret_names=(
   postgres_readonly_password
   postgres_binance_engine_password
   postgres_bybit_engine_password
-  postgres_c6_qualification_password
+  postgres_sandbox_qualification_password
   grafana_admin_password
   health_detail_token
   csrf_key
@@ -79,7 +79,7 @@ docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   /secrets/postgres_readonly_password \
   /secrets/postgres_binance_engine_password \
   /secrets/postgres_bybit_engine_password \
-  /secrets/postgres_c6_qualification_password \
+  /secrets/postgres_sandbox_qualification_password \
   /secrets/health_detail_token >/dev/null
 docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   --mount "type=bind,src=${secret_dir},dst=/secrets" \
@@ -190,7 +190,7 @@ for _ in $(seq 1 30); do
     rg --quiet '"database"[[:space:]]*:[[:space:]]*"ok"' <<<"${grafana_health}" && \
     grafana_search="$(curl --fail --silent --user "admin:$(<"${secret_dir}/grafana_admin_password")" \
       "http://${grafana_address}/api/search?query=Axiom")" && \
-    rg --fixed-strings --quiet 'Axiom Operations and V1C C6' <<<"${grafana_search}"; then
+  rg --fixed-strings --quiet 'Axiom Operations and Sandbox Qualification' <<<"${grafana_search}"; then
     grafana_ready=true
     break
   fi

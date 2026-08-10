@@ -1,5 +1,5 @@
 import type { ActivityFilters as Filters } from "../../api/queries";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 interface ActivityFiltersProps {
   readonly value: Filters;

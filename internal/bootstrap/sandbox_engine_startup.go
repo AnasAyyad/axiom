@@ -15,22 +15,24 @@ import (
 )
 
 type sandboxEngineStartup struct {
-	work        *sandboxEngineRoleWork
-	store       *postgresstore.V1CDispatcherStore
-	snapshot    config.Snapshot
-	attestation sandboxEngineAttestation
-	account     postgresstore.V1CEngineAccount
-	owner       string
-	fence       uint64
-	gate        *sandbox.StartupGate
-	observation sandbox.StartupObservation
-	client      any
-	identity    sandbox.AccountIdentity
-	adapter     sandboxEngineAdapter
-	dispatcher  *sandbox.SandboxDispatcher
-	recovery    *sandbox.UnknownRecoveryHarness
-	eligibility exchangecontracts.CollectorHealthSnapshot
-	source      sandbox.PrivateEventSource
+	work          *sandboxEngineRoleWork
+	store         *postgresstore.SandboxRuntimeDispatcherStore
+	snapshot      config.Snapshot
+	attestation   sandboxEngineAttestation
+	account       postgresstore.SandboxRuntimeEngineAccount
+	owner         string
+	fence         uint64
+	gate          *sandbox.StartupGate
+	observation   sandbox.StartupObservation
+	client        any
+	identity      sandbox.AccountIdentity
+	adapter       sandboxEngineAdapter
+	dispatcher    *sandbox.SandboxDispatcher
+	recovery      *sandbox.UnknownRecoveryHarness
+	scheduler     sandboxStrategyScheduler
+	eligibility   exchangecontracts.CollectorHealthSnapshot
+	eligibilities []exchangecontracts.CollectorHealthSnapshot
+	source        sandbox.PrivateEventSource
 }
 
 func (work *sandboxEngineRoleWork) startSandboxEngine(
@@ -63,7 +65,7 @@ func (work *sandboxEngineRoleWork) startSandboxEngine(
 func (work *sandboxEngineRoleWork) newSandboxEngineStartup(
 	ctx context.Context,
 ) (*sandboxEngineStartup, error) {
-	store, err := postgresstore.NewV1CDispatcherStore(work.pool)
+	store, err := postgresstore.NewSandboxRuntimeDispatcherStore(work.pool)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +106,7 @@ func (startup *sandboxEngineStartup) acquireLease(
 	if err != nil {
 		return err
 	}
-	sink, err := postgresstore.NewV1CEngineStartupEvidenceSink(
+	sink, err := postgresstore.NewSandboxRuntimeEngineStartupEvidenceSink(
 		startup.store, startup.account.AccountID,
 		startup.work.exchange, fence,
 	)
@@ -141,7 +143,7 @@ func (startup *sandboxEngineStartup) validateBuildAndIdentity(
 	build := buildinfo.Current()
 	startup.observation.BuildValid = build.GoVersion != "" &&
 		startup.snapshot.Hash() != "" &&
-		startup.work.product.SchemaVersion == config.SchemaVersionV1C
+		startup.work.product.SchemaVersion == config.SchemaVersionSandboxRuntime
 	startup.observation.ConfigurationValid = true
 	if err := startup.complete(
 		sandbox.StartupValidateBuildConfiguration,
@@ -212,11 +214,35 @@ func (startup *sandboxEngineStartup) loadExchangeState(
 	if err != nil {
 		return err
 	}
+	scheduler, err := startup.loadStrategyScheduler(ctx, adapter)
+	if err != nil {
+		return err
+	}
 	startup.adapter = adapter
 	startup.dispatcher = dispatcher
 	startup.recovery = recovery
+	startup.scheduler = scheduler
 	startup.observation.ExchangeStateLoaded = true
 	return startup.complete(sandbox.StartupLoadBalancesOrdersFills)
+}
+
+func (startup *sandboxEngineStartup) loadStrategyScheduler(ctx context.Context,
+	adapter sandboxEngineAdapter,
+) (sandboxStrategyScheduler, error) {
+	if !startup.work.sandboxSubmissionEnabled() {
+		return nil, nil
+	}
+	strategyData, err := adapter.StrategyMarketData()
+	if err != nil {
+		return nil, fmt.Errorf("sandbox_engine_strategy_market_data_unavailable")
+	}
+	scheduler, err := newSandboxEngineStrategyScheduler(ctx, startup.work.pool, startup.store,
+		adapter, strategyData, startup.work.product, startup.work.exchange,
+		startup.account.AccountID, startup.account.Epoch, startup.owner, startup.fence)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox_engine_strategy_scheduler_unavailable")
+	}
+	return scheduler, nil
 }
 
 func (startup *sandboxEngineStartup) resolveUnknowns(
@@ -264,11 +290,13 @@ func (startup *sandboxEngineStartup) reconcileStartup(
 func (startup *sandboxEngineStartup) synchronizeEligibility(
 	ctx context.Context,
 ) error {
-	eligibility, err := startup.adapter.StartupEligibility(ctx)
-	if err != nil || !eligibility.Eligible {
+	eligibilities, err := startup.adapter.StrategyEligibility(ctx)
+	if err != nil || len(eligibilities) == 0 || !allSandboxEligibilityEligible(eligibilities) {
 		return fmt.Errorf("sandbox_engine_eligibility_failed")
 	}
+	eligibility := eligibilities[0]
 	startup.eligibility = eligibility
+	startup.eligibilities = eligibilities
 	startup.observation.Eligibility = eligibility
 	startup.observation.FiltersSynchronized = true
 	return startup.complete(sandbox.StartupSynchronizeFiltersBookClock)
@@ -303,10 +331,27 @@ func (startup *sandboxEngineStartup) enterReadyPaused(
 	); err != nil {
 		return err
 	}
-	return startup.store.RecordEngineObservation(
+	return startup.store.RecordEngineObservations(
 		ctx, startup.account.AccountID, startup.account.Epoch,
-		startup.work.exchange, startup.fence, startup.eligibility,
+		startup.work.exchange, startup.fence, startup.eligibilities,
 	)
+}
+
+func allSandboxEligibilityEligible(
+	items []exchangecontracts.CollectorHealthSnapshot,
+) bool {
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if !item.Eligible || item.Instrument == "" ||
+			item.ObservedAt.IsZero() || item.ObservedAt.Location() != time.UTC {
+			return false
+		}
+		if _, exists := seen[item.Instrument]; exists {
+			return false
+		}
+		seen[item.Instrument] = struct{}{}
+	}
+	return len(seen) > 0
 }
 
 func (startup *sandboxEngineStartup) complete(

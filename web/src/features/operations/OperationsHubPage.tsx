@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
-import { d1CollectionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { StatusBadge } from "../shared/StatusBadge";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 const destinations = [
   [
@@ -55,16 +55,13 @@ const destinations = [
     "/operations/sandbox",
     "Capped Binance Spot Testnet and Bybit Demo controls.",
   ],
-  [
-    "User access",
-    "/operations/users",
-    "Owner-administered role assignments and read-only compatibility.",
-  ],
 ] as const;
 
 export function OperationsHubPage() {
-  const alerts = useQuery(d1CollectionQuery("alerts"));
-  const qualifications = useQuery(d1CollectionQuery("qualifications"));
+  const alerts = useQuery(ownerControlCollectionQuery("alerts"));
+  const qualifications = useQuery(
+    ownerControlCollectionQuery("qualifications"),
+  );
   return (
     <Page
       title="Operations"

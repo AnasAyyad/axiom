@@ -13,6 +13,7 @@ import (
 
 	"axiom/internal/api/generated"
 	"axiom/internal/authentication"
+	"axiom/internal/runs"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -22,23 +23,27 @@ const (
 	csrfCookieName    = "axiom_csrf"
 )
 
-// Options are immutable A11 HTTP dependencies.
+// Options are immutable owner console HTTP dependencies.
 type Options struct {
-	Authentication        *authentication.Service
-	SandboxAuthorizations *authentication.SandboxAuthorizationService
-	AllowedOrigins        []string
-	SecureCookies         bool
-	Read                  ReadService
-	Commands              CommandService
-	Streams               StreamService
-	SandboxRead           SandboxReadService
-	SandboxCommands       SandboxCommandService
-	D1Read                D1ReadService
-	D1Commands            D1CommandService
-	D4Read                D4ReadService
+	Authentication          *authentication.Service
+	SandboxAuthorizations   *authentication.SandboxAuthorizationService
+	AllowedOrigins          []string
+	SecureCookies           bool
+	Read                    ReadService
+	Commands                CommandService
+	Streams                 StreamService
+	SandboxRead             SandboxReadService
+	SandboxCommands         SandboxCommandService
+	OwnerControlRead        OwnerControlReadService
+	OwnerControlCommands    OwnerControlCommandService
+	OperationalEvidenceRead OperationalEvidenceReadService
+	RunRegistry             *runs.Registry
+	Runs                    RunReadService
+	RunCommands             RunCommandService
+	DataCatalogue           DataCatalogueReadService
 }
 
-// Register installs all authenticated A11 routes on one mux.
+// Register installs all authenticated owner console routes on one mux.
 func Register(mux *http.ServeMux, options Options) {
 	handler := &handler{options: options, origins: make(map[string]struct{})}
 	for _, origin := range options.AllowedOrigins {
@@ -47,11 +52,28 @@ func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("POST /api/v1/session/login", handler.login)
 	mux.HandleFunc("POST /api/v1/session/logout", handler.authorizedMutation(handler.logout, ""))
 	mux.HandleFunc("GET /api/v1/session/me", handler.authorized(handler.me, ""))
+	mux.HandleFunc("GET /api/v1/run-catalog", handler.authorized(handler.runCatalog, ""))
+	mux.HandleFunc("GET /api/v1/demonstrations", handler.authorized(handler.guidedDemonstrations, ""))
+	mux.HandleFunc("GET /api/v1/demonstrations/{id}", handler.authorized(handler.guidedDemonstration, ""))
+	mux.HandleFunc("GET /api/v1/runs", handler.authorized(handler.runs, ""))
+	mux.HandleFunc("POST /api/v1/runs", handler.authorizedMutation(handler.createRun, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}", handler.authorized(handler.run, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/timeline", handler.authorized(handler.runOutputs("event"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/decisions", handler.authorized(handler.runOutputs("decision"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/orders", handler.authorized(handler.runOutputs("order"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/fills", handler.authorized(handler.runOutputs("projection"), ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/portfolio", handler.authorized(handler.runPortfolio, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/risk", handler.authorized(handler.runRisk, ""))
+	mux.HandleFunc("GET /api/v1/runs/{id}/evidence", handler.authorized(handler.runEvidence, ""))
+	for _, action := range []string{"pause", "resume", "step", "stop"} {
+		mux.HandleFunc("POST /api/v1/runs/{id}/"+action, handler.authorizedMutation(handler.controlRun(action), ""))
+	}
+	mux.HandleFunc("GET /api/v1/data-catalogue", handler.authorized(handler.dataCatalogue, ""))
 	handler.registerReads(mux)
 	handler.registerCommands(mux)
 	handler.registerSandbox(mux)
-	handler.registerD1(mux)
-	handler.registerD4(mux)
+	handler.registerOwnerControl(mux)
+	handler.registerOperationalEvidence(mux)
 	mux.HandleFunc("GET /api/v1/stream", handler.authorized(handler.stream, "operations.read"))
 }
 
@@ -162,11 +184,35 @@ func (handler *handler) writeJSON(writer http.ResponseWriter, status int, value 
 }
 
 func (handler *handler) writeError(writer http.ResponseWriter, request *http.Request, status int, code, message string) {
+	handler.writeErrorResponse(writer, request, status, generated.Error{Code: code, Message: message})
+}
+
+func (handler *handler) writeWorkflowBlocker(writer http.ResponseWriter, request *http.Request, blocker *WorkflowBlocker) {
+	if blocker == nil {
+		handler.writeError(writer, request, http.StatusPreconditionFailed, "precondition_failed", "Safety prerequisites are not satisfied")
+		return
+	}
+	response := generated.Error{Code: blocker.Code, Message: blocker.Summary, Summary: &blocker.Summary,
+		Detail: &blocker.Detail, Impact: &blocker.Impact, SuggestedAction: &blocker.SuggestedAction}
+	if blocker.CurrentState != "" {
+		response.CurrentState = &blocker.CurrentState
+	}
+	if blocker.RequiredState != "" {
+		response.RequiredState = &blocker.RequiredState
+	}
+	if len(blocker.Prerequisites) > 0 {
+		response.BlockingPrerequisites = &blocker.Prerequisites
+	}
+	handler.writeErrorResponse(writer, request, http.StatusPreconditionFailed, response)
+}
+
+func (handler *handler) writeErrorResponse(writer http.ResponseWriter, request *http.Request, status int, response generated.Error) {
 	correlation := request.Header.Get("X-Correlation-ID")
 	if correlation == "" || len(correlation) > 128 || strings.ContainsAny(correlation, "\r\n") {
 		correlation = randomCorrelationID()
 	}
-	handler.writeJSON(writer, status, generated.Error{Code: code, Message: message, CorrelationId: correlation})
+	response.CorrelationId = correlation
+	handler.writeJSON(writer, status, response)
 }
 
 func randomCorrelationID() string {
@@ -190,6 +236,5 @@ func pageSize(request *http.Request) (int, error) {
 }
 
 func sessionUser(principal authentication.Principal) generated.SessionUser {
-	return generated.SessionUser{Id: principal.UserID, Email: openapi_types.Email(principal.Email),
-		Roles: append([]string(nil), principal.Roles...), Permissions: append([]string(nil), principal.Permissions...)}
+	return generated.SessionUser{Id: principal.UserID, Email: openapi_types.Email(principal.Email)}
 }

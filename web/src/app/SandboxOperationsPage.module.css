@@ -57,6 +57,39 @@
   color: var(--color-text-muted);
   font-size: 0.75rem;
 }
+.sessionForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 0.7rem;
+  align-items: end;
+  margin: 1rem 0;
+}
+.sessionForm label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.sessionForm select,
+.sessionForm button {
+  min-height: 2.5rem;
+}
+.sessionError {
+  margin: 0.75rem 0;
+  color: var(--color-warning);
+  font-size: 0.82rem;
+}
+.sessionWorkflow {
+  display: grid;
+  gap: 0.45rem;
+  margin: 1rem 0;
+  padding: 0.85rem 1rem 0.85rem 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
 .card [data-state="good"],
 td[data-state="good"] {
   color: var(--color-good);
@@ -126,6 +159,9 @@ td[data-state="warn"] {
     text-align: center;
   }
   .metrics {
+    grid-template-columns: 1fr;
+  }
+  .sessionForm {
     grid-template-columns: 1fr;
   }
 }

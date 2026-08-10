@@ -13,14 +13,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestA5DurableAlertFailClosedIntegration(t *testing.T) {
-	dsn := os.Getenv("AXIOM_A5_TEST_DSN")
+func TestObservabilityDurableAlertFailClosedIntegration(t *testing.T) {
+	dsn := os.Getenv("AXIOM_OBSERVABILITY_TEST_DSN")
 	if dsn == "" {
-		t.Skip("AXIOM_A5_TEST_DSN is not set")
+		t.Skip("AXIOM_OBSERVABILITY_TEST_DSN is not set")
 	}
 	configuration, err := pgxpool.ParseConfig(dsn)
-	if err != nil || !strings.HasSuffix(configuration.ConnConfig.Database, "_a5_test") {
-		t.Fatal("A5 integration requires a dedicated database ending _a5_test")
+	if err != nil || !strings.HasSuffix(configuration.ConnConfig.Database, "_observability_test") {
+		t.Fatal("observability integration requires a dedicated database ending _observability_test")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -37,12 +37,12 @@ func TestA5DurableAlertFailClosedIntegration(t *testing.T) {
 	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != len(migrations) {
 		t.Fatalf("initial migration = %d/%d, %v", applied, len(migrations), applyErr)
 	}
-	store, service, first, second, now := triggerA5Alerts(t, ctx, pool)
-	assertA5Acknowledgement(t, ctx, pool, service, first, second)
-	assertA5FailedDelivery(t, ctx, pool, store, second, now)
+	store, service, first, second, now := triggerObservabilityAlerts(t, ctx, pool)
+	assertObservabilityAcknowledgement(t, ctx, pool, service, first, second)
+	assertObservabilityFailedDelivery(t, ctx, pool, store, second, now)
 }
 
-func triggerA5Alerts(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (*AlertStore, *alerting.Service, alerting.Alert, alerting.Alert, time.Time) {
+func triggerObservabilityAlerts(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (*AlertStore, *alerting.Service, alerting.Alert, alerting.Alert, time.Time) {
 	t.Helper()
 	store, err := NewAlertStore(pool)
 	if err != nil {
@@ -74,7 +74,7 @@ func triggerA5Alerts(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (*Al
 	return store, service, first, second, now
 }
 
-func assertA5Acknowledgement(t *testing.T, ctx context.Context, pool *pgxpool.Pool, service *alerting.Service, first, second alerting.Alert) {
+func assertObservabilityAcknowledgement(t *testing.T, ctx context.Context, pool *pgxpool.Pool, service *alerting.Service, first, second alerting.Alert) {
 	t.Helper()
 	acknowledged, err := service.Acknowledge(ctx, first.ID, "operator-a", alerting.AcknowledgementInvestigated)
 	if err != nil || acknowledged.Revision <= second.Revision {
@@ -97,7 +97,7 @@ func assertA5Acknowledgement(t *testing.T, ctx context.Context, pool *pgxpool.Po
 	}
 }
 
-func assertA5FailedDelivery(t *testing.T, ctx context.Context, pool *pgxpool.Pool, store *AlertStore, alert alerting.Alert, now time.Time) {
+func assertObservabilityFailedDelivery(t *testing.T, ctx context.Context, pool *pgxpool.Pool, store *AlertStore, alert alerting.Alert, now time.Time) {
 	t.Helper()
 	deliveryID, err := store.PrepareDelivery(ctx, alert, "webhook", now.Add(2*time.Second))
 	if err != nil {

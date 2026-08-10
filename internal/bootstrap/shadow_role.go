@@ -10,9 +10,9 @@ import (
 )
 
 type shadowRuntimeStore interface {
-	Claim(context.Context) (postgresstore.A11ShadowClaim, bool, error)
+	Claim(context.Context) (postgresstore.PublicShadowClaim, bool, error)
 	Renew(context.Context, string) error
-	Posture(context.Context, string) (postgresstore.A11ShadowPosture, error)
+	Posture(context.Context, string) (postgresstore.PublicShadowPosture, error)
 	Activate(context.Context, string) error
 	Pause(context.Context, string) error
 	CompleteStop(context.Context, string) error
@@ -27,7 +27,7 @@ type shadowSession interface {
 	Checkpoint(context.Context) error
 }
 
-type shadowSessionFactory func(context.Context, postgresstore.A11ShadowClaim) (shadowSession, error)
+type shadowSessionFactory func(context.Context, postgresstore.PublicShadowClaim) (shadowSession, error)
 
 type shadowRoleWork struct {
 	store     shadowRuntimeStore
@@ -80,7 +80,7 @@ func (work *shadowRoleWork) Run(ctx context.Context, logger *slog.Logger) error 
 	}
 }
 
-func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.A11ShadowClaim, logger *slog.Logger) {
+func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.PublicShadowClaim, logger *slog.Logger) {
 	session, err := work.factory(ctx, claim)
 	if err != nil {
 		_ = work.store.Fail(ctx, claim.ID, "shadow_composition_failed")

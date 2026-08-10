@@ -9,10 +9,167 @@ import (
 	"testing"
 	"time"
 
+	"axiom/internal/domain"
 	"axiom/internal/exchanges/sandboxemulator"
 	"axiom/internal/execution"
 	"axiom/internal/sandbox"
 )
+
+func TestBinanceAutomaticTrendDispatchUsesOnlyFencedSpotTestnetIOC(t *testing.T) {
+	now := time.UnixMilli(1_700_000_001_000).UTC()
+	fixture := newBinanceEmulatorFixture(t, now, sandboxemulator.Config{
+		Exchange: sandbox.ExchangeBinance, APIKey: "test-key", APISecret: "test-secret",
+	}, "cfg-automatic-trend", true)
+	strategyID, err := domain.NewStrategyID(sandbox.StrategyTrend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	submission := fixture.submission
+	submission.StrategyID = strategyID
+	submission.Style = sandbox.OrderStyleLimitIOC
+	lookup := fixture.adapter.lookup.(*sandboxLookup)
+	lookup.submissions[submission.ClientOrderID] = submission
+	repository := &binanceAutomaticDispatchRepository{submission: submission, worker: "automatic-trend-worker", fence: 7}
+	dispatcher, err := sandbox.NewSandboxDispatcher(submission.AccountID, submission.AccountEpoch,
+		repository.worker, repository.fence, repository, fixture.adapter, sandbox.NoKillPoint{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	count, err := dispatcher.DispatchOnce(context.Background(), now, 1)
+	if err != nil || count != 1 || !repository.submitting || repository.event.OrderEvent == nil ||
+		repository.event.OrderEvent.State != execution.OrderAcknowledged || fixture.emulator.NativeOrderCount() != 1 {
+		t.Fatalf("dispatch=%d submitting=%t event=%#v native=%d error=%v", count,
+			repository.submitting, repository.event, fixture.emulator.NativeOrderCount(), err)
+	}
+	if count, err = dispatcher.DispatchOnce(context.Background(), now.Add(time.Millisecond), 1); err != nil ||
+		count != 0 || fixture.emulator.NativeOrderCount() != 1 {
+		t.Fatalf("duplicate dispatch=%d native=%d error=%v", count, fixture.emulator.NativeOrderCount(), err)
+	}
+	frames := fixture.emulator.PrivateFrames()
+	if len(frames) != 1 || !strings.Contains(string(frames[0]), `"f":"IOC"`) {
+		t.Fatalf("automatic order was not IOC: %s", frames)
+	}
+	expiredAt := submission.ApprovedAt.Add(sandbox.ArmLifetime + time.Second)
+	if err = dispatcher.Cancel(context.Background(), submission.ClientOrderID, expiredAt); err != nil ||
+		!repository.cancelling || repository.cancelEvent.OrderEvent == nil ||
+		repository.cancelEvent.OrderEvent.State != execution.OrderCanceled {
+		t.Fatalf("post-expiry cancellation event=%#v cancelling=%t error=%v",
+			repository.cancelEvent, repository.cancelling, err)
+	}
+	frames = fixture.emulator.PrivateFrames()
+	if len(frames) != 2 || !strings.Contains(string(frames[1]), `"f":"IOC"`) {
+		t.Fatalf("post-expiry cancellation lost IOC order identity: %s", frames)
+	}
+	assertBinanceAutomaticCreateCapture(t, fixture.emulator.Captures())
+}
+
+func assertBinanceAutomaticCreateCapture(t *testing.T, captures []sandboxemulator.Capture) {
+	t.Helper()
+	var create sandboxemulator.Capture
+	for _, capture := range captures {
+		if capture.Method == http.MethodPost && capture.Path == "/api/v3/order" {
+			create = capture
+		}
+	}
+	if create.Host != "testnet.binance.vision" || create.Exchange != sandbox.ExchangeBinance ||
+		create.RequestHash == "" || strings.Contains(strings.ToLower(strings.Join(create.FieldNames, ",")), "signature") {
+		t.Fatalf("redacted Testnet create capture=%#v", create)
+	}
+}
+
+type binanceAutomaticDispatchRepository struct {
+	submission  sandbox.Submission
+	worker      string
+	fence       uint64
+	claimed     bool
+	submitting  bool
+	cancelling  bool
+	event       sandbox.PrivateEvent
+	cancelEvent sandbox.PrivateEvent
+}
+
+func (*binanceAutomaticDispatchRepository) ApprovePlan(context.Context, sandbox.ApprovedSandboxPlan,
+	sandbox.SubmissionLimits, sandbox.KillPoint) error {
+	return errors.New("automatic_test_plan_already_approved")
+}
+
+func (repository *binanceAutomaticDispatchRepository) ClaimOutbox(
+	_ context.Context,
+	account sandbox.AccountID,
+	epoch uint64,
+	worker string,
+	fence uint64,
+	now time.Time,
+	_ time.Duration,
+	limit int,
+	_ sandbox.KillPoint,
+) ([]sandbox.SubmissionOutbox, error) {
+	if account != repository.submission.AccountID || epoch != repository.submission.AccountEpoch ||
+		worker != repository.worker || fence != repository.fence || now.Location() != time.UTC || limit != 1 {
+		return nil, errors.New("automatic_test_claim_rejected")
+	}
+	if repository.claimed {
+		return nil, nil
+	}
+	repository.claimed = true
+	return []sandbox.SubmissionOutbox{{ID: "automatic-trend-outbox", Submission: repository.submission,
+		State: sandbox.OutboxClaimed, ClaimOwner: worker, FencingToken: fence, UpdatedAt: now}}, nil
+}
+
+func (repository *binanceAutomaticDispatchRepository) MarkSubmitting(
+	_ context.Context, outboxID string, fence uint64, _ time.Time, _ sandbox.KillPoint,
+) error {
+	if outboxID != "automatic-trend-outbox" || fence != repository.fence {
+		return errors.New("automatic_test_submit_fence_rejected")
+	}
+	repository.submitting = true
+	return nil
+}
+
+func (*binanceAutomaticDispatchRepository) MarkUnknown(context.Context, string, uint64, time.Time, sandbox.KillPoint) error {
+	return errors.New("automatic_test_unexpected_unknown")
+}
+
+func (repository *binanceAutomaticDispatchRepository) MarkCancelPending(
+	_ context.Context,
+	account sandbox.AccountID,
+	epoch uint64,
+	clientOrderID string,
+	worker string,
+	fence uint64,
+	now time.Time,
+	_ sandbox.KillPoint,
+) (string, error) {
+	if account != repository.submission.AccountID || epoch != repository.submission.AccountEpoch ||
+		clientOrderID != repository.submission.ClientOrderID || worker != repository.worker ||
+		fence != repository.fence || now.Before(repository.submission.ApprovedAt.Add(sandbox.ArmLifetime)) {
+		return "", errors.New("automatic_test_cancel_fence_rejected")
+	}
+	repository.cancelling = true
+	return "automatic-trend-cancel", nil
+}
+
+func (*binanceAutomaticDispatchRepository) MarkCancelUnknown(context.Context, string, uint64, time.Time,
+	sandbox.KillPoint) error {
+	return errors.New("automatic_test_unexpected_cancel_unknown")
+}
+
+func (repository *binanceAutomaticDispatchRepository) AppendPrivateEvent(
+	_ context.Context, outboxID string, fence uint64, event sandbox.PrivateEvent, _ sandbox.KillPoint,
+) error {
+	if outboxID == "automatic-trend-cancel" {
+		if fence != repository.fence || !repository.cancelling {
+			return errors.New("automatic_test_cancel_ack_fence_rejected")
+		}
+		repository.cancelEvent = event
+		return nil
+	}
+	if outboxID != "automatic-trend-outbox" || fence != repository.fence || !repository.submitting {
+		return errors.New("automatic_test_ack_fence_rejected")
+	}
+	repository.event = event
+	return nil
+}
 
 type sandboxLookup struct {
 	submissions map[string]sandbox.Submission

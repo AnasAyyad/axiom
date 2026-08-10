@@ -63,7 +63,7 @@ func overwriteManifest(t *testing.T, root string, manifest DatasetManifest) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(root, "session-a7-000001.dataset.json")
+	path := filepath.Join(root, "session-public-data-000001.dataset.json")
 	if err = os.WriteFile(path, encoded, 0o640); err != nil {
 		t.Fatal(err)
 	}

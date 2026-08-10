@@ -16,13 +16,13 @@ func TestMeanReversionReportRequiresRegimeTrendFilterFastDeclineMAEHoldingAndExa
 		"mean_reversion.failure.fast_decline": 1}
 	manifest, err := BuildMeanReversionReport(input)
 	if err != nil || manifest.Contract != MeanReversionReportContract || manifest.ManifestHash == "" {
-		t.Fatalf("B3 report = %#v, %v", manifest, err)
+		t.Fatalf("mean reversion report = %#v, %v", manifest, err)
 	}
 	canonical, _ := json.Marshal(manifest)
 	restored, err := ValidateMeanReversionReportCanonical(canonical, manifest.ManifestHash,
 		input.ResearchGenerationID, input.RunReferences[0])
 	if err != nil || restored.ManifestHash != manifest.ManifestHash {
-		t.Fatalf("B3 canonical report = %#v, %v", restored, err)
+		t.Fatalf("mean reversion canonical report = %#v, %v", restored, err)
 	}
 	delete(input.Breakdowns, "fast_decline_failure")
 	if _, err = BuildMeanReversionReport(input); err == nil {

@@ -2,10 +2,10 @@ package sandbox
 
 import "time"
 
-// CanaryEvidenceStage is one immutable PR2 canary lifecycle fact.
+// CanaryEvidenceStage is one immutable sandbox connectivity canary lifecycle fact.
 type CanaryEvidenceStage string
 
-// Immutable PR2 canary lifecycle stages.
+// Immutable sandbox connectivity canary lifecycle stages.
 const (
 	// CanaryPlanApproved records durable approval through the full pipeline.
 	CanaryPlanApproved CanaryEvidenceStage = "PLAN_APPROVED"

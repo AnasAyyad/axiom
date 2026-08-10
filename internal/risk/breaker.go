@@ -2,7 +2,7 @@ package risk
 
 import "time"
 
-// BreakerKind identifies one explicit A9 circuit breaker.
+// BreakerKind identifies one explicit portfolio and risk circuit breaker.
 type BreakerKind string
 
 // Supported circuit breakers.

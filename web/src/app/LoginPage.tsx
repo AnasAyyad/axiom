@@ -27,7 +27,7 @@ export function LoginPage() {
     <main className={styles.page}>
       <section className={styles.panel} aria-labelledby="login-title">
         <div className={styles.mark}>A</div>
-        <p className={styles.eyebrow}>Axiom V1A research console</p>
+        <p className={styles.eyebrow}>Axiom research console</p>
         <h1 id="login-title">Owner access</h1>
         <p className={styles.note}>
           Production-public data and virtual execution only. No exchange
@@ -63,7 +63,7 @@ export function LoginPage() {
             {login.isPending ? "Verifying…" : "Enter console"}
           </button>
         </form>
-        <div className={styles.lock}>REAL TRADING DISABLED</div>
+        <div className={styles.lock}>REAL-MONEY TRADING IS NOT AVAILABLE</div>
       </section>
     </main>
   );

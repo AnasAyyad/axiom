@@ -4,14 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
-
-	"axiom/internal/domain"
-	"axiom/internal/execution"
 )
 
 // OutboxState is one durable asynchronous submission state.
@@ -19,6 +14,7 @@ type OutboxState string
 
 // Outbox states are closed and keep every nonterminal order capacity-bearing.
 const (
+	OutboxWaiting      OutboxState = "WAITING"
 	OutboxPending      OutboxState = "PENDING"
 	OutboxClaimed      OutboxState = "CLAIMED"
 	OutboxAcknowledged OutboxState = "ACKNOWLEDGED"
@@ -26,7 +22,7 @@ const (
 	OutboxTerminal     OutboxState = "TERMINAL"
 )
 
-// KillBoundary is the closed crash-injection surface used by C3 recovery tests.
+// KillBoundary is the closed crash-injection surface used by dispatcher recovery recovery tests.
 type KillBoundary string
 
 // Kill boundaries cover every durable and external dispatch transition.
@@ -53,7 +49,7 @@ const (
 	KillAfterLeaseTransition     KillBoundary = "after_lease_transition"
 )
 
-// KillPoint injects deterministic crash failures at named C3 boundaries.
+// KillPoint injects deterministic crash failures at named dispatcher recovery boundaries.
 type KillPoint interface {
 	Hit(context.Context, KillBoundary) error
 }
@@ -77,12 +73,13 @@ type DurableReservation struct {
 	ReleaseReason string
 }
 
-// ReservationState records whether reserved capacity remains active, was
-// consumed by a fill, was safely released without a fill, or is quarantined.
+// ReservationState records whether reserved capacity is waiting on a prior
+// fill, remains active, was consumed, was safely released, or is quarantined.
 type ReservationState string
 
 // Closed reservation states mirror the durable PostgreSQL contract.
 const (
+	ReservationWaiting     ReservationState = "WAITING"
 	ReservationActive      ReservationState = "ACTIVE"
 	ReservationConsumed    ReservationState = "CONSUMED"
 	ReservationReleased    ReservationState = "RELEASED"
@@ -91,24 +88,55 @@ const (
 
 // ApprovedSandboxPlan atomically groups approved legs, reservations, and arm evidence.
 type ApprovedSandboxPlan struct {
-	ID              string
-	SessionID       SessionID
-	Submissions     []Submission
-	Reservations    []DurableReservation
-	Arm             Arm
-	Eligibility     map[Exchange]EligibilitySnapshot
-	EntrySafety     map[AccountID]EntrySafetySnapshot
-	Pipeline        ApprovalPipelineEvidence
-	ApprovedAt      time.Time
-	ApprovalHash    string
-	ConfigurationID string
+	ID                 string
+	SessionID          SessionID
+	Submissions        []Submission
+	Reservations       []DurableReservation
+	Arm                Arm
+	Eligibility        map[Exchange]EligibilitySnapshot
+	MarketEligibility  []EligibilitySnapshot
+	EntrySafety        map[AccountID]EntrySafetySnapshot
+	AccountSnapshots   map[AccountID]AccountSnapshotReference
+	StrategyDecision   *StrategyDecisionEvidence
+	Pipeline           ApprovalPipelineEvidence
+	ApprovedAt         time.Time
+	ExecutionExpiresAt *time.Time
+	ApprovalHash       string
+	ConfigurationID    string
+}
+
+// AccountSnapshotReference binds an automatic strategy plan to the exact
+// recently recorded exchange-account view that proved its current inventory.
+// It contains no balances, credentials, or private provider payload.
+type AccountSnapshotReference struct {
+	AccountID    AccountID
+	AccountEpoch uint64
+	SnapshotHash string
+	ObservedAt   time.Time
+}
+
+// ValidateFor verifies an immutable snapshot reference for one exact account
+// and decision instant. Database persistence verifies the hash exists.
+func (reference AccountSnapshotReference) ValidateFor(
+	account AccountID,
+	epoch uint64,
+	approvedAt time.Time,
+) error {
+	if reference.AccountID != account || reference.AccountEpoch != epoch ||
+		!hash256(reference.SnapshotHash) || reference.ObservedAt.IsZero() ||
+		reference.ObservedAt.Location() != time.UTC ||
+		reference.ObservedAt.After(approvedAt) ||
+		approvedAt.Sub(reference.ObservedAt) > 250*time.Millisecond {
+		return contractError("account_snapshot_reference_invalid")
+	}
+	return nil
 }
 
 // ApprovalIntentKind distinguishes typed operator canaries from natural
 // eligible-strategy intents while preserving one allocation/risk/planner path.
 type ApprovalIntentKind string
 
-// Closed V1C intent sources.
+// Closed sandbox runtime intent sources.
 const (
 	ApprovalCanaryIntent   ApprovalIntentKind = "CANARY"
 	ApprovalStrategyIntent ApprovalIntentKind = "STRATEGY"
@@ -140,10 +168,25 @@ func (evidence ApprovalPipelineEvidence) HashFor(plan ApprovedSandboxPlan) strin
 	for _, reservation := range plan.Reservations {
 		values = appendReservationHash(values, reservation)
 	}
-	values = appendEligibilityHash(values, plan.Eligibility)
+	values = appendEligibilityHash(values, plan.Eligibility, plan.MarketEligibility)
 	values = appendEntrySafetyHash(values, plan.EntrySafety)
+	values = appendAccountSnapshotHash(values, plan.AccountSnapshots)
+	values = appendStrategyDecisionHash(values, plan.StrategyDecision)
 	digest := sha256.Sum256([]byte(strings.Join(values, "\x00")))
 	return hex.EncodeToString(digest[:])
+}
+
+func appendStrategyDecisionHash(
+	values []string,
+	evidence *StrategyDecisionEvidence,
+) []string {
+	if evidence == nil {
+		return append(values, "strategy-decision:none")
+	}
+	return append(values, "strategy-decision", string(evidence.SessionID),
+		string(evidence.AccountID), stringUint64(evidence.AccountEpoch), evidence.Strategy,
+		evidence.Instrument, evidence.DecisionID, stringUint64(evidence.EventOrdinal),
+		stringUint64(evidence.EventLogicalTime), evidence.InputHash, evidence.DecisionHash)
 }
 
 func (evidence ApprovalPipelineEvidence) approvalHashBase(
@@ -161,7 +204,15 @@ func (evidence ApprovalPipelineEvidence) approvalHashBase(
 		string(plan.SessionID),
 		plan.ConfigurationID,
 		plan.ApprovedAt.UTC().Format(time.RFC3339Nano),
+		planExecutionExpiry(plan),
 	}
+}
+
+func planExecutionExpiry(plan ApprovedSandboxPlan) string {
+	if plan.ExecutionExpiresAt == nil {
+		return ""
+	}
+	return plan.ExecutionExpiresAt.UTC().Format(time.RFC3339Nano)
 }
 
 func appendApprovalArmHash(values []string, arm Arm) []string {
@@ -230,160 +281,4 @@ func appendReservationHash(
 		releasedAt,
 		reservation.ReleaseReason,
 	)
-}
-
-func appendEligibilityHash(
-	values []string,
-	eligibility map[Exchange]EligibilitySnapshot,
-) []string {
-	exchanges := make([]string, 0, len(eligibility))
-	for exchange := range eligibility {
-		exchanges = append(exchanges, string(exchange))
-	}
-	sort.Strings(exchanges)
-	for _, exchange := range exchanges {
-		encoded, _ := json.Marshal(eligibility[Exchange(exchange)])
-		values = append(values, exchange, string(encoded))
-	}
-	return values
-}
-
-func appendEntrySafetyHash(
-	values []string,
-	entrySafety map[AccountID]EntrySafetySnapshot,
-) []string {
-	accounts := make([]string, 0, len(entrySafety))
-	for account := range entrySafety {
-		accounts = append(accounts, string(account))
-	}
-	sort.Strings(accounts)
-	for _, account := range accounts {
-		encoded, _ := json.Marshal(entrySafety[AccountID(account)])
-		values = append(values, account, string(encoded))
-	}
-	return values
-}
-
-func stringUint64(value uint64) string {
-	return strconv.FormatUint(value, 10)
-}
-
-// ValidateFor checks the complete approval path and source/strategy binding.
-func (evidence ApprovalPipelineEvidence) ValidateFor(
-	plan ApprovedSandboxPlan,
-) error {
-	if (evidence.IntentKind != ApprovalCanaryIntent &&
-		evidence.IntentKind != ApprovalStrategyIntent) ||
-		!recoveryHash(evidence.IntentHash) ||
-		!recoveryHash(evidence.AllocatorHash) ||
-		!recoveryHash(evidence.RiskHash) ||
-		!recoveryHash(evidence.PlannerHash) ||
-		!recoveryHash(evidence.AssetApprovalHash) ||
-		!evidence.RiskApproved || !evidence.AssetApproved ||
-		evidence.ObservedAt.IsZero() ||
-		evidence.ObservedAt.Location() != time.UTC ||
-		!evidence.ObservedAt.Equal(plan.ApprovedAt) ||
-		evidence.HashFor(plan) != plan.ApprovalHash {
-		return contractError("approval_pipeline_invalid")
-	}
-	for _, submission := range plan.Submissions {
-		isCanary := submission.StrategyID.Value() == StrategySandboxCanary
-		if (evidence.IntentKind == ApprovalCanaryIntent) != isCanary {
-			return contractError("approval_pipeline_invalid")
-		}
-	}
-	return nil
-}
-
-// RequiresEntryArm verifies that a plan has one coherent action class. Entry
-// plans require the full current arm/safety gate; exit and bounded recovery
-// plans remain available while entry is paused. Cancellation uses Cancel.
-func RequiresEntryArm(plan ApprovedSandboxPlan) (bool, error) {
-	if len(plan.Submissions) == 0 {
-		return false, contractError("sandbox_plan_action_invalid")
-	}
-	action := plan.Submissions[0].Action
-	for _, submission := range plan.Submissions {
-		if submission.Action != action {
-			return false, contractError("sandbox_plan_action_invalid")
-		}
-	}
-	switch action {
-	case IntentEntry:
-		return true, nil
-	case IntentExit, IntentRecovery:
-		return false, nil
-	default:
-		return false, contractError("sandbox_plan_action_invalid")
-	}
-}
-
-// ValidatePlanSaga freezes the existing canonical execution saga as the
-// authoritative plan topology before any V1C persistence.
-func ValidatePlanSaga(plan ApprovedSandboxPlan) (execution.DispatchPolicy, error) {
-	if len(plan.Submissions) == 0 ||
-		len(plan.Submissions) != len(plan.Reservations) ||
-		plan.Submissions[0].PlanID.String() != plan.ID {
-		return "", contractError("sandbox_saga_invalid")
-	}
-	policy := execution.DispatchSequential
-	if len(plan.Submissions) == 2 {
-		policy = execution.DispatchConcurrent
-	}
-	legs := make([]execution.SagaLeg, 0, len(plan.Submissions))
-	reservations := make([]domain.ReservationID, 0, len(plan.Reservations))
-	for index, submission := range plan.Submissions {
-		if submission.PlanID.String() != plan.ID {
-			return "", contractError("sandbox_saga_invalid")
-		}
-		legs = append(legs, execution.SagaLeg{
-			Index: uint32(index), OrderID: submission.OrderID,
-			State: execution.OrderCreated,
-		})
-		reservationID, err := domain.NewReservationID(plan.Reservations[index].ID)
-		if err != nil {
-			return "", contractError("sandbox_saga_invalid")
-		}
-		reservations = append(reservations, reservationID)
-	}
-	if _, err := execution.NewSaga(
-		plan.Submissions[0].PlanID,
-		policy,
-		legs,
-		reservations,
-	); err != nil {
-		return "", contractError("sandbox_saga_invalid")
-	}
-	return policy, nil
-}
-
-// SubmissionLimits is the fixed, non-configurable V1C capacity policy.
-type SubmissionLimits struct {
-	MaximumOrderNotional  string
-	MaximumDailyNotional  string
-	MaximumOpenPerAccount int
-	MaximumOpenGlobal     int
-}
-
-// SubmissionOutbox is one fenced asynchronous delivery record.
-type SubmissionOutbox struct {
-	ID             string
-	Submission     Submission
-	State          OutboxState
-	ClaimOwner     string
-	FencingToken   uint64
-	ClaimExpiresAt time.Time
-	Attempt        uint32
-	UpdatedAt      time.Time
-}
-
-// DispatcherRepository owns atomic approval, claims, inbox, and reduction.
-type DispatcherRepository interface {
-	ApprovePlan(context.Context, ApprovedSandboxPlan, SubmissionLimits, KillPoint) error
-	ClaimOutbox(context.Context, AccountID, uint64, string, uint64, time.Time, time.Duration, int, KillPoint) ([]SubmissionOutbox, error)
-	MarkSubmitting(context.Context, string, uint64, time.Time, KillPoint) error
-	MarkUnknown(context.Context, string, uint64, time.Time, KillPoint) error
-	MarkCancelPending(context.Context, AccountID, uint64, string, string, uint64, time.Time, KillPoint) (string, error)
-	MarkCancelUnknown(context.Context, string, uint64, time.Time, KillPoint) error
-	AppendPrivateEvent(context.Context, string, uint64, PrivateEvent, KillPoint) error
 }

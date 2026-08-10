@@ -24,7 +24,7 @@ func TestOptimizePrefersEligibleNaturalReversalAndPreservesExactEvidence(t *test
 	}
 	request := testRequest(t, source, destination)
 	request.NaturalReversals = []NaturalReversalPlan{{
-		ID: "natural-1", B5DecisionID: "b5-decision-1", Source: source, Destination: destination,
+		ID: "natural-1", CrossExchangeArbitrageDecisionID: "cross_exchange_arbitrage-decision-1", Source: source, Destination: destination,
 		SellFactID: sell.ID, BuyFactID: buy.ID,
 	}}
 
@@ -50,7 +50,7 @@ func TestOptimizePrefersEligibleNaturalReversalAndPreservesExactEvidence(t *test
 	}
 	if !slices.Contains(recommendation.Warnings, "natural_reverse_arbitrage_preferred") ||
 		len(recommendation.ManualChecklist) < 4 || len(recommendation.CanonicalHash) != 64 ||
-		!strings.HasPrefix(recommendation.ID, "b6-") {
+		!strings.HasPrefix(recommendation.ID, "inventory_rebalancing-") {
 		t.Fatalf("incomplete advisory evidence = %#v", recommendation)
 	}
 }
@@ -231,7 +231,7 @@ func testEdge(t testing.TB, edge Edge) Edge {
 	edge.Warnings = []string{"review_external_conditions"}
 	edge.ManualChecklist = []string{"confirm_fact_source"}
 	edge.Provenance = Provenance{
-		Source: "reviewed-fixture", Observer: "b6-test",
+		Source: "reviewed-fixture", Observer: "inventory_rebalancing-test",
 		ObservedAt: testDecisionTime.Add(-time.Hour), ExpiresAt: testDecisionTime.Add(time.Hour),
 		Confidence: testPercent(t, "0.95"),
 		Approval: Approval{

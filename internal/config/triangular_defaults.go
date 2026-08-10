@@ -1,6 +1,6 @@
 package config
 
-// TriangularParameterCount is the immutable size of the B4 baseline graph.
+// TriangularParameterCount is the immutable size of the triangular arbitrage baseline graph.
 const TriangularParameterCount = 18
 
 func defaultTriangularConfiguration() TriangularConfiguration {
@@ -23,7 +23,7 @@ func defaultTriangularConfiguration() TriangularConfiguration {
 			ApprovalActor:      "authoritative_specification",
 			ApprovalReference:  "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001",
 			ApprovedAt:         "2026-07-23T00:00:00Z",
-			ChangeReason:       "initial immutable B4 exact triangular arbitrage baseline",
+			ChangeReason:       "initial immutable triangular arbitrage exact triangular arbitrage baseline",
 		}
 	}
 	parameters := []StrategyParameter{
@@ -47,7 +47,7 @@ func defaultTriangularConfiguration() TriangularConfiguration {
 		parameter("triangular.maximum_concurrent_claims", "One portfolio resource can have only one active or quarantined owner.", "exclusive-claim-ownership.v1", "1", "count", "1", "1", true, true, 0, "down", "claim_model"),
 	}
 	return TriangularConfiguration{
-		StrategyVersion: "triangular.v1b.1", SettlementAsset: "USDT",
+		StrategyVersion: "triangular-arbitrage@1.0.0", SettlementAsset: "USDT",
 		Cycles:       []string{"USDT-BTC-ETH-USDT", "USDT-ETH-BTC-USDT"},
 		DispatchMode: "sequential", PricingModel: "triangular-exact-depth.v1",
 		ClaimModel: "atomic-multi-resource.v1", Parameters: parameters,

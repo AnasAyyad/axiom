@@ -60,11 +60,11 @@ func Validate(configuration Configuration) error {
 }
 
 func validateIdentity(configuration Configuration) error {
-	if (configuration.SchemaVersion != SchemaVersion && configuration.SchemaVersion != SchemaVersionV1B &&
-		configuration.SchemaVersion != SchemaVersionV1BB3 && configuration.SchemaVersion != SchemaVersionV1BB4 &&
-		configuration.SchemaVersion != SchemaVersionV1BB5 &&
-		configuration.SchemaVersion != SchemaVersionV1BB6 &&
-		configuration.SchemaVersion != SchemaVersionV1C) ||
+	if (configuration.SchemaVersion != SchemaVersion && configuration.SchemaVersion != SchemaVersionMultiStrategyResearch &&
+		configuration.SchemaVersion != SchemaVersionMeanReversion && configuration.SchemaVersion != SchemaVersionTriangularArbitrage &&
+		configuration.SchemaVersion != SchemaVersionCrossExchangeArbitrage &&
+		configuration.SchemaVersion != SchemaVersionInventoryRebalancing &&
+		configuration.SchemaVersion != SchemaVersionSandboxRuntime) ||
 		configuration.Revision == 0 {
 		return configError("invalid_configuration", "schema")
 	}
@@ -79,7 +79,7 @@ func validateIdentity(configuration Configuration) error {
 	if configuration.Environment == EnvironmentShadow && configuration.Mode != ModeShadow {
 		return configError("invalid_configuration", "environment_mode")
 	}
-	if configuration.SchemaVersion == SchemaVersionV1C {
+	if configuration.SchemaVersion == SchemaVersionSandboxRuntime {
 		if configuration.Environment != EnvironmentSandbox ||
 			(configuration.Mode != ModeTestnet && configuration.Mode != ModeDemo) {
 			return configError("invalid_configuration", "environment_mode")
@@ -146,8 +146,8 @@ func validateSafety(schema string, safety SafetyConfiguration, capabilities []Ca
 	if !safety.FailClosed || safety.RiskInitialState != "PAUSED" || safety.AutoUnpause {
 		return configError("unsafe_configuration", "safety")
 	}
-	if (schema == SchemaVersionV1C && !capabilitiesExactlyV1C(capabilities)) ||
-		(schema != SchemaVersionV1C && !capabilitiesExactlyUnsupported(capabilities)) {
+	if (schema == SchemaVersionSandboxRuntime && !capabilitiesExactlySandboxRuntime(capabilities)) ||
+		(schema != SchemaVersionSandboxRuntime && !capabilitiesExactlyUnsupported(capabilities)) {
 		return configError("prohibited_capability", "capabilities")
 	}
 	return nil

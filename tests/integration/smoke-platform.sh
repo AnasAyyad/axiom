@@ -55,7 +55,7 @@ export RISK_INITIAL_STATE=PAUSED
 
 "${TEMP_DIR}/platform" admin migrate >"${TEMP_DIR}/migrate.out"
 grep --fixed-strings --quiet '"event_code":"migration_complete"' "${TEMP_DIR}/migrate.out"
-grep --fixed-strings --quiet '"phase":"A11"' "${TEMP_DIR}/migrate.out"
+grep --fixed-strings --quiet '"readiness_state":"migrations_applied"' "${TEMP_DIR}/migrate.out"
 if DB_PORT=1 DB_CONNECTION_TIMEOUT=100ms \
   "${TEMP_DIR}/platform" admin migrate \
   >"${TEMP_DIR}/migrate-negative.out" 2>"${TEMP_DIR}/migrate-negative.log"; then

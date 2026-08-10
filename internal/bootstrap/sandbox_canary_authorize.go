@@ -23,7 +23,7 @@ type sandboxCanaryIdentifiers struct {
 func newSandboxCanaryIdentifiers(
 	exchange sandbox.Exchange,
 ) (sandboxCanaryIdentifiers, error) {
-	suffix, err := randomCanaryIdentifier("v1c")
+	suffix, err := randomCanaryIdentifier("sandbox_runtime")
 	if err != nil {
 		return sandboxCanaryIdentifiers{}, err
 	}
@@ -31,7 +31,7 @@ func newSandboxCanaryIdentifiers(
 	if exchange == sandbox.ExchangeBybit {
 		shortExchange = "y"
 	}
-	base := "canary-" + shortExchange + "-" + strings.TrimPrefix(suffix, "v1c-")
+	base := "canary-" + shortExchange + "-" + strings.TrimPrefix(suffix, "sandbox_runtime-")
 	return sandboxCanaryIdentifiers{
 		intentID: "intent-" + base, sessionID: "session-" + base,
 		armID: "arm-" + base, planID: "plan-" + base,
@@ -123,15 +123,15 @@ func newSandboxCanaryAuthorizationServices(
 func newSandboxCanaryAuthenticationStores(
 	pool *pgxpool.Pool,
 ) (
-	*postgresstore.A11AuthenticationStore,
-	*postgresstore.V1CAuthenticationStore,
+	*postgresstore.OwnerAuthenticationStore,
+	*postgresstore.SandboxRuntimeAuthenticationStore,
 	error,
 ) {
-	users, err := postgresstore.NewA11AuthenticationStore(pool)
+	users, err := postgresstore.NewOwnerAuthenticationStore(pool)
 	if err != nil {
 		return nil, nil, err
 	}
-	authorizations, err := postgresstore.NewV1CAuthenticationStore(pool)
+	authorizations, err := postgresstore.NewSandboxRuntimeAuthenticationStore(pool)
 	if err != nil {
 		return nil, nil, err
 	}

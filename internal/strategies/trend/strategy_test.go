@@ -16,7 +16,7 @@ import (
 func TestConfigurationHashAndStrictBaselineContract(t *testing.T) {
 	source := config.DefaultConfiguration().Trend
 	first, err := NewConfiguration(source)
-	if err != nil || first.Version != "trend.v1a.1" || len(first.Hash) != 64 || first.EMARegime != 200 ||
+	if err != nil || first.Version != "trend-following@1.0.0" || len(first.Hash) != 64 || first.EMARegime != 200 ||
 		first.MaximumBookAge != 250*time.Millisecond || first.EvaluationWindow != 5*time.Second {
 		t.Fatalf("configuration = %#v, %v", first, err)
 	}
@@ -24,7 +24,7 @@ func TestConfigurationHashAndStrictBaselineContract(t *testing.T) {
 	if first.Hash != second.Hash {
 		t.Fatal("canonical Trend hashes differ")
 	}
-	source.StrategyVersion = "trend.v1a.2"
+	source.StrategyVersion = "trend-following@2.0.0"
 	changed, _ := NewConfiguration(source)
 	if first.Hash == changed.Hash {
 		t.Fatal("strategy version change preserved hash")
@@ -52,7 +52,7 @@ func TestEntryRequiresStrictRegimeConfirmationAndPriorBreakout(t *testing.T) {
 		t.Fatalf("breakout equality = %#v, %v", decision, err)
 	}
 	configurationSource := config.DefaultConfiguration().Trend
-	configurationSource.StrategyVersion = "trend.v1a.test-equality"
+	configurationSource.StrategyVersion = "trend-following@test-equality"
 	for index := range configurationSource.Parameters {
 		if configurationSource.Parameters[index].ID == "trend.ema_confirmation_period" {
 			configurationSource.Parameters[index].Value = "200"
@@ -134,8 +134,38 @@ func assertDuplicateIdempotence(t *testing.T, evaluator *Evaluator, input Input)
 	if _, err := adapter.Evaluate(context.Background(), event); err != nil {
 		t.Fatal(err)
 	}
+	evidence, evidenceErr := adapter.DecisionEvidence(event)
+	var accepted Decision
+	if evidenceErr != nil || json.Unmarshal(evidence, &accepted) != nil ||
+		accepted.Ordinal != event.Ordinal || accepted.Candidate == nil ||
+		accepted.Candidate.DecisionID != first.ID {
+		t.Fatalf("adapter decision evidence=%s error=%v", evidence, evidenceErr)
+	}
 	if _, err := adapter.Evaluate(context.Background(), event); errorCode(err) != ReasonDuplicateDecision {
 		t.Fatalf("duplicate adapter error = %v", err)
+	}
+}
+
+func TestAdapterRetainsCanonicalNoSignalDecisionEvidence(t *testing.T) {
+	evaluator, input := testEvaluatorAndInput(t)
+	input.BookAge = 250 * time.Millisecond
+	canonical, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := replay.Event{LogicalTime: input.LogicalTime, Ordinal: input.Ordinal, Canonical: canonical}
+	adapter, err := NewAdapter(evaluator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = adapter.Evaluate(context.Background(), event); errorCode(err) != ReasonUnhealthyMarket {
+		t.Fatalf("no-signal adapter error = %v", err)
+	}
+	evidence, evidenceErr := adapter.DecisionEvidence(event)
+	var decision Decision
+	if evidenceErr != nil || json.Unmarshal(evidence, &decision) != nil ||
+		decision.Candidate != nil || decision.ReasonCode != ReasonUnhealthyMarket {
+		t.Fatalf("no-signal evidence=%s error=%v", evidence, evidenceErr)
 	}
 }
 
@@ -179,6 +209,24 @@ func TestFeeStressCannotIncreaseQuantity(t *testing.T) {
 	if feeDecision.Candidate == nil || noFeeDecision.Candidate == nil ||
 		feeDecision.Candidate.Quantity.Compare(noFeeDecision.Candidate.Quantity) > 0 {
 		t.Fatalf("fee stress increased quantity: %#v %#v", feeDecision.Candidate, noFeeDecision.Candidate)
+	}
+}
+
+func TestEntryNotionalLimitIncludesAllocatorFeeReservation(t *testing.T) {
+	evaluator, input := testEvaluatorAndInput(t)
+	limit := money(t, "10")
+	input.Sizing.NotionalLimits = []domain.Money{limit}
+	input.Sizing.InstrumentMetadata.MinimumNotional = notional(t, "1")
+	decision, err := evaluator.Evaluate(input)
+	if err != nil || decision.Candidate == nil || decision.Action != ActionEntry {
+		t.Fatalf("capped decision = %#v, %v", decision, err)
+	}
+	notional, err := domain.ParseMoney(decision.Candidate.Notional.String())
+	fee, feeErr := domain.CalculateFee(decision.Candidate.Notional, input.Sizing.EntryFeeRate, 18)
+	gross, grossErr := notional.AddFee(fee)
+	if err != nil || feeErr != nil || grossErr != nil || gross.Compare(limit) > 0 {
+		t.Fatalf("gross reservation=%s notional=%s fee=%s limit=%s errors=%v/%v/%v",
+			gross, decision.Candidate.Notional, fee, limit, err, feeErr, grossErr)
 	}
 }
 
@@ -295,7 +343,7 @@ func testEvaluatorAndInput(t *testing.T) (*Evaluator, Input) {
 			InstrumentMetadata: metadata, CentralRiskEligible: true, LiquidityDomain: "binance-btc-usdt", FencingToken: 1},
 		Evidence: InputEvidence{CandleViewID: "candles-btc", CandleViewRevision: 200, MarketViewID: "book-btc",
 			MarketViewRevision: 50, InstrumentMetadataID: "metadata-7", AssetEligibilityVersion: 1,
-			ConfigurationVersion: "axiom.config.v1a.2", ConfigurationHash: configuration.Hash,
+			ConfigurationVersion: "axiom.configuration@1.0.0", ConfigurationHash: configuration.Hash,
 			StrategyVersion: configuration.Version, PortfolioRevision: 3, PositionRevision: 1,
 			FeeModelID: "fee-v1", LatencyModelID: "latency-v1", FillModelID: "fill-v1",
 			SlippageModelID: "slippage-v1", GapModelID: "gap-v1", CorrelationID: "corr-1", CausationID: "cause-1"}}

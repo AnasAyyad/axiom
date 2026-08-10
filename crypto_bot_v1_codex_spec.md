@@ -2414,7 +2414,7 @@ Rules:
 Show:
 
 - environment and execution mode
-- explicit `REAL TRADING DISABLED`
+- explicit `REAL-MONEY TRADING IS NOT AVAILABLE`
 - current shadow/test session
 - overall engine status
 - exchange connection indicators
@@ -3549,6 +3549,12 @@ Acceptance: long-running sandbox canaries meet caps and SLOs; UI cannot arm prod
 
 V1D completes the full API, React console, labs, reporting, incident response, data lifecycle, security, and single-server operational maturity described throughout this document.
 
+The current product model is exactly one authenticated owner, not a multi-role
+tenant. Delivery-phase headings in this specification remain only for release
+traceability; current runtime names, APIs, configuration, UI, monitoring, and
+operator commands use semantic responsibility names. Historical evidence and
+already-applied migrations retain their immutable original identities.
+
 ### Phase D1: Complete versioned API and live updates
 
 Owner: API engineering.
@@ -3557,16 +3563,23 @@ Deliver every Section 24 resource, generated OpenAPI/types, pagination/filtering
 
 The D1 control plane uses the following normative contracts:
 
-- roles are `researcher`, `operator`, `auditor`, and `owner`; `viewer` remains a deprecated read-only compatibility role and grants no mutation permission
+- exactly one active owner account exists; no Researcher, Operator, Auditor,
+  Viewer, role-assignment API, user-management page, role, or permission is
+  present in current session or runtime projections
 - every collection has bounded cursor pagination, deterministic ordering, explicit time-range filters where time applies, and stable resource-specific filters
 - every mutation requires an idempotency key, an expected entity revision, and a human reason; it returns a durable command identity and lifecycle state
 - strategy configuration (`enabled` or `disabled`) is versioned separately from runtime state (`running`, `paused`, or `blocked`)
 - a strategy cannot enable or resume unless configuration, persistence, market-data, reconciliation, inventory, exchange-health, and risk prerequisites pass
-- high-risk configuration, qualification, unlock, and role changes require one `owner` to reauthenticate with password and TOTP, confirm the exact expected revision, and supply a reason
+- high-risk configuration, qualification, and unlock actions require the owner
+  to reauthenticate with password and TOTP, confirm the exact expected
+  revision, and supply a reason
 - the activity read model is immutable and idempotently linked to authoritative decisions, risk evaluations, orders, fills, reconciliation, jobs, incidents, alerts, and audit evidence; existing rows receive a deterministic backfill
 - the versioned reason catalogue provides a stable code, plain summary, explanation, suggested action, severity, and correlation identity; unknown codes render a safe generic explanation
 - exports use durable jobs and support TXT, CSV, JSON, and JSONL; artifacts are redacted, hash-sealed, audited, retained for seven days, and deleted automatically unless an incident or reproducibility hold applies
-- live updates add permission-filtered activity, job, strategy, risk, qualification, incident, alert, and export events to the existing resumable stream; an expired cursor returns an explicit fresh-snapshot requirement
+- live updates add semantic run, decision, order, fill, portfolio, risk,
+  reconciliation, job, incident, alert, and export events to the existing
+  resumable stream; an expired cursor returns an explicit fresh-snapshot
+  requirement
 
 No D1 read, command, activity, or export contract may expose a credential,
 request signature, authorization header, arbitrary log file, or private exchange
@@ -3582,14 +3595,23 @@ Deliver the complete Section 25 navigation and operational pages except the spec
 
 The D2 console uses the following normative interaction contract:
 
-- navigation is grouped into `Home`, `Activity`, `Strategies`, `Run Lab`, `Risk & Controls`, and `Operations`; links and mutations are filtered by explicit session permission while `owner` retains administrative access
-- a persistent safety header shows environment, execution mode, exchange health, engine state, risk state, data freshness, live-update state, and `REAL TRADING DISABLED` on every authenticated route
+- navigation is grouped into `Overview`, `Explore`, `Run`, `Monitor`,
+  `Portfolio & Risk`, and `System`; every normal product action is available to
+  the authenticated owner without role or permission filtering
+- a persistent safety header shows environment, execution mode, exchange health, engine state, risk state, data freshness, live-update state, and `REAL-MONEY TRADING IS NOT AVAILABLE` on every authenticated route
 - pages lead with plain-language status, reason, impact, and recommended action; correlation IDs, revisions, source identities, and redacted technical evidence remain available through progressive disclosure
 - activity is split into linked `Decisions & Orders` and restricted `System Events` views with stable time, strategy, instrument, exchange, side, outcome, reason, mode, and correlation filters
-- the Strategy Center keeps versioned configured state separate from runtime state, displays every fail-closed blocking prerequisite, and exposes configuration or runtime controls only to authorized users
-- the Qualification Center lists approved qualifications and drills, preflight state, progress, evidence identity, abort state, and terminal verdict; only an `owner` may start a formal qualification and an `operator` may monitor or abort one
-- `Run Lab` launches only approved backtest, replay, shadow, sandbox, qualification, or operational-drill workflows; it cannot execute arbitrary shell commands or unit-test names
-- every page provides explicit loading, empty, stale, reconnecting, partial-data, permission-denied, validation-error, and server-error presentation where the state can occur
+- the Strategy Center keeps versioned configured state separate from runtime
+  state and displays every fail-closed blocking prerequisite
+- Readiness lists approved qualifications and drills, preflight state, progress,
+  evidence identity, abort state, and terminal verdict; the owner may start or
+  stop an approved workflow only through its existing high-risk boundary
+- New Run launches only server-catalogued demonstration, backtest, replay,
+  shadow, sandbox, qualification, or operational-drill workflows; it cannot
+  execute arbitrary shell commands or unit-test names
+- every page provides explicit loading, empty, stale, reconnecting,
+  partial-data, blocked, validation-error, and server-error presentation where
+  the state can occur
 - desktop, tablet, and mobile layouts preserve keyboard reachability, visible focus, screen-reader names, and bounded overflow; UTC and local-time controls remain available
 - all downloads use server-created redacted, hash-sealed, audited artifacts; the browser never exposes arbitrary logs, private exchange payloads, request headers, signatures, or credentials
 

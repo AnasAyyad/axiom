@@ -20,12 +20,12 @@ import (
 	"axiom/internal/simulation"
 )
 
-func TestA10TrendUsesRealAllocatorRiskPlannerAndSimulationPipeline(t *testing.T) {
+func TestResearchRegistryTrendUsesRealAllocatorRiskPlannerAndSimulationPipeline(t *testing.T) {
 	operational, input := newTrendOperationalPipeline(t)
 	canonical, _ := json.Marshal(input)
 	result, err := operational.Process(context.Background(), replay.Event{LogicalTime: input.LogicalTime, Ordinal: input.Ordinal, Canonical: canonical})
 	if err != nil || result.Ordinal != input.Ordinal || len(result.Orders) == 0 {
-		t.Fatalf("A10 shared pipeline = %#v %v", result, err)
+		t.Fatalf("research registry shared pipeline = %#v %v", result, err)
 	}
 	if strings.Contains(string(result.Orders), input.Candles[len(input.Candles)-1].Close.String()+`\"`) {
 		t.Fatal("signal close appeared as a simulated fill")
@@ -78,7 +78,7 @@ func newTrendOperationalPipeline(t *testing.T) (*OperationalProcessor, Input) {
 	return operational, input
 }
 
-func TestA10TrendAllocatorRiskP99AtMost25Milliseconds(t *testing.T) {
+func TestResearchRegistryTrendAllocatorRiskP99AtMost25Milliseconds(t *testing.T) {
 	if raceInstrumentation {
 		t.Skip("latency qualification is invalid under race instrumentation")
 	}
@@ -160,7 +160,7 @@ func trendPipelinePortfolio(t *testing.T) *portfolio.Portfolio {
 	runID, _ := domain.NewRunID("trend-pipeline-run")
 	portfolioID, _ := domain.NewPortfolioID("trend-pipeline-portfolio")
 	accountID, _ := domain.NewVirtualAccountID("trend-pipeline-account")
-	result, err := portfolio.InitializeV1ATrend(runID, portfolioID, accountID, strings.Repeat("a", 64),
+	result, err := portfolio.InitializeDefaultTrend(runID, portfolioID, accountID, strings.Repeat("a", 64),
 		accounting.NewMemoryJournal(), domain.EventTime{UTC: time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC), Sequence: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -233,7 +233,7 @@ func trendHealthyObservations() risk.Observations {
 func trendRecoveryEvidence(at time.Time) risk.RecoveryEvidence {
 	return risk.RecoveryEvidence{Reconciled: true, PersistenceHealthy: true, BooksFresh: true,
 		UnknownOrdersResolved: true, Reauthenticated: true, AuditDurable: true,
-		Actor: "owner", Reason: "A10 pipeline qualification", At: at}
+		Actor: "owner", Reason: "research registry pipeline qualification", At: at}
 }
 
 type trendRiskAudit struct{}

@@ -10,8 +10,7 @@ import { DataTable } from "../../components/DataTable";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
-import { hasAccess } from "../shared/access";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function AlertDetailPage() {
   const { id = "" } = useParams();
@@ -21,7 +20,6 @@ export function AlertDetailPage() {
     return <StatePanel state="loading" />;
   if (query.isError || session.isError || !query.data || !session.data)
     return <StatePanel state="forbidden" />;
-  const canControl = hasAccess(session.data.user, ["alert.write"]);
   return (
     <Page
       title={`Alert ${query.data.id}`}
@@ -56,7 +54,7 @@ export function AlertDetailPage() {
           <dd>{query.data.correlation_id}</dd>
         </div>
       </dl>
-      {canControl && <AlertControls alert={query.data} />}
+      <AlertControls alert={query.data} />
       <h2>Delivery attempts</h2>
       {query.data.deliveries.length === 0 ? (
         <StatePanel

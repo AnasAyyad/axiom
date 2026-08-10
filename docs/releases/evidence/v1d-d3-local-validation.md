@@ -28,7 +28,7 @@ make d3-contract-qualify GO=/tmp/axiom-go1.26.5/bin/go
 make d3-api-qualify GO=/tmp/axiom-go1.26.5/bin/go
 make d3-postgres-qualify GO=/tmp/axiom-go1.26.5/bin/go
 make d3-frontend-qualify
-node scripts/check-v1d-d3-boundary.mjs
+node scripts/check-run-lab-boundary.mjs
 GOMAXPROCS=2 make verify GO=/tmp/axiom-go1.26.5/bin/go
 ```
 

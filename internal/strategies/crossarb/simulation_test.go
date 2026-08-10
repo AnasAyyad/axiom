@@ -43,7 +43,7 @@ func (timeline *fixtureTimeline) DirectiveAt(
 	return directive, nil
 }
 
-type b5SimulationOutcomeCase struct {
+type crossExchangeArbitrageSimulationOutcomeCase struct {
 	name       string
 	directives map[string]LegDirective
 	policy     RecoveryPolicy
@@ -52,8 +52,8 @@ type b5SimulationOutcomeCase struct {
 	quarantine bool
 }
 
-func b5SimulationOutcomeCases() []b5SimulationOutcomeCase {
-	return []b5SimulationOutcomeCase{
+func crossExchangeArbitrageSimulationOutcomeCases() []crossExchangeArbitrageSimulationOutcomeCase {
+	return []crossExchangeArbitrageSimulationOutcomeCase{
 		{name: "both filled", directives: arrivalStates(execution.OrderFilled, execution.OrderFilled),
 			policy: RecoveryPolicy{}, want: OutcomeBothFilled},
 		{name: "buy only", directives: arrivalStates(execution.OrderFilled, execution.OrderExpired),
@@ -82,7 +82,7 @@ func b5SimulationOutcomeCases() []b5SimulationOutcomeCase {
 }
 
 func TestConcurrentSimulationAllOutcomeClassesAndProtectedRecovery(t *testing.T) {
-	for _, test := range b5SimulationOutcomeCases() {
+	for _, test := range crossExchangeArbitrageSimulationOutcomeCases() {
 		t.Run(test.name, func(t *testing.T) {
 			candidate, timeline := simulationFixture(t)
 			timeline.directives = test.directives
@@ -193,7 +193,7 @@ func unknownUnresolvedStates() map[string]LegDirective {
 
 func testLatency() LatencyDistribution {
 	return LatencyDistribution{
-		Version:         "latency-distribution-b5.v1",
+		Version:         "latency-distribution-cross_exchange_arbitrage.v1",
 		BuySamplesNanos: []uint64{10}, SellSamplesNanos: []uint64{20},
 		SampleOrdinal: 0, VerificationNanos: 5, RetryNanos: 5, RecoveryNanos: 30,
 	}

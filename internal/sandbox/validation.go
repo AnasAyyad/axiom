@@ -8,7 +8,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// Arm and reauthorization lifetimes are fixed V1C security policy.
+// Arm and reauthorization lifetimes are fixed sandbox runtime security policy.
 const (
 	ArmLifetime             = 15 * time.Minute
 	ReauthorizationLifetime = 2 * time.Minute
@@ -94,7 +94,8 @@ func (reservation DurableReservation) ValidateFor(submission Submission) error {
 	if reservation.ID == "" || reservation.AccountID != submission.AccountID ||
 		reservation.AccountEpoch != submission.AccountEpoch ||
 		reservation.OrderID != submission.OrderID.String() ||
-		(reservation.State != "" && reservation.State != ReservationActive) ||
+		(reservation.State != "" && reservation.State != ReservationWaiting &&
+			reservation.State != ReservationActive) ||
 		reservation.ReleasedAt != nil ||
 		reservation.ReleaseReason != "" {
 		return contractError("reservation_invalid")
@@ -122,42 +123,100 @@ func (reservation DurableReservation) ValidateFor(submission Submission) error {
 	return nil
 }
 
-// ValidateSubmissionTopology enforces the closed V1C strategy and venue shape.
-// Only paired Cross-exchange Arbitrage may contain two legs, and its legs must
-// target exactly one Binance Testnet and one Bybit Demo account.
+// ValidateSubmissionTopology enforces the closed sandbox strategy and venue
+// shape. Triangular plans are exact three-market cycles on one account;
+// cross-exchange plans are paired opposite legs on Binance and Bybit. No
+// other strategy is permitted to smuggle a multi-leg plan into the dispatcher.
 func ValidateSubmissionTopology(
 	submissions []Submission,
 	exchangeByAccount map[AccountID]Exchange,
 ) error {
-	if len(submissions) < 1 || len(submissions) > 2 {
+	if len(submissions) < 1 || len(submissions) > 3 {
 		return contractError("submission_topology_invalid")
 	}
 	strategy := submissions[0].StrategyID.Value()
 	if !validSandboxStrategy(strategy) {
 		return contractError("submission_topology_invalid")
 	}
-	venues := make(map[Exchange]int, len(submissions))
-	accounts := make(map[AccountID]struct{}, len(submissions))
 	for _, submission := range submissions {
 		exchange, exists := exchangeByAccount[submission.AccountID]
 		if submission.StrategyID.Value() != strategy || !exists ||
 			(exchange != ExchangeBinance && exchange != ExchangeBybit) {
 			return contractError("submission_topology_invalid")
 		}
-		if _, duplicate := accounts[submission.AccountID]; duplicate {
-			return contractError("submission_topology_invalid")
-		}
-		accounts[submission.AccountID] = struct{}{}
-		venues[exchange]++
 	}
-	if len(submissions) == 1 {
-		if strategy == StrategyCrossExchangeArbitrage {
+	switch strategy {
+	case StrategyTrend, StrategyMeanReversion, StrategySandboxCanary:
+		if len(submissions) != 1 {
 			return contractError("submission_topology_invalid")
 		}
 		return nil
+	case StrategyTriangular:
+		return validateTriangularSubmissionTopology(submissions, exchangeByAccount)
+	case StrategyCrossExchangeArbitrage:
+		return validateCrossExchangeSubmissionTopology(submissions, exchangeByAccount)
+	default:
+		return contractError("submission_topology_invalid")
 	}
-	if strategy != StrategyCrossExchangeArbitrage ||
-		venues[ExchangeBinance] != 1 || venues[ExchangeBybit] != 1 {
+}
+
+func validateTriangularSubmissionTopology(
+	submissions []Submission,
+	exchangeByAccount map[AccountID]Exchange,
+) error {
+	if len(submissions) != 3 {
+		return contractError("submission_topology_invalid")
+	}
+	account := submissions[0].AccountID
+	epoch := submissions[0].AccountEpoch
+	venue := exchangeByAccount[account]
+	instruments := make(map[string]struct{}, len(submissions))
+	inputs := make([]domain.AssetSymbol, len(submissions))
+	outputs := make([]domain.AssetSymbol, len(submissions))
+	for index, submission := range submissions {
+		if submission.AccountID != account || submission.AccountEpoch != epoch ||
+			exchangeByAccount[submission.AccountID] != venue {
+			return contractError("submission_topology_invalid")
+		}
+		symbol := submission.Instrument.Symbol()
+		if _, duplicate := instruments[symbol]; duplicate {
+			return contractError("submission_topology_invalid")
+		}
+		instruments[symbol] = struct{}{}
+		switch submission.Side {
+		case domain.SideBuy:
+			inputs[index], outputs[index] = submission.Instrument.Quote, submission.Instrument.Base
+		case domain.SideSell:
+			inputs[index], outputs[index] = submission.Instrument.Base, submission.Instrument.Quote
+		default:
+			return contractError("submission_topology_invalid")
+		}
+	}
+	for index := range submissions {
+		if outputs[index] != inputs[(index+1)%len(submissions)] {
+			return contractError("submission_topology_invalid")
+		}
+	}
+	return nil
+}
+
+func validateCrossExchangeSubmissionTopology(
+	submissions []Submission,
+	exchangeByAccount map[AccountID]Exchange,
+) error {
+	if len(submissions) != 2 || submissions[0].AccountID == submissions[1].AccountID ||
+		submissions[0].AccountEpoch == 0 || submissions[1].AccountEpoch == 0 ||
+		exchangeByAccount[submissions[0].AccountID] == exchangeByAccount[submissions[1].AccountID] ||
+		submissions[0].Instrument != submissions[1].Instrument ||
+		submissions[0].Side == submissions[1].Side ||
+		submissions[0].Quantity.Compare(submissions[1].Quantity) != 0 {
+		return contractError("submission_topology_invalid")
+	}
+	venues := map[Exchange]bool{
+		exchangeByAccount[submissions[0].AccountID]: true,
+		exchangeByAccount[submissions[1].AccountID]: true,
+	}
+	if !venues[ExchangeBinance] || !venues[ExchangeBybit] {
 		return contractError("submission_topology_invalid")
 	}
 	return nil

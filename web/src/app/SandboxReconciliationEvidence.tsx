@@ -91,14 +91,17 @@ export function SandboxResetGrid({
 export function SandboxQualificationPanel({
   qualification,
 }: {
-  readonly qualification: APIModel<"C6QualificationStatus">;
+  readonly qualification: APIModel<"SandboxQualificationStatus">;
 }) {
   return (
-    <section className={styles.card} aria-labelledby="c6-qualification-heading">
+    <section
+      className={styles.card}
+      aria-labelledby="sandbox-qualification-heading"
+    >
       <header>
         <div>
-          <span>C6 chaos and soak</span>
-          <h2 id="c6-qualification-heading">{qualification.state}</h2>
+          <span>Sandbox chaos and soak</span>
+          <h2 id="sandbox-qualification-heading">{qualification.state}</h2>
         </div>
         <strong data-state={qualification.qualified ? "good" : "warn"}>
           {qualification.qualified ? "FORMALLY QUALIFIED" : "NOT QUALIFIED"}

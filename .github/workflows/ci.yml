@@ -51,8 +51,8 @@ jobs:
       - name: Run local-equivalent quality gate
         run: make verify
 
-  d6-certification:
-    name: D6 fail-closed certification and traceability
+  release_certification-certification:
+    name: release certification fail-closed certification and traceability
     needs: [quality]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -70,16 +70,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           package-manager-cache: false
       - name: Validate certification model and complete traceability
-        run: make d6-certification-model-qualify d6-traceability-qualify
+        run: make release-certification-model-qualify release-certification-traceability-qualify
       - name: Prove final certification remains default-off
         run: |
-          if make d6-final-certification; then
+          if make release-certification-formal; then
             echo "default-off certification unexpectedly passed" >&2
             exit 1
           fi
 
-  d2-browser:
-    name: D2 Chromium, Firefox, WebKit, tablet, and mobile
+  owner_experience-browser:
+    name: owner experience Chromium, Firefox, WebKit, tablet, and mobile
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -98,11 +98,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install pinned browser runtimes
         run: pnpm --filter @axiom/web exec playwright install --with-deps chromium firefox webkit
-      - name: Run D2 browser matrix
-        run: make d2-browser-qualify
+      - name: Run owner experience browser matrix
+        run: make owner-experience-browser-qualify
 
-  d3-browser:
-    name: D3 labs in Chromium, Firefox, WebKit, tablet, and mobile
+  run_lab-browser:
+    name: run lab labs in Chromium, Firefox, WebKit, tablet, and mobile
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -121,11 +121,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install pinned browser runtimes
         run: pnpm --filter @axiom/web exec playwright install --with-deps chromium firefox webkit
-      - name: Run D3 browser matrix
-        run: make d3-browser-qualify
+      - name: Run run lab browser matrix
+        run: make run-lab-browser-qualify
 
-  d4-browser:
-    name: D4 operations in Chromium, Firefox, WebKit, tablet, and mobile
+  operational_evidence-browser:
+    name: operational evidence operations in Chromium, Firefox, WebKit, tablet, and mobile
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -144,11 +144,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install pinned browser runtimes
         run: pnpm --filter @axiom/web exec playwright install --with-deps chromium firefox webkit
-      - name: Run D4 browser matrix
-        run: make d4-browser-qualify
+      - name: Run operational evidence browser matrix
+        run: make operational-evidence-browser-qualify
 
-  d4-postgres:
-    name: D4 PostgreSQL clean-install and D1 upgrade qualification
+  operational_evidence-postgres:
+    name: operational evidence PostgreSQL clean-install and owner control upgrade qualification
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
@@ -172,20 +172,20 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Create isolated D4 qualification databases
+      - name: Create isolated operational evidence qualification databases
         env:
           POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
         run: |
-          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d4_clean_d4_test
-          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d4_upgrade_d4_test
-      - name: Run D4 clean-install and exact D1 upgrade qualification
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_operational_evidence_clean_operational_evidence_test
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_operational_evidence_upgrade_operational_evidence_test
+      - name: Run operational evidence clean-install and exact owner control upgrade qualification
         env:
-          AXIOM_D4_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d4_clean_d4_test?sslmode=disable
-          AXIOM_D4_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d4_upgrade_d4_test?sslmode=disable
-        run: make d4-postgres-qualify
+          AXIOM_OPERATIONAL_EVIDENCE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_evidence_clean_operational_evidence_test?sslmode=disable
+          AXIOM_OPERATIONAL_EVIDENCE_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_evidence_upgrade_operational_evidence_test?sslmode=disable
+        run: make operational-evidence-postgres-qualify
 
-  d5-postgres:
-    name: D5 PostgreSQL clean-install and D4 upgrade qualification
+  operational_readiness-postgres:
+    name: operational readiness PostgreSQL clean-install and operational evidence upgrade qualification
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
@@ -209,20 +209,20 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Create isolated D5 qualification databases
+      - name: Create isolated operational readiness qualification databases
         env:
           POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
         run: |
-          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d5_clean_d5_test
-          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_d5_upgrade_d5_test
-      - name: Run D5 clean-install and exact D4 upgrade qualification
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_operational_readiness_clean_operational_readiness_test
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_operational_readiness_upgrade_operational_readiness_test
+      - name: Run operational readiness clean-install and exact operational evidence upgrade qualification
         env:
-          AXIOM_D5_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d5_clean_d5_test?sslmode=disable
-          AXIOM_D5_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_d5_upgrade_d5_test?sslmode=disable
-        run: make d5-postgres-qualify
+          AXIOM_OPERATIONAL_READINESS_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_readiness_clean_operational_readiness_test?sslmode=disable
+          AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_readiness_upgrade_operational_readiness_test?sslmode=disable
+        run: make operational-readiness-postgres-qualify
 
-  d5-local:
-    name: D5 pressure, backup, lifecycle, chaos, and smoke gates
+  operational_readiness-local:
+    name: operational readiness pressure, backup, lifecycle, chaos, and smoke gates
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -238,13 +238,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           package-manager-cache: false
-      - name: Run non-server D5 gates
+      - name: Run non-server operational readiness gates
         run: |
-          make d5-model-qualify
-          make d5-backup-qualify
-          make d5-hardening-qualify
-          make d5-chaos-qualify
-          make d5-soak-smoke
+          make operational-readiness-model-qualify
+          make operational-readiness-backup-qualify
+          make operational-readiness-hardening-qualify
+          make operational-readiness-chaos-qualify
+          make operational-readiness-smoke
 
   postgres-smoke:
     name: PostgreSQL readiness and process smoke
@@ -281,7 +281,7 @@ jobs:
             axiom_readonly \
             axiom_binance_engine \
             axiom_bybit_engine \
-            axiom_c6_qualification; do
+            axiom_sandbox_qualification; do
             docker exec "${POSTGRES_SERVICE_ID}" psql \
               --username postgres --dbname axiom --set=ON_ERROR_STOP=1 \
               --command "CREATE ROLE ${role} NOLOGIN"
@@ -416,6 +416,6 @@ jobs:
       - name: Upload supply-chain evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: a1-supply-chain-evidence
+          name: application_baseline-supply-chain-evidence
           path: artifacts/
           if-no-files-found: error

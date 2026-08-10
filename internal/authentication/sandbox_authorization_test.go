@@ -129,7 +129,7 @@ func TestPasswordTOTPGrantIsPurposeSessionBoundAndOneUse(t *testing.T) {
 	}
 }
 
-func TestD1HighRiskGrantRequiresAndPreservesExactRevision(t *testing.T) {
+func TestOwnerControlHighRiskGrantRequiresAndPreservesExactRevision(t *testing.T) {
 	service, principal, code := sandboxAuthorizationFixture(t)
 	reason := "activate exact configuration revision"
 	grant, err := service.ReauthenticateForRevision(
@@ -206,12 +206,7 @@ func sandboxAuthorizationFixture(
 	hash := currentTestHash(t)
 	store.users["owner@example.com"] = User{
 		ID: "owner-1", Email: "owner@example.com", NormalizedEmail: "owner@example.com",
-		PasswordHash: hash, Status: "active", Roles: []string{"owner"},
-		Permissions: []string{
-			PermissionSandboxRead, PermissionSandboxArm, PermissionSandboxCancel,
-			PermissionSandboxAdmin, "configuration.admin",
-		},
-		RoleRevision: 1,
+		PasswordHash: hash, Status: "active",
 	}
 	seed := []byte("12345678901234567890")
 	seedFile := filepath.Join(t.TempDir(), "totp")
@@ -224,7 +219,7 @@ func sandboxAuthorizationFixture(
 	}
 	principal := Principal{
 		UserID: "owner-1", Email: "owner@example.com", SessionID: "session-1",
-		Permissions: store.users["owner@example.com"].Permissions, SessionRevision: 1,
+		SessionRevision: 1,
 	}
 	now := clock.Now().UTC
 	clock.mutex.Lock()

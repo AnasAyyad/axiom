@@ -1,4 +1,4 @@
-// Package pressure implements the fail-closed D5 storage-watermark policy.
+// Package pressure implements the fail-closed operational readiness storage-watermark policy.
 package pressure
 
 import (
@@ -37,7 +37,7 @@ type Observation struct {
 	ObservedAt     time.Time
 }
 
-// Validate rejects weakened or ambiguous D5 watermark policies.
+// Validate rejects weakened or ambiguous operational readiness watermark policies.
 func (policy Policy) Validate() error {
 	const minimumCriticalReserve = uint64(1024 * 1024 * 1024)
 	const minimumHighReserve = uint64(10 * 1024 * 1024 * 1024)

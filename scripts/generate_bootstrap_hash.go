@@ -1,7 +1,7 @@
 //go:build ignore
 
 // Command generate_bootstrap_hash reads one password from stdin and emits only
-// its current A11 Argon2id PHC hash. It is a provisioning tool, not runtime code.
+// its current owner-console Argon2id PHC hash. It is a provisioning tool, not runtime code.
 package main
 
 import (

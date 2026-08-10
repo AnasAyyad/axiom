@@ -85,26 +85,26 @@ type Metrics struct {
 	alerts             *prometheus.GaugeVec
 	ready              *prometheus.GaugeVec
 
-	sandboxOrders         *prometheus.CounterVec
-	sandboxAnomalies      *prometheus.CounterVec
-	sandboxUnknown        *prometheus.GaugeVec
-	sandboxReconciliation *prometheus.GaugeVec
-	sandboxArms           *prometheus.GaugeVec
-	sandboxCapUsage       *prometheus.GaugeVec
-	sandboxCapRejections  *prometheus.CounterVec
-	sandboxResets         *prometheus.CounterVec
-	sandboxEngineReady    *prometheus.GaugeVec
-	sandboxEngineEvents   *prometheus.CounterVec
-	sandboxRecovery       *prometheus.HistogramVec
-	criticalAlertLatency  *prometheus.HistogramVec
-	c6SoakState           *prometheus.GaugeVec
-	c6SoakDuration        *prometheus.GaugeVec
-	c6SoakFailures        *prometheus.CounterVec
-	c6MemoryTrend         *prometheus.GaugeVec
+	sandboxOrders                    *prometheus.CounterVec
+	sandboxAnomalies                 *prometheus.CounterVec
+	sandboxUnknown                   *prometheus.GaugeVec
+	sandboxReconciliation            *prometheus.GaugeVec
+	sandboxArms                      *prometheus.GaugeVec
+	sandboxCapUsage                  *prometheus.GaugeVec
+	sandboxCapRejections             *prometheus.CounterVec
+	sandboxResets                    *prometheus.CounterVec
+	sandboxEngineReady               *prometheus.GaugeVec
+	sandboxEngineEvents              *prometheus.CounterVec
+	sandboxRecovery                  *prometheus.HistogramVec
+	criticalAlertLatency             *prometheus.HistogramVec
+	sandboxQualificationSoakState    *prometheus.GaugeVec
+	sandboxQualificationSoakDuration *prometheus.GaugeVec
+	sandboxQualificationSoakFailures *prometheus.CounterVec
+	sandboxQualificationMemoryTrend  *prometheus.GaugeVec
 }
 
 // NewMetrics builds an isolated registry with process collectors and the
-// complete A5 metric contract. Catalog values are copied and validated once.
+// complete observability metric contract. Catalog values are copied and validated once.
 func NewMetrics(service string, catalog MetricCatalog) (*Metrics, error) {
 	if service == "" || len(service) > 64 {
 		return nil, fmt.Errorf("metrics_service_rejected")
@@ -115,8 +115,8 @@ func NewMetrics(service string, catalog MetricCatalog) (*Metrics, error) {
 	}
 	labels := prometheus.Labels{"service": service}
 	metrics := &Metrics{registry: prometheus.NewRegistry(), catalog: catalog}
-	initializeA5Metrics(metrics, labels)
-	initializeC6Metrics(metrics, labels)
+	initializeObservabilityMetrics(metrics, labels)
+	initializeSandboxQualificationMetrics(metrics, labels)
 	metrics.register()
 	return metrics, nil
 }
@@ -133,7 +133,7 @@ func validateMetricCatalog(catalog MetricCatalog) error {
 	return nil
 }
 
-func initializeA5Metrics(metrics *Metrics, labels prometheus.Labels) {
+func initializeObservabilityMetrics(metrics *Metrics, labels prometheus.Labels) {
 	metrics.wsMessages = counter("axiom_websocket_messages_total", "Validated WebSocket messages.", []string{"exchange", "instrument"}, labels)
 	metrics.wsFailures = counter("axiom_websocket_events_total", "WebSocket health events by bounded reason.", []string{"exchange", "instrument", "reason"}, labels)
 	metrics.bookAge = gauge("axiom_order_book_age_seconds", "Age of the active order-book generation.", []string{"exchange", "instrument"}, labels)
@@ -159,7 +159,7 @@ func initializeA5Metrics(metrics *Metrics, labels prometheus.Labels) {
 	metrics.ready = gauge("axiom_dependency_ready", "Dependency readiness state (1 ready, 0 unavailable).", []string{"dependency"}, labels)
 }
 
-func initializeC6Metrics(metrics *Metrics, labels prometheus.Labels) {
+func initializeSandboxQualificationMetrics(metrics *Metrics, labels prometheus.Labels) {
 	metrics.sandboxOrders = counter("axiom_sandbox_orders_total", "Test/demo order state observations.", []string{"exchange", "state"}, labels)
 	metrics.sandboxAnomalies = counter("axiom_sandbox_order_anomalies_total", "Safety-critical test/demo order anomalies.", []string{"exchange", "kind"}, labels)
 	metrics.sandboxUnknown = gauge("axiom_sandbox_unknown_orders", "Unknown order count and oldest age.", []string{"exchange", "measure"}, labels)
@@ -172,10 +172,10 @@ func initializeC6Metrics(metrics *Metrics, labels prometheus.Labels) {
 	metrics.sandboxEngineEvents = counter("axiom_sandbox_engine_events_total", "Engine reconnect and restart observations.", []string{"exchange", "kind"}, labels)
 	metrics.sandboxRecovery = histogram("axiom_sandbox_recovery_duration_seconds", "Sandbox reconciliation and recovery duration.", []string{"exchange", "operation"}, labels)
 	metrics.criticalAlertLatency = histogram("axiom_critical_alert_latency_seconds", "Critical in-app alert creation latency.", []string{"reason"}, labels)
-	metrics.c6SoakState = gauge("axiom_c6_soak_state", "C6 soak state and terminal verdict.", []string{"mode", "state"}, labels)
-	metrics.c6SoakDuration = gauge("axiom_c6_soak_duration_seconds", "Observed C6 qualification duration.", []string{"mode"}, labels)
-	metrics.c6SoakFailures = counter("axiom_c6_soak_failures_total", "C6 qualification failures by closed reason.", []string{"reason"}, labels)
-	metrics.c6MemoryTrend = gauge("axiom_c6_memory_trend_bytes", "Bounded resident-memory trend after warm-up.", []string{"window"}, labels)
+	metrics.sandboxQualificationSoakState = gauge("axiom_sandbox_qualification_soak_state", "sandbox qualification soak state and terminal verdict.", []string{"mode", "state"}, labels)
+	metrics.sandboxQualificationSoakDuration = gauge("axiom_sandbox_qualification_soak_duration_seconds", "Observed sandbox qualification duration.", []string{"mode"}, labels)
+	metrics.sandboxQualificationSoakFailures = counter("axiom_sandbox_qualification_soak_failures_total", "Sandbox qualification failures by closed reason.", []string{"reason"}, labels)
+	metrics.sandboxQualificationMemoryTrend = gauge("axiom_sandbox_qualification_memory_trend_bytes", "Bounded resident-memory trend after warm-up.", []string{"window"}, labels)
 }
 
 func (metrics *Metrics) register() {
@@ -193,8 +193,8 @@ func (metrics *Metrics) register() {
 		metrics.sandboxCapUsage, metrics.sandboxCapRejections,
 		metrics.sandboxResets, metrics.sandboxEngineReady,
 		metrics.sandboxEngineEvents, metrics.sandboxRecovery,
-		metrics.criticalAlertLatency, metrics.c6SoakState,
-		metrics.c6SoakDuration, metrics.c6SoakFailures, metrics.c6MemoryTrend,
+		metrics.criticalAlertLatency, metrics.sandboxQualificationSoakState,
+		metrics.sandboxQualificationSoakDuration, metrics.sandboxQualificationSoakFailures, metrics.sandboxQualificationMemoryTrend,
 	)
 }
 

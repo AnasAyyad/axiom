@@ -7,7 +7,7 @@ import (
 )
 
 func TestReviewedConfigurationMapsExactlyToRuntimeContract(t *testing.T) {
-	platform := platformconfig.DefaultV1BConfiguration()
+	platform := platformconfig.DefaultMultiStrategyConfiguration()
 	runtime, err := ConfigurationFromReviewed(platform.Triangular)
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestReviewedConfigurationMapsExactlyToRuntimeContract(t *testing.T) {
 }
 
 func TestReviewedConfigurationFailsClosedOnContractMutation(t *testing.T) {
-	platform := platformconfig.DefaultV1BConfiguration()
+	platform := platformconfig.DefaultMultiStrategyConfiguration()
 	platform.Triangular.Parameters[0].Value = "2"
 	if _, err := ConfigurationFromReviewed(platform.Triangular); err == nil {
 		t.Fatal("mutated reviewed contract was accepted")

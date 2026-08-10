@@ -61,7 +61,7 @@ make image-reproducibility \
   COMMIT=b5ac868ec38d9204afc6f9fd4db6673aee10e852 \
   BUILT_AT=2026-07-30T16:34:01Z DIRTY=false
 scripts/inspect-image.sh axiom:v1c-pr3-clean-b5ac868
-GO=/tmp/axiom-go-1.26.5 scripts/check-v1c-security-boundary.sh
+GO=/tmp/axiom-go-1.26.5 scripts/check-sandbox-security-boundary.sh
 make compose-smoke \
   IMAGE=axiom:v1c-pr3-clean-b5ac868 \
   GO=/tmp/axiom-go-1.26.5

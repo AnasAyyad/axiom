@@ -1,0 +1,12 @@
+{
+  "schema_version": "axiom.operational_readiness.fault-schedule.v1",
+  "faults": [
+    { "scenario": "public_collector_disconnect_and_gap_recovery", "offset_seconds": 21600 },
+    { "scenario": "recorder_kill_during_segment_finalize", "offset_seconds": 86400 },
+    { "scenario": "shadow_worker_restart_and_checkpoint_recovery", "offset_seconds": 172800 },
+    { "scenario": "database_restart_and_outbox_recovery", "offset_seconds": 259200 },
+    { "scenario": "high_disk_watermark_heavy_job_rejection", "offset_seconds": 345600 },
+    { "scenario": "critical_disk_watermark_safe_pause", "offset_seconds": 432000 },
+    { "scenario": "encrypted_backup_clean_restore", "offset_seconds": 518400 }
+  ]
+}

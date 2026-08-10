@@ -23,7 +23,7 @@ func loadSandboxEngineAttestation(
 	now time.Time,
 ) (
 	sandboxEngineAttestation,
-	postgresstore.V1CEngineAccount,
+	postgresstore.SandboxRuntimeEngineAccount,
 	error,
 ) {
 	accountHash := os.Getenv("AXIOM_SANDBOX_ACCOUNT_IDENTITY_HASH")
@@ -39,7 +39,7 @@ func loadSandboxEngineAttestation(
 		!lowerHex(fingerprint, 32) ||
 		!attested || now.IsZero() || now.Location() != time.UTC {
 		return sandboxEngineAttestation{},
-			postgresstore.V1CEngineAccount{},
+			postgresstore.SandboxRuntimeEngineAccount{},
 			fmt.Errorf("sandbox_engine_attestation_invalid")
 	}
 	prefix := "binance-testnet-"
@@ -48,7 +48,7 @@ func loadSandboxEngineAttestation(
 		prefix = "bybit-demo-"
 		environment = sandbox.EnvironmentBybitDemo
 	}
-	account := postgresstore.V1CEngineAccount{
+	account := postgresstore.SandboxRuntimeEngineAccount{
 		AccountID:            sandbox.AccountID(prefix + accountHash[:16]),
 		Exchange:             exchange,
 		Environment:          environment,

@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { newIdempotencyKey, postAPI, type APIModel } from "../../api/client";
 import { ConfirmAction } from "../../components/ConfirmAction";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function IncidentControls({
   incident,

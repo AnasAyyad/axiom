@@ -6,7 +6,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// Configuration is the immutable exact B5 strategy contract.
+// Configuration is the immutable exact cross-exchange arbitrage strategy contract.
 type Configuration struct {
 	StrategyVersion                 string
 	ModelVersion                    string
@@ -26,10 +26,10 @@ type Configuration struct {
 	ClaimModel                      string
 }
 
-// DefaultConfiguration returns the reviewed B5 baseline.
+// DefaultConfiguration returns the reviewed cross-exchange arbitrage baseline.
 func DefaultConfiguration() Configuration {
 	return Configuration{
-		StrategyVersion:                 "cross-exchange.v1b.1",
+		StrategyVersion:                 "cross-exchange-arbitrage@1.0.0",
 		ModelVersion:                    "cross-exchange-closed-cycle.v1",
 		ApprovedInstruments:             []string{"BTCUSDT", "ETHUSDT"},
 		MaximumBookAge:                  250 * time.Millisecond,
@@ -47,7 +47,7 @@ func DefaultConfiguration() Configuration {
 }
 
 func validConfiguration(configuration Configuration) bool {
-	return configuration.StrategyVersion == "cross-exchange.v1b.1" &&
+	return configuration.StrategyVersion == "cross-exchange-arbitrage@1.0.0" &&
 		configuration.ModelVersion == "cross-exchange-closed-cycle.v1" &&
 		len(configuration.ApprovedInstruments) == 2 &&
 		configuration.ApprovedInstruments[0] == "BTCUSDT" &&

@@ -7,7 +7,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// Session-policy durations and quotas are fixed A11 security boundaries.
+// Session-policy durations and quotas are fixed owner console security boundaries.
 const (
 	AbsoluteLifetime       = 12 * time.Hour
 	IdleLifetime           = 30 * time.Minute
@@ -17,28 +17,25 @@ const (
 	MaximumSessions        = 5
 )
 
-// User is the minimal credential and authorization record needed at login.
+// User is the minimal credential record needed at login. Product authority is
+// established by the owner-account relation in persistence, not a role claim.
 type User struct {
 	ID, Email, NormalizedEmail, PasswordHash, Status string
-	Roles, Permissions                               []string
-	RoleRevision                                     int64
 }
 
 // Session is the server-side opaque-session record.
 type Session struct {
 	ID, UserID, TokenHash, CSRFTokenHash string
 	Email, Status                        string
-	Roles, Permissions                   []string
 	CreatedAt, ExpiresAt, LastSeenAt     time.Time
 	IdleExpiresAt, ReauthenticatedAt     time.Time
-	Revision, RoleRevision               int64
+	Revision                             int64
 	RevokedAt                            *time.Time
 }
 
 // Principal is safe authenticated request context.
 type Principal struct {
 	UserID, Email, SessionID string
-	Roles, Permissions       []string
 	ReauthenticatedAt        time.Time
 	SessionRevision          int64
 }

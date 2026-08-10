@@ -8,20 +8,19 @@ import {
   postAPI,
   type APIModel,
 } from "../../api/client";
-import { d1CollectionQuery, sessionQuery } from "../../api/queries";
+import { ownerControlCollectionQuery, sessionQuery } from "../../api/queries";
 import { Page } from "../../app/OperationalShared";
 import { StatePanel } from "../../components/StatePanel";
 import { EvidenceDetails } from "../shared/EvidenceDetails";
 import { StatusBadge } from "../shared/StatusBadge";
-import { hasAccess } from "../shared/access";
 import { stringAttribute } from "../strategies/strategyModel";
 import { ReportSchedulePanel } from "./ReportSchedulePanel";
 import { reportLabel, reportTypes } from "./reportModel";
-import styles from "../shared/D2.module.css";
+import styles from "../shared/ConsoleSurface.module.css";
 
 export function ReportCenterPage() {
   const session = useQuery(sessionQuery);
-  const query = useQuery(d1CollectionQuery("reports"));
+  const query = useQuery(ownerControlCollectionQuery("reports"));
   if (session.isLoading || query.isLoading)
     return <StatePanel state="loading" />;
   if (
@@ -31,7 +30,6 @@ export function ReportCenterPage() {
     return <StatePanel state="forbidden" />;
   if (session.isError || query.isError || !session.data || !query.data)
     return <StatePanel state="error" detail="Report state is unavailable." />;
-  const canCreate = hasAccess(session.data.user, ["research.control"]);
   return (
     <Page
       title="Report Center"
@@ -44,7 +42,7 @@ export function ReportCenterPage() {
           detail="Showing the prior report snapshot while durable state refreshes."
         />
       )}
-      {canCreate && <CreateReport />}
+      <CreateReport />
       <section aria-labelledby="report-history-title">
         <h2 id="report-history-title">Report history</h2>
         {query.data.items.length === 0 ? (
@@ -112,7 +110,7 @@ export function ReportCenterPage() {
           </div>
         )}
       </section>
-      <ReportSchedulePanel canControl={canCreate} />
+      <ReportSchedulePanel canControl />
       <p className={styles.notice} role="note">
         Strategy viability and platform readiness are separate. Historical,
         replay, shadow, Testnet, and Demo results do not prove profitability.
@@ -139,7 +137,8 @@ function CreateReport() {
         } satisfies APIModel<"ReportRequest">,
         newIdempotencyKey("report-create"),
       ),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["d1", "reports"] }),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: ["owner_control", "reports"] }),
   });
   return (
     <section className={styles.controlCard} aria-label="Create report">
@@ -179,7 +178,8 @@ function CreateReport() {
       </button>
       {mutation.isError && (
         <p className={styles.error} role="alert">
-          Report creation was rejected. Check quota, reason, and permission.
+          Report creation was rejected. Check quota, reason, and owner-session
+          state.
         </p>
       )}
       {mutation.isSuccess && (

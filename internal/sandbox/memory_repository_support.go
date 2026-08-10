@@ -23,12 +23,21 @@ func (repository *memoryDispatcherRepository) openCapacity() (map[AccountID]int,
 	accounts := make(map[AccountID]int)
 	global := 0
 	for _, record := range repository.outbox {
-		if record.State != OutboxTerminal {
+		if outboxConsumesOpenCapacity(record.State) {
 			accounts[record.Submission.AccountID]++
 			global++
 		}
 	}
 	return accounts, global
+}
+
+func outboxConsumesOpenCapacity(state OutboxState) bool {
+	switch state {
+	case OutboxPending, OutboxClaimed, OutboxAcknowledged, OutboxUnknown:
+		return true
+	default:
+		return false
+	}
 }
 
 func approvedReducer(submission Submission) (*execution.OrderReducer, error) {

@@ -72,7 +72,7 @@ type StartupObservation struct {
 	EvidenceHealthy              bool
 }
 
-// StartupGate records the exact C3 startup order. It never arms entry after
+// StartupGate records the exact dispatcher recovery startup order. It never arms entry after
 // recovery; successful completion stops at READY_PAUSED.
 type StartupGate struct {
 	mutex     sync.Mutex

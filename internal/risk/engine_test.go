@@ -23,6 +23,22 @@ func TestEngineStartsPausedAndRequiresAuditedManualRecovery(t *testing.T) {
 	}
 }
 
+func TestRestoredEnginePreservesDurablePostureWithoutAnImplicitTransition(t *testing.T) {
+	audit, alerts := &memoryAudit{}, &memoryAlerts{}
+	engine, err := NewRestoredEngine(StateNormal, audit, alerts)
+	if err != nil || engine.State() != StateNormal || len(audit.events) != 0 || len(alerts.reasons) != 0 {
+		t.Fatalf("engine=%#v state=%s audit=%d alerts=%d error=%v",
+			engine, engine.State(), len(audit.events), len(alerts.reasons), err)
+	}
+	paused, err := NewRestoredEngine(StatePaused, audit, alerts)
+	if err != nil || paused.State() != StatePaused {
+		t.Fatalf("paused=%#v error=%v", paused, err)
+	}
+	if _, err = NewRestoredEngine(State("UNKNOWN"), audit, alerts); err == nil {
+		t.Fatal("unknown durable posture accepted")
+	}
+}
+
 func TestEveryRiskThresholdAndMissingInputFailsAtDocumentedBoundary(t *testing.T) {
 	now := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
 	cases := thresholdCases()

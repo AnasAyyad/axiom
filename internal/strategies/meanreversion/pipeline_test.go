@@ -21,25 +21,25 @@ import (
 	"axiom/internal/simulation"
 )
 
-func TestB3MeanReversionUsesRealAllocatorRiskPlannerSimulationReducerAndAccounting(t *testing.T) {
+func TestMeanReversionMeanReversionUsesRealAllocatorRiskPlannerSimulationReducerAndAccounting(t *testing.T) {
 	operational, input, owned := newOperationalPipeline(t, true)
 	canonical, _ := json.Marshal(input)
 	result, err := operational.Process(context.Background(), replay.Event{LogicalTime: input.LogicalTime,
 		Ordinal: input.Ordinal, Canonical: canonical})
 	if err != nil || result.Ordinal != input.Ordinal || len(result.Orders) == 0 || len(result.Balances) == 0 {
-		t.Fatalf("B3 shared pipeline = %#v, %v", result, err)
+		t.Fatalf("mean reversion shared pipeline = %#v, %v", result, err)
 	}
 	if strings.Contains(string(result.Orders), `"price":"`+input.PrimaryCandles[len(input.PrimaryCandles)-1].Close.String()+`"`) {
-		t.Fatal("signal-close fill appeared in B3 simulation")
+		t.Fatal("signal-close fill appeared in mean reversion simulation")
 	}
 	snapshot := owned.Snapshot()
-	if snapshot.Ownership.Strategy != portfolio.V1BMeanReversionStrategy || len(snapshot.Positions) != 1 ||
+	if snapshot.Ownership.Strategy != portfolio.MultiStrategyResearchMeanReversionStrategy || len(snapshot.Positions) != 1 ||
 		snapshot.Positions[0].Quantity.String() == "0" {
 		t.Fatalf("mean-reversion accounting ownership = %#v", snapshot)
 	}
 }
 
-func TestB3CentralRiskRejectionReleasesFundsAndLiquidityReservation(t *testing.T) {
+func TestMeanReversionCentralRiskRejectionReleasesFundsAndLiquidityReservation(t *testing.T) {
 	_, input, owned, processor, liquidity := pipelineComponents(t, false)
 	canonical, _ := json.Marshal(input)
 	_, err := processor.Process(context.Background(), replay.Event{LogicalTime: input.LogicalTime,
@@ -56,14 +56,14 @@ func TestB3CentralRiskRejectionReleasesFundsAndLiquidityReservation(t *testing.T
 	}
 }
 
-func TestB3DeclaredProfileStrategyAllocatorRiskP99AtMost25Milliseconds(t *testing.T) {
+func TestMeanReversionDeclaredProfileStrategyAllocatorRiskP99AtMost25Milliseconds(t *testing.T) {
 	if raceInstrumentation {
 		t.Skip("latency qualification is invalid under race instrumentation")
 	}
-	fixture := newB3LatencyFixture(t)
+	fixture := newMeanReversionLatencyFixture(t)
 	durations := make([]time.Duration, 0, 200)
 	for index := 0; index < 210; index++ {
-		elapsed := measureB3PipelineLatency(t, fixture, index)
+		elapsed := measureMeanReversionPipelineLatency(t, fixture, index)
 		if index >= 10 {
 			durations = append(durations, elapsed)
 		}
@@ -77,7 +77,7 @@ func TestB3DeclaredProfileStrategyAllocatorRiskP99AtMost25Milliseconds(t *testin
 	}
 }
 
-type b3LatencyFixture struct {
+type meanReversionLatencyFixture struct {
 	evaluator  *Evaluator
 	baseline   Input
 	adapter    *Adapter
@@ -85,7 +85,7 @@ type b3LatencyFixture struct {
 	riskEngine *risk.Engine
 }
 
-func newB3LatencyFixture(t *testing.T) b3LatencyFixture {
+func newMeanReversionLatencyFixture(t *testing.T) meanReversionLatencyFixture {
 	t.Helper()
 	evaluator, _ := evaluatorFixture(t)
 	baseline := baselineInput(t)
@@ -101,11 +101,11 @@ func newB3LatencyFixture(t *testing.T) b3LatencyFixture {
 	if err := riskEngine.ManualTransition(risk.StateNormal, recoveryEvidence(baseline.Now)); err != nil {
 		t.Fatal(err)
 	}
-	return b3LatencyFixture{evaluator: evaluator, baseline: baseline, adapter: adapter,
+	return meanReversionLatencyFixture{evaluator: evaluator, baseline: baseline, adapter: adapter,
 		allocator: allocator, riskEngine: riskEngine}
 }
 
-func measureB3PipelineLatency(t *testing.T, fixture b3LatencyFixture, index int) time.Duration {
+func measureMeanReversionPipelineLatency(t *testing.T, fixture meanReversionLatencyFixture, index int) time.Duration {
 	t.Helper()
 	input := cloneInput(fixture.baseline)
 	input.Ordinal += uint64(index + 1)
@@ -304,7 +304,7 @@ func healthyObservations() risk.Observations {
 func recoveryEvidence(at time.Time) risk.RecoveryEvidence {
 	return risk.RecoveryEvidence{Reconciled: true, PersistenceHealthy: true, BooksFresh: true,
 		UnknownOrdersResolved: true, Reauthenticated: true, AuditDurable: true,
-		Actor: "owner", Reason: "B3 pipeline qualification", At: at}
+		Actor: "owner", Reason: "mean reversion pipeline qualification", At: at}
 }
 
 type meanReversionRiskAudit struct{}

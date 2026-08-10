@@ -37,7 +37,8 @@
     "price_tick": "0.01",
     "quantity_step": "0.00001",
     "minimum_quantity": "0.00001",
+    "maximum_quantity": "1000",
     "minimum_notional": "5",
-    "raw_payload_hash": "19ded320911911e3c6f08e86e0fbd22184b11b447e3c638fdfc576a079b59e71"
+    "raw_payload_hash": "c806aba86d525eb0a6510a87443217df7674d844c68ca405f065529fa2f29502"
   }
 }

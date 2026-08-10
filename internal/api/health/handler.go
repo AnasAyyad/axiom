@@ -31,7 +31,6 @@ type Options struct {
 	Dependency Dependency
 	Lifecycle  LifecycleState
 	Authorize  func(*http.Request) bool
-	Phase      generated.HealthResponsePhase
 	OmitStatus bool
 }
 
@@ -53,7 +52,7 @@ func NewBearerAuthorizer(token string) (func(*http.Request) bool, error) {
 	}, nil
 }
 
-// Register adds all A1 health and system-information routes to mux.
+// Register adds all application baseline health and system-information routes to mux.
 func Register(mux *http.ServeMux, options Options) {
 	mux.HandleFunc("/health/live", getOnly(liveness(options)))
 	mux.HandleFunc("/health/ready", getOnly(readiness(options)))
@@ -100,9 +99,7 @@ func detailed(options Options) http.HandlerFunc {
 func liveness(options Options) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
-			Status: generated.Live,
-			Role:   options.Role,
-			Phase:  responsePhase(options),
+			Status: generated.HealthResponseStatusLive,
 		})
 	}
 }
@@ -120,26 +117,18 @@ func readiness(options Options) http.HandlerFunc {
 		}
 		if reason != "" {
 			writeJSON(writer, http.StatusServiceUnavailable, generated.HealthResponse{
-				Status: generated.NotReady, Role: options.Role,
-				Phase: responsePhase(options), ReasonCode: &reason,
+				Status: generated.HealthResponseStatusNotReady, ReasonCode: &reason,
 			})
 			return
 		}
 		writeJSON(writer, http.StatusOK, generated.HealthResponse{
-			Status: generated.Ready, Role: options.Role, Phase: responsePhase(options),
+			Status: generated.HealthResponseStatusReady,
 		})
 	}
 }
 
 func lifecycleReady(options Options) bool {
 	return options.Lifecycle == nil || options.Lifecycle() == generated.SystemStatusLifecycleStateREADYPAUSED
-}
-
-func responsePhase(options Options) generated.HealthResponsePhase {
-	if options.Phase.Valid() {
-		return options.Phase
-	}
-	return generated.HealthResponsePhaseA1
 }
 
 func version(options Options) http.HandlerFunc {
@@ -164,9 +153,20 @@ func status(options Options) http.HandlerFunc {
 		if options.Lifecycle != nil {
 			state = options.Lifecycle()
 		}
+		readiness := generated.SystemStatusReadinessStateBlocked
+		if lifecycleReady(options) {
+			readiness = generated.SystemStatusReadinessStateReady
+		}
+		version, commit := options.Build.Version, options.Build.Commit
+		if version == "" {
+			version = "unavailable"
+		}
+		if commit == "" {
+			commit = "unavailable"
+		}
 		writeJSON(writer, http.StatusOK, generated.SystemStatus{
-			Release: generated.V1A, Phase: generated.SystemStatusPhaseA1,
-			Role: options.Role, LifecycleState: state,
+			ApplicationVersion: version, BuildCommit: commit, ConfigurationIdentity: "not-projected",
+			ReadinessState: readiness, LifecycleState: state,
 			StrategyActivation: generated.SystemStatusStrategyActivationUnavailable,
 			RealTradingEnabled: generated.SystemStatusRealTradingEnabled(false),
 		})

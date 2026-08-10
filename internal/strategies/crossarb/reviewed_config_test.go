@@ -7,7 +7,7 @@ import (
 )
 
 func TestReviewedConfigurationMapsExactlyAndFailsClosed(t *testing.T) {
-	reviewed := config.DefaultV1BConfiguration().CrossExchange
+	reviewed := config.DefaultMultiStrategyConfiguration().CrossExchange
 	configuration, err := ConfigurationFromReviewed(reviewed)
 	if err != nil || !validConfiguration(configuration) {
 		t.Fatalf("configuration = %#v, %v", configuration, err)

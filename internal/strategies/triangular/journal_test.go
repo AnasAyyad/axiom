@@ -29,7 +29,7 @@ func TestCycleJournalSeparatesAndBalancesFullCycleEconomics(t *testing.T) {
 		}
 		types[transaction.Type] = true
 	}
-	for _, required := range []string{"b4_trade_economics", "b4_fees"} {
+	for _, required := range []string{"triangular_arbitrage_trade_economics", "triangular_arbitrage_fees"} {
 		if !types[required] {
 			t.Fatalf("missing %s in %#v", required, types)
 		}
@@ -52,7 +52,7 @@ func TestCycleJournalSeparatesRecoveryAndStrandedInventory(t *testing.T) {
 	if err = newTestCycleJournal(t, recoveryMemory, candidate).Post(candidate, recovered); err != nil {
 		t.Fatal(err)
 	}
-	if !hasTransactionType(recoveryMemory.Transactions(), "b4_recovery_unwind") {
+	if !hasTransactionType(recoveryMemory.Transactions(), "triangular_arbitrage_recovery_unwind") {
 		t.Fatalf("recovery loss was not separated: %#v", recoveryMemory.Transactions())
 	}
 
@@ -66,7 +66,7 @@ func TestCycleJournalSeparatesRecoveryAndStrandedInventory(t *testing.T) {
 	if err = newTestCycleJournal(t, strandedMemory, candidate).Post(candidate, stranded); err != nil {
 		t.Fatal(err)
 	}
-	if !hasTransactionType(strandedMemory.Transactions(), "b4_stranded_inventory") {
+	if !hasTransactionType(strandedMemory.Transactions(), "triangular_arbitrage_stranded_inventory") {
 		t.Fatalf("stranded inventory was not separated: %#v", strandedMemory.Transactions())
 	}
 }
@@ -84,7 +84,7 @@ func TestCycleJournalRejectsMismatchedCandidateAndPostsExplicitReconciliation(t 
 	if err := journal.PostReconciliation(candidate, asset, quantity, 90); err != nil {
 		t.Fatal(err)
 	}
-	if !hasTransactionType(memory.Transactions(), "b4_reconciliation_adjustment") {
+	if !hasTransactionType(memory.Transactions(), "triangular_arbitrage_reconciliation_adjustment") {
 		t.Fatal("explicit reconciliation adjustment missing")
 	}
 }
@@ -95,7 +95,7 @@ func newTestCycleJournal(
 	candidate Candidate,
 ) *CycleJournal {
 	t.Helper()
-	runID, _ := domain.NewRunID("b4-run")
+	runID, _ := domain.NewRunID("triangular_arbitrage-run")
 	portfolioID, _ := domain.NewPortfolioID("portfolio-a")
 	journal, err := NewCycleJournal(memory, JournalContext{
 		RunID: runID, PortfolioID: portfolioID, Owner: "portfolio-a",

@@ -9,7 +9,7 @@ import (
 )
 
 func (handler *handler) registerReads(mux *http.ServeMux) {
-	handler.registerB8Reads(mux)
+	handler.registerMultiExchangeConsoleReads(mux)
 	mux.HandleFunc("GET /api/v1/system/status", handler.authorized(handler.systemStatus, "operations.read"))
 	mux.HandleFunc("GET /api/v1/exchanges/binance/health", handler.authorized(handler.binanceHealth, "operations.read"))
 	mux.HandleFunc("GET /api/v1/exchanges/binance/instruments", handler.authorized(handler.instruments, "operations.read"))
@@ -176,7 +176,7 @@ func (handler *handler) incident(writer http.ResponseWriter, request *http.Reque
 	if handler.readUnavailable(writer, request) {
 		return
 	}
-	raw, err := a11OptionalBool(request.URL.Query().Get("include_raw"))
+	raw, err := ownerConsoleOptionalBool(request.URL.Query().Get("include_raw"))
 	if err != nil {
 		handler.writeServiceError(writer, request, ErrInvalidRequest)
 		return
@@ -202,7 +202,7 @@ func (handler *handler) audit(writer http.ResponseWriter, request *http.Request,
 		handler.writeServiceError(writer, request, ErrInvalidRequest)
 		return
 	}
-	raw, err := a11OptionalBool(request.URL.Query().Get("include_detail"))
+	raw, err := ownerConsoleOptionalBool(request.URL.Query().Get("include_detail"))
 	if err != nil {
 		handler.writeServiceError(writer, request, ErrInvalidRequest)
 		return
@@ -215,7 +215,7 @@ func (handler *handler) audit(writer http.ResponseWriter, request *http.Request,
 	handler.writeRead(writer, request, value, err)
 }
 
-func a11OptionalBool(value string) (bool, error) {
+func ownerConsoleOptionalBool(value string) (bool, error) {
 	switch value {
 	case "", "false":
 		return false, nil
@@ -235,6 +235,11 @@ func (handler *handler) writeRead(writer http.ResponseWriter, request *http.Requ
 }
 
 func (handler *handler) writeServiceError(writer http.ResponseWriter, request *http.Request, err error) {
+	var blocker *WorkflowBlocker
+	if errors.As(err, &blocker) {
+		handler.writeWorkflowBlocker(writer, request, blocker)
+		return
+	}
 	switch {
 	case errors.Is(err, ErrNotFound):
 		handler.writeError(writer, request, http.StatusNotFound, "not_found", "Resource not found")

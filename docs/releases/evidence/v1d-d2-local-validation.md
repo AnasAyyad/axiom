@@ -28,7 +28,7 @@ corepack pnpm --filter @axiom/web typecheck
 corepack pnpm --filter @axiom/web lint
 corepack pnpm --filter @axiom/web test
 corepack pnpm --filter @axiom/web build
-node scripts/check-v1d-d2-boundary.mjs
+node scripts/check-owner-experience-boundary.mjs
 scripts/check-file-policy.sh
 scripts/check-secret-patterns.sh
 scripts/test-check-secret-patterns.sh
