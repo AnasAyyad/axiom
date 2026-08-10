@@ -86,16 +86,13 @@ func TestOperationalReadinessPostgresOperationalEvidenceToOperationalReadinessUp
 	assertEmptyTestDatabase(t, ctx, pool)
 	applyTriangularArbitrageMigrationPrefix(t, ctx, pool, 26)
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 27 {
+	if err != nil || len(migrations) < 27 {
 		t.Fatalf("operational readiness migration catalog=%d error=%v", len(migrations), err)
 	}
-	connection, err := pool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer connection.Release()
-	if changed, applyErr := applyMigration(ctx, connection, migrations[26]); applyErr != nil || !changed {
-		t.Fatalf("operational-evidence-to-readiness migration changed=%t error=%v", changed, applyErr)
+	wantApplied := len(migrations) - 26
+	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != wantApplied {
+		t.Fatalf("operational-evidence-to-current migration applied=%d want=%d error=%v",
+			applied, wantApplied, applyErr)
 	}
 	var level, source string
 	if err = pool.QueryRow(ctx, `SELECT level,source_instance FROM owner_console_storage_pressure_state

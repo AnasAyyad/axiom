@@ -59,13 +59,10 @@ id,severity,state,reason_code,opened_at,resolved_at
 	if err != nil || len(migrations) < 26 {
 		t.Fatalf("operational evidence migration catalog=%d error=%v", len(migrations), err)
 	}
-	connection, err := pool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer connection.Release()
-	if changed, applyErr := applyMigration(ctx, connection, migrations[25]); applyErr != nil || !changed {
-		t.Fatalf("owner-control-to-operational-evidence migration changed=%t error=%v", changed, applyErr)
+	wantApplied := len(migrations) - 25
+	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != wantApplied {
+		t.Fatalf("owner-control-to-current migration applied=%d want=%d error=%v",
+			applied, wantApplied, applyErr)
 	}
 	assertOperationalEvidenceRelations(t, ctx, pool)
 	var revision, timeline int

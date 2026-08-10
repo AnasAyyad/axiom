@@ -68,8 +68,8 @@ func newOwnerControlIntegrationFixture(
 	    'owner_control-owner@example.test',$2)`, userID, at); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO user_roles(user_id,role_id,granted_at)
-	    VALUES ($1,'owner',$2)`, userID, at); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO owner_accounts(singleton,user_id,established_at)
+	    VALUES (true,$1,$2)`, userID, at); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO sessions(

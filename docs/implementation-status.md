@@ -2,7 +2,8 @@
 
 ## Owner-console response and PR corrective slice — 2026-08-10
 
-**Status:** Implemented and locally validated; hosted PR checks remain pending.
+**Status:** Implemented; hosted rerun pending after PostgreSQL qualification
+fixture correction.
 
 This slice aligns the browser's fail-closed response validation with the
 published server-approved exchange-sandbox run contract, adds regression
@@ -20,6 +21,16 @@ desktop/tablet/mobile and Firefox; WebKit could not launch because this host is
 missing its system libraries, which the hosted workflow installs explicitly.
 Go-backed contract and backend checks were not rerun because the exact Go
 toolchain is not installed in this checkout environment.
+
+The first hosted rerun passed the browser, dependency, secret-scan, operational
+readiness, and process-smoke jobs, then exposed two stale PostgreSQL
+qualification fixtures. Clean-install fixtures still attempted to grant the
+historical `user_roles` authority after the singleton-owner migration, and the
+operational-evidence/readiness upgrade fixtures applied only migrations
+`000026`/`000027` before asserting semantic names introduced by `000054`. The
+local correction creates the singleton `owner_accounts` authority and applies
+the complete current migration suffix from each declared upgrade baseline.
+Exact Go/PostgreSQL validation remains pending the hosted rerun.
 
 ## Complete owner console program
 
