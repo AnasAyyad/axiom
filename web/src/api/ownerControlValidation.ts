@@ -78,6 +78,7 @@ const runCatalog = z
             "backtest",
             "replay",
             "shadow",
+            "sandbox",
             "testnet",
             "demo",
           ]),

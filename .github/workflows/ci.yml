@@ -70,10 +70,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           package-manager-cache: false
       - name: Validate certification model and complete traceability
-        run: make release_certification-certification-model-qualify release_certification-traceability-qualify
+        run: make release-certification-model-qualify release-certification-traceability-qualify
       - name: Prove final certification remains default-off
         run: |
-          if make release_certification-final-certification; then
+          if make release-certification-formal; then
             echo "default-off certification unexpectedly passed" >&2
             exit 1
           fi
@@ -99,7 +99,7 @@ jobs:
       - name: Install pinned browser runtimes
         run: pnpm --filter @axiom/web exec playwright install --with-deps chromium firefox webkit
       - name: Run owner experience browser matrix
-        run: make owner_experience-browser-qualify
+        run: make owner-experience-browser-qualify
 
   run_lab-browser:
     name: run lab labs in Chromium, Firefox, WebKit, tablet, and mobile
@@ -122,7 +122,7 @@ jobs:
       - name: Install pinned browser runtimes
         run: pnpm --filter @axiom/web exec playwright install --with-deps chromium firefox webkit
       - name: Run run lab browser matrix
-        run: make run_lab-browser-qualify
+        run: make run-lab-browser-qualify
 
   operational_evidence-browser:
     name: operational evidence operations in Chromium, Firefox, WebKit, tablet, and mobile
@@ -145,7 +145,7 @@ jobs:
       - name: Install pinned browser runtimes
         run: pnpm --filter @axiom/web exec playwright install --with-deps chromium firefox webkit
       - name: Run operational evidence browser matrix
-        run: make operational_evidence-browser-qualify
+        run: make operational-evidence-browser-qualify
 
   operational_evidence-postgres:
     name: operational evidence PostgreSQL clean-install and owner control upgrade qualification
@@ -182,7 +182,7 @@ jobs:
         env:
           AXIOM_OPERATIONAL_EVIDENCE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_evidence_clean_operational_evidence_test?sslmode=disable
           AXIOM_OPERATIONAL_EVIDENCE_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_evidence_upgrade_operational_evidence_test?sslmode=disable
-        run: make operational_evidence-postgres-qualify
+        run: make operational-evidence-postgres-qualify
 
   operational_readiness-postgres:
     name: operational readiness PostgreSQL clean-install and operational evidence upgrade qualification
@@ -219,7 +219,7 @@ jobs:
         env:
           AXIOM_OPERATIONAL_READINESS_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_readiness_clean_operational_readiness_test?sslmode=disable
           AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_readiness_upgrade_operational_readiness_test?sslmode=disable
-        run: make operational_readiness-postgres-qualify
+        run: make operational-readiness-postgres-qualify
 
   operational_readiness-local:
     name: operational readiness pressure, backup, lifecycle, chaos, and smoke gates
@@ -240,11 +240,11 @@ jobs:
           package-manager-cache: false
       - name: Run non-server operational readiness gates
         run: |
-          make operational_readiness-model-qualify
-          make operational_readiness-backup-qualify
-          make operational_readiness-hardening-qualify
-          make operational_readiness-chaos-qualify
-          make operational_readiness-soak-smoke
+          make operational-readiness-model-qualify
+          make operational-readiness-backup-qualify
+          make operational-readiness-hardening-qualify
+          make operational-readiness-chaos-qualify
+          make operational-readiness-smoke
 
   postgres-smoke:
     name: PostgreSQL readiness and process smoke

@@ -51,17 +51,65 @@
 }
 
 .statePanel {
-  display: grid;
-  gap: 0.25rem;
+  --state-tone: var(--color-accent);
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
   padding: 1rem 1.1rem;
-  border: 1px dashed var(--color-border-strong);
+  border: 1px solid
+    color-mix(in srgb, var(--state-tone) 42%, var(--color-border));
+  border-left-width: 0.22rem;
   border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--state-tone) 9%, var(--color-surface-subtle)),
+    var(--color-surface-subtle) 55%
+  );
   color: var(--color-text-muted);
+  box-shadow: var(--shadow-card);
 }
 
 .statePanel strong {
   color: var(--color-text);
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.statePanel[data-state="error"],
+.statePanel[data-state="forbidden"],
+.statePanel[data-state="locked"] {
+  --state-tone: var(--color-critical);
+}
+
+.statePanel[data-state="blocked"],
+.statePanel[data-state="degraded"],
+.statePanel[data-state="partial"],
+.statePanel[data-state="paused"],
+.statePanel[data-state="stale"],
+.statePanel[data-state="validation"] {
+  --state-tone: var(--color-warning);
+}
+
+.stateMark {
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 1.75rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--state-tone) 60%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--state-tone) 14%, transparent);
+  color: var(--state-tone);
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.stateCopy {
+  display: grid;
+  min-width: 0;
+  gap: 0.22rem;
+  line-height: 1.45;
 }
 
 .tableFrame {

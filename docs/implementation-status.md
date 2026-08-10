@@ -1,5 +1,26 @@
 # Axiom implementation status
 
+## Owner-console response and PR corrective slice — 2026-08-10
+
+**Status:** Implemented and locally validated; hosted PR checks remain pending.
+
+This slice aligns the browser's fail-closed response validation with the
+published server-approved exchange-sandbox run contract, adds regression
+coverage for that response, repairs semantic-name drift in CI Make target
+invocations, and updates the vulnerable transitive `nanoid` resolution. It
+also refines the shared non-happy-state presentation without changing any
+authoritative state, execution path, qualification verdict, or certification
+status.
+
+Frontend type checking, full lint, all 44 frontend tests, production build,
+the focused Chromium owner workflow, formatting, workflow YAML parsing, and a
+live moderate-severity dependency audit pass. The repaired CI targets resolve
+in Make dry runs. The local five-project browser matrix passed Chromium
+desktop/tablet/mobile and Firefox; WebKit could not launch because this host is
+missing its system libraries, which the hosted workflow installs explicitly.
+Go-backed contract and backend checks were not rerun because the exact Go
+toolchain is not installed in this checkout environment.
+
 ## Complete owner console program
 
 **Status:** In progress — implementation branch only; no formal qualification

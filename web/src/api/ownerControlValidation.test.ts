@@ -86,4 +86,24 @@ describe("owner control browser contract validation", () => {
     });
     expect(parsed?.success).toBe(true);
   });
+
+  it("accepts server-approved exchange-sandbox run choices", () => {
+    const parsed = parseAPIResponse("GET /api/v1/run-catalog", {
+      choices: [
+        {
+          strategy_id: "cross-exchange-arbitrage",
+          strategy_name: "Cross-Exchange Arbitrage",
+          strategy_version: "cross-exchange-arbitrage@1.0.0",
+          mode: "sandbox",
+          exchanges: ["binance", "bybit"],
+          instrument: "BTC/USDT",
+          cadence: "When coherent Binance and Bybit books are available",
+          warmup: "Paired synchronized spot books and inventory evidence",
+          order_capable: true,
+        },
+      ],
+    });
+
+    expect(parsed?.success).toBe(true);
+  });
 });

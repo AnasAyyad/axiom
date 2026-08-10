@@ -78,6 +78,20 @@ function runChoiceFixture() {
   };
 }
 
+function sandboxRunChoiceFixture() {
+  return {
+    strategy_id: "cross-exchange-arbitrage",
+    strategy_name: "Cross-Exchange Arbitrage",
+    strategy_version: "cross-exchange-arbitrage@1.0.0",
+    mode: "sandbox",
+    exchanges: ["binance", "bybit"],
+    instrument: "BTC/USDT",
+    cadence: "When coherent Binance and Bybit books are available",
+    warmup: "Paired synchronized spot books and inventory evidence",
+    order_capable: true,
+  };
+}
+
 function runResourceFixture() {
   return {
     id: "run-triangular-owner",
@@ -222,6 +236,9 @@ test("Unified runs preserve immutable identity and virtual execution", async ({
 
   await page.getByRole("link", { name: "New Run" }).click();
   await expect(page.getByRole("heading", { name: "New Run" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Exchange sandbox/i }),
+  ).toBeEnabled();
   await page.getByRole("button", { name: /Historical test/i }).click();
   await page.getByRole("button", { name: /Triangular Arbitrage/i }).click();
   await page.getByRole("button", { name: /BTC\/USDT on binance/i }).click();
@@ -714,7 +731,7 @@ async function routeAPI(route: Route, state: FixtureState) {
       reauthenticated_at: now,
     };
   else if (path === "/api/v1/run-catalog")
-    body = { choices: [runChoiceFixture()] };
+    body = { choices: [runChoiceFixture(), sandboxRunChoiceFixture()] };
   else if (path === "/api/v1/runs" && method === "POST")
     body = runResourceFixture();
   else if (path === "/api/v1/runs") body = { items: [runResourceFixture()] };
