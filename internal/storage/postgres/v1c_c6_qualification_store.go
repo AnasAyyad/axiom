@@ -293,7 +293,7 @@ func (store *V1CC6QualificationStore) observeC6Accounts(
 		sample.Restarts = uint64(cycles - baselineRestarts)
 	}
 	var runtimeHealthy bool
-	err = store.pool.QueryRow(ctx, c6ObserveRuntimeSQL, started).Scan(
+	err = store.pool.QueryRow(ctx, c6ObserveRuntimeSQL, started, now).Scan(
 		&sample.Reconnects,
 		&sample.RecoveryDurationMillis,
 		&runtimeHealthy,

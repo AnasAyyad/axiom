@@ -170,6 +170,17 @@ func assertV1CC6ObserverQueryParameters(
 	if err != nil {
 		t.Fatalf("C6 account observer query parameters rejected: %v", err)
 	}
+	var reconnects, duration int64
+	var runtimeHealthy bool
+	err = pool.QueryRow(
+		ctx,
+		c6ObserveRuntimeSQL,
+		observedAt.Add(-time.Minute),
+		observedAt,
+	).Scan(&reconnects, &duration, &runtimeHealthy)
+	if err != nil {
+		t.Fatalf("C6 runtime observer cutoff parameters rejected: %v", err)
+	}
 	var details int
 	err = pool.QueryRow(
 		ctx,

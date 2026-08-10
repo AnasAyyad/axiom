@@ -21,6 +21,7 @@ func assertV1CEngineRuntimePersistence(
 	fixture := newV1CEngineRuntimeFixture(t, ctx, pool)
 	assertV1CEngineStartupEvidence(t, fixture)
 	assertV1CEngineObservationFencing(t, fixture)
+	assertV1CC6ObservationCutoff(t, fixture)
 	assertV1CPrivateStreamRuntimeEvidence(t, fixture)
 	assertV1CEngineCommandFencing(t, fixture)
 }

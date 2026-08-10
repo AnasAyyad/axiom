@@ -95,6 +95,7 @@ SELECT count(*)::integer,
        WHERE runtime.account_id=account.id
          AND runtime.account_epoch=account.current_epoch
          AND runtime.kind='RECONCILIATION' AND runtime.succeeded
+         AND runtime.occurred_at <= $1::timestamptz
          AND runtime.occurred_at >=
            $1::timestamptz-interval '2 minutes'
      )
@@ -118,7 +119,8 @@ SELECT
      failure_kind IN ('transient_outage','maintenance')
    )
  ),true)
-FROM v1c_engine_runtime_events WHERE occurred_at >= $1`
+FROM v1c_engine_runtime_events
+WHERE occurred_at >= $1 AND occurred_at <= $2`
 
 const c6ObserveAccountDetailsSQL = `
 SELECT account.id,account.exchange,account.environment,account.current_epoch,
@@ -152,6 +154,7 @@ LEFT JOIN LATERAL (
    AND runtime.account_epoch=account.current_epoch
    AND runtime.kind='RECONCILIATION'
    AND runtime.occurred_at >= $2::timestamptz
+   AND runtime.occurred_at <= $1::timestamptz
  ORDER BY runtime.occurred_at DESC,runtime.id DESC LIMIT 1
 ) runtime ON true
 LEFT JOIN LATERAL (
@@ -162,6 +165,7 @@ LEFT JOIN LATERAL (
    AND incident.kind IN ('RECONCILIATION','PRIVATE_STREAM')
    AND NOT incident.succeeded
    AND incident.occurred_at >= $2::timestamptz
+   AND incident.occurred_at <= $1::timestamptz
  ORDER BY incident.occurred_at,incident.id LIMIT 1
 ) first_incident ON true
 LEFT JOIN LATERAL (
@@ -172,6 +176,7 @@ LEFT JOIN LATERAL (
    AND incident.kind IN ('RECONCILIATION','PRIVATE_STREAM')
    AND NOT incident.succeeded
    AND incident.occurred_at >= $2::timestamptz
+   AND incident.occurred_at <= $1::timestamptz
  ORDER BY incident.occurred_at DESC,incident.id DESC LIMIT 1
 ) latest_incident ON true
 LEFT JOIN LATERAL (
@@ -191,6 +196,7 @@ LEFT JOIN LATERAL (
  WHERE runtime_failure.account_id=account.id
    AND runtime_failure.account_epoch=account.current_epoch
    AND runtime_failure.occurred_at >= $2::timestamptz
+   AND runtime_failure.occurred_at <= $1::timestamptz
 ) runtime_failures ON true
 LEFT JOIN LATERAL (
  SELECT kind,failure_kind,cause_code,occurred_at
@@ -199,6 +205,7 @@ LEFT JOIN LATERAL (
    AND terminal.account_epoch=account.current_epoch
    AND NOT terminal.succeeded
    AND terminal.occurred_at >= $2::timestamptz
+   AND terminal.occurred_at <= $1::timestamptz
    AND (
      (terminal.kind IN ('RECONCILIATION','PRIVATE_STREAM') AND (
        terminal.failure_kind IS NULL OR
@@ -215,6 +222,7 @@ LEFT JOIN LATERAL (
    AND reconnected.account_epoch=account.current_epoch
    AND reconnected.kind='PRIVATE_RECONNECT' AND reconnected.succeeded
    AND reconnected.occurred_at>=latest_incident.occurred_at
+   AND reconnected.occurred_at <= $1::timestamptz
  ORDER BY reconnected.occurred_at,reconnected.id LIMIT 1
 ) reconnect ON true
 LEFT JOIN LATERAL (
@@ -225,6 +233,7 @@ LEFT JOIN LATERAL (
    AND clean.account_epoch=account.current_epoch
    AND clean.kind='RECONCILIATION' AND clean.succeeded
    AND clean.occurred_at>=latest_incident.occurred_at
+   AND clean.occurred_at <= $1::timestamptz
    AND (
      latest_incident.kind='RECONCILIATION' OR
      (latest_incident.kind='PRIVATE_STREAM' AND
@@ -241,6 +250,7 @@ LEFT JOIN LATERAL (
    AND clean.account_epoch=account.current_epoch
    AND clean.kind='RECONCILIATION' AND clean.succeeded
    AND clean.occurred_at>=first_clean.occurred_at+interval '30 seconds'
+   AND clean.occurred_at <= $1::timestamptz
  ORDER BY clean.occurred_at,clean.id LIMIT 1
 ) second_clean ON true
 WHERE account.exchange IN ('binance','bybit')
