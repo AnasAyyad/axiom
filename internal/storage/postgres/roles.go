@@ -8,7 +8,7 @@ var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 var runtimeReadInsertTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "asset_screening_versions", "assets", "audit_events",
-	"api_entity_revisions", "authentication_failures",
+	"api_entity_revisions", "authentication_failures", "owner_accounts",
 	"sandbox_runtime_high_risk_audit_events", "sandbox_runtime_sandbox_authorizations", "sandbox_runtime_session_control_events",
 	"sandbox_runtime_totp_replay_state", "sandbox_runtime_sandbox_sessions", "sandbox_runtime_sandbox_session_accounts", "sandbox_runtime_sandbox_arms",
 	"sandbox_strategy_sessions", "sandbox_strategy_session_accounts",

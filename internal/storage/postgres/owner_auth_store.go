@@ -41,7 +41,10 @@ func (store *OwnerAuthenticationStore) BootstrapOwner(ctx context.Context, owner
 		return false, fmt.Errorf("owner_console_bootstrap_begin_failed")
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	if _, err = tx.Exec(ctx, "LOCK TABLE users, owner_accounts IN SHARE ROW EXCLUSIVE MODE"); err != nil {
+	// The users lock serializes every first-owner attempt. Locking the immutable
+	// owner_accounts table would require granting the runtime role a mutation
+	// privilege that the table's append-only boundary intentionally forbids.
+	if _, err = tx.Exec(ctx, "LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE"); err != nil {
 		return false, fmt.Errorf("owner_console_bootstrap_lock_failed")
 	}
 	var count int64

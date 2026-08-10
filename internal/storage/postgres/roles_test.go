@@ -208,6 +208,15 @@ func TestRuntimeMigrationLedgerGrantIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestOwnerAccountBootstrapGrantIsAppendOnly(t *testing.T) {
+	const table = "owner_accounts"
+	if !containsGrantTable(runtimeReadInsertTables, table) ||
+		containsGrantTable(runtimeUpdateTables, table) ||
+		containsGrantTable(runtimeDeleteTables, table) {
+		t.Fatal("owner account bootstrap grant is not append-only")
+	}
+}
+
 func TestOwnerControlRuntimeAndReportingGrantsRemainLeastPrivilege(t *testing.T) {
 	for _, table := range []string{
 		"owner_console_export_artifacts", "owner_console_artifact_holds", "owner_console_artifact_access_events",
