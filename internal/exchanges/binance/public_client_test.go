@@ -67,6 +67,37 @@ func TestPublicClientConstructorAndRESTSurfaceAreCredentialFree(t *testing.T) {
 	}
 }
 
+func TestPublicMetadataAcceptsCompleteThreeInstrumentEvaluationUniverse(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.UnixMilli(1_700_000_000_000).UTC())
+	client, _ := NewPublicClient(publicEndpointSet, clock)
+	client.httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		symbol := request.URL.Query().Get("symbol")
+		base, quote := "BTC", "USDT"
+		switch symbol {
+		case "ETHUSDT":
+			base = "ETH"
+		case "ETHBTC":
+			base, quote = "ETH", "BTC"
+		case "BTCUSDT":
+		default:
+			t.Fatalf("unexpected symbol %q", symbol)
+		}
+		payload := strings.ReplaceAll(string(fixture(t, "exchange-info.json")), "BTCUSDT", symbol)
+		payload = strings.ReplaceAll(payload, `"baseAsset": "BTC"`, `"baseAsset": "`+base+`"`)
+		payload = strings.ReplaceAll(payload, `"quoteAsset": "USDT"`, `"quoteAsset": "`+quote+`"`)
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header),
+			Body: io.NopCloser(strings.NewReader(payload))}, nil
+	})}
+	btc, _ := domain.NewSpotInstrument("BTC", "USDT")
+	ethUSDT, _ := domain.NewSpotInstrument("ETH", "USDT")
+	ethBTC, _ := domain.NewSpotInstrument("ETH", "BTC")
+	records, err := client.Instruments(context.Background(), []domain.Instrument{btc, ethUSDT, ethBTC})
+	if err != nil || len(records) != 3 || records[0].NativeSymbol != "BTCUSDT" ||
+		records[1].NativeSymbol != "ETHUSDT" || records[2].NativeSymbol != "ETHBTC" {
+		t.Fatalf("evaluation metadata = %#v, %v", records, err)
+	}
+}
+
 func TestPublicClientMapsStatusAndBoundsBodies(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Unix(1_700_000_000, 0).UTC())
 	client, _ := NewPublicClient(publicEndpointSet, clock)

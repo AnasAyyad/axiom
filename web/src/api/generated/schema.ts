@@ -163,6 +163,13 @@ export interface components {
       "expected_revision": components["schemas"]["Revision"];
       "reason": string;
     };
+    "DataAudit": {
+      "completed_at"?: components["schemas"]["Timestamp"];
+      "created_at": components["schemas"]["Timestamp"];
+      "id": string;
+      "reason_code"?: string;
+      "state": "PENDING" | "RUNNING" | "COMPLETED" | "BLOCKED";
+    };
     "DataCatalogueItem": {
       "coverage_end": components["schemas"]["Timestamp"];
       "coverage_start": components["schemas"]["Timestamp"];
@@ -201,6 +208,130 @@ export interface components {
       "required_state"?: string;
       "suggested_action"?: string;
       "summary"?: string;
+    };
+    "EvaluationCampaign": {
+      "completed_stages": Array<"HISTORICAL_IMPORT" | "EXISTING_DATA_AUDIT" | "RECORDER_ROTATION" | "RECORDER_QUALIFICATION" | "BACKTEST_MATRIX" | "REPLAY_MATRIX" | "CANDIDATE_SELECTION" | "COMBINED_SHADOW" | "FINAL_REPORT">;
+      "coverage"?: Array<components["schemas"]["EvaluationCoverage"]>;
+      "created_at": components["schemas"]["Timestamp"];
+      "current_stage"?: "HISTORICAL_IMPORT" | "EXISTING_DATA_AUDIT" | "RECORDER_ROTATION" | "RECORDER_QUALIFICATION" | "BACKTEST_MATRIX" | "REPLAY_MATRIX" | "CANDIDATE_SELECTION" | "COMBINED_SHADOW" | "FINAL_REPORT";
+      "estimated_remaining_seconds"?: number;
+      "feed_health"?: Array<components["schemas"]["EvaluationFeedHealth"]>;
+      "historical_imports"?: Array<components["schemas"]["EvaluationHistoricalImportProgress"]>;
+      "id": string;
+      "matrix"?: Array<components["schemas"]["EvaluationMatrixMember"]>;
+      "measured_bytes_per_hour"?: number;
+      "preset": "balanced_full_v1";
+      "reason_code"?: string;
+      "recorded_bytes"?: number;
+      "recording_last_valid_at"?: components["schemas"]["Timestamp"];
+      "recording_limit_bytes"?: number;
+      "revision": components["schemas"]["Revision"];
+      "shadow"?: components["schemas"]["EvaluationShadowProgress"];
+      "shadow_last_valid_at"?: components["schemas"]["Timestamp"];
+      "shadow_reserved_bytes"?: number;
+      "stages"?: Array<components["schemas"]["EvaluationStageProgress"]>;
+      "state": "PENDING" | "RUNNING" | "PAUSED_RECOVERABLE" | "COMPLETED" | "PARTIAL" | "BLOCKED" | "CANCELED";
+      "suggested_action"?: string;
+      "updated_at": components["schemas"]["Timestamp"];
+      "valid_recording_seconds"?: number;
+      "valid_shadow_seconds"?: number;
+      "wall_time_seconds"?: number;
+    };
+    "EvaluationCampaignCreateRequest": {
+      "preset": "balanced_full_v1";
+    };
+    "EvaluationCampaignEvent": {
+      "event_type": string;
+      "occurred_at": components["schemas"]["Timestamp"];
+      "ordinal": components["schemas"]["Revision"];
+      "reason_code"?: string;
+      "stage"?: string;
+      "summary"?: string;
+    };
+    "EvaluationCampaignEventPage": {
+      "items": Array<components["schemas"]["EvaluationCampaignEvent"]>;
+    };
+    "EvaluationCampaignPage": {
+      "items": Array<components["schemas"]["EvaluationCampaign"]>;
+    };
+    "EvaluationCampaignReport": {
+      "content"?: Record<string, unknown>;
+      "generated_at": components["schemas"]["Timestamp"];
+      "reason_code"?: string;
+      "report_hash"?: string;
+      "state": "not_ready" | "final" | "partial";
+      "summary"?: string;
+      "verdict"?: "CONTINUE" | "IMPROVE" | "REJECT" | "BLOCKED";
+    };
+    "EvaluationCoverage": {
+      "byte_count": number;
+      "dataset_id": string;
+      "duplicate_count": number;
+      "eligibility": "eligible" | "ineligible" | "blocked";
+      "exchange"?: string;
+      "gap_count": number;
+      "instrument"?: string;
+      "reason_code": string;
+      "segment_count": number;
+    };
+    "EvaluationFeedHealth": {
+      "book_fresh": boolean;
+      "clock_eligible": boolean;
+      "decoder_error_count": number;
+      "eligible": boolean;
+      "exchange": "binance" | "bybit";
+      "gap_count": number;
+      "instrument": "BTCUSDT" | "ETHUSDT" | "ETHBTC";
+      "latest_event_at": components["schemas"]["Timestamp"];
+      "message_count": number;
+      "queue_drop_count": number;
+    };
+    "EvaluationHistoricalImportProgress": {
+      "byte_count": number;
+      "checkpoint_time": components["schemas"]["Timestamp"];
+      "exchange": "binance" | "bybit";
+      "gap_count": number;
+      "instrument": "BTC/USDT" | "ETH/USDT";
+      "interval": "15m" | "1h" | "4h";
+      "reason_code"?: string;
+      "row_count": number;
+      "state": "PENDING" | "RUNNING" | "COMPLETED" | "BLOCKED";
+      "window_end": components["schemas"]["Timestamp"];
+      "window_start": components["schemas"]["Timestamp"];
+    };
+    "EvaluationMatrixMember": {
+      "capital_micros": number;
+      "configuration": string;
+      "cost_stress_bps": number;
+      "id": string;
+      "metrics"?: Record<string, unknown>;
+      "mode": "backtest" | "replay" | "shadow" | "advisory";
+      "reason_code"?: string;
+      "repeat_ordinal": number;
+      "result_hash"?: string;
+      "state": "PENDING" | "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "EXCLUDED" | "CANCELED";
+      "strategy": "trend-following" | "mean-reversion" | "triangular-arbitrage" | "cross-exchange-arbitrage" | "inventory-rebalancing";
+      "verdict"?: "CONTINUE" | "IMPROVE" | "REJECT" | "BLOCKED";
+    };
+    "EvaluationShadowProgress": {
+      "last_processed_ordinal": number;
+      "member_ceiling_micros": number;
+      "members": Array<components["schemas"]["EvaluationMatrixMember"]>;
+      "protected_reserve_micros": number;
+      "reason_code"?: string;
+      "shared_capital_micros": number;
+      "start_ordinal": number;
+      "state": "PENDING" | "RUNNING" | "PAUSED_RECOVERABLE" | "COMPLETED" | "BLOCKED" | "CANCELED";
+      "valid_seconds": number;
+    };
+    "EvaluationStageProgress": {
+      "attempt": number;
+      "completed_at"?: components["schemas"]["Timestamp"];
+      "reason_code"?: string;
+      "stage": "HISTORICAL_IMPORT" | "EXISTING_DATA_AUDIT" | "RECORDER_ROTATION" | "RECORDER_QUALIFICATION" | "BACKTEST_MATRIX" | "REPLAY_MATRIX" | "CANDIDATE_SELECTION" | "COMBINED_SHADOW" | "FINAL_REPORT";
+      "started_at"?: components["schemas"]["Timestamp"];
+      "state": "PENDING" | "RUNNING" | "PAUSED_RECOVERABLE" | "COMPLETED" | "BLOCKED" | "CANCELED";
+      "updated_at": components["schemas"]["Timestamp"];
     };
     "EvidenceBundleRequest": {
       "expected_revision": components["schemas"]["Revision"];
@@ -1526,6 +1657,14 @@ export interface operations {
   "getRunRisk": { path: { "id": string; }; responses: { "200": components["schemas"]["RunRiskProjection"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "getRunEvidence": { path: { "id": string; }; responses: { "200": components["schemas"]["RunEvidence"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "listDataCatalogue": { responses: { "200": components["schemas"]["DataCataloguePage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "listEvaluationCampaigns": { responses: { "200": components["schemas"]["EvaluationCampaignPage"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "createEvaluationCampaign": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["EvaluationCampaignCreateRequest"]; responses: { "202": components["schemas"]["EvaluationCampaign"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "getEvaluationCampaign": { path: { "id": string; }; responses: { "200": components["schemas"]["EvaluationCampaign"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "cancelEvaluationCampaign": { path: { "id": string; }; header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; requestBody: components["schemas"]["RevisionCommandRequest"]; responses: { "202": components["schemas"]["CommandAccepted"]; "400": components["schemas"]["Error"]; "401": components["schemas"]["Error"]; "403": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; "409": components["schemas"]["Error"]; "412": components["schemas"]["Error"]; }; };
+  "listEvaluationCampaignEvents": { path: { "id": string; }; responses: { "200": components["schemas"]["EvaluationCampaignEventPage"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "getEvaluationCampaignReport": { path: { "id": string; }; responses: { "200": components["schemas"]["EvaluationCampaignReport"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
+  "createDataAudit": { header: { "Origin": string; "X-CSRF-Token": string; "Idempotency-Key": string; }; responses: { "202": components["schemas"]["DataAudit"]; "401": components["schemas"]["Error"]; "503": components["schemas"]["Error"]; }; };
+  "getDataAudit": { path: { "id": string; }; responses: { "200": components["schemas"]["DataAudit"]; "401": components["schemas"]["Error"]; "404": components["schemas"]["Error"]; }; };
   "getVersion": { responses: { "200": components["schemas"]["VersionResponse"]; }; };
   "getBuildInformation": { responses: { "200": components["schemas"]["BuildInformation"]; }; };
   "getSystemStatus": { responses: { "200": components["schemas"]["SystemStatus"]; "401": components["schemas"]["Error"]; }; };

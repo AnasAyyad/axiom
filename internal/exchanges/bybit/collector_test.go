@@ -40,7 +40,8 @@ func TestExchangeExpansionInstrumentCollectorAppliesSnapshotsMonotonicDeltasAndP
 	waitForBybitCollector(t, func() bool {
 		stats := collector.Stats()
 		view, viewErr := collector.Views().Book(collectorExchange, instrument)
-		return viewErr == nil && view.Sequence() == 1 && view.Health() == marketdata.HealthHealthy &&
+		return collector.HealthSnapshot().Eligible && viewErr == nil && view.Sequence() == 1 &&
+			view.Health() == marketdata.HealthHealthy &&
 			stats.Snapshots == 2 && stats.Resets == 1 && stats.DepthUpdates == 1 && stats.Trades == 1 &&
 			stats.Tickers == 1 && stats.Candles == 1 && stats.Heartbeats == 1
 	})

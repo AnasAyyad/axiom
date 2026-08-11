@@ -908,6 +908,47 @@ func TestSemanticRuntimeNamesMigrationPreservesHistoricalRows(t *testing.T) {
 	})
 }
 
+func TestStrategyEvaluationMigrationIsFailClosedAndEvidencePreserving(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	evaluationMigration := migrationForVersion(migrations, "000055")
+	if evaluationMigration.SQL == "" {
+		t.Fatal("strategy evaluation migration is missing")
+	}
+	assertMigrationContains(t, evaluationMigration, "strategy evaluation", []string{
+		"create table evaluation_campaigns",
+		"preset='balanced_full_v1'",
+		"campaign_recorded_bytes <= 214748364800",
+		"create unique index evaluation_campaigns_one_active",
+		"create table evaluation_campaign_stages",
+		"create table evaluation_campaign_members",
+		"create table evaluation_campaign_stress_results",
+		"'delayed_data','data_gap','restart_recovery','rejection','partial_fill','cancel_fill_race','unknown_result','persistence_failure'",
+		"create table evaluation_historical_imports",
+		"create table evaluation_historical_import_segments",
+		"'finalizing'",
+		"create table evaluation_shadow_sessions",
+		"protected_reserve_micros bigint not null default 2000000000",
+		"member_ceiling_micros bigint not null default 2000000000",
+		"create table evaluation_shadow_member_checkpoints",
+		"create table evaluation_shadow_decisions",
+		"evaluation_shadow_decisions_immutable",
+		"window_start='2023-08-01 00:00:00+00'",
+		"window_end='2026-08-01 00:00:00+00'",
+		"evaluation_campaign_events_immutable",
+		"evaluation_campaign_reports_immutable",
+		"evaluation_campaign_stress_results_immutable",
+		"evaluation_data_audit_findings_immutable",
+		"evaluation_historical_import_segments_immutable",
+		"revoke all on function protect_evaluation_immutable_evidence() from public",
+	})
+	if strings.Contains(strings.ToLower(evaluationMigration.SQL), " to axiom_") {
+		t.Fatal("strategy evaluation migration bypasses the deployment role reconciler")
+	}
+}
+
 func migrationForVersion(migrations []Migration, version string) Migration {
 	for _, migration := range migrations {
 		if migration.Version == version {

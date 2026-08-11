@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 
 import {
   APIError,
+  apiErrorDetail,
   newIdempotencyKey,
   postAPI,
   type APIModel,
@@ -61,15 +62,6 @@ export function RunLabPage() {
       navigate(`/runs/${encodeURIComponent(run.id)}`);
     },
   });
-  if (catalog.isLoading) return <StatePanel state="loading" />;
-  if (catalog.isError || !catalog.data)
-    return (
-      <StatePanel
-        state="error"
-        detail="Approved run choices are unavailable."
-      />
-    );
-
   function choosePurpose(mode: RunMode) {
     setPurpose(mode);
     setStrategyID("");
@@ -96,7 +88,17 @@ export function RunLabPage() {
           do not prove profitability.
         </p>
       </details>
-      {catalog.data.blocker && (
+      {catalog.isLoading && <StatePanel state="loading" />}
+      {catalog.isError && (
+        <StatePanel
+          state="error"
+          detail={apiErrorDetail(
+            catalog.error,
+            "Approved run choices are temporarily unavailable.",
+          )}
+        />
+      )}
+      {catalog.data?.blocker && (
         <StatePanel
           state="blocked"
           detail={`${catalog.data.blocker.summary} ${catalog.data.blocker.suggested_action}`}
@@ -105,17 +107,19 @@ export function RunLabPage() {
       {createRun.isError && (
         <StatePanel state="error" detail={runFailureDetail(createRun.error)} />
       )}
-      <RunChoiceWizard
-        catalog={catalog.data}
-        purpose={purpose}
-        strategyID={strategyID}
-        selectedChoiceKey={selectedChoiceKey}
-        createPending={createRun.isPending}
-        onPurpose={choosePurpose}
-        onStrategy={chooseStrategy}
-        onChoice={setSelectedChoiceKey}
-        onCreate={(choice) => createRun.mutate(choice)}
-      />
+      {catalog.data && (
+        <RunChoiceWizard
+          catalog={catalog.data}
+          purpose={purpose}
+          strategyID={strategyID}
+          selectedChoiceKey={selectedChoiceKey}
+          createPending={createRun.isPending}
+          onPurpose={choosePurpose}
+          onStrategy={chooseStrategy}
+          onChoice={setSelectedChoiceKey}
+          onCreate={(choice) => createRun.mutate(choice)}
+        />
+      )}
       <section className={styles.section} aria-labelledby="recent-runs-heading">
         <h2 id="recent-runs-heading">Recent runs</h2>
         <p>
@@ -127,7 +131,10 @@ export function RunLabPage() {
         {history.isError && (
           <StatePanel
             state="error"
-            detail="Run history is temporarily unavailable."
+            detail={apiErrorDetail(
+              history.error,
+              "Run history is temporarily unavailable.",
+            )}
           />
         )}
         {history.data?.items.length === 0 && (

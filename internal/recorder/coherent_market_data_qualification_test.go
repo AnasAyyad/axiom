@@ -118,6 +118,57 @@ func TestCoherentMarketDataTierAFinalizationRejectsCompatibilityMismatch(t *test
 	}
 }
 
+func TestCoherentMarketDataRecorderResumesVerifiedManifestAndOrdinals(t *testing.T) {
+	root := t.TempDir()
+	profile := CollectorProfile{Instance: "collector-resume", Region: "test-region", MinimumReaderVersion: "dataset-reader.v2"}
+	ordinals := &runtimecore.IngestOrdinals{}
+	committer := func(segments.Manifest) error { return nil }
+	recorder, err := NewCoherentMarketData(root, "resume-dataset", "resume-session", "binance",
+		ordinals, committer, nil, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument := recorderInstrument(t)
+	now := time.Unix(1_800_000_000, 0).UTC()
+	link, err := recorder.RecordRaw(RawInput{Exchange: "binance", EventType: EventDepth,
+		Instrument: instrument, SessionID: "resume-session", ConnectionID: "connection-1",
+		ConnectionGeneration: 1, MonotonicOffsetNanos: 1, RecordedLogicalTime: 1,
+		SourceSequence: "1", ExchangeTime: &now, ReceivedAt: now, Payload: []byte(`{"depth":1}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = recorder.RecordCanonical(CanonicalInput{Link: link, EventID: "event-1", ParserVersion: "parser-v1",
+		NormalizationVersion: "normalizer-v1", Canonical: []byte(`{"depth":1}`)}); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := recorder.Flush()
+	if err != nil {
+		t.Fatal(err)
+	}
+	last, _ := ManifestLastOrdinal(manifest)
+	restoredOrdinals, _ := runtimecore.NewIngestOrdinalsAfter(last)
+	resumed, restored, err := ResumeCoherentMarketData(root, "resume-dataset", "resume-session", "binance",
+		restoredOrdinals, committer, nil, profile)
+	if err != nil || restored.Hash != manifest.Hash {
+		t.Fatalf("restored=%#v err=%v", restored, err)
+	}
+	link, err = resumed.RecordRaw(RawInput{Exchange: "binance", EventType: EventDepth,
+		Instrument: instrument, SessionID: "resume-session", ConnectionID: "connection-2",
+		ConnectionGeneration: 2, MonotonicOffsetNanos: 2, RecordedLogicalTime: 2,
+		SourceSequence: "2", ExchangeTime: &now, ReceivedAt: now.Add(time.Second), Payload: []byte(`{"depth":2}`)})
+	if err != nil || link.IngestOrdinal != 2 {
+		t.Fatalf("link=%#v err=%v", link, err)
+	}
+	if err = resumed.RecordCanonical(CanonicalInput{Link: link, EventID: "event-2", ParserVersion: "parser-v1",
+		NormalizationVersion: "normalizer-v1", Canonical: []byte(`{"depth":2}`)}); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err = resumed.Flush()
+	if err != nil || manifest.Revision != 2 || manifest.RawRecordCount != 2 || VerifyManifestChain(root, manifest) != nil {
+		t.Fatalf("manifest=%#v err=%v", manifest, err)
+	}
+}
+
 func newCoherentMarketDataQualificationRecorder(t *testing.T, root, exchange string, ordinals *runtimecore.IngestOrdinals, profile CollectorProfile) *Recorder {
 	t.Helper()
 	value, err := NewCoherentMarketData(root, exchange+"-qualification", exchange+"-session", exchange, ordinals,

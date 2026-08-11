@@ -14,7 +14,7 @@ func (client *PublicClient) Instruments(
 	ctx context.Context,
 	instruments []domain.Instrument,
 ) ([]exchangecontracts.InstrumentRecord, error) {
-	if len(instruments) == 0 || len(instruments) > 2 {
+	if len(instruments) == 0 || len(instruments) > 3 {
 		return nil, exchangecontracts.NewError(exchangecontracts.ErrorValidation, exchangecontracts.OperationMetadata, 0)
 	}
 	version := client.metadataVersion.Add(1)
@@ -65,9 +65,22 @@ func (client *PublicClient) Candles(
 	ctx context.Context,
 	request exchangecontracts.CandleRequest,
 ) ([]exchangecontracts.Candle, error) {
+	page, err := client.CandlePage(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return page.Candles, nil
+}
+
+// CandlePage preserves the official response bytes beside strict normalized
+// rows for the historical evaluation importer.
+func (client *PublicClient) CandlePage(
+	ctx context.Context,
+	request exchangecontracts.CandleRequest,
+) (exchangecontracts.HistoricalCandlePage, error) {
 	if !approvedInstrument(request.Instrument) || !supportedCandleInterval(request.Interval) || request.Limit == 0 ||
 		request.Limit > 1000 || request.Start.IsZero() || request.End.Before(request.Start) {
-		return nil, exchangecontracts.NewError(exchangecontracts.ErrorValidation, exchangecontracts.OperationCandles, 0)
+		return exchangecontracts.HistoricalCandlePage{}, exchangecontracts.NewError(exchangecontracts.ErrorValidation, exchangecontracts.OperationCandles, 0)
 	}
 	query := url.Values{"endTime": {strconv.FormatInt(request.End.UnixMilli(), 10)}, "interval": {request.Interval},
 		"limit": {strconv.FormatUint(uint64(request.Limit), 10)}, "startTime": {strconv.FormatInt(request.Start.UnixMilli(), 10)},
@@ -75,7 +88,17 @@ func (client *PublicClient) Candles(
 	body, received, err := client.get(ctx, "/api/v3/klines", query,
 		exchangecontracts.OperationCandles, 2, exchangecontracts.BudgetPublic)
 	if err != nil {
-		return nil, err
+		return exchangecontracts.HistoricalCandlePage{}, err
 	}
-	return NormalizeCandleHistory(body, request.Instrument, request.Interval, received)
+	candles, err := NormalizeCandleHistory(body, request.Instrument, request.Interval, received)
+	if err != nil {
+		return exchangecontracts.HistoricalCandlePage{}, err
+	}
+	page := exchangecontracts.HistoricalCandlePage{Exchange: "binance", Instrument: request.Instrument,
+		Interval: request.Interval, Start: request.Start, End: request.End, ReceivedAt: received,
+		RawPayload: append([]byte(nil), body...), RawPayloadHash: payloadHash(body), Candles: candles}
+	if !page.Valid() {
+		return exchangecontracts.HistoricalCandlePage{}, exchangecontracts.NewError(exchangecontracts.ErrorValidation, exchangecontracts.OperationCandles, 0)
+	}
+	return page, nil
 }

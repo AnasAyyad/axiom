@@ -1,6 +1,6 @@
 {
   "schema_version": "axiom.configuration@1.5.0",
-  "revision": 1,
+  "revision": 2,
   "environment": "shadow",
   "mode": "shadow",
   "product": "spot",
@@ -95,6 +95,11 @@
     {
       "base": "ETH",
       "quote": "USDT",
+      "product": "spot"
+    },
+    {
+      "base": "ETH",
+      "quote": "BTC",
       "product": "spot"
     }
   ],

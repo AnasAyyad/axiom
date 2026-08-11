@@ -108,6 +108,20 @@ type DataCatalogueReadService interface {
 	DataCatalogue(context.Context) (generated.DataCataloguePage, error)
 }
 
+// EvaluationCampaignService owns the server-resolved long-running evaluation
+// workflow. Its API never accepts a dataset, strategy configuration, model,
+// portfolio, or exchange credential from the browser.
+type EvaluationCampaignService interface {
+	EvaluationCampaigns(context.Context) (generated.EvaluationCampaignPage, error)
+	EvaluationCampaign(context.Context, string) (generated.EvaluationCampaign, error)
+	CreateEvaluationCampaign(context.Context, authentication.Principal, string, generated.EvaluationCampaignCreateRequest) (generated.EvaluationCampaign, error)
+	CancelEvaluationCampaign(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)
+	EvaluationCampaignEvents(context.Context, string) (generated.EvaluationCampaignEventPage, error)
+	EvaluationCampaignReport(context.Context, string) (generated.EvaluationCampaignReport, error)
+	CreateDataAudit(context.Context, authentication.Principal, string) (generated.DataAudit, error)
+	DataAudit(context.Context, string) (generated.DataAudit, error)
+}
+
 // CommandService persists audited, idempotent commands and durable jobs.
 type CommandService interface {
 	RiskCommand(context.Context, authentication.Principal, string, string, generated.RevisionCommandRequest) (generated.CommandAccepted, error)

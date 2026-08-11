@@ -110,6 +110,168 @@ function runResourceFixture() {
   };
 }
 
+function evaluationCampaignFixture(completed = false) {
+  const feeds = ["binance", "bybit"].flatMap((exchange) =>
+    ["BTCUSDT", "ETHUSDT", "ETHBTC"].map((instrument) => ({
+      exchange,
+      instrument,
+      eligible: true,
+      book_fresh: true,
+      clock_eligible: true,
+      latest_event_at: now,
+      message_count: 864_000,
+      queue_drop_count: 0,
+      gap_count: 0,
+      decoder_error_count: 0,
+    })),
+  );
+  return {
+    id: "evaluation-campaign-owner_console",
+    preset: "balanced_full_v1",
+    state: completed ? "COMPLETED" : "RUNNING",
+    current_stage: completed ? "FINAL_REPORT" : "COMBINED_SHADOW",
+    completed_stages: completed
+      ? [
+          "HISTORICAL_IMPORT",
+          "EXISTING_DATA_AUDIT",
+          "RECORDER_ROTATION",
+          "RECORDER_QUALIFICATION",
+          "BACKTEST_MATRIX",
+          "REPLAY_MATRIX",
+          "CANDIDATE_SELECTION",
+          "COMBINED_SHADOW",
+          "FINAL_REPORT",
+        ]
+      : [
+          "HISTORICAL_IMPORT",
+          "EXISTING_DATA_AUDIT",
+          "RECORDER_ROTATION",
+          "RECORDER_QUALIFICATION",
+          "BACKTEST_MATRIX",
+          "REPLAY_MATRIX",
+          "CANDIDATE_SELECTION",
+        ],
+    valid_recording_seconds: 259_200,
+    valid_shadow_seconds: 86_400,
+    wall_time_seconds: 432_000,
+    estimated_remaining_seconds: 518_400,
+    recorded_bytes: 32_212_254_720,
+    recording_limit_bytes: 214_748_364_800,
+    measured_bytes_per_hour: 447_392_426,
+    shadow_reserved_bytes: 75_161_927_568,
+    recording_last_valid_at: now,
+    shadow_last_valid_at: now,
+    stages: [
+      {
+        stage: "HISTORICAL_IMPORT",
+        state: "COMPLETED",
+        attempt: 1,
+        started_at: "2026-07-11T12:00:00Z",
+        completed_at: "2026-07-11T13:00:00Z",
+        updated_at: "2026-07-11T13:00:00Z",
+      },
+      {
+        stage: "COMBINED_SHADOW",
+        state: completed ? "COMPLETED" : "RUNNING",
+        attempt: 1,
+        started_at: "2026-07-15T12:00:00Z",
+        ...(completed ? { completed_at: now } : {}),
+        updated_at: now,
+      },
+      {
+        stage: "FINAL_REPORT",
+        state: completed ? "COMPLETED" : "PENDING",
+        attempt: completed ? 1 : 0,
+        ...(completed ? { started_at: now, completed_at: now } : {}),
+        updated_at: now,
+      },
+    ],
+    historical_imports: [
+      {
+        exchange: "binance",
+        instrument: "BTC/USDT",
+        interval: "15m",
+        state: "COMPLETED",
+        window_start: "2023-08-01T00:00:00Z",
+        window_end: "2026-08-01T00:00:00Z",
+        checkpoint_time: "2026-08-01T00:00:00Z",
+        row_count: 105_216,
+        byte_count: 52_428_800,
+        gap_count: 0,
+      },
+    ],
+    coverage: [
+      {
+        dataset_id: "dataset-owner_console",
+        exchange: "binance",
+        instrument: "BTCUSDT",
+        eligibility: "eligible",
+        reason_code: "AUDIT_PASSED",
+        segment_count: 864,
+        byte_count: 31_138_512_896,
+        gap_count: 0,
+        duplicate_count: 0,
+      },
+    ],
+    matrix: [
+      {
+        id: "evaluation-member-trend-backtest",
+        strategy: "trend-following",
+        configuration: "trend-balanced-1",
+        mode: "backtest",
+        capital_micros: 2_000_000_000,
+        repeat_ordinal: 0,
+        cost_stress_bps: 10_000,
+        state: "SUCCEEDED",
+        verdict: "CONTINUE",
+        result_hash: "a".repeat(64),
+        metrics: {
+          selection_metrics: {
+            net_result_micros: 42_000_000,
+            trade_count: 128,
+            maximum_drawdown_bps: 95,
+          },
+        },
+      },
+    ],
+    feed_health: feeds,
+    shadow: {
+      state: completed ? "COMPLETED" : "RUNNING",
+      valid_seconds: completed ? 604_800 : 86_400,
+      start_ordinal: 1,
+      last_processed_ordinal: 86_400,
+      shared_capital_micros: 10_000_000_000,
+      protected_reserve_micros: 2_000_000_000,
+      member_ceiling_micros: 2_000_000_000,
+      members: [
+        {
+          id: "evaluation-member-trend-shadow",
+          strategy: "trend-following",
+          configuration: "trend-balanced-1",
+          mode: "shadow",
+          capital_micros: 2_000_000_000,
+          repeat_ordinal: 0,
+          cost_stress_bps: 10_000,
+          state: "RUNNING",
+          verdict: "CONTINUE",
+          metrics: {
+            net_result_micros: 8_000_000,
+            trade_count: 21,
+            maximum_drawdown_bps: 24,
+            opportunities: 80,
+            accepted_decisions: 31,
+            simulated_orders: 31,
+            filled_orders: 21,
+          },
+        },
+      ],
+    },
+    revision: "8",
+    created_at: "2026-07-11T12:00:00Z",
+    updated_at: now,
+  };
+}
+
 function ownerExperienceResourceFixture(
   id: string,
   kind: string,
@@ -173,6 +335,7 @@ test.beforeEach(async ({ page }) => {
   const state: FixtureState = {
     replayState: "RUNNING",
     replayRevision: 1,
+    evaluationCreated: false,
   };
   await page.addInitScript(() => {
     Object.defineProperty(window.navigator, "onLine", {
@@ -681,6 +844,70 @@ test("Operational evidence workflows are responsive, redacted, and actionable", 
   ).toBe(true);
 });
 
+test("Strategy evaluation starts one server-owned workflow and remains responsive", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("owner@example.test");
+  await page.getByLabel("Password").fill("qualification-password");
+  await page.getByRole("button", { name: "Enter console" }).click();
+
+  await page.getByRole("link", { name: "Strategy Evaluation" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Strategy Evaluation" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Spot only · simulated orders only"),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/No evaluation campaign has been started/i),
+  ).toBeVisible();
+
+  const startRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/v1/evaluation-campaigns",
+  );
+  await page.getByRole("button", { name: "Start Full Evaluation" }).click();
+  expect((await startRequest).postDataJSON()).toEqual({
+    preset: "balanced_full_v1",
+  });
+
+  await expect(page.getByText("Current campaign")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Automatic stages" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: /One strategy failure/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Combined seven-valid-day shadow" }),
+  ).toBeVisible();
+  await expect(page.getByText("10,000 USDT")).toBeVisible();
+  await expect(
+    page.getByText(/Only healthy, recorded intervals count/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/All eligible strategies completed/i),
+  ).toBeVisible();
+  const reportDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download JSON" }).click();
+  expect((await reportDownload).suggestedFilename()).toBe(
+    "axiom-strategy-evaluation.json",
+  );
+
+  expect(await seriousAxeViolations(page)).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe(
+    "BODY",
+  );
+});
+
 async function seriousAxeViolations(page: Page) {
   await page.addScriptTag({ content: axe.source });
   return page.evaluate(async () => {
@@ -711,6 +938,7 @@ async function seriousAxeViolations(page: Page) {
 interface FixtureState {
   replayState: "RUNNING" | "PAUSED";
   replayRevision: number;
+  evaluationCreated: boolean;
 }
 
 async function routeAPI(route: Route, state: FixtureState) {
@@ -732,6 +960,68 @@ async function routeAPI(route: Route, state: FixtureState) {
     };
   else if (path === "/api/v1/run-catalog")
     body = { choices: [runChoiceFixture(), sandboxRunChoiceFixture()] };
+  else if (path === "/api/v1/evaluation-campaigns" && method === "POST") {
+    state.evaluationCreated = true;
+    body = evaluationCampaignFixture();
+  } else if (path === "/api/v1/evaluation-campaigns")
+    body = {
+      items: state.evaluationCreated ? [evaluationCampaignFixture(true)] : [],
+    };
+  else if (
+    path ===
+    "/api/v1/evaluation-campaigns/evaluation-campaign-owner_console/events"
+  )
+    body = {
+      items: [
+        {
+          ordinal: "8",
+          event_type: "stage_started",
+          stage: "COMBINED_SHADOW",
+          summary: "Combined simulation-only shadow started.",
+          occurred_at: now,
+        },
+      ],
+    };
+  else if (
+    path ===
+    "/api/v1/evaluation-campaigns/evaluation-campaign-owner_console/report"
+  )
+    body = state.evaluationCreated
+      ? {
+          state: "final",
+          verdict: "CONTINUE",
+          summary:
+            "All eligible strategies completed offline and combined shadow evaluation.",
+          report_hash: "f".repeat(64),
+          generated_at: now,
+          content: {
+            members: [
+              {
+                strategy: "trend-following",
+                mode: "backtest",
+                verdict: "CONTINUE",
+                metrics: { net_result_micros: 42_000_000 },
+              },
+              {
+                strategy: "trend-following",
+                mode: "replay",
+                verdict: "CONTINUE",
+                metrics: { net_result_micros: 39_000_000 },
+              },
+              {
+                strategy: "trend-following",
+                mode: "shadow",
+                verdict: "CONTINUE",
+                metrics: { net_result_micros: 18_000_000 },
+              },
+            ],
+          },
+        }
+      : { state: "not_ready", generated_at: now };
+  else if (
+    path === "/api/v1/evaluation-campaigns/evaluation-campaign-owner_console"
+  )
+    body = evaluationCampaignFixture(true);
   else if (path === "/api/v1/runs" && method === "POST")
     body = runResourceFixture();
   else if (path === "/api/v1/runs") body = { items: [runResourceFixture()] };

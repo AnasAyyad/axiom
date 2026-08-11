@@ -383,6 +383,30 @@ func (e CommandAcceptedState) Valid() bool {
 	}
 }
 
+// Defines values for DataAuditState.
+const (
+	DataAuditStateBLOCKED   DataAuditState = "BLOCKED"
+	DataAuditStateCOMPLETED DataAuditState = "COMPLETED"
+	DataAuditStatePENDING   DataAuditState = "PENDING"
+	DataAuditStateRUNNING   DataAuditState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the DataAuditState enum.
+func (e DataAuditState) Valid() bool {
+	switch e {
+	case DataAuditStateBLOCKED:
+		return true
+	case DataAuditStateCOMPLETED:
+		return true
+	case DataAuditStatePENDING:
+		return true
+	case DataAuditStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DataCatalogueItemExchanges.
 const (
 	DataCatalogueItemExchangesBinance DataCatalogueItemExchanges = "binance"
@@ -536,6 +560,540 @@ func (e DetailedHealthResponseStatus) Valid() bool {
 	case DetailedHealthResponseStatusNotReady:
 		return true
 	case DetailedHealthResponseStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignCompletedStages.
+const (
+	EvaluationCampaignCompletedStagesBACKTESTMATRIX        EvaluationCampaignCompletedStages = "BACKTEST_MATRIX"
+	EvaluationCampaignCompletedStagesCANDIDATESELECTION    EvaluationCampaignCompletedStages = "CANDIDATE_SELECTION"
+	EvaluationCampaignCompletedStagesCOMBINEDSHADOW        EvaluationCampaignCompletedStages = "COMBINED_SHADOW"
+	EvaluationCampaignCompletedStagesEXISTINGDATAAUDIT     EvaluationCampaignCompletedStages = "EXISTING_DATA_AUDIT"
+	EvaluationCampaignCompletedStagesFINALREPORT           EvaluationCampaignCompletedStages = "FINAL_REPORT"
+	EvaluationCampaignCompletedStagesHISTORICALIMPORT      EvaluationCampaignCompletedStages = "HISTORICAL_IMPORT"
+	EvaluationCampaignCompletedStagesRECORDERQUALIFICATION EvaluationCampaignCompletedStages = "RECORDER_QUALIFICATION"
+	EvaluationCampaignCompletedStagesRECORDERROTATION      EvaluationCampaignCompletedStages = "RECORDER_ROTATION"
+	EvaluationCampaignCompletedStagesREPLAYMATRIX          EvaluationCampaignCompletedStages = "REPLAY_MATRIX"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignCompletedStages enum.
+func (e EvaluationCampaignCompletedStages) Valid() bool {
+	switch e {
+	case EvaluationCampaignCompletedStagesBACKTESTMATRIX:
+		return true
+	case EvaluationCampaignCompletedStagesCANDIDATESELECTION:
+		return true
+	case EvaluationCampaignCompletedStagesCOMBINEDSHADOW:
+		return true
+	case EvaluationCampaignCompletedStagesEXISTINGDATAAUDIT:
+		return true
+	case EvaluationCampaignCompletedStagesFINALREPORT:
+		return true
+	case EvaluationCampaignCompletedStagesHISTORICALIMPORT:
+		return true
+	case EvaluationCampaignCompletedStagesRECORDERQUALIFICATION:
+		return true
+	case EvaluationCampaignCompletedStagesRECORDERROTATION:
+		return true
+	case EvaluationCampaignCompletedStagesREPLAYMATRIX:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignCurrentStage.
+const (
+	EvaluationCampaignCurrentStageBACKTESTMATRIX        EvaluationCampaignCurrentStage = "BACKTEST_MATRIX"
+	EvaluationCampaignCurrentStageCANDIDATESELECTION    EvaluationCampaignCurrentStage = "CANDIDATE_SELECTION"
+	EvaluationCampaignCurrentStageCOMBINEDSHADOW        EvaluationCampaignCurrentStage = "COMBINED_SHADOW"
+	EvaluationCampaignCurrentStageEXISTINGDATAAUDIT     EvaluationCampaignCurrentStage = "EXISTING_DATA_AUDIT"
+	EvaluationCampaignCurrentStageFINALREPORT           EvaluationCampaignCurrentStage = "FINAL_REPORT"
+	EvaluationCampaignCurrentStageHISTORICALIMPORT      EvaluationCampaignCurrentStage = "HISTORICAL_IMPORT"
+	EvaluationCampaignCurrentStageRECORDERQUALIFICATION EvaluationCampaignCurrentStage = "RECORDER_QUALIFICATION"
+	EvaluationCampaignCurrentStageRECORDERROTATION      EvaluationCampaignCurrentStage = "RECORDER_ROTATION"
+	EvaluationCampaignCurrentStageREPLAYMATRIX          EvaluationCampaignCurrentStage = "REPLAY_MATRIX"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignCurrentStage enum.
+func (e EvaluationCampaignCurrentStage) Valid() bool {
+	switch e {
+	case EvaluationCampaignCurrentStageBACKTESTMATRIX:
+		return true
+	case EvaluationCampaignCurrentStageCANDIDATESELECTION:
+		return true
+	case EvaluationCampaignCurrentStageCOMBINEDSHADOW:
+		return true
+	case EvaluationCampaignCurrentStageEXISTINGDATAAUDIT:
+		return true
+	case EvaluationCampaignCurrentStageFINALREPORT:
+		return true
+	case EvaluationCampaignCurrentStageHISTORICALIMPORT:
+		return true
+	case EvaluationCampaignCurrentStageRECORDERQUALIFICATION:
+		return true
+	case EvaluationCampaignCurrentStageRECORDERROTATION:
+		return true
+	case EvaluationCampaignCurrentStageREPLAYMATRIX:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignPreset.
+const (
+	EvaluationCampaignPresetBalancedFullV1 EvaluationCampaignPreset = "balanced_full_v1"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignPreset enum.
+func (e EvaluationCampaignPreset) Valid() bool {
+	switch e {
+	case EvaluationCampaignPresetBalancedFullV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignState.
+const (
+	EvaluationCampaignStateBLOCKED           EvaluationCampaignState = "BLOCKED"
+	EvaluationCampaignStateCANCELED          EvaluationCampaignState = "CANCELED"
+	EvaluationCampaignStateCOMPLETED         EvaluationCampaignState = "COMPLETED"
+	EvaluationCampaignStatePARTIAL           EvaluationCampaignState = "PARTIAL"
+	EvaluationCampaignStatePAUSEDRECOVERABLE EvaluationCampaignState = "PAUSED_RECOVERABLE"
+	EvaluationCampaignStatePENDING           EvaluationCampaignState = "PENDING"
+	EvaluationCampaignStateRUNNING           EvaluationCampaignState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignState enum.
+func (e EvaluationCampaignState) Valid() bool {
+	switch e {
+	case EvaluationCampaignStateBLOCKED:
+		return true
+	case EvaluationCampaignStateCANCELED:
+		return true
+	case EvaluationCampaignStateCOMPLETED:
+		return true
+	case EvaluationCampaignStatePARTIAL:
+		return true
+	case EvaluationCampaignStatePAUSEDRECOVERABLE:
+		return true
+	case EvaluationCampaignStatePENDING:
+		return true
+	case EvaluationCampaignStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignCreateRequestPreset.
+const (
+	EvaluationCampaignCreateRequestPresetBalancedFullV1 EvaluationCampaignCreateRequestPreset = "balanced_full_v1"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignCreateRequestPreset enum.
+func (e EvaluationCampaignCreateRequestPreset) Valid() bool {
+	switch e {
+	case EvaluationCampaignCreateRequestPresetBalancedFullV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignReportState.
+const (
+	EvaluationCampaignReportStateFinal    EvaluationCampaignReportState = "final"
+	EvaluationCampaignReportStateNotReady EvaluationCampaignReportState = "not_ready"
+	EvaluationCampaignReportStatePartial  EvaluationCampaignReportState = "partial"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignReportState enum.
+func (e EvaluationCampaignReportState) Valid() bool {
+	switch e {
+	case EvaluationCampaignReportStateFinal:
+		return true
+	case EvaluationCampaignReportStateNotReady:
+		return true
+	case EvaluationCampaignReportStatePartial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignReportVerdict.
+const (
+	EvaluationCampaignReportVerdictBLOCKED  EvaluationCampaignReportVerdict = "BLOCKED"
+	EvaluationCampaignReportVerdictCONTINUE EvaluationCampaignReportVerdict = "CONTINUE"
+	EvaluationCampaignReportVerdictIMPROVE  EvaluationCampaignReportVerdict = "IMPROVE"
+	EvaluationCampaignReportVerdictREJECT   EvaluationCampaignReportVerdict = "REJECT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignReportVerdict enum.
+func (e EvaluationCampaignReportVerdict) Valid() bool {
+	switch e {
+	case EvaluationCampaignReportVerdictBLOCKED:
+		return true
+	case EvaluationCampaignReportVerdictCONTINUE:
+		return true
+	case EvaluationCampaignReportVerdictIMPROVE:
+		return true
+	case EvaluationCampaignReportVerdictREJECT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCoverageEligibility.
+const (
+	EvaluationCoverageEligibilityBlocked    EvaluationCoverageEligibility = "blocked"
+	EvaluationCoverageEligibilityEligible   EvaluationCoverageEligibility = "eligible"
+	EvaluationCoverageEligibilityIneligible EvaluationCoverageEligibility = "ineligible"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCoverageEligibility enum.
+func (e EvaluationCoverageEligibility) Valid() bool {
+	switch e {
+	case EvaluationCoverageEligibilityBlocked:
+		return true
+	case EvaluationCoverageEligibilityEligible:
+		return true
+	case EvaluationCoverageEligibilityIneligible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationFeedHealthExchange.
+const (
+	EvaluationFeedHealthExchangeBinance EvaluationFeedHealthExchange = "binance"
+	EvaluationFeedHealthExchangeBybit   EvaluationFeedHealthExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationFeedHealthExchange enum.
+func (e EvaluationFeedHealthExchange) Valid() bool {
+	switch e {
+	case EvaluationFeedHealthExchangeBinance:
+		return true
+	case EvaluationFeedHealthExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationFeedHealthInstrument.
+const (
+	EvaluationFeedHealthInstrumentBTCUSDT EvaluationFeedHealthInstrument = "BTCUSDT"
+	EvaluationFeedHealthInstrumentETHBTC  EvaluationFeedHealthInstrument = "ETHBTC"
+	EvaluationFeedHealthInstrumentETHUSDT EvaluationFeedHealthInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationFeedHealthInstrument enum.
+func (e EvaluationFeedHealthInstrument) Valid() bool {
+	switch e {
+	case EvaluationFeedHealthInstrumentBTCUSDT:
+		return true
+	case EvaluationFeedHealthInstrumentETHBTC:
+		return true
+	case EvaluationFeedHealthInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressExchange.
+const (
+	EvaluationHistoricalImportProgressExchangeBinance EvaluationHistoricalImportProgressExchange = "binance"
+	EvaluationHistoricalImportProgressExchangeBybit   EvaluationHistoricalImportProgressExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressExchange enum.
+func (e EvaluationHistoricalImportProgressExchange) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressExchangeBinance:
+		return true
+	case EvaluationHistoricalImportProgressExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressInstrument.
+const (
+	EvaluationHistoricalImportProgressInstrumentBTCUSDT EvaluationHistoricalImportProgressInstrument = "BTC/USDT"
+	EvaluationHistoricalImportProgressInstrumentETHUSDT EvaluationHistoricalImportProgressInstrument = "ETH/USDT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressInstrument enum.
+func (e EvaluationHistoricalImportProgressInstrument) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressInstrumentBTCUSDT:
+		return true
+	case EvaluationHistoricalImportProgressInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressInterval.
+const (
+	EvaluationHistoricalImportProgressIntervalN15m EvaluationHistoricalImportProgressInterval = "15m"
+	EvaluationHistoricalImportProgressIntervalN1h  EvaluationHistoricalImportProgressInterval = "1h"
+	EvaluationHistoricalImportProgressIntervalN4h  EvaluationHistoricalImportProgressInterval = "4h"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressInterval enum.
+func (e EvaluationHistoricalImportProgressInterval) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressIntervalN15m:
+		return true
+	case EvaluationHistoricalImportProgressIntervalN1h:
+		return true
+	case EvaluationHistoricalImportProgressIntervalN4h:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressState.
+const (
+	EvaluationHistoricalImportProgressStateBLOCKED   EvaluationHistoricalImportProgressState = "BLOCKED"
+	EvaluationHistoricalImportProgressStateCOMPLETED EvaluationHistoricalImportProgressState = "COMPLETED"
+	EvaluationHistoricalImportProgressStatePENDING   EvaluationHistoricalImportProgressState = "PENDING"
+	EvaluationHistoricalImportProgressStateRUNNING   EvaluationHistoricalImportProgressState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressState enum.
+func (e EvaluationHistoricalImportProgressState) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressStateBLOCKED:
+		return true
+	case EvaluationHistoricalImportProgressStateCOMPLETED:
+		return true
+	case EvaluationHistoricalImportProgressStatePENDING:
+		return true
+	case EvaluationHistoricalImportProgressStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberMode.
+const (
+	EvaluationMatrixMemberModeAdvisory EvaluationMatrixMemberMode = "advisory"
+	EvaluationMatrixMemberModeBacktest EvaluationMatrixMemberMode = "backtest"
+	EvaluationMatrixMemberModeReplay   EvaluationMatrixMemberMode = "replay"
+	EvaluationMatrixMemberModeShadow   EvaluationMatrixMemberMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberMode enum.
+func (e EvaluationMatrixMemberMode) Valid() bool {
+	switch e {
+	case EvaluationMatrixMemberModeAdvisory:
+		return true
+	case EvaluationMatrixMemberModeBacktest:
+		return true
+	case EvaluationMatrixMemberModeReplay:
+		return true
+	case EvaluationMatrixMemberModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberState.
+const (
+	EvaluationMatrixMemberStateCANCELED  EvaluationMatrixMemberState = "CANCELED"
+	EvaluationMatrixMemberStateEXCLUDED  EvaluationMatrixMemberState = "EXCLUDED"
+	EvaluationMatrixMemberStateFAILED    EvaluationMatrixMemberState = "FAILED"
+	EvaluationMatrixMemberStatePENDING   EvaluationMatrixMemberState = "PENDING"
+	EvaluationMatrixMemberStateQUEUED    EvaluationMatrixMemberState = "QUEUED"
+	EvaluationMatrixMemberStateRUNNING   EvaluationMatrixMemberState = "RUNNING"
+	EvaluationMatrixMemberStateSUCCEEDED EvaluationMatrixMemberState = "SUCCEEDED"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberState enum.
+func (e EvaluationMatrixMemberState) Valid() bool {
+	switch e {
+	case EvaluationMatrixMemberStateCANCELED:
+		return true
+	case EvaluationMatrixMemberStateEXCLUDED:
+		return true
+	case EvaluationMatrixMemberStateFAILED:
+		return true
+	case EvaluationMatrixMemberStatePENDING:
+		return true
+	case EvaluationMatrixMemberStateQUEUED:
+		return true
+	case EvaluationMatrixMemberStateRUNNING:
+		return true
+	case EvaluationMatrixMemberStateSUCCEEDED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberStrategy.
+const (
+	CrossExchangeArbitrage EvaluationMatrixMemberStrategy = "cross-exchange-arbitrage"
+	InventoryRebalancing   EvaluationMatrixMemberStrategy = "inventory-rebalancing"
+	MeanReversion          EvaluationMatrixMemberStrategy = "mean-reversion"
+	TrendFollowing         EvaluationMatrixMemberStrategy = "trend-following"
+	TriangularArbitrage    EvaluationMatrixMemberStrategy = "triangular-arbitrage"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberStrategy enum.
+func (e EvaluationMatrixMemberStrategy) Valid() bool {
+	switch e {
+	case CrossExchangeArbitrage:
+		return true
+	case InventoryRebalancing:
+		return true
+	case MeanReversion:
+		return true
+	case TrendFollowing:
+		return true
+	case TriangularArbitrage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberVerdict.
+const (
+	EvaluationMatrixMemberVerdictBLOCKED  EvaluationMatrixMemberVerdict = "BLOCKED"
+	EvaluationMatrixMemberVerdictCONTINUE EvaluationMatrixMemberVerdict = "CONTINUE"
+	EvaluationMatrixMemberVerdictIMPROVE  EvaluationMatrixMemberVerdict = "IMPROVE"
+	EvaluationMatrixMemberVerdictREJECT   EvaluationMatrixMemberVerdict = "REJECT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberVerdict enum.
+func (e EvaluationMatrixMemberVerdict) Valid() bool {
+	switch e {
+	case EvaluationMatrixMemberVerdictBLOCKED:
+		return true
+	case EvaluationMatrixMemberVerdictCONTINUE:
+		return true
+	case EvaluationMatrixMemberVerdictIMPROVE:
+		return true
+	case EvaluationMatrixMemberVerdictREJECT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationShadowProgressState.
+const (
+	EvaluationShadowProgressStateBLOCKED           EvaluationShadowProgressState = "BLOCKED"
+	EvaluationShadowProgressStateCANCELED          EvaluationShadowProgressState = "CANCELED"
+	EvaluationShadowProgressStateCOMPLETED         EvaluationShadowProgressState = "COMPLETED"
+	EvaluationShadowProgressStatePAUSEDRECOVERABLE EvaluationShadowProgressState = "PAUSED_RECOVERABLE"
+	EvaluationShadowProgressStatePENDING           EvaluationShadowProgressState = "PENDING"
+	EvaluationShadowProgressStateRUNNING           EvaluationShadowProgressState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationShadowProgressState enum.
+func (e EvaluationShadowProgressState) Valid() bool {
+	switch e {
+	case EvaluationShadowProgressStateBLOCKED:
+		return true
+	case EvaluationShadowProgressStateCANCELED:
+		return true
+	case EvaluationShadowProgressStateCOMPLETED:
+		return true
+	case EvaluationShadowProgressStatePAUSEDRECOVERABLE:
+		return true
+	case EvaluationShadowProgressStatePENDING:
+		return true
+	case EvaluationShadowProgressStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationStageProgressStage.
+const (
+	BACKTESTMATRIX        EvaluationStageProgressStage = "BACKTEST_MATRIX"
+	CANDIDATESELECTION    EvaluationStageProgressStage = "CANDIDATE_SELECTION"
+	COMBINEDSHADOW        EvaluationStageProgressStage = "COMBINED_SHADOW"
+	EXISTINGDATAAUDIT     EvaluationStageProgressStage = "EXISTING_DATA_AUDIT"
+	FINALREPORT           EvaluationStageProgressStage = "FINAL_REPORT"
+	HISTORICALIMPORT      EvaluationStageProgressStage = "HISTORICAL_IMPORT"
+	RECORDERQUALIFICATION EvaluationStageProgressStage = "RECORDER_QUALIFICATION"
+	RECORDERROTATION      EvaluationStageProgressStage = "RECORDER_ROTATION"
+	REPLAYMATRIX          EvaluationStageProgressStage = "REPLAY_MATRIX"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationStageProgressStage enum.
+func (e EvaluationStageProgressStage) Valid() bool {
+	switch e {
+	case BACKTESTMATRIX:
+		return true
+	case CANDIDATESELECTION:
+		return true
+	case COMBINEDSHADOW:
+		return true
+	case EXISTINGDATAAUDIT:
+		return true
+	case FINALREPORT:
+		return true
+	case HISTORICALIMPORT:
+		return true
+	case RECORDERQUALIFICATION:
+		return true
+	case RECORDERROTATION:
+		return true
+	case REPLAYMATRIX:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationStageProgressState.
+const (
+	EvaluationStageProgressStateBLOCKED           EvaluationStageProgressState = "BLOCKED"
+	EvaluationStageProgressStateCANCELED          EvaluationStageProgressState = "CANCELED"
+	EvaluationStageProgressStateCOMPLETED         EvaluationStageProgressState = "COMPLETED"
+	EvaluationStageProgressStatePAUSEDRECOVERABLE EvaluationStageProgressState = "PAUSED_RECOVERABLE"
+	EvaluationStageProgressStatePENDING           EvaluationStageProgressState = "PENDING"
+	EvaluationStageProgressStateRUNNING           EvaluationStageProgressState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationStageProgressState enum.
+func (e EvaluationStageProgressState) Valid() bool {
+	switch e {
+	case EvaluationStageProgressStateBLOCKED:
+		return true
+	case EvaluationStageProgressStateCANCELED:
+		return true
+	case EvaluationStageProgressStateCOMPLETED:
+		return true
+	case EvaluationStageProgressStatePAUSEDRECOVERABLE:
+		return true
+	case EvaluationStageProgressStatePENDING:
+		return true
+	case EvaluationStageProgressStateRUNNING:
 		return true
 	default:
 		return false
@@ -4279,13 +4837,13 @@ func (e TrendStatusHealth) Valid() bool {
 
 // Defines values for TrendStatusTimeframe.
 const (
-	N4h TrendStatusTimeframe = "4h"
+	TrendStatusTimeframeN4h TrendStatusTimeframe = "4h"
 )
 
 // Valid indicates whether the value is a known member of the TrendStatusTimeframe enum.
 func (e TrendStatusTimeframe) Valid() bool {
 	switch e {
-	case N4h:
+	case TrendStatusTimeframeN4h:
 		return true
 	default:
 		return false
@@ -4366,28 +4924,28 @@ func (e ListActivityParamsSide) Valid() bool {
 
 // Defines values for ListActivityParamsMode.
 const (
-	ListActivityParamsModeBacktest ListActivityParamsMode = "backtest"
-	ListActivityParamsModeDemo     ListActivityParamsMode = "demo"
-	ListActivityParamsModePaper    ListActivityParamsMode = "paper"
-	ListActivityParamsModeReplay   ListActivityParamsMode = "replay"
-	ListActivityParamsModeShadow   ListActivityParamsMode = "shadow"
-	ListActivityParamsModeTestnet  ListActivityParamsMode = "testnet"
+	Backtest ListActivityParamsMode = "backtest"
+	Demo     ListActivityParamsMode = "demo"
+	Paper    ListActivityParamsMode = "paper"
+	Replay   ListActivityParamsMode = "replay"
+	Shadow   ListActivityParamsMode = "shadow"
+	Testnet  ListActivityParamsMode = "testnet"
 )
 
 // Valid indicates whether the value is a known member of the ListActivityParamsMode enum.
 func (e ListActivityParamsMode) Valid() bool {
 	switch e {
-	case ListActivityParamsModeBacktest:
+	case Backtest:
 		return true
-	case ListActivityParamsModeDemo:
+	case Demo:
 		return true
-	case ListActivityParamsModePaper:
+	case Paper:
 		return true
-	case ListActivityParamsModeReplay:
+	case Replay:
 		return true
-	case ListActivityParamsModeShadow:
+	case Shadow:
 		return true
-	case ListActivityParamsModeTestnet:
+	case Testnet:
 		return true
 	default:
 		return false
@@ -4814,6 +5372,21 @@ type ConfigurationActivationRequest struct {
 	Reason             string   `json:"reason"`
 }
 
+// DataAudit defines model for DataAudit.
+type DataAudit struct {
+	// CompletedAt RFC 3339 timestamp with an explicit UTC offset.
+	CompletedAt *Timestamp `json:"completed_at,omitempty"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt  Timestamp      `json:"created_at"`
+	Id         string         `json:"id"`
+	ReasonCode *string        `json:"reason_code,omitempty"`
+	State      DataAuditState `json:"state"`
+}
+
+// DataAuditState defines model for DataAudit.State.
+type DataAuditState string
+
 // DataCatalogueItem defines model for DataCatalogueItem.
 type DataCatalogueItem struct {
 	// CoverageEnd RFC 3339 timestamp with an explicit UTC offset.
@@ -4889,6 +5462,243 @@ type Error struct {
 	SuggestedAction       *string            `json:"suggested_action,omitempty"`
 	Summary               *string            `json:"summary,omitempty"`
 }
+
+// EvaluationCampaign defines model for EvaluationCampaign.
+type EvaluationCampaign struct {
+	CompletedStages []EvaluationCampaignCompletedStages `json:"completed_stages"`
+	Coverage        *[]EvaluationCoverage               `json:"coverage,omitempty"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt                 Timestamp                             `json:"created_at"`
+	CurrentStage              *EvaluationCampaignCurrentStage       `json:"current_stage,omitempty"`
+	EstimatedRemainingSeconds *int64                                `json:"estimated_remaining_seconds,omitempty"`
+	FeedHealth                *[]EvaluationFeedHealth               `json:"feed_health,omitempty"`
+	HistoricalImports         *[]EvaluationHistoricalImportProgress `json:"historical_imports,omitempty"`
+	Id                        string                                `json:"id"`
+	Matrix                    *[]EvaluationMatrixMember             `json:"matrix,omitempty"`
+	MeasuredBytesPerHour      *int64                                `json:"measured_bytes_per_hour,omitempty"`
+	Preset                    EvaluationCampaignPreset              `json:"preset"`
+	ReasonCode                *string                               `json:"reason_code,omitempty"`
+	RecordedBytes             *int64                                `json:"recorded_bytes,omitempty"`
+
+	// RecordingLastValidAt RFC 3339 timestamp with an explicit UTC offset.
+	RecordingLastValidAt *Timestamp                `json:"recording_last_valid_at,omitempty"`
+	RecordingLimitBytes  *int64                    `json:"recording_limit_bytes,omitempty"`
+	Revision             Revision                  `json:"revision"`
+	Shadow               *EvaluationShadowProgress `json:"shadow,omitempty"`
+
+	// ShadowLastValidAt RFC 3339 timestamp with an explicit UTC offset.
+	ShadowLastValidAt   *Timestamp                 `json:"shadow_last_valid_at,omitempty"`
+	ShadowReservedBytes *int64                     `json:"shadow_reserved_bytes,omitempty"`
+	Stages              *[]EvaluationStageProgress `json:"stages,omitempty"`
+	State               EvaluationCampaignState    `json:"state"`
+	SuggestedAction     *string                    `json:"suggested_action,omitempty"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt             Timestamp `json:"updated_at"`
+	ValidRecordingSeconds *int64    `json:"valid_recording_seconds,omitempty"`
+	ValidShadowSeconds    *int64    `json:"valid_shadow_seconds,omitempty"`
+	WallTimeSeconds       *int64    `json:"wall_time_seconds,omitempty"`
+}
+
+// EvaluationCampaignCompletedStages defines model for EvaluationCampaign.CompletedStages.
+type EvaluationCampaignCompletedStages string
+
+// EvaluationCampaignCurrentStage defines model for EvaluationCampaign.CurrentStage.
+type EvaluationCampaignCurrentStage string
+
+// EvaluationCampaignPreset defines model for EvaluationCampaign.Preset.
+type EvaluationCampaignPreset string
+
+// EvaluationCampaignState defines model for EvaluationCampaign.State.
+type EvaluationCampaignState string
+
+// EvaluationCampaignCreateRequest defines model for EvaluationCampaignCreateRequest.
+type EvaluationCampaignCreateRequest struct {
+	Preset EvaluationCampaignCreateRequestPreset `json:"preset"`
+}
+
+// EvaluationCampaignCreateRequestPreset defines model for EvaluationCampaignCreateRequest.Preset.
+type EvaluationCampaignCreateRequestPreset string
+
+// EvaluationCampaignEvent defines model for EvaluationCampaignEvent.
+type EvaluationCampaignEvent struct {
+	EventType string `json:"event_type"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt Timestamp `json:"occurred_at"`
+	Ordinal    Revision  `json:"ordinal"`
+	ReasonCode *string   `json:"reason_code,omitempty"`
+	Stage      *string   `json:"stage,omitempty"`
+	Summary    *string   `json:"summary,omitempty"`
+}
+
+// EvaluationCampaignEventPage defines model for EvaluationCampaignEventPage.
+type EvaluationCampaignEventPage struct {
+	Items []EvaluationCampaignEvent `json:"items"`
+}
+
+// EvaluationCampaignPage defines model for EvaluationCampaignPage.
+type EvaluationCampaignPage struct {
+	Items []EvaluationCampaign `json:"items"`
+}
+
+// EvaluationCampaignReport defines model for EvaluationCampaignReport.
+type EvaluationCampaignReport struct {
+	Content *map[string]interface{} `json:"content,omitempty"`
+
+	// GeneratedAt RFC 3339 timestamp with an explicit UTC offset.
+	GeneratedAt Timestamp                        `json:"generated_at"`
+	ReasonCode  *string                          `json:"reason_code,omitempty"`
+	ReportHash  *string                          `json:"report_hash,omitempty"`
+	State       EvaluationCampaignReportState    `json:"state"`
+	Summary     *string                          `json:"summary,omitempty"`
+	Verdict     *EvaluationCampaignReportVerdict `json:"verdict,omitempty"`
+}
+
+// EvaluationCampaignReportState defines model for EvaluationCampaignReport.State.
+type EvaluationCampaignReportState string
+
+// EvaluationCampaignReportVerdict defines model for EvaluationCampaignReport.Verdict.
+type EvaluationCampaignReportVerdict string
+
+// EvaluationCoverage defines model for EvaluationCoverage.
+type EvaluationCoverage struct {
+	ByteCount      int64                         `json:"byte_count"`
+	DatasetId      string                        `json:"dataset_id"`
+	DuplicateCount int64                         `json:"duplicate_count"`
+	Eligibility    EvaluationCoverageEligibility `json:"eligibility"`
+	Exchange       *string                       `json:"exchange,omitempty"`
+	GapCount       int64                         `json:"gap_count"`
+	Instrument     *string                       `json:"instrument,omitempty"`
+	ReasonCode     string                        `json:"reason_code"`
+	SegmentCount   int64                         `json:"segment_count"`
+}
+
+// EvaluationCoverageEligibility defines model for EvaluationCoverage.Eligibility.
+type EvaluationCoverageEligibility string
+
+// EvaluationFeedHealth defines model for EvaluationFeedHealth.
+type EvaluationFeedHealth struct {
+	BookFresh         bool                           `json:"book_fresh"`
+	ClockEligible     bool                           `json:"clock_eligible"`
+	DecoderErrorCount int64                          `json:"decoder_error_count"`
+	Eligible          bool                           `json:"eligible"`
+	Exchange          EvaluationFeedHealthExchange   `json:"exchange"`
+	GapCount          int64                          `json:"gap_count"`
+	Instrument        EvaluationFeedHealthInstrument `json:"instrument"`
+
+	// LatestEventAt RFC 3339 timestamp with an explicit UTC offset.
+	LatestEventAt  Timestamp `json:"latest_event_at"`
+	MessageCount   int64     `json:"message_count"`
+	QueueDropCount int64     `json:"queue_drop_count"`
+}
+
+// EvaluationFeedHealthExchange defines model for EvaluationFeedHealth.Exchange.
+type EvaluationFeedHealthExchange string
+
+// EvaluationFeedHealthInstrument defines model for EvaluationFeedHealth.Instrument.
+type EvaluationFeedHealthInstrument string
+
+// EvaluationHistoricalImportProgress defines model for EvaluationHistoricalImportProgress.
+type EvaluationHistoricalImportProgress struct {
+	ByteCount int64 `json:"byte_count"`
+
+	// CheckpointTime RFC 3339 timestamp with an explicit UTC offset.
+	CheckpointTime Timestamp                                    `json:"checkpoint_time"`
+	Exchange       EvaluationHistoricalImportProgressExchange   `json:"exchange"`
+	GapCount       int64                                        `json:"gap_count"`
+	Instrument     EvaluationHistoricalImportProgressInstrument `json:"instrument"`
+	Interval       EvaluationHistoricalImportProgressInterval   `json:"interval"`
+	ReasonCode     *string                                      `json:"reason_code,omitempty"`
+	RowCount       int64                                        `json:"row_count"`
+	State          EvaluationHistoricalImportProgressState      `json:"state"`
+
+	// WindowEnd RFC 3339 timestamp with an explicit UTC offset.
+	WindowEnd Timestamp `json:"window_end"`
+
+	// WindowStart RFC 3339 timestamp with an explicit UTC offset.
+	WindowStart Timestamp `json:"window_start"`
+}
+
+// EvaluationHistoricalImportProgressExchange defines model for EvaluationHistoricalImportProgress.Exchange.
+type EvaluationHistoricalImportProgressExchange string
+
+// EvaluationHistoricalImportProgressInstrument defines model for EvaluationHistoricalImportProgress.Instrument.
+type EvaluationHistoricalImportProgressInstrument string
+
+// EvaluationHistoricalImportProgressInterval defines model for EvaluationHistoricalImportProgress.Interval.
+type EvaluationHistoricalImportProgressInterval string
+
+// EvaluationHistoricalImportProgressState defines model for EvaluationHistoricalImportProgress.State.
+type EvaluationHistoricalImportProgressState string
+
+// EvaluationMatrixMember defines model for EvaluationMatrixMember.
+type EvaluationMatrixMember struct {
+	CapitalMicros int64                          `json:"capital_micros"`
+	Configuration string                         `json:"configuration"`
+	CostStressBps int                            `json:"cost_stress_bps"`
+	Id            string                         `json:"id"`
+	Metrics       *map[string]interface{}        `json:"metrics,omitempty"`
+	Mode          EvaluationMatrixMemberMode     `json:"mode"`
+	ReasonCode    *string                        `json:"reason_code,omitempty"`
+	RepeatOrdinal int                            `json:"repeat_ordinal"`
+	ResultHash    *string                        `json:"result_hash,omitempty"`
+	State         EvaluationMatrixMemberState    `json:"state"`
+	Strategy      EvaluationMatrixMemberStrategy `json:"strategy"`
+	Verdict       *EvaluationMatrixMemberVerdict `json:"verdict,omitempty"`
+}
+
+// EvaluationMatrixMemberMode defines model for EvaluationMatrixMember.Mode.
+type EvaluationMatrixMemberMode string
+
+// EvaluationMatrixMemberState defines model for EvaluationMatrixMember.State.
+type EvaluationMatrixMemberState string
+
+// EvaluationMatrixMemberStrategy defines model for EvaluationMatrixMember.Strategy.
+type EvaluationMatrixMemberStrategy string
+
+// EvaluationMatrixMemberVerdict defines model for EvaluationMatrixMember.Verdict.
+type EvaluationMatrixMemberVerdict string
+
+// EvaluationShadowProgress defines model for EvaluationShadowProgress.
+type EvaluationShadowProgress struct {
+	LastProcessedOrdinal   int64                         `json:"last_processed_ordinal"`
+	MemberCeilingMicros    int64                         `json:"member_ceiling_micros"`
+	Members                []EvaluationMatrixMember      `json:"members"`
+	ProtectedReserveMicros int64                         `json:"protected_reserve_micros"`
+	ReasonCode             *string                       `json:"reason_code,omitempty"`
+	SharedCapitalMicros    int64                         `json:"shared_capital_micros"`
+	StartOrdinal           int64                         `json:"start_ordinal"`
+	State                  EvaluationShadowProgressState `json:"state"`
+	ValidSeconds           int64                         `json:"valid_seconds"`
+}
+
+// EvaluationShadowProgressState defines model for EvaluationShadowProgress.State.
+type EvaluationShadowProgressState string
+
+// EvaluationStageProgress defines model for EvaluationStageProgress.
+type EvaluationStageProgress struct {
+	Attempt int `json:"attempt"`
+
+	// CompletedAt RFC 3339 timestamp with an explicit UTC offset.
+	CompletedAt *Timestamp                   `json:"completed_at,omitempty"`
+	ReasonCode  *string                      `json:"reason_code,omitempty"`
+	Stage       EvaluationStageProgressStage `json:"stage"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt *Timestamp                   `json:"started_at,omitempty"`
+	State     EvaluationStageProgressState `json:"state"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// EvaluationStageProgressStage defines model for EvaluationStageProgress.Stage.
+type EvaluationStageProgressStage string
+
+// EvaluationStageProgressState defines model for EvaluationStageProgress.State.
+type EvaluationStageProgressState string
 
 // EvidenceBundleRequest defines model for EvidenceBundleRequest.
 type EvidenceBundleRequest struct {
@@ -7377,6 +8187,27 @@ type ActivateConfigurationRevisionParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// CreateDataAuditParams defines parameters for CreateDataAudit.
+type CreateDataAuditParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CreateEvaluationCampaignParams defines parameters for CreateEvaluationCampaign.
+type CreateEvaluationCampaignParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CancelEvaluationCampaignParams defines parameters for CancelEvaluationCampaign.
+type CancelEvaluationCampaignParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // ListExchangesParams defines parameters for ListExchanges.
 type ListExchangesParams struct {
 	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -7898,6 +8729,12 @@ type CreateBacktestJSONRequestBody = OfflineJobRequest
 
 // ActivateConfigurationRevisionJSONRequestBody defines body for ActivateConfigurationRevision for application/json ContentType.
 type ActivateConfigurationRevisionJSONRequestBody = ConfigurationActivationRequest
+
+// CreateEvaluationCampaignJSONRequestBody defines body for CreateEvaluationCampaign for application/json ContentType.
+type CreateEvaluationCampaignJSONRequestBody = EvaluationCampaignCreateRequest
+
+// CancelEvaluationCampaignJSONRequestBody defines body for CancelEvaluationCampaign for application/json ContentType.
+type CancelEvaluationCampaignJSONRequestBody = RevisionCommandRequest
 
 // CreateExportJSONRequestBody defines body for CreateExport for application/json ContentType.
 type CreateExportJSONRequestBody = ExportRequest

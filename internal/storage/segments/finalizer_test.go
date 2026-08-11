@@ -105,6 +105,30 @@ func TestRecoveryFinalizesOnlyHashProvedPartial(t *testing.T) {
 	}
 }
 
+func TestRecoveryPrefixLeavesOtherRecorderProofsUntouched(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"evaluation-a-page-wire", "recorder-b-page-wire"} {
+		finalizer, _ := NewFinalizer(root, func(stage Stage) error {
+			if stage == StageProofSynced {
+				return errors.New("crash")
+			}
+			return nil
+		})
+		spec := segmentSpec()
+		spec.Name = name
+		_, _ = finalizer.Finalize(spec, parquetFixture, func(Manifest) error { return nil })
+	}
+	recovery, _ := NewFinalizer(root, nil)
+	commits := 0
+	items, err := recovery.RecoverPrefix("evaluation-a-", func(Manifest) error { commits++; return nil })
+	if err != nil || len(items) != 1 || commits != 1 {
+		t.Fatalf("recovery=%#v commits=%d err=%v", items, commits, err)
+	}
+	if _, err = os.Stat(filepath.Join(root, "recorder-b-page-wire.proof")); err != nil {
+		t.Fatal("other recorder proof was changed")
+	}
+}
+
 func TestRecoveryRejectsCorruptProofAndQuarantinesUnprovedPartial(t *testing.T) {
 	root := t.TempDir()
 	finalizer, _ := NewFinalizer(root, func(stage Stage) error {

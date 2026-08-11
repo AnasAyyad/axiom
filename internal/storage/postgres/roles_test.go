@@ -208,6 +208,35 @@ func TestRuntimeMigrationLedgerGrantIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestEvaluationCampaignRoleMatricesRemainLeastPrivilege(t *testing.T) {
+	for _, table := range []string{
+		"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results",
+		"evaluation_data_audit_findings", "evaluation_historical_import_segments",
+		"evaluation_campaign_recording_segments", "evaluation_recorder_observations",
+		"evaluation_recorder_instrument_observations", "evaluation_shadow_decisions",
+	} {
+		if !containsGrantTable(runtimeReadInsertTables, table) ||
+			containsGrantTable(runtimeUpdateTables, table) || containsGrantTable(runtimeDeleteTables, table) ||
+			!containsGrantTable(readOnlyTables, table) {
+			t.Fatalf("evaluation evidence %s is not append-only and reportable", table)
+		}
+	}
+	if containsGrantTable(recorderWriteTables, "evaluation_recorder_requests") ||
+		containsGrantTable(recorderWriteTables, "evaluation_campaigns") ||
+		!containsGrantTable(recorderReadTables, "evaluation_recorder_requests") ||
+		!containsGrantTable(recorderReadTables, "evaluation_campaigns") {
+		t.Fatal("evaluation recorder control tables received broad mutation rights")
+	}
+	for _, table := range []string{
+		"evaluation_campaign_recording_segments", "evaluation_recorder_observations",
+		"evaluation_recorder_instrument_observations",
+	} {
+		if !containsGrantTable(recorderAppendTables, table) {
+			t.Fatalf("evaluation recorder append grant omits %s", table)
+		}
+	}
+}
+
 func TestOwnerAccountBootstrapGrantIsAppendOnly(t *testing.T) {
 	const table = "owner_accounts"
 	if !containsGrantTable(runtimeReadInsertTables, table) ||

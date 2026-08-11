@@ -122,7 +122,7 @@ func (broker *ownerConsoleMeanReversionDynamicBroker) Submit(ctx context.Context
 		input.Evidence.LatencyModelID != broker.claim.Configuration.Models.Latency {
 		return nil, fmt.Errorf("owner_console_simulation_model_mismatch")
 	}
-	models, err := ownerConsoleMeanReversionBrokerModels(input, broker.claim.Manifest.Models)
+	models, err := ownerConsoleMeanReversionBrokerModels(input, broker.claim)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,9 @@ func (broker *ownerConsoleMeanReversionDynamicBroker) Cancel(context.Context, do
 	return nil, fmt.Errorf("owner_console_simulation_order_not_active")
 }
 
-func ownerConsoleMeanReversionBrokerModels(input meanreversion.Input, namespace backtest.ModelNamespace) (simulation.BrokerModels, error) {
+func ownerConsoleMeanReversionBrokerModels(input meanreversion.Input,
+	claim backtest.JobClaim) (simulation.BrokerModels, error) {
+	namespace := claim.Manifest.Models
 	if namespace.FillDomain == "" || input.Evidence.FillModelID != namespace.FillDomain ||
 		input.Evidence.LatencyModelID != "fixed-zero-v1" {
 		return simulation.BrokerModels{}, fmt.Errorf("owner_console_simulation_model_mismatch")
@@ -158,11 +160,32 @@ func ownerConsoleMeanReversionBrokerModels(input meanreversion.Input, namespace 
 	zeroRate, _ := domain.ParseRate("0")
 	zeroPercent, _ := domain.ParsePercent("0")
 	onePercent, _ := domain.ParsePercent("1")
+	fee, err := stressedRate(input.Sizing.EntryFeeRate, claim.CostStressBPS)
+	if err != nil {
+		return simulation.BrokerModels{}, err
+	}
+	spread, err := stressedPercent(input.Spread, claim.CostStressBPS)
+	if err != nil {
+		return simulation.BrokerModels{}, err
+	}
+	slippageText, err := offlineParameter(claim.Configuration.MeanReversion.Parameters,
+		"mean_reversion.maximum_simulated_slippage")
+	if err != nil {
+		return simulation.BrokerModels{}, err
+	}
+	slippage, err := domain.ParsePercent(slippageText)
+	if err != nil {
+		return simulation.BrokerModels{}, err
+	}
+	slippage, err = stressedPercent(slippage, claim.CostStressBPS)
+	if err != nil {
+		return simulation.BrokerModels{}, err
+	}
 	return simulation.BrokerModels{
-		Fee: simulation.FeeModel{Version: input.Evidence.FeeModelID, TakerRate: input.Sizing.EntryFeeRate,
+		Fee: simulation.FeeModel{Version: input.Evidence.FeeModelID, TakerRate: fee,
 			MakerRate: zeroRate, RebateRate: zeroRate, DecimalScale: 18},
-		Price: simulation.PriceModel{Version: "recorded-first-executable-v1", Spread: zeroPercent,
-			Slippage: zeroPercent, Impact: zeroPercent, AdverseSelection: zeroPercent, DecimalScale: 18},
+		Price: simulation.PriceModel{Version: "recorded-first-executable-v1", Spread: spread,
+			Slippage: slippage, Impact: zeroPercent, AdverseSelection: zeroPercent, DecimalScale: 18},
 		Latency: simulation.LatencyModel{Version: input.Evidence.LatencyModelID, Samples: []time.Duration{0}},
 		Fill:    simulation.FillModel{Version: input.Evidence.FillModelID, PartialRatio: onePercent, QuantityScale: 18},
 	}, nil

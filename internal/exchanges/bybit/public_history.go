@@ -171,11 +171,24 @@ func (client *PublicClient) Candles(
 	ctx context.Context,
 	request exchangecontracts.CandleRequest,
 ) ([]exchangecontracts.Candle, error) {
+	page, err := client.CandlePage(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return page.Candles, nil
+}
+
+// CandlePage preserves the official response bytes beside strict normalized
+// rows for the historical evaluation importer.
+func (client *PublicClient) CandlePage(
+	ctx context.Context,
+	request exchangecontracts.CandleRequest,
+) (exchangecontracts.HistoricalCandlePage, error) {
 	nativeInterval, ok := intervalNative(request.Interval)
 	if !approvedInstrument(request.Instrument) || !ok || request.Limit == 0 || request.Limit > 1000 ||
 		request.Start.IsZero() || request.End.IsZero() || request.Start.Location() != time.UTC ||
 		request.End.Location() != time.UTC || request.End.Before(request.Start) {
-		return nil, validationError(exchangecontracts.OperationCandles)
+		return exchangecontracts.HistoricalCandlePage{}, validationError(exchangecontracts.OperationCandles)
 	}
 	query := url.Values{"category": {"spot"}, "end": {strconv.FormatInt(request.End.UnixMilli(), 10)},
 		"interval": {nativeInterval}, "limit": {strconv.FormatUint(uint64(request.Limit), 10)},
@@ -183,9 +196,19 @@ func (client *PublicClient) Candles(
 	body, received, err := client.get(ctx, "/v5/market/kline", query,
 		exchangecontracts.OperationCandles, 1)
 	if err != nil {
-		return nil, err
+		return exchangecontracts.HistoricalCandlePage{}, err
 	}
-	return NormalizeCandleHistory(body, request.Instrument, request.Interval, received)
+	candles, err := NormalizeCandleHistory(body, request.Instrument, request.Interval, received)
+	if err != nil {
+		return exchangecontracts.HistoricalCandlePage{}, err
+	}
+	page := exchangecontracts.HistoricalCandlePage{Exchange: "bybit", Instrument: request.Instrument,
+		Interval: request.Interval, Start: request.Start, End: request.End, ReceivedAt: received,
+		RawPayload: append([]byte(nil), body...), RawPayloadHash: payloadHash(body), Candles: candles}
+	if !page.Valid() {
+		return exchangecontracts.HistoricalCandlePage{}, validationError(exchangecontracts.OperationCandles)
+	}
+	return page, nil
 }
 
 // Ticker loads one complete public best-price observation.

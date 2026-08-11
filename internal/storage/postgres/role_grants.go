@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -116,11 +117,47 @@ func ApplyRoleGrants(ctx context.Context, pool *pgxpool.Pool, runtimeRole, recor
 			return err
 		}
 	}
+	if err = applyEvaluationRecorderColumnGrants(ctx, tx, recorderRole, availableTables); err != nil {
+		return err
+	}
 	if err = applyStrategyFunctionGrants(ctx, tx, runtimeRole); err != nil {
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("role_grant_commit_failed")
+	}
+	return nil
+}
+
+func applyEvaluationRecorderColumnGrants(ctx context.Context, tx pgx.Tx, recorderRole string,
+	available map[string]struct{}) error {
+	role := pgx.Identifier{recorderRole}.Sanitize()
+	grants := []struct {
+		table   string
+		columns []string
+	}{
+		{table: "evaluation_campaigns", columns: []string{
+			"valid_recording_seconds", "valid_shadow_seconds", "recording_last_valid_at",
+			"shadow_last_valid_at", "campaign_recorded_bytes", "measured_bytes_per_hour", "updated_at",
+		}},
+		{table: "evaluation_recorder_requests", columns: []string{
+			"state", "previous_session_id", "recorded_bytes", "valid_recording_seconds", "last_valid_at",
+			"measured_bytes_per_hour", "reason_code", "finalized_at", "activated_at", "completed_at", "updated_at",
+		}},
+	}
+	for _, grant := range grants {
+		if _, exists := available[grant.table]; !exists {
+			continue
+		}
+		columns := make([]string, 0, len(grant.columns))
+		for _, column := range grant.columns {
+			columns = append(columns, pgx.Identifier{column}.Sanitize())
+		}
+		statement := "GRANT UPDATE (" + strings.Join(columns, ", ") + ") ON " +
+			pgx.Identifier{"public", grant.table}.Sanitize() + " TO " + role
+		if _, err := tx.Exec(ctx, statement); err != nil {
+			return fmt.Errorf("evaluation_recorder_column_grant_failed")
+		}
 	}
 	return nil
 }

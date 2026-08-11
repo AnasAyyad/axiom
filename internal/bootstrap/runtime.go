@@ -39,7 +39,7 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product conf
 	if err != nil {
 		return err
 	}
-	work, err := workForRole(ctx, pool, runtimeConfig, product, role)
+	work, err := workForRole(ctx, pool, runtimeConfig, product, role, services.metrics)
 	if err != nil {
 		return err
 	}
@@ -81,12 +81,13 @@ func workForRole(
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	role string,
+	metrics *observability.Metrics,
 ) (roleWork, error) {
 	switch role {
 	case "recorder":
 		return newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
 	case "worker":
-		return newOwnerConsoleWorkerRoleWork(pool, runtimeConfig)
+		return newOwnerConsoleWorkerRoleWork(pool, runtimeConfig, product, metrics)
 	case "engine-shadow":
 		return newOwnerConsoleLiveShadowRoleWork(pool, runtimeConfig)
 	case "engine-binance-sandbox":
@@ -284,7 +285,7 @@ func metricCatalog(product config.Configuration) observability.MetricCatalog {
 		Exchanges: []string{"binance", "bybit"}, Instruments: instruments,
 		Strategies: []string{
 			"trend", "mean-reversion", "triangular",
-			"cross-exchange-arbitrage", "sandbox-canary",
+			"cross-exchange-arbitrage", "inventory-rebalancing", "sandbox-canary",
 		},
 		Modes: []string{
 			"backtest", "replay", "paper", "shadow", "testnet", "demo",

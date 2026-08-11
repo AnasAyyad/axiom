@@ -6,6 +6,7 @@ import { ownerControlResponseSchemas } from "./ownerControlValidation";
 import { operationalEvidenceResponseSchemas } from "./operationalEvidenceValidation";
 import { legacyResponseSchemas } from "./legacyValidation";
 import { revision, timestamp } from "./validationShared";
+import { evaluationResponseSchemas } from "./evaluationValidation";
 
 const errorSchema = z.object({
   code: z.string(),
@@ -50,6 +51,7 @@ const sessionResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
 ];
 const responseSchemas = [
   ...sessionResponseSchemas,
+  ...evaluationResponseSchemas,
   ...ownerControlResponseSchemas,
   ...operationalEvidenceResponseSchemas,
   ...sandboxQualificationResponseSchemas,

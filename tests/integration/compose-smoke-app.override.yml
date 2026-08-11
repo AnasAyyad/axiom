@@ -1,0 +1,4 @@
+services:
+  recorder:
+    environment:
+      APP_CONFIG_FILE: /etc/axiom/platform.json

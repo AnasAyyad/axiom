@@ -18,6 +18,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: run-lab-contract-qualify run-lab-api-qualify run-lab-postgres-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify run-lab
 .PHONY: operational-evidence-contract-qualify operational-evidence-api-qualify operational-evidence-postgres-qualify operational-evidence-frontend-qualify operational-evidence-browser-qualify operational-evidence-security-qualify operational-evidence
 .PHONY: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-formal operational-readiness
+.PHONY: evaluation-campaign-postgres-qualify
 .PHONY: release-certification-model-qualify release-certification-traceability-qualify release-certification-security-qualify release-certification-formal release-certify
 
 IMAGE ?= axiom:local
@@ -385,6 +386,14 @@ operational-readiness-postgres-qualify: ## Run operational readiness clean-insta
 		AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN="$(AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN)" \
 		$(GO) test ./internal/storage/postgres \
 		-run '^TestOperationalReadinessPostgres(OperationalReadiness|OperationalEvidenceToOperationalReadinessUpgrade)Qualification$$' -count=1 -v
+
+evaluation-campaign-postgres-qualify: ## Run evaluation campaign clean-install and exact migration-54 upgrade gates on PostgreSQL 18.
+	@test -n "$(AXIOM_EVALUATION_CAMPAIGN_TEST_DSN)" || { echo "AXIOM_EVALUATION_CAMPAIGN_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN)" || { echo "AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_EVALUATION_CAMPAIGN_TEST_DSN="$(AXIOM_EVALUATION_CAMPAIGN_TEST_DSN)" \
+		AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN="$(AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestEvaluationCampaignPostgres(CleanInstall|SemanticRuntimeToCampaignUpgrade)Qualification$$' -count=1 -v
 
 operational-readiness-hardening-qualify: ## Validate operational readiness Compose retention, remote backup, digest, and lifecycle boundaries.
 	@$(NODE) scripts/check-operational-readiness-boundary.mjs

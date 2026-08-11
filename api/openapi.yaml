@@ -35,6 +35,7 @@ tags:
   - name: Exports
   - name: Qualification
   - name: Stream
+  - name: Evaluation
 paths:
   /health/live:
     get:
@@ -394,6 +395,150 @@ paths:
               schema: { $ref: "#/components/schemas/DataCataloguePage" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/evaluation-campaigns:
+    get:
+      operationId: listEvaluationCampaigns
+      tags: [Evaluation]
+      summary: List server-owned strategy evaluation campaigns
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Durable campaign summaries
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationCampaignPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    post:
+      operationId: createEvaluationCampaign
+      tags: [Evaluation]
+      summary: Start one server-resolved full strategy evaluation
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              { $ref: "#/components/schemas/EvaluationCampaignCreateRequest" }
+      responses:
+        "202":
+          description: Campaign accepted with server-owned immutable inputs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationCampaign" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/evaluation-campaigns/{id}:
+    get:
+      operationId: getEvaluationCampaign
+      tags: [Evaluation]
+      summary: Read one strategy evaluation campaign
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Campaign state and safe progress projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationCampaign" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/evaluation-campaigns/{id}/cancel:
+    post:
+      operationId: cancelEvaluationCampaign
+      tags: [Evaluation]
+      summary: Emergency-cancel an active evaluation campaign
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody: { $ref: "#/components/requestBodies/RevisionCommand" }
+      responses:
+        "202":
+          description: Cancellation accepted; preserved evidence will receive a partial report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /api/v1/evaluation-campaigns/{id}/events:
+    get:
+      operationId: listEvaluationCampaignEvents
+      tags: [Evaluation]
+      summary: List durable owner-visible evaluation timeline events
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Redacted durable campaign timeline
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/EvaluationCampaignEventPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/evaluation-campaigns/{id}/report:
+    get:
+      operationId: getEvaluationCampaignReport
+      tags: [Evaluation]
+      summary: Read the immutable full or partial evaluation report
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Immutable safe report projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EvaluationCampaignReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/data-audits:
+    post:
+      operationId: createDataAudit
+      tags: [Evaluation]
+      summary: Request a server-owned existing-data audit
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Audit request accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataAudit" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/data-audits/{id}:
+    get:
+      operationId: getDataAudit
+      tags: [Evaluation]
+      summary: Read one existing-data audit
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200":
+          description: Audit state and evidence summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataAudit" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/system/version:
     get:
       operationId: getVersion
@@ -2646,6 +2791,361 @@ components:
           items: { type: string, enum: [binance, bybit] }
         instrument: { type: string, minLength: 3, maxLength: 32 }
         preset: { type: string, enum: [latest-qualified-inputs] }
+    EvaluationCampaignCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [preset]
+      properties:
+        preset: { type: string, enum: [balanced_full_v1] }
+    EvaluationCampaign:
+      type: object
+      additionalProperties: false
+      required:
+        [id, preset, state, completed_stages, revision, created_at, updated_at]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 160 }
+        preset: { type: string, enum: [balanced_full_v1] }
+        state:
+          type: string
+          enum:
+            [
+              PENDING,
+              RUNNING,
+              PAUSED_RECOVERABLE,
+              COMPLETED,
+              PARTIAL,
+              BLOCKED,
+              CANCELED,
+            ]
+        current_stage:
+          type: string
+          enum:
+            [
+              HISTORICAL_IMPORT,
+              EXISTING_DATA_AUDIT,
+              RECORDER_ROTATION,
+              RECORDER_QUALIFICATION,
+              BACKTEST_MATRIX,
+              REPLAY_MATRIX,
+              CANDIDATE_SELECTION,
+              COMBINED_SHADOW,
+              FINAL_REPORT,
+            ]
+        completed_stages:
+          type: array
+          maxItems: 9
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              [
+                HISTORICAL_IMPORT,
+                EXISTING_DATA_AUDIT,
+                RECORDER_ROTATION,
+                RECORDER_QUALIFICATION,
+                BACKTEST_MATRIX,
+                REPLAY_MATRIX,
+                CANDIDATE_SELECTION,
+                COMBINED_SHADOW,
+                FINAL_REPORT,
+              ]
+        valid_recording_seconds: { type: integer, format: int64, minimum: 0 }
+        valid_shadow_seconds: { type: integer, format: int64, minimum: 0 }
+        wall_time_seconds: { type: integer, format: int64, minimum: 0 }
+        estimated_remaining_seconds:
+          { type: integer, format: int64, minimum: 0 }
+        recorded_bytes:
+          { type: integer, format: int64, minimum: 0, maximum: 214748364800 }
+        recording_limit_bytes:
+          {
+            type: integer,
+            format: int64,
+            minimum: 214748364800,
+            maximum: 214748364800,
+          }
+        measured_bytes_per_hour: { type: integer, format: int64, minimum: 0 }
+        shadow_reserved_bytes: { type: integer, format: int64, minimum: 0 }
+        recording_last_valid_at: { $ref: "#/components/schemas/Timestamp" }
+        shadow_last_valid_at: { $ref: "#/components/schemas/Timestamp" }
+        stages:
+          type: array
+          maxItems: 9
+          items: { $ref: "#/components/schemas/EvaluationStageProgress" }
+        historical_imports:
+          type: array
+          maxItems: 12
+          items:
+            { $ref: "#/components/schemas/EvaluationHistoricalImportProgress" }
+        coverage:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/EvaluationCoverage" }
+        matrix:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/EvaluationMatrixMember" }
+        feed_health:
+          type: array
+          maxItems: 6
+          items: { $ref: "#/components/schemas/EvaluationFeedHealth" }
+        shadow: { $ref: "#/components/schemas/EvaluationShadowProgress" }
+        reason_code: { type: string, maxLength: 80 }
+        suggested_action: { type: string, maxLength: 500 }
+        revision: { $ref: "#/components/schemas/Revision" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    EvaluationStageProgress:
+      type: object
+      additionalProperties: false
+      required: [stage, state, attempt, updated_at]
+      properties:
+        stage:
+          type: string
+          enum:
+            [
+              HISTORICAL_IMPORT,
+              EXISTING_DATA_AUDIT,
+              RECORDER_ROTATION,
+              RECORDER_QUALIFICATION,
+              BACKTEST_MATRIX,
+              REPLAY_MATRIX,
+              CANDIDATE_SELECTION,
+              COMBINED_SHADOW,
+              FINAL_REPORT,
+            ]
+        state:
+          {
+            type: string,
+            enum:
+              [
+                PENDING,
+                RUNNING,
+                PAUSED_RECOVERABLE,
+                COMPLETED,
+                BLOCKED,
+                CANCELED,
+              ],
+          }
+        attempt: { type: integer, minimum: 0 }
+        reason_code: { type: string, maxLength: 80 }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        completed_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    EvaluationHistoricalImportProgress:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          exchange,
+          instrument,
+          interval,
+          state,
+          window_start,
+          window_end,
+          checkpoint_time,
+          row_count,
+          byte_count,
+          gap_count,
+        ]
+      properties:
+        exchange: { type: string, enum: [binance, bybit] }
+        instrument: { type: string, enum: [BTC/USDT, ETH/USDT] }
+        interval: { type: string, enum: [15m, 1h, 4h] }
+        state: { type: string, enum: [PENDING, RUNNING, COMPLETED, BLOCKED] }
+        window_start: { $ref: "#/components/schemas/Timestamp" }
+        window_end: { $ref: "#/components/schemas/Timestamp" }
+        checkpoint_time: { $ref: "#/components/schemas/Timestamp" }
+        row_count: { type: integer, format: int64, minimum: 0 }
+        byte_count: { type: integer, format: int64, minimum: 0 }
+        gap_count: { type: integer, format: int64, minimum: 0 }
+        reason_code: { type: string, maxLength: 80 }
+    EvaluationCoverage:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          dataset_id,
+          eligibility,
+          reason_code,
+          segment_count,
+          byte_count,
+          gap_count,
+          duplicate_count,
+        ]
+      properties:
+        dataset_id: { type: string, minLength: 1, maxLength: 240 }
+        exchange: { type: string, maxLength: 40 }
+        instrument: { type: string, maxLength: 40 }
+        eligibility: { type: string, enum: [eligible, ineligible, blocked] }
+        reason_code: { type: string, maxLength: 80 }
+        segment_count: { type: integer, format: int64, minimum: 0 }
+        byte_count: { type: integer, format: int64, minimum: 0 }
+        gap_count: { type: integer, format: int64, minimum: 0 }
+        duplicate_count: { type: integer, format: int64, minimum: 0 }
+    EvaluationMatrixMember:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          strategy,
+          configuration,
+          mode,
+          capital_micros,
+          repeat_ordinal,
+          cost_stress_bps,
+          state,
+        ]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 200 }
+        strategy:
+          {
+            type: string,
+            enum:
+              [
+                trend-following,
+                mean-reversion,
+                triangular-arbitrage,
+                cross-exchange-arbitrage,
+                inventory-rebalancing,
+              ],
+          }
+        configuration: { type: string, minLength: 1, maxLength: 160 }
+        mode: { type: string, enum: [backtest, replay, shadow, advisory] }
+        capital_micros: { type: integer, format: int64, minimum: 0 }
+        repeat_ordinal: { type: integer, minimum: 0, maximum: 2 }
+        cost_stress_bps: { type: integer, minimum: 10000, maximum: 20000 }
+        state:
+          {
+            type: string,
+            enum:
+              [PENDING, QUEUED, RUNNING, SUCCEEDED, FAILED, EXCLUDED, CANCELED],
+          }
+        verdict: { type: string, enum: [CONTINUE, IMPROVE, REJECT, BLOCKED] }
+        reason_code: { type: string, maxLength: 80 }
+        result_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        metrics:
+          type: object
+          additionalProperties: true
+    EvaluationFeedHealth:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          exchange,
+          instrument,
+          eligible,
+          book_fresh,
+          clock_eligible,
+          latest_event_at,
+          message_count,
+          queue_drop_count,
+          gap_count,
+          decoder_error_count,
+        ]
+      properties:
+        exchange: { type: string, enum: [binance, bybit] }
+        instrument: { type: string, enum: [BTCUSDT, ETHUSDT, ETHBTC] }
+        eligible: { type: boolean }
+        book_fresh: { type: boolean }
+        clock_eligible: { type: boolean }
+        latest_event_at: { $ref: "#/components/schemas/Timestamp" }
+        message_count: { type: integer, format: int64, minimum: 0 }
+        queue_drop_count: { type: integer, format: int64, minimum: 0 }
+        gap_count: { type: integer, format: int64, minimum: 0 }
+        decoder_error_count: { type: integer, format: int64, minimum: 0 }
+    EvaluationShadowProgress:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          state,
+          valid_seconds,
+          start_ordinal,
+          last_processed_ordinal,
+          shared_capital_micros,
+          protected_reserve_micros,
+          member_ceiling_micros,
+          members,
+        ]
+      properties:
+        state:
+          {
+            type: string,
+            enum:
+              [
+                PENDING,
+                RUNNING,
+                PAUSED_RECOVERABLE,
+                COMPLETED,
+                BLOCKED,
+                CANCELED,
+              ],
+          }
+        valid_seconds: { type: integer, format: int64, minimum: 0 }
+        start_ordinal: { type: integer, format: int64, minimum: 0 }
+        last_processed_ordinal: { type: integer, format: int64, minimum: 0 }
+        shared_capital_micros: { type: integer, format: int64, minimum: 0 }
+        protected_reserve_micros: { type: integer, format: int64, minimum: 0 }
+        member_ceiling_micros: { type: integer, format: int64, minimum: 0 }
+        reason_code: { type: string, maxLength: 80 }
+        members:
+          type: array
+          maxItems: 4
+          items: { $ref: "#/components/schemas/EvaluationMatrixMember" }
+    EvaluationCampaignPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/EvaluationCampaign" }
+    EvaluationCampaignEvent:
+      type: object
+      additionalProperties: false
+      required: [ordinal, event_type, occurred_at]
+      properties:
+        ordinal: { $ref: "#/components/schemas/Revision" }
+        event_type: { type: string, minLength: 1, maxLength: 80 }
+        stage: { type: string, maxLength: 80 }
+        reason_code: { type: string, maxLength: 80 }
+        summary: { type: string, maxLength: 500 }
+        occurred_at: { $ref: "#/components/schemas/Timestamp" }
+    EvaluationCampaignEventPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/EvaluationCampaignEvent" }
+    EvaluationCampaignReport:
+      type: object
+      additionalProperties: false
+      required: [state, generated_at]
+      properties:
+        state: { type: string, enum: [not_ready, final, partial] }
+        verdict: { type: string, enum: [CONTINUE, IMPROVE, REJECT, BLOCKED] }
+        reason_code: { type: string, maxLength: 80 }
+        summary: { type: string, maxLength: 2000 }
+        report_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        content:
+          type: object
+          additionalProperties: true
+        generated_at: { $ref: "#/components/schemas/Timestamp" }
+    DataAudit:
+      type: object
+      additionalProperties: false
+      required: [id, state, created_at]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 160 }
+        state: { type: string, enum: [PENDING, RUNNING, COMPLETED, BLOCKED] }
+        reason_code: { type: string, maxLength: 80 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        completed_at: { $ref: "#/components/schemas/Timestamp" }
     DataCataloguePage:
       type: object
       additionalProperties: false

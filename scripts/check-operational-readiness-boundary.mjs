@@ -44,7 +44,7 @@ requireTokens(
     "storage.pressure.critical",
   ],
 );
-requireTokens("internal/bootstrap/recorder_role.go", [
+requireTokens("internal/bootstrap/recorder_role_runtime.go", [
   "observeStoragePressure",
   "pressureTicker",
 ]);
@@ -67,7 +67,7 @@ requireTokens("internal/storage/postgres/owner_console_shadow.go", [
   "source_instance<>'migration-bootstrap'",
 ]);
 requireTokens("internal/bootstrap/offline_worker_pipeline.go", [
-  "orderedOfflineWorkers{lifecycleWorker, reportWorker, worker}",
+  "orderedOfflineWorkers{metricWorker, lifecycleWorker, reportWorker, worker, campaignWorker}",
 ]);
 for (const path of [
   "internal/storage/postgres/owner_control_console_access.go",

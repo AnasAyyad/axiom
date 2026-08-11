@@ -1,20 +1,21 @@
 package bootstrap
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
-	"axiom/internal/accounting"
 	"axiom/internal/backtest"
+	"axiom/internal/buildinfo"
 	"axiom/internal/config"
 	"axiom/internal/domain"
-	"axiom/internal/portfolio"
+	"axiom/internal/evaluation"
+	"axiom/internal/exchanges/binance"
+	"axiom/internal/exchanges/bybit"
+	"axiom/internal/observability"
 	"axiom/internal/replay"
-	"axiom/internal/risk"
 	postgresstore "axiom/internal/storage/postgres"
-	"axiom/internal/strategies/meanreversion"
-	"axiom/internal/strategies/trend"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -22,6 +23,8 @@ import (
 func newOwnerConsoleWorkerRoleWork(
 	pool *pgxpool.Pool,
 	runtimeConfig config.Runtime,
+	product config.Configuration,
+	metrics *observability.Metrics,
 ) (*workerRoleWork, error) {
 	materialize, err := postgresstore.NewOfflineJobMaterializer(pool, runtimeConfig.Recorder.Root)
 	if err != nil {
@@ -45,322 +48,125 @@ func newOwnerConsoleWorkerRoleWork(
 	if err != nil {
 		return nil, err
 	}
-	return newWorkerRoleWork(orderedOfflineWorkers{lifecycleWorker, reportWorker, worker}, time.Second)
+	campaignWorker, err := newEvaluationCampaignWorker(pool, runtimeConfig, product)
+	if err != nil {
+		return nil, err
+	}
+	metricWorker, err := newEvaluationMetricWorker(pool, metrics, &domain.SystemClock{})
+	if err != nil {
+		return nil, err
+	}
+	return newWorkerRoleWork(orderedOfflineWorkers{metricWorker, lifecycleWorker, reportWorker, worker, campaignWorker}, time.Second)
+}
+
+func newEvaluationCampaignWorker(pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	product config.Configuration) (offlineWorker, error) {
+	clock := &domain.SystemClock{}
+	historical, audit, shadow, err := newEvaluationCampaignStages(pool, runtimeConfig, product, clock)
+	if err != nil {
+		return nil, err
+	}
+	campaignWorker, err := newEvaluationCampaignOrchestratorWorker(pool, runtimeConfig, product, clock,
+		historical, audit, shadow)
+	if err != nil {
+		return nil, err
+	}
+	return orderedOfflineWorkers{audit, campaignWorker}, nil
+}
+
+func newEvaluationCampaignStages(pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	product config.Configuration, clock domain.Clock) (*evaluation.HistoricalCoordinator,
+	*postgresstore.EvaluationDataAuditCoordinator, *evaluationCombinedShadowEngine, error) {
+	historical, err := newEvaluationHistoricalCoordinator(pool, runtimeConfig, product, clock)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	audit, err := postgresstore.NewEvaluationDataAuditCoordinator(pool,
+		runtimeConfig.InstanceID+":evaluation-audit", runtimeConfig.Recorder.Root, clock)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	materialize, err := postgresstore.NewOfflineJobMaterializer(pool, runtimeConfig.Recorder.Root)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	shadow, err := newEvaluationCombinedShadowEngine(pool, runtimeConfig.Recorder.Root, clock, materialize)
+	return historical, audit, shadow, err
+}
+
+func newEvaluationHistoricalCoordinator(pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	product config.Configuration, clock domain.Clock) (*evaluation.HistoricalCoordinator, error) {
+	exchanges := product.PublicExchanges()
+	if len(exchanges) != 2 {
+		return nil, fmt.Errorf("evaluation_public_exchanges_incomplete")
+	}
+	byID := make(map[string]config.ExchangeConfiguration, 2)
+	for _, exchange := range exchanges {
+		byID[exchange.ID] = exchange
+	}
+	binanceClient, err := binance.NewPublicClient(byID["binance"].EndpointSet, clock)
+	if err != nil {
+		return nil, err
+	}
+	bybitClient, err := bybit.NewPublicClient(byID["bybit"].EndpointSet, clock)
+	if err != nil {
+		return nil, err
+	}
+	historyRoot := filepath.Join(runtimeConfig.Recorder.Root, "evaluation-history")
+	if err = os.MkdirAll(historyRoot, 0o750); err != nil {
+		return nil, fmt.Errorf("evaluation_history_root_unavailable")
+	}
+	segmentStore, err := postgresstore.NewEvaluationHistoricalSegmentStore(pool, clock)
+	if err != nil {
+		return nil, err
+	}
+	sink, err := evaluation.NewHistoricalFileSink(historyRoot, segmentStore)
+	if err != nil {
+		return nil, err
+	}
+	importer, err := evaluation.NewHistoricalImporter(binanceClient, bybitClient, sink)
+	if err != nil {
+		return nil, err
+	}
+	taskStore, err := postgresstore.NewEvaluationHistoricalTaskStore(pool,
+		runtimeConfig.InstanceID+":evaluation-history", clock)
+	if err != nil {
+		return nil, err
+	}
+	catalog, err := postgresstore.NewRecordedDatasetCatalog(pool)
+	if err != nil {
+		return nil, err
+	}
+	historical, err := evaluation.NewHistoricalCoordinator(historyRoot, buildinfo.Current().Commit, clock,
+		importer, taskStore, segmentStore, catalog)
+	return historical, err
+}
+
+func newEvaluationCampaignOrchestratorWorker(pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	product config.Configuration, clock domain.Clock, historical *evaluation.HistoricalCoordinator,
+	audit *postgresstore.EvaluationDataAuditCoordinator, shadow *evaluationCombinedShadowEngine) (offlineWorker, error) {
+	driver, err := postgresstore.NewEvaluationCampaignDriver(pool, runtimeConfig.Recorder.Root,
+		clock, product, historical, audit, shadow)
+	if err != nil {
+		return nil, err
+	}
+	store, err := postgresstore.NewEvaluationWorkerStore(pool,
+		runtimeConfig.InstanceID+":evaluation-campaign", clock)
+	if err != nil {
+		return nil, err
+	}
+	orchestrator, err := evaluation.NewOrchestrator(driver)
+	if err != nil {
+		return nil, err
+	}
+	campaignWorker, err := evaluation.NewWorker(store, orchestrator)
+	if err != nil {
+		return nil, err
+	}
+	return campaignWorker, nil
 }
 
 // offlineStrategyRuntime binds one semantic strategy identity to the exact
 // shared offline processor that interprets its immutable manifest. New
 // strategy families are registered here only after their real allocator,
 // risk, execution, accounting, and reconciliation pipeline exists.
-type offlineStrategyRuntime struct {
-	ID              string
-	SemanticVersion string
-	ManifestVersion string
-	NewProcessor    func(backtest.JobClaim) (backtest.Processor, error)
-}
-
-func installedOfflineStrategyRuntimes() []offlineStrategyRuntime {
-	return []offlineStrategyRuntime{
-		{
-			ID:              "trend-following",
-			SemanticVersion: "trend-following@1.0.0",
-			ManifestVersion: "trend-following@1.0.0",
-			NewProcessor: func(claim backtest.JobClaim) (backtest.Processor, error) {
-				return newOwnerConsoleOperationalProcessorWithPortfolio(claim, nil)
-			},
-		},
-		{
-			ID:              "mean-reversion",
-			SemanticVersion: "mean-reversion@1.0.0",
-			ManifestVersion: "mean-reversion@1.0.0",
-			NewProcessor:    newOwnerConsoleMeanReversionOperationalProcessor,
-		},
-		{
-			ID:              "triangular-arbitrage",
-			SemanticVersion: "triangular-arbitrage@1.0.0",
-			ManifestVersion: "triangular-arbitrage@1.0.0",
-			NewProcessor:    newOwnerConsoleTriangularOperationalProcessor,
-		},
-		{
-			ID:              "cross-exchange-arbitrage",
-			SemanticVersion: "cross-exchange-arbitrage@1.0.0",
-			ManifestVersion: "cross-exchange-arbitrage@1.0.0",
-			NewProcessor:    newOwnerConsoleCrossExchangeOperationalProcessor,
-		},
-		{
-			ID:              "inventory-rebalancing",
-			SemanticVersion: "inventory-rebalancing@1.0.0",
-			ManifestVersion: "inventory-rebalancing@1.0.0",
-			NewProcessor:    newInventoryRebalancingOperationalProcessor,
-		},
-	}
-}
-
-func newOfflineOperationalProcessor(claim backtest.JobClaim) (backtest.Processor, error) {
-	for _, runtime := range installedOfflineStrategyRuntimes() {
-		if runtime.ManifestVersion == claim.Manifest.StrategyVersion {
-			return runtime.NewProcessor(claim)
-		}
-	}
-	return nil, fmt.Errorf("offline_strategy_runtime_unavailable")
-}
-
-func newOwnerConsoleOperationalProcessorWithPortfolio(claim backtest.JobClaim,
-	owned *portfolio.Portfolio) (backtest.Processor, error) {
-	if claim.Manifest.StrategyVersion != "trend-following@1.0.0" {
-		return nil, fmt.Errorf("owner_console_worker_strategy_runtime_unavailable")
-	}
-	components, err := newOwnerConsoleWorkerComponents(claim, owned)
-	if err != nil {
-		return nil, err
-	}
-	pipeline, err := composeOwnerConsoleWorkerPipeline(claim, components)
-	if err != nil {
-		return nil, err
-	}
-	operational, err := trend.NewOperationalProcessor(components.evaluator, pipeline, components.owned)
-	if err != nil {
-		return nil, err
-	}
-	return &ownerConsoleInputAwareProcessor{inputs: components.inputs, delegate: operational}, nil
-}
-
-type ownerConsoleWorkerComponents struct {
-	evaluator *trend.Evaluator
-	adapter   *trend.Adapter
-	owned     *portfolio.Portfolio
-	registry  *portfolio.MemoryAssetRegistry
-	allocator *portfolio.PipelineAllocator
-	inputs    *ownerConsoleDecisionInputContext
-}
-
-func newOwnerConsoleWorkerComponents(claim backtest.JobClaim, owned *portfolio.Portfolio) (ownerConsoleWorkerComponents, error) {
-	if err := config.Validate(claim.Configuration); err != nil || claim.Manifest.StrategyVersion != "trend-following@1.0.0" ||
-		claim.Configuration.Trend.StrategyVersion != "trend-following@1.0.0" {
-		return ownerConsoleWorkerComponents{}, fmt.Errorf("owner_console_worker_configuration_invalid")
-	}
-	configuredTrend, err := trend.NewConfiguration(claim.Configuration.Trend)
-	if err != nil {
-		return ownerConsoleWorkerComponents{}, err
-	}
-	evaluator, err := trend.NewEvaluator(configuredTrend)
-	if err != nil {
-		return ownerConsoleWorkerComponents{}, err
-	}
-	adapter, err := trend.NewAdapter(evaluator)
-	if err != nil {
-		return ownerConsoleWorkerComponents{}, err
-	}
-	if owned == nil {
-		owned, err = newOwnerConsoleOfflinePortfolio(claim)
-		if err != nil {
-			return ownerConsoleWorkerComponents{}, err
-		}
-	}
-	registry := portfolio.NewAssetRegistry()
-	liquidity := portfolio.NewLiquidityPool()
-	availableDepth, _ := domain.ParseQuantity("1000000000")
-	if err = liquidity.Open(claim.Manifest.Models.LiquidityDomain, availableDepth); err != nil {
-		return ownerConsoleWorkerComponents{}, err
-	}
-	allocator, err := portfolio.NewAllocator(owned, registry, liquidity)
-	if err != nil {
-		return ownerConsoleWorkerComponents{}, err
-	}
-	pipelineAllocator, err := portfolio.NewPipelineAllocator(allocator)
-	if err != nil {
-		return ownerConsoleWorkerComponents{}, err
-	}
-	return ownerConsoleWorkerComponents{evaluator: evaluator, adapter: adapter, owned: owned, registry: registry,
-		allocator: pipelineAllocator, inputs: &ownerConsoleDecisionInputContext{}}, nil
-}
-
-func composeOwnerConsoleWorkerPipeline(claim backtest.JobClaim, components ownerConsoleWorkerComponents) (*backtest.PipelineProcessor, error) {
-	riskEngine, err := risk.NewEngine(&ownerConsoleRunRiskAudit{}, ownerConsoleRunRiskAlerts{})
-	if err != nil {
-		return nil, err
-	}
-	recoveryAt := time.Unix(0, 1).UTC()
-	if err = riskEngine.ManualTransition(risk.StateNormal, risk.RecoveryEvidence{Reconciled: true,
-		PersistenceHealthy: true, BooksFresh: true, UnknownOrdersResolved: true, Reauthenticated: true,
-		AuditDurable: true, Actor: "offline-worker", Reason: "verified immutable replay inputs", At: recoveryAt}); err != nil {
-		return nil, err
-	}
-	vault := portfolio.NewApprovalVault()
-	pipelineRisk, err := risk.NewPipelineEngine(riskEngine, vault, components.registry, components.inputs)
-	if err != nil {
-		return nil, err
-	}
-	trendPlanner, err := trend.NewPlanner(claim.Manifest.Mode, claim.Manifest.Models.LiquidityDomain, components.adapter)
-	if err != nil {
-		return nil, err
-	}
-	planner, err := portfolio.NewEligibilityPlanner(trendPlanner, vault, components.registry)
-	if err != nil {
-		return nil, err
-	}
-	guard, err := portfolio.NewBrokerGuard(components.owned, components.registry)
-	if err != nil {
-		return nil, err
-	}
-	broker, err := newOwnerConsoleDynamicBroker(claim, components.inputs, guard)
-	if err != nil {
-		return nil, err
-	}
-	return backtest.NewPipelineProcessor(backtest.PipelineDependencies{Strategy: components.adapter,
-		Allocator: components.allocator, Risk: pipelineRisk, Planner: planner, Broker: broker,
-		Reduce: components.allocator.ReduceSimulation, Metrics: func() backtest.Metrics { return backtest.Metrics{} }})
-}
-
-func newOwnerConsoleOfflinePortfolio(claim backtest.JobClaim) (*portfolio.Portfolio, error) {
-	portfolioID, err := domain.NewPortfolioID("offline-portfolio-" + claim.ID)
-	if err != nil {
-		return nil, err
-	}
-	accountID, err := domain.NewVirtualAccountID("offline-account-" + claim.ID)
-	if err != nil {
-		return nil, err
-	}
-	capital, err := domain.ParseBalance(claim.Configuration.Portfolio.StartingCapital.Value)
-	if err != nil {
-		return nil, err
-	}
-	return portfolio.InitializeTrend(claim.Manifest.RunID, portfolioID, accountID, claim.Manifest.ConfigurationHash,
-		capital, accounting.NewMemoryJournal(), domain.EventTime{UTC: time.Unix(0, 1).UTC(), Sequence: 1})
-}
-
-// newOwnerConsoleMeanReversionOperationalProcessor installs the existing mean reversion evaluator
-// into the same durable allocator, risk, planner, simulation, and accounting
-// path as Trend. The immutable manifest selects it; configuration presence on
-// its own is not enough because a multi-strategy research graph can contain several strategies.
-func newOwnerConsoleMeanReversionOperationalProcessor(claim backtest.JobClaim) (backtest.Processor, error) {
-	owned, err := newOwnerConsoleMeanReversionOfflinePortfolio(claim)
-	if err != nil {
-		return nil, err
-	}
-	return newOwnerConsoleMeanReversionOperationalProcessorWithPortfolio(claim, owned)
-}
-
-func newOwnerConsoleMeanReversionOperationalProcessorWithPortfolio(claim backtest.JobClaim,
-	owned *portfolio.Portfolio) (backtest.Processor, error) {
-	components, err := newOwnerConsoleMeanReversionWorkerComponents(claim, owned)
-	if err != nil {
-		return nil, err
-	}
-	pipeline, err := composeOwnerConsoleMeanReversionWorkerPipeline(claim, components)
-	if err != nil {
-		return nil, err
-	}
-	operational, err := meanreversion.NewOperationalProcessor(components.evaluator, pipeline, func() (json.RawMessage, error) {
-		return json.Marshal(components.owned.Snapshot())
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &ownerConsoleMeanReversionInputAwareProcessor{inputs: components.inputs, delegate: operational}, nil
-}
-
-type ownerConsoleMeanReversionWorkerComponents struct {
-	evaluator *meanreversion.Evaluator
-	adapter   *meanreversion.Adapter
-	owned     *portfolio.Portfolio
-	registry  *portfolio.MemoryAssetRegistry
-	allocator *portfolio.PipelineAllocator
-	inputs    *ownerConsoleMeanReversionInputContext
-}
-
-func newOwnerConsoleMeanReversionWorkerComponents(claim backtest.JobClaim,
-	owned *portfolio.Portfolio,
-) (ownerConsoleMeanReversionWorkerComponents, error) {
-	if err := config.Validate(claim.Configuration); err != nil ||
-		claim.Manifest.StrategyVersion != "mean-reversion@1.0.0" ||
-		claim.Configuration.MeanReversion.StrategyVersion != "mean-reversion@1.0.0" || owned == nil {
-		return ownerConsoleMeanReversionWorkerComponents{}, fmt.Errorf("owner_console_mean_reversion_configuration_invalid")
-	}
-	configured, err := meanreversion.NewConfiguration(claim.Configuration.MeanReversion)
-	if err != nil {
-		return ownerConsoleMeanReversionWorkerComponents{}, err
-	}
-	evaluator, err := meanreversion.NewEvaluator(configured)
-	if err != nil {
-		return ownerConsoleMeanReversionWorkerComponents{}, err
-	}
-	adapter, err := meanreversion.NewAdapter(evaluator)
-	if err != nil {
-		return ownerConsoleMeanReversionWorkerComponents{}, err
-	}
-	registry := portfolio.NewAssetRegistry()
-	liquidity := portfolio.NewLiquidityPool()
-	availableDepth, _ := domain.ParseQuantity("1000000000")
-	if err = liquidity.Open(claim.Manifest.Models.LiquidityDomain, availableDepth); err != nil {
-		return ownerConsoleMeanReversionWorkerComponents{}, err
-	}
-	allocator, err := portfolio.NewAllocator(owned, registry, liquidity)
-	if err != nil {
-		return ownerConsoleMeanReversionWorkerComponents{}, err
-	}
-	pipelineAllocator, err := portfolio.NewPipelineAllocator(allocator)
-	if err != nil {
-		return ownerConsoleMeanReversionWorkerComponents{}, err
-	}
-	return ownerConsoleMeanReversionWorkerComponents{evaluator: evaluator, adapter: adapter, owned: owned,
-		registry: registry, allocator: pipelineAllocator, inputs: &ownerConsoleMeanReversionInputContext{}}, nil
-}
-
-func composeOwnerConsoleMeanReversionWorkerPipeline(claim backtest.JobClaim,
-	components ownerConsoleMeanReversionWorkerComponents,
-) (*backtest.PipelineProcessor, error) {
-	riskEngine, err := risk.NewEngine(&ownerConsoleRunRiskAudit{}, ownerConsoleRunRiskAlerts{})
-	if err != nil {
-		return nil, err
-	}
-	recoveryAt := time.Unix(0, 1).UTC()
-	if err = riskEngine.ManualTransition(risk.StateNormal, risk.RecoveryEvidence{Reconciled: true,
-		PersistenceHealthy: true, BooksFresh: true, UnknownOrdersResolved: true, Reauthenticated: true,
-		AuditDurable: true, Actor: "offline-worker", Reason: "verified immutable replay inputs", At: recoveryAt}); err != nil {
-		return nil, err
-	}
-	vault := portfolio.NewApprovalVault()
-	pipelineRisk, err := risk.NewPipelineEngine(riskEngine, vault, components.registry, components.inputs)
-	if err != nil {
-		return nil, err
-	}
-	strategyPlanner, err := meanreversion.NewPlanner(claim.Manifest.Mode,
-		claim.Manifest.Models.LiquidityDomain, components.adapter)
-	if err != nil {
-		return nil, err
-	}
-	planner, err := portfolio.NewEligibilityPlanner(strategyPlanner, vault, components.registry)
-	if err != nil {
-		return nil, err
-	}
-	guard, err := portfolio.NewBrokerGuard(components.owned, components.registry)
-	if err != nil {
-		return nil, err
-	}
-	broker, err := newOwnerConsoleMeanReversionDynamicBroker(claim, components.inputs, guard)
-	if err != nil {
-		return nil, err
-	}
-	return backtest.NewPipelineProcessor(backtest.PipelineDependencies{Strategy: components.adapter,
-		Allocator: components.allocator, Risk: pipelineRisk, Planner: planner, Broker: broker,
-		Reduce:  components.allocator.ReduceSimulation,
-		Metrics: func() backtest.Metrics { return backtest.Metrics{} }})
-}
-
-func newOwnerConsoleMeanReversionOfflinePortfolio(claim backtest.JobClaim) (*portfolio.Portfolio, error) {
-	portfolioID, err := domain.NewPortfolioID("offline-portfolio-" + claim.ID)
-	if err != nil {
-		return nil, err
-	}
-	accountID, err := domain.NewVirtualAccountID("offline-account-" + claim.ID)
-	if err != nil {
-		return nil, err
-	}
-	capital, err := domain.ParseBalance(claim.Configuration.Portfolio.StartingCapital.Value)
-	if err != nil {
-		return nil, err
-	}
-	return portfolio.InitializeMeanReversion(claim.Manifest.RunID, portfolioID, accountID, claim.Manifest.ConfigurationHash,
-		capital, accounting.NewMemoryJournal(), domain.EventTime{UTC: time.Unix(0, 1).UTC(), Sequence: 1})
-}

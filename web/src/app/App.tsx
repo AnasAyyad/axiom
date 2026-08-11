@@ -46,6 +46,7 @@ import {
   GuidedDemonstrationsPage,
 } from "../features/run-lab/OwnerGuidancePages";
 import { StrategyCenterPage } from "../features/strategies/StrategyCenterPage";
+import { StrategyEvaluationPage } from "../features/evaluation/StrategyEvaluationPage";
 
 const BacktestLab = lazy(() =>
   import("./LabPages").then((module) => ({ default: module.BacktestLab })),
@@ -122,6 +123,14 @@ export function App() {
                 element={<ActivityPage view="system_events" />}
               />
               <Route path="run-lab" element={<RunLabPage />} />
+              <Route
+                path="strategy-evaluation"
+                element={<StrategyEvaluationPage />}
+              />
+              <Route
+                path="strategy-evaluation/:id"
+                element={<StrategyEvaluationPage />}
+              />
               <Route path="runs/:id" element={<RunDetailPage />} />
               <Route
                 path="guided-demonstrations"

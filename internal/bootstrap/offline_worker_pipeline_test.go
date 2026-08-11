@@ -101,3 +101,48 @@ func TestInstalledOfflineStrategyRuntimesHaveUniqueSemanticAndManifestVersions(t
 		ids[runtime.ID], semantic[runtime.SemanticVersion], manifests[runtime.ManifestVersion] = true, true, true
 	}
 }
+
+func TestStableEvaluationProcessorClaimIgnoresRepeatMemberIdentityWithoutMutatingClaim(t *testing.T) {
+	originalRun, err := domain.NewRunID("evaluation-job-repeat-0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := backtest.JobClaim{ID: "evaluation-job-repeat-0", Manifest: backtest.RunManifest{
+		RunID: originalRun, Mode: "replay", StrategyVersion: "trend-following@1.0.0",
+		Evaluation: &backtest.EvaluationRunIdentity{CampaignID: "evaluation-campaign-1",
+			MemberID: "evaluation-member-repeat-0", ConfigurationKey: "trend-balanced-a",
+			CapitalMicros: 2_000_000_000, CostStressBPS: 10_000}}}
+	repeat := original
+	repeat.ID = "evaluation-job-repeat-1"
+	repeatIdentity := *original.Manifest.Evaluation
+	repeatIdentity.MemberID = "evaluation-member-repeat-1"
+	repeat.Manifest.Evaluation = &repeatIdentity
+
+	stable, err := stableEvaluationProcessorClaim(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stableRepeat, err := stableEvaluationProcessorClaim(repeat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stable.ID != stableRepeat.ID || stable.Manifest.RunID != stableRepeat.Manifest.RunID ||
+		stable.Manifest.Evaluation.MemberID != stableRepeat.Manifest.Evaluation.MemberID {
+		t.Fatalf("deterministic repeats received distinct runtime identities: %#v %#v", stable, stableRepeat)
+	}
+	if original.ID != "evaluation-job-repeat-0" || original.Manifest.RunID != originalRun ||
+		original.Manifest.Evaluation.MemberID != "evaluation-member-repeat-0" {
+		t.Fatalf("input claim was mutated: %#v", original)
+	}
+	stress := repeat
+	stressIdentity := *repeat.Manifest.Evaluation
+	stressIdentity.CostStressBPS = 15_000
+	stress.Manifest.Evaluation = &stressIdentity
+	stableStress, err := stableEvaluationProcessorClaim(stress)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stableStress.ID == stable.ID {
+		t.Fatal("cost-stress run reused baseline runtime identity")
+	}
+}

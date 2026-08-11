@@ -407,12 +407,12 @@ func seedOperationalEvidenceReplayInput(t *testing.T, ctx context.Context, pool 
 	}{
 		{`INSERT INTO assets(symbol) VALUES('BTC'),('USDT') ON CONFLICT DO NOTHING`, nil},
 		{`INSERT INTO instruments(id,base_asset,quote_asset,product)
-VALUES('instrument-operational_evidence-replay','BTC','USDT','spot')`, nil},
+VALUES('instrument-BTC-USDT','BTC','USDT','spot') ON CONFLICT DO NOTHING`, nil},
 		{`INSERT INTO market_data_segments(
 id,recorder_session,exchange_id,instrument_id,event_type,schema_version,
 parser_version,normalization_version,compression,path,checksum,ordered_content_hash,
 record_count,first_ordinal,last_ordinal,started_at,ended_at,state,finalized_at
-) VALUES('segment-operational_evidence-replay','recorder-operational_evidence-replay','binance','instrument-operational_evidence-replay',
+) VALUES('segment-operational_evidence-replay','recorder-operational_evidence-replay','binance','instrument-BTC-USDT',
 'decision_input','axiom.decision-input.v1','decision-input-v1','decision-input-v1',
 'zstd','operational_evidence/replay-input.zst',$1,$1,3,41,43,$2,$3,'ready',$3)`, []any{hash, at, at.Add(time.Second)}},
 		{`INSERT INTO dataset_manifests(
