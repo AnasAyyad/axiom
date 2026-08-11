@@ -656,6 +656,26 @@ attaches build-provenance and SPDX SBOM attestations. Never deploy the commit
 tag or `latest`; copy only the `name@sha256:...` references from the retained CI
 artifact after checking the merged commit identity and green workflow.
 
+The two GHCR package namespaces are a deployment prerequisite, not something
+CI may silently make public. Before the first merged publication, an owner must
+create `anasayyad/axiom` and `anasayyad/axiom-backup` as **private** packages
+without repository-inherited visibility, grant the `AnasAyyad/axiom`
+repository Actions admin access, and verify that an unauthenticated pull is
+denied. Keep package-administration credentials outside the repository and
+workflow. GitHub does not allow a public container package to be changed back
+to private; if a new empty namespace was accidentally created public, inventory
+and preserve its evidence, delete that exact package through an authenticated
+owner session, and recreate it privately before publishing again. Do not
+delete a package containing unrelated or deployed versions.
+
+The merged-main workflow uses only `GITHUB_TOKEN` for publication, refuses to
+push when either package is already anonymously readable, and probes both
+published digest subjects again before signing or attesting them. The backup
+image deliberately omits `org.opencontainers.image.source` so a private
+namespace can be bootstrapped without repository permission inheritance;
+signed provenance still binds the immutable digest to this repository and
+workflow.
+
 On `axiom-server`, first preserve the prior state. Gracefully stop the recorder
 so its shutdown path can finish the current segment, verify that the final
 manifest is registered and no `.partial` file is being advertised, and retain
