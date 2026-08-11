@@ -93,6 +93,9 @@ start_and_check() {
       "AUTH_CSRF_KEY_FILE=${csrf_key_file}"
       "AUTH_SESSION_SIGNING_KEY_FILE=${session_signing_key_file}"
       "AXIOM_TOTP_SEED_FILE=${totp_seed_file}")
+  elif [[ "${role}" == "worker" ]]; then
+    role_environment=(env
+      "APP_CONFIG_FILE=${PWD}/deploy/config/platform-research.json")
   fi
   HTTP_BIND_ADDRESS="127.0.0.1:${port}" \
     METRICS_BIND_ADDRESS="127.0.0.1:${metrics_port}" \
