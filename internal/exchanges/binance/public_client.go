@@ -43,6 +43,15 @@ var (
 	_ exchangecontracts.CapabilitySource  = (*PublicClient)(nil)
 )
 
+// RestoreStreamGeneration advances a brand-new client's generation fence
+// before subscriptions resume a durable recorder session.
+func (client *PublicClient) RestoreStreamGeneration(last uint64) error {
+	if client == nil || !client.streamGeneration.CompareAndSwap(0, last) {
+		return policyError(exchangecontracts.OperationStream)
+	}
+	return nil
+}
+
 // NewPublicClient accepts only the compiled endpoint-set identifier and has no
 // credential, signer, header, route, or arbitrary-origin input.
 func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, error) {

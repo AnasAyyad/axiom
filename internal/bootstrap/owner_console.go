@@ -77,6 +77,7 @@ func setupOwnerConsole(ctx context.Context, pool *pgxpool.Pool, runtimeConfig co
 	options.Runs = consoleStore
 	options.RunCommands = consoleStore
 	options.DataCatalogue = consoleStore
+	options.EvaluationCampaigns = consoleStore
 	return ownerConsoleSetup{options: options, dependency: readiness}
 }
 

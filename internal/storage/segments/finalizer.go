@@ -192,6 +192,31 @@ func (finalizer *Finalizer) Recover(commit Committer) ([]Manifest, error) {
 	return result, nil
 }
 
+// RecoverPrefix recovers only proof-backed segments whose names begin with a
+// caller-owned safe prefix. This lets independent durable workers share one
+// storage root without adopting or mutating another recorder's artifacts.
+func (finalizer *Finalizer) RecoverPrefix(prefix string, commit Committer) ([]Manifest, error) {
+	if commit == nil || prefix == "" || len(prefix) > 96 || !segmentNamePattern.MatchString(prefix+"x") {
+		return nil, fmt.Errorf("segment_recovery_prefix_invalid")
+	}
+	proofs, err := filepath.Glob(filepath.Join(finalizer.root, prefix+"*.proof"))
+	if err != nil {
+		return nil, fmt.Errorf("segment_recovery_scan_failed")
+	}
+	result := make([]Manifest, 0, len(proofs))
+	for _, proofPath := range proofs {
+		manifest, recoverErr := finalizer.recoverProof(proofPath, commit)
+		if recoverErr != nil {
+			return result, recoverErr
+		}
+		if !strings.HasPrefix(manifest.Spec.Name, prefix) {
+			return result, fmt.Errorf("segment_recovery_prefix_mismatch")
+		}
+		result = append(result, manifest)
+	}
+	return result, nil
+}
+
 // QuarantineUnprovedPartials moves files without a valid proof out of service.
 func (finalizer *Finalizer) QuarantineUnprovedPartials() ([]string, error) {
 	partials, err := filepath.Glob(filepath.Join(finalizer.root, "*.partial"))

@@ -115,10 +115,12 @@ const allowed = new Set([
   "Instruments",
   "Trades",
   "Candles",
+  "CandlePage",
   "Ticker",
   "Subscribe",
   "SubscribeObserved",
   "SubscribeRecorded",
+  "RestoreStreamGeneration",
 ]);
 const exported = new Set();
 for (const match of production.matchAll(

@@ -126,9 +126,11 @@ const allowed = new Set([
   "Instruments",
   "Trades",
   "Candles",
+  "CandlePage",
   "Subscribe",
   "SubscribeObserved",
   "SubscribeRecorded",
+  "RestoreStreamGeneration",
 ]);
 for (const method of exported) {
   if (!allowed.has(method))
