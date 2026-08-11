@@ -252,20 +252,28 @@ func validateExchangeCoverage(manifest DatasetManifest, coverage ExchangeCoverag
 	}
 	var generationCount, firstOrdinal, lastOrdinal uint64
 	var coverageStart, coverageEnd time.Time
+	// Instrument connections run concurrently, so generation windows may overlap;
+	// the segment ordinals remain the authoritative total order across streams.
 	for index, generation := range coverage.GenerationHistory {
 		if generation.ConnectionGeneration == 0 || generation.FirstOrdinal == 0 ||
 			generation.LastOrdinal < generation.FirstOrdinal || generation.RecordCount == 0 ||
 			generation.CoverageStart.IsZero() || generation.CoverageEnd.Before(generation.CoverageStart) ||
 			generation.CoverageStart.Location() != time.UTC || generation.CoverageEnd.Location() != time.UTC ||
-			(index > 0 && (coverage.GenerationHistory[index-1].ConnectionGeneration >= generation.ConnectionGeneration ||
-				coverage.GenerationHistory[index-1].LastOrdinal >= generation.FirstOrdinal ||
-				coverage.GenerationHistory[index-1].CoverageEnd.After(generation.CoverageStart))) {
+			(index > 0 && coverage.GenerationHistory[index-1].ConnectionGeneration >= generation.ConnectionGeneration) {
 			return recorderError("manifest_coverage_invalid")
 		}
-		if index == 0 {
+		if firstOrdinal == 0 || generation.FirstOrdinal < firstOrdinal {
 			firstOrdinal, coverageStart = generation.FirstOrdinal, generation.CoverageStart
 		}
-		lastOrdinal, coverageEnd = generation.LastOrdinal, generation.CoverageEnd
+		if generation.LastOrdinal > lastOrdinal {
+			lastOrdinal = generation.LastOrdinal
+		}
+		if coverageEnd.IsZero() || generation.CoverageEnd.After(coverageEnd) {
+			coverageEnd = generation.CoverageEnd
+		}
+		if generation.CoverageStart.Before(coverageStart) {
+			coverageStart = generation.CoverageStart
+		}
 		generationCount += generation.RecordCount
 	}
 	if generationCount != manifest.RawRecordCount ||

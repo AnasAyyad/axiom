@@ -443,7 +443,9 @@ func TestReviewedMultiStrategyResearchRecorderConfigurationDecodes(t *testing.T)
 		t.Fatal(err)
 	}
 	configuration, err := DecodeJSON(payload)
-	if err != nil || configuration.SchemaVersion != SchemaVersionInventoryRebalancing || len(configuration.Exchanges) != 2 ||
+	if err != nil || configuration.SchemaVersion != SchemaVersionInventoryRebalancing || configuration.Revision != 2 ||
+		len(configuration.Exchanges) != 2 || len(configuration.Instruments) != 3 ||
+		configuration.Instruments[2].Base != "ETH" || configuration.Instruments[2].Quote != "BTC" ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount ||
 		len(configuration.Triangular.Parameters) != TriangularParameterCount ||
 		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount ||

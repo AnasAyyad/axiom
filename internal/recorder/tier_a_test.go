@@ -79,6 +79,33 @@ func TestCoherentMarketDataTierAManifestProvesPerExchangeCoverageAndCombinedLink
 	assertStoredTierAManifest(t, base, tierA)
 }
 
+func TestCoherentMarketDataManifestAcceptsInterleavedConnectionGenerations(t *testing.T) {
+	root := t.TempDir()
+	profile := CollectorProfile{Instance: "collector-1", Region: "test-region", MinimumReaderVersion: "dataset-reader.v2"}
+	stream, err := NewCoherentMarketData(root, "binance-parallel-streams", "binance-parallel-session", "binance",
+		&runtimecore.IngestOrdinals{}, func(segments.Manifest) error { return nil }, nil, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordForExchange(t, stream, "binance", "binance-parallel-session", 1, 1)
+	recordForExchange(t, stream, "binance", "binance-parallel-session", 2, 2)
+	recordForExchange(t, stream, "binance", "binance-parallel-session", 1, 3)
+	manifest, err := stream.Flush()
+	if err != nil {
+		t.Fatal(err)
+	}
+	coverage := manifest.ExchangeCoverage[0]
+	if len(coverage.GenerationHistory) != 2 || coverage.GenerationHistory[0].RecordCount != 2 ||
+		coverage.GenerationHistory[0].FirstOrdinal != 1 || coverage.GenerationHistory[0].LastOrdinal != 3 ||
+		coverage.GenerationHistory[1].FirstOrdinal != 2 || coverage.GenerationHistory[1].LastOrdinal != 2 ||
+		coverage.FirstOrdinal != 1 || coverage.LastOrdinal != 3 {
+		t.Fatalf("parallel connection coverage = %#v", coverage)
+	}
+	if _, err = ValidateDataset(root, manifest); err != nil {
+		t.Fatalf("parallel connection manifest rejected: %v", err)
+	}
+}
+
 func assertStoredTierAManifest(t *testing.T, base string, tierA TierAManifest) {
 	t.Helper()
 	path, err := WriteTierAManifest(filepath.Join(base, "qualification"), tierA)

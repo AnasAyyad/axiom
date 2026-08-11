@@ -49,6 +49,7 @@ func TestEvaluationCampaignPostgresSemanticRuntimeToCampaignUpgradeQualification
 
 func assertEvaluationCampaignSchemaAndRecovery(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
+	assertEvaluationMarketReferences(t, ctx, pool)
 	ensureEvaluationTestRoles(t, ctx, pool)
 	if err := ApplyRoleGrants(ctx, pool, "axiom_app", "axiom_recorder", "axiom_readonly"); err != nil {
 		t.Fatal(err)
@@ -59,6 +60,21 @@ func assertEvaluationCampaignSchemaAndRecovery(t *testing.T, ctx context.Context
 	assertEvaluationCandidateLockAndShadowIsolation(t, ctx, pool, now)
 	assertEvaluationPartialReportEvidence(t, ctx, pool, now)
 	assertEvaluationRestartClaim(t, ctx, pool, now)
+}
+
+func assertEvaluationMarketReferences(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	var assetCount int
+	var markets string
+	err := pool.QueryRow(ctx, `SELECT
+(SELECT count(*) FROM assets WHERE symbol IN ('USDT','BTC','ETH')),
+(SELECT string_agg(base_asset||'/'||quote_asset,',' ORDER BY base_asset,quote_asset)
+ FROM instruments WHERE product='spot' AND
+ ((base_asset='BTC' AND quote_asset='USDT') OR
+  (base_asset='ETH' AND quote_asset IN ('BTC','USDT'))))`).Scan(&assetCount, &markets)
+	if err != nil || assetCount != 3 || markets != "BTC/USDT,ETH/BTC,ETH/USDT" {
+		t.Fatalf("evaluation market references assets=%d markets=%s error=%v", assetCount, markets, err)
+	}
 }
 
 func ensureEvaluationTestRoles(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {

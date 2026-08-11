@@ -28,15 +28,18 @@ compose() {
 }
 
 cleanup() {
-	status=$?
-	if [[ ${status} -ne 0 ]]; then
-		compose ps --all >&2 || true
-		compose logs --no-color --tail 200 engine-shadow >&2 || true
-		compose logs --no-color --tail 40 postgres migrate api recorder backtest-worker prometheus grafana >&2 || true
-	fi
+  status=$?
+  if [[ ${status} -ne 0 ]]; then
+    compose ps --all >&2 || true
+    compose logs --no-color --tail 200 engine-shadow >&2 || true
+    compose logs --no-color --tail 40 postgres migrate api recorder backtest-worker prometheus grafana >&2 || true
+  fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  docker run --rm --user 0:0 --entrypoint /bin/chown \
+    --mount "type=bind,src=${temp_dir},dst=/smoke" \
+    postgres:18.4-alpine -R "$(id -u):$(id -g)" /smoke >/dev/null 2>&1 || true
   rm -rf -- "${temp_dir}"
-	return "${status}"
+  return "${status}"
 }
 trap cleanup EXIT HUP INT TERM
 

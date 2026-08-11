@@ -254,7 +254,9 @@ func verifyOwnerConsoleReferenceBootstrap(ctx context.Context, tx pgx.Tx, config
       (SELECT count(*) FROM configuration_versions WHERE id=$1 AND configuration_hash=$2)+
       (SELECT count(*) FROM exchanges WHERE id='binance' AND environment='production_public')+
       (SELECT count(*) FROM assets WHERE symbol IN ('USDT','BTC','ETH'))+
-      (SELECT count(*) FROM instruments WHERE product='spot')+
+      (SELECT count(*) FROM instruments WHERE product='spot' AND
+        ((base_asset='BTC' AND quote_asset='USDT') OR
+         (base_asset='ETH' AND quote_asset='USDT')))+
       (SELECT count(*) FROM model_versions WHERE id IN ('fixed-bps-v1','fixed-zero-v1','full-fill-v1','fixed-zero-slippage-v1','fixed-zero-gap-v1'))+
       (SELECT count(*) FROM model_namespaces WHERE id='production-public-trend-following')+
       (SELECT count(*) FROM strategy_parameters WHERE strategy_version_id='trend-following-1-0-0')+

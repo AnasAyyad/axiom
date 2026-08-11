@@ -1,6 +1,17 @@
 -- Durable server-owned evaluation workflow. No table in this migration stores
 -- credentials, exchange private data, or a real-order instruction.
 
+INSERT INTO assets(symbol)
+VALUES ('USDT'), ('BTC'), ('ETH')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO instruments(id,base_asset,quote_asset,product)
+VALUES
+  ('instrument-BTC-USDT','BTC','USDT','spot'),
+  ('instrument-ETH-USDT','ETH','USDT','spot'),
+  ('instrument-ETH-BTC','ETH','BTC','spot')
+ON CONFLICT (base_asset,quote_asset,product) DO NOTHING;
+
 CREATE TABLE evaluation_campaigns (
   id text PRIMARY KEY,
   preset text NOT NULL CHECK (preset='balanced_full_v1'),
