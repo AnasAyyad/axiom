@@ -100,8 +100,7 @@ FROM scratch AS runtime
 LABEL org.opencontainers.image.title="Axiom PostgreSQL backup and restore" \
       org.opencontainers.image.description="Minimal PostgreSQL 18.4 backup and restore helper" \
       org.opencontainers.image.licenses="UNLICENSED" \
-      org.opencontainers.image.version="18.4" \
-      org.opencontainers.image.source="https://github.com/AnasAyyad/axiom"
+      org.opencontainers.image.version="18.4"
 COPY --from=assemble /rootfs /
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 USER 10002:70

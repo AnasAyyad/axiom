@@ -453,6 +453,11 @@ jobs:
         run: |
           docker image inspect --format '{{.Id}}' axiom:ci > artifacts/image-digest.txt
           docker image inspect --format '{{.Id}}' axiom-backup:ci > artifacts/backup-image-digest.txt
+      - name: Refuse publication to public GHCR packages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          scripts/assert-ghcr-not-public.sh anasayyad/axiom
+          scripts/assert-ghcr-not-public.sh anasayyad/axiom-backup
       - name: Authenticate to private GHCR on merged main only
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
@@ -484,6 +489,14 @@ jobs:
           printf 'backup_digest=%s\n' "${backup_digest}" >> "${GITHUB_OUTPUT}"
           printf 'APP_IMAGE=ghcr.io/anasayyad/axiom@%s\nBACKUP_IMAGE=ghcr.io/anasayyad/axiom-backup@%s\n' \
             "${app_digest}" "${backup_digest}" > artifacts/published-images.env
+      - name: Verify published digests remain private
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          APP_DIGEST: ${{ steps.publish.outputs.app_digest }}
+          BACKUP_DIGEST: ${{ steps.publish.outputs.backup_digest }}
+        run: |
+          scripts/assert-ghcr-not-public.sh anasayyad/axiom "${APP_DIGEST}"
+          scripts/assert-ghcr-not-public.sh anasayyad/axiom-backup "${BACKUP_DIGEST}"
       - name: Sign immutable image digests with keyless OIDC
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
