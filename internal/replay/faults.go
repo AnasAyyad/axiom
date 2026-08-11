@@ -37,11 +37,12 @@ type FaultEvent struct {
 
 // FaultSource wraps a replay source with sorted deterministic injections.
 type FaultSource struct {
-	source   Source
-	faults   map[uint64]Fault
-	emitted  map[uint64]bool
-	pending  *Event
-	observer func(FaultEvent) error
+	source        Source
+	faults        map[uint64]Fault
+	emitted       map[uint64]bool
+	pending       *Event
+	retryObserver bool
+	observer      func(FaultEvent) error
 }
 
 // NewFaultSource validates a fault schedule and constructs a source wrapper.
@@ -64,24 +65,33 @@ func NewFaultSource(source Source, faults []Fault, observer func(FaultEvent) err
 
 // Next injects the configured fault before delivering its selected event.
 func (source *FaultSource) Next() (Event, bool, error) {
+	var event Event
 	if source.pending != nil {
-		event := *source.pending
+		event = *source.pending
 		source.pending = nil
-		return cloneEvent(event), true, nil
-	}
-	event, ok, err := source.source.Next()
-	if err != nil || !ok {
-		return Event{}, ok, err
+		if !source.retryObserver {
+			return cloneEvent(event), true, nil
+		}
+		source.retryObserver = false
+	} else {
+		var ok bool
+		var err error
+		event, ok, err = source.source.Next()
+		if err != nil || !ok {
+			return Event{}, ok, err
+		}
 	}
 	fault, exists := source.faults[event.Ordinal]
 	if !exists || source.emitted[event.Ordinal] {
 		return cloneEvent(event), true, nil
 	}
+	if err := source.observer(FaultEvent{Kind: fault.Kind, Ordinal: fault.Ordinal}); err != nil {
+		source.pending = &event
+		source.retryObserver = true
+		return Event{}, false, err
+	}
 	if !fault.Repeatable {
 		source.emitted[event.Ordinal] = true
-	}
-	if err = source.observer(FaultEvent{Kind: fault.Kind, Ordinal: fault.Ordinal}); err != nil {
-		return Event{}, false, err
 	}
 	if fault.Kind == FaultSequenceGap {
 		return source.Next()
@@ -102,6 +112,7 @@ func (source *FaultSource) Next() (Event, bool, error) {
 // SeekOrdinal resets pending delivery and delegates indexed seeking.
 func (source *FaultSource) SeekOrdinal(ordinal uint64) error {
 	source.pending = nil
+	source.retryObserver = false
 	return source.source.SeekOrdinal(ordinal)
 }
 

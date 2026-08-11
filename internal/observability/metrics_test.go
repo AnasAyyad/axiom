@@ -32,6 +32,10 @@ func TestMetricsExposeBoundedContract(t *testing.T) {
 		"axiom_event_queue_depth", "axiom_strategy_evaluations_total",
 		"axiom_websocket_lag_seconds", "axiom_shadow_fills_total",
 		"axiom_virtual_pnl_reporting_units", "axiom_disk_free_bytes",
+		"axiom_evaluation_stage", "axiom_evaluation_valid_time_seconds",
+		"axiom_evaluation_recording_bytes", "axiom_evaluation_data_freshness_seconds",
+		"axiom_evaluation_members", "axiom_evaluation_financial_reporting_units",
+		"axiom_evaluation_order_funnel", "axiom_evaluation_failure",
 		`service="engine-shadow"`, `instrument="BTCUSDT"`,
 	} {
 		if !strings.Contains(encoded, required) {
@@ -41,6 +45,12 @@ func TestMetricsExposeBoundedContract(t *testing.T) {
 }
 
 func recordMetricFixtures(t *testing.T, metrics *Metrics) {
+	t.Helper()
+	recordBaseMetricFixtures(t, metrics)
+	recordEvaluationMetricFixtures(t, metrics)
+}
+
+func recordBaseMetricFixtures(t *testing.T, metrics *Metrics) {
 	t.Helper()
 	dimensions := Dimensions{Exchange: "binance", Instrument: "BTCUSDT", Strategy: "trend", Mode: "shadow"}
 	if err := metrics.RecordWebSocketMessage(dimensions); err != nil {
@@ -78,12 +88,37 @@ func recordMetricFixtures(t *testing.T, metrics *Metrics) {
 	}
 }
 
+func recordEvaluationMetricFixtures(t *testing.T, metrics *Metrics) {
+	t.Helper()
+	metrics.ResetEvaluationProjection()
+	if err := metrics.SetEvaluationCampaign("COMBINED_SHADOW", "RUNNING", 259_200, 60, 1024, 2048, 512); err != nil {
+		t.Fatal(err)
+	}
+	if err := metrics.SetEvaluationFeed("binance", "BTCUSDT", time.Second, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := metrics.SetEvaluationMembers("trend", "shadow", "RUNNING", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := metrics.SetEvaluationFinancial("trend", "net", 1_000_000); err != nil {
+		t.Fatal(err)
+	}
+	if err := metrics.SetEvaluationFunnel("trend", "filled", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := metrics.SetEvaluationFailure("COMBINED_SHADOW", ReasonRisk); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMetricsRejectUnboundedLabels(t *testing.T) {
 	metrics := testMetrics(t)
 	for name, err := range map[string]error{
-		"order identifier": metrics.RecordWebSocketMessage(Dimensions{Exchange: "binance", Instrument: "order_123456789"}),
-		"arbitrary reason": metrics.RecordWebSocketEvent(Dimensions{Exchange: "binance", Instrument: "BTCUSDT"}, Reason("raw error text")),
-		"arbitrary queue":  metrics.SetQueue("user-42", 1, false),
+		"order identifier":  metrics.RecordWebSocketMessage(Dimensions{Exchange: "binance", Instrument: "order_123456789"}),
+		"arbitrary reason":  metrics.RecordWebSocketEvent(Dimensions{Exchange: "binance", Instrument: "BTCUSDT"}, Reason("raw error text")),
+		"arbitrary queue":   metrics.SetQueue("user-42", 1, false),
+		"campaign id stage": metrics.SetEvaluationCampaign("campaign-123", "RUNNING", 0, 0, 0, 1, 0),
+		"arbitrary member":  metrics.SetEvaluationMembers("strategy-user-42", "shadow", "RUNNING", 1),
 	} {
 		if err == nil {
 			t.Fatalf("%s accepted", name)

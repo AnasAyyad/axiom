@@ -46,6 +46,7 @@ func DefaultConfiguration() Configuration {
 
 func validConfiguration(configuration Configuration) bool {
 	wanted := DefaultConfiguration()
+	maximumConfidence := mustPercent("1")
 	return configuration.OptimizerVersion == wanted.OptimizerVersion &&
 		configuration.FactSchemaVersion == wanted.FactSchemaVersion &&
 		configuration.CostModelVersion == wanted.CostModelVersion &&
@@ -55,7 +56,8 @@ func validConfiguration(configuration Configuration) bool {
 		equalStrings(configuration.Exchanges, wanted.Exchanges) &&
 		configuration.MaximumHops == wanted.MaximumHops &&
 		configuration.MaximumCandidates == wanted.MaximumCandidates &&
-		configuration.MinimumConfidence.Compare(wanted.MinimumConfidence) == 0 &&
+		configuration.MinimumConfidence.Compare(wanted.MinimumConfidence) >= 0 &&
+		configuration.MinimumConfidence.Compare(maximumConfidence) <= 0 &&
 		configuration.MaximumTotalCost.Compare(wanted.MaximumTotalCost) == 0 &&
 		configuration.MaximumDuration == wanted.MaximumDuration &&
 		configuration.MaximumRiskScore.Compare(wanted.MaximumRiskScore) == 0 &&

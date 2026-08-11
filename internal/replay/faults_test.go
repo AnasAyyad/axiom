@@ -57,6 +57,31 @@ func TestFaultSourceRetriesDurableBoundaryEvent(t *testing.T) {
 	}
 }
 
+func TestFaultSourceRetriesObserverPersistenceBeforeDeliveringBoundary(t *testing.T) {
+	attempts := 0
+	source, err := NewFaultSource(&memorySource{events: faultEvents(1)},
+		[]Fault{{Kind: FaultStorageFailure, Ordinal: 1}}, func(FaultEvent) error {
+			attempts++
+			if attempts == 1 {
+				return replayError("observer_persistence_failed")
+			}
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = source.Next(); err == nil {
+		t.Fatal("observer persistence failure did not stop delivery")
+	}
+	if _, _, err = source.Next(); err == nil {
+		t.Fatal("storage fault was not emitted after observer retry succeeded")
+	}
+	event, ok, err := source.Next()
+	if err != nil || !ok || event.Ordinal != 1 || attempts != 2 {
+		t.Fatalf("boundary retry event=%#v ok=%v attempts=%d error=%v", event, ok, attempts, err)
+	}
+}
+
 func faultEvents(count uint64) []Event {
 	events := make([]Event, count)
 	for index := uint64(0); index < count; index++ {

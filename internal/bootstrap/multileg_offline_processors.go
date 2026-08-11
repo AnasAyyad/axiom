@@ -69,7 +69,7 @@ func newOwnerConsoleTriangularOperationalProcessorWithOwnership(
 	}
 	pipeline, err := backtest.NewSagaPipelineProcessor(backtest.SagaPipelineDependencies{Strategy: triangular.NewSagaStrategyAdapter(),
 		Allocator: allocator, Risk: riskAdapter, Planner: triangular.NewSagaPlanner(), Broker: broker, Reducer: reducer,
-		Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "not_evaluated"} }})
+		Metrics: func() backtest.Metrics { return zeroOfflineEvidenceMetrics("triangular-arbitrage") }})
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func newOwnerConsoleCrossExchangeOperationalProcessorWithOwnership(
 	}
 	pipeline, err := backtest.NewSagaPipelineProcessor(backtest.SagaPipelineDependencies{Strategy: crossarb.NewSagaStrategyAdapter(),
 		Allocator: allocator, Risk: riskAdapter, Planner: crossarb.NewSagaPlanner(), Broker: broker, Reducer: reducer,
-		Metrics: func() backtest.Metrics { return backtest.Metrics{TotalNetReturn: "not_evaluated"} }})
+		Metrics: func() backtest.Metrics { return zeroOfflineEvidenceMetrics("cross-exchange-arbitrage") }})
 	if err != nil {
 		return nil, err
 	}
