@@ -9,6 +9,14 @@ var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 var runtimeReadInsertTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "asset_screening_versions", "assets", "audit_events",
 	"api_entity_revisions", "authentication_failures", "owner_accounts",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaign_commands", "evaluation_data_audits", "evaluation_historical_imports",
+	"evaluation_recorder_requests",
+	"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results", "evaluation_data_audit_findings",
+	"evaluation_historical_import_segments", "evaluation_campaign_datasets", "evaluation_campaign_dataset_members",
+	"evaluation_campaign_metadata", "evaluation_campaign_candidate_locks", "evaluation_campaign_recording_segments",
+	"evaluation_recorder_observations", "evaluation_recorder_instrument_observations",
+	"evaluation_shadow_sessions", "evaluation_shadow_member_checkpoints", "evaluation_shadow_decisions",
 	"sandbox_runtime_high_risk_audit_events", "sandbox_runtime_sandbox_authorizations", "sandbox_runtime_session_control_events",
 	"sandbox_runtime_totp_replay_state", "sandbox_runtime_sandbox_sessions", "sandbox_runtime_sandbox_session_accounts", "sandbox_runtime_sandbox_arms",
 	"sandbox_strategy_sessions", "sandbox_strategy_session_accounts",
@@ -59,6 +67,9 @@ var runtimeUpdateTables = []string{
 	"liquidity_domains", "liquidity_reservations", "positions", "projection_revisions", "quarantined_scopes", "reconciliation_cases", "reservations", "runs", "sessions", "startup_recovery_attempts",
 	"api_entity_revisions", "shadow_sessions", "stream_connections", "users", "virtual_balances",
 	"multi_exchange_console_replay_fault_schedule_states",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaign_commands", "evaluation_data_audits", "evaluation_historical_imports",
+	"evaluation_recorder_requests", "evaluation_shadow_sessions", "evaluation_shadow_member_checkpoints",
 	"sandbox_runtime_sandbox_authorizations", "sandbox_runtime_totp_replay_state", "sandbox_runtime_sandbox_sessions", "sandbox_runtime_sandbox_arms",
 	"sandbox_strategy_sessions",
 	"sandbox_runtime_exchange_accounts", "sandbox_runtime_daily_cap_counters", "sandbox_runtime_engine_commands",
@@ -99,6 +110,7 @@ var runtimeReadTables = []string{
 
 var recorderReadTables = []string{
 	"assets", "configuration_versions", "exchanges", "instruments", "instrument_metadata_versions",
+	"evaluation_campaigns", "evaluation_recorder_requests",
 }
 
 var recorderWriteTables = []string{
@@ -106,7 +118,8 @@ var recorderWriteTables = []string{
 	"owner_console_storage_pressure_state",
 }
 
-var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events", "owner_console_storage_pressure_events"}
+var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events", "owner_console_storage_pressure_events",
+	"evaluation_campaign_recording_segments", "evaluation_recorder_observations", "evaluation_recorder_instrument_observations"}
 
 // Shared alert services run in every process role. They may append immutable
 // delivery evidence and update only the bounded route state used for delivery
@@ -174,6 +187,13 @@ var sandboxQualificationAppendTables = []string{
 var readOnlyTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "allocation_candidates", "allocation_reservations", "allocation_score_components", "asset_screening_versions", "assets", "audit_events",
 	"configuration_activations", "configuration_versions", "consumer_cursors", "data_quality_events",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results", "evaluation_data_audits",
+	"evaluation_data_audit_findings", "evaluation_historical_imports", "evaluation_historical_import_segments",
+	"evaluation_recorder_requests", "evaluation_campaign_datasets", "evaluation_campaign_dataset_members",
+	"evaluation_campaign_metadata", "evaluation_campaign_candidate_locks", "evaluation_campaign_recording_segments", "evaluation_recorder_observations",
+	"evaluation_recorder_instrument_observations", "evaluation_shadow_sessions",
+	"evaluation_shadow_member_checkpoints", "evaluation_shadow_decisions",
 	"dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions", "exchange_capabilities",
 	"cross_market_view_headers", "cross_market_view_members", "dataset_exchange_coverage", "dataset_tier_a_members", "mean_reversion_decisions",
 	"shadow_strategy_decision_evidence",

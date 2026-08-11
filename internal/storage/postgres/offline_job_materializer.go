@@ -1,18 +1,13 @@
 package postgres
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"axiom/internal/backtest"
-	"axiom/internal/buildinfo"
 	"axiom/internal/config"
 	"axiom/internal/domain"
 	"axiom/internal/recorder"
@@ -32,11 +27,24 @@ type ownerConsoleOfflineRequest struct {
 	StrategyVersion      string  `json:"strategy_version"`
 	FirstOrdinal         *string `json:"first_ordinal"`
 	LastOrdinal          *string `json:"last_ordinal"`
+	EvaluationCampaignID string  `json:"evaluation_campaign_id,omitempty"`
+	EvaluationMemberID   string  `json:"evaluation_member_id,omitempty"`
+	ConfigurationKey     string  `json:"configuration_key,omitempty"`
+	CapitalMicros        int64   `json:"capital_micros,omitempty"`
+	CostStressBPS        int32   `json:"cost_stress_bps,omitempty"`
 }
 
 type ownerConsoleMaterializer struct {
 	pool *pgxpool.Pool
 	root string
+}
+
+type ownerConsoleMaterializedInputs struct {
+	source      replay.Source
+	descriptor  backtest.DatasetDescriptor
+	inputKind   string
+	metadata    map[string]domain.InstrumentMetadata
+	metadataIDs map[string]string
 }
 
 // NewOfflineJobMaterializer builds verified credential-free replay claims.
@@ -57,7 +65,7 @@ func (materializer *ownerConsoleMaterializer) materialize(ctx context.Context, j
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
-	reader, descriptor, err := materializer.openDataset(dataset)
+	inputs, err := materializer.openOfflineInputs(ctx, request, dataset)
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
@@ -69,23 +77,45 @@ func (materializer *ownerConsoleMaterializer) materialize(ctx context.Context, j
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
-	manifest, err := ownerConsoleRunManifest(jobID, kind, request, configuration, configurationHash, descriptor, namespace,
+	manifest, err := ownerConsoleRunManifest(jobID, kind, request, configuration, configurationHash, inputs.descriptor, namespace,
 		timing, acceleration)
 	if err != nil {
 		return backtest.JobClaim{}, err
 	}
-	source, err := ownerConsoleReplaySource(reader, request)
-	if err != nil {
-		return backtest.JobClaim{}, err
-	}
 	if kind == "replay" {
-		source, err = materializer.multiExchangeConsoleFaultSource(ctx, jobID, source)
+		inputs.source, err = materializer.multiExchangeConsoleFaultSource(ctx, jobID, inputs.source)
 		if err != nil {
 			return backtest.JobClaim{}, err
 		}
 	}
-	return backtest.JobClaim{ID: jobID, Manifest: manifest, Configuration: configuration, Source: source,
-		TimingMode: timing, Acceleration: acceleration}, nil
+	stress := request.CostStressBPS
+	if stress == 0 {
+		stress = 10_000
+	}
+	return backtest.JobClaim{ID: jobID, Manifest: manifest, Configuration: configuration, Source: inputs.source,
+		TimingMode: timing, Acceleration: acceleration, CostStressBPS: stress,
+		EvaluationInputKind: inputs.inputKind, EvaluationMetadata: inputs.metadata, EvaluationMetadataID: inputs.metadataIDs,
+		EvaluationConfigurationID: request.ConfigurationID, EvaluationDatasetID: request.DatasetID}, nil
+}
+
+func (materializer *ownerConsoleMaterializer) openOfflineInputs(ctx context.Context,
+	request ownerConsoleOfflineRequest, dataset recordedDatasetInput) (ownerConsoleMaterializedInputs, error) {
+	value := ownerConsoleMaterializedInputs{inputKind: "decision_inputs"}
+	var err error
+	if request.EvaluationCampaignID != "" {
+		value.source, value.descriptor, value.inputKind, err = materializer.openEvaluationDataset(ctx, request, dataset)
+		if err == nil {
+			value.metadata, value.metadataIDs, err = materializer.evaluationMetadata(ctx, request.EvaluationCampaignID)
+		}
+		return value, err
+	}
+	reader, descriptor, err := materializer.openDataset(dataset)
+	if err != nil {
+		return ownerConsoleMaterializedInputs{}, err
+	}
+	value.source, err = ownerConsoleReplaySource(reader, request)
+	value.descriptor = descriptor
+	return value, err
 }
 
 type multiExchangeConsoleMaterializedFault struct {
@@ -168,25 +198,30 @@ func (materializer *ownerConsoleMaterializer) recordMultiExchangeConsoleFault(
 }
 
 type recordedDatasetInput struct {
-	recorderID, hash, path, sourceCommit string
-	revision                             int64
+	id, recorderID, hash, path, sourceCommit, kind string
+	revision                                       int64
 }
 
 func (materializer *ownerConsoleMaterializer) loadInputs(ctx context.Context, request ownerConsoleOfflineRequest) (recordedDatasetInput, config.Configuration, string, error) {
 	var dataset recordedDatasetInput
 	var configurationHash string
 	var canonical []byte
-	err := materializer.pool.QueryRow(ctx, `SELECT dm.recorder_dataset_id,dm.dataset_hash,dm.manifest_revision,
-      dm.manifest_path,dm.source_commit,cv.configuration_hash,cv.canonical_payload
+	err := materializer.pool.QueryRow(ctx, `SELECT dm.id,dm.recorder_dataset_id,dm.dataset_hash,dm.manifest_revision,
+      dm.manifest_path,dm.source_commit,dm.dataset_kind,cv.configuration_hash,cv.canonical_payload
 	  FROM dataset_manifests dm
 	  JOIN configuration_versions cv ON cv.id=$2
 	  JOIN experiment_registrations experiment ON experiment.configuration_id=cv.id AND experiment.dataset_id=dm.id
 	  JOIN research_generations generation ON generation.experiment_id=experiment.id
-	  WHERE dm.id=$1 AND dm.state='qualified' AND dm.dataset_kind='decision_inputs'
+	  WHERE dm.id=$1 AND ((dm.state='qualified' AND dm.dataset_kind='decision_inputs') OR
+	    ($5<>'' AND dm.state IN ('ready','qualified') AND dm.dataset_kind='public_market' AND EXISTS(
+	      SELECT 1 FROM evaluation_campaign_datasets selected
+	      WHERE selected.campaign_id=$5 AND selected.strategy_id=$6 AND selected.dataset_id=dm.id)))
 	    AND generation.id=$3 AND experiment.strategy_version_id=$4
 	    AND experiment.status IN ('registered','running','completed','locked')`, request.DatasetID, request.ConfigurationID,
-		request.ResearchGenerationID, ownerConsoleStrategyVersionID(request.StrategyVersion)).
-		Scan(&dataset.recorderID, &dataset.hash, &dataset.revision, &dataset.path, &dataset.sourceCommit,
+		request.ResearchGenerationID, ownerConsoleStrategyVersionID(request.StrategyVersion),
+		request.EvaluationCampaignID, evaluationStrategyID(request.StrategyVersion)).
+		Scan(&dataset.id, &dataset.recorderID, &dataset.hash, &dataset.revision, &dataset.path, &dataset.sourceCommit,
+			&dataset.kind,
 			&configurationHash, &canonical)
 	if err != nil {
 		return recordedDatasetInput{}, config.Configuration{}, "", fmt.Errorf("owner_console_job_inputs_unavailable")
@@ -200,10 +235,13 @@ func (materializer *ownerConsoleMaterializer) loadInputs(ctx context.Context, re
 }
 
 func (materializer *ownerConsoleMaterializer) openDataset(input recordedDatasetInput) (*backtest.DatasetReader, backtest.DatasetDescriptor, error) {
-	if filepath.Base(input.path) != input.path || input.revision <= 0 {
+	if input.revision <= 0 {
 		return nil, backtest.DatasetDescriptor{}, fmt.Errorf("owner_console_job_dataset_identity_invalid")
 	}
-	manifestPath := filepath.Join(materializer.root, input.path)
+	root, manifestPath, err := materializer.findDatasetManifest(input)
+	if err != nil {
+		return nil, backtest.DatasetDescriptor{}, err
+	}
 	manifest, err := recorder.ReadManifest(manifestPath)
 	if err != nil || manifest.Hash != input.hash || manifest.DatasetID != input.recorderID || int64(manifest.Revision) != input.revision || len(manifest.Segments) < 2 {
 		return nil, backtest.DatasetDescriptor{}, fmt.Errorf("owner_console_job_dataset_identity_invalid")
@@ -211,7 +249,7 @@ func (materializer *ownerConsoleMaterializer) openDataset(input recordedDatasetI
 	canonical := manifest.Segments[1].Manifest.Spec
 	compatibility := backtest.DatasetCompatibility{SourceCommit: input.sourceCommit, ParserVersion: canonical.ParserVersion,
 		NormalizationVersion: canonical.NormalizationVersion, MinimumRecordsPerPair: 1, MaximumLowDensityPairs: 0}
-	reader, err := backtest.OpenDataset(materializer.root, manifestPath, compatibility)
+	reader, err := backtest.OpenDataset(root, manifestPath, compatibility)
 	if err != nil {
 		return nil, backtest.DatasetDescriptor{}, err
 	}
@@ -243,132 +281,4 @@ func (materializer *ownerConsoleMaterializer) modelNamespace(ctx context.Context
 		return backtest.ModelNamespace{}, fmt.Errorf("owner_console_job_model_namespace_ambiguous")
 	}
 	return items[0], nil
-}
-
-func decodeOwnerConsoleOfflineRequest(kind string, payload json.RawMessage) (ownerConsoleOfflineRequest, error) {
-	var request ownerConsoleOfflineRequest
-	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.DisallowUnknownFields()
-	if decoder.Decode(&request) != nil || decoder.Decode(&struct{}{}) == nil {
-		return request, fmt.Errorf("owner_console_job_request_invalid")
-	}
-	seed, err := hex.DecodeString(request.RootSeedHash)
-	if (kind != "backtest" && kind != "replay") || request.ConfigurationID == "" || request.DatasetID == "" ||
-		request.ResearchGenerationID == "" ||
-		!ownerConsoleOfflineStrategySupported(request.StrategyVersion) || err != nil || len(seed) != sha256.Size {
-		return request, fmt.Errorf("owner_console_job_request_invalid")
-	}
-	if (request.FirstOrdinal == nil) != (request.LastOrdinal == nil) {
-		return request, fmt.Errorf("owner_console_job_window_invalid")
-	}
-	if kind == "backtest" && (request.IncidentID != nil || request.Speed != nil || request.FirstOrdinal != nil) {
-		return request, fmt.Errorf("owner_console_job_request_invalid")
-	}
-	if kind == "replay" {
-		if request.Speed != nil && *request.Speed != "original" && *request.Speed != "accelerated" && *request.Speed != "maximum" {
-			return request, fmt.Errorf("owner_console_job_request_invalid")
-		}
-		if request.IncidentID != nil && (*request.IncidentID == "" || request.FirstOrdinal == nil) {
-			return request, fmt.Errorf("owner_console_job_window_invalid")
-		}
-	}
-	return request, nil
-}
-
-func ownerConsoleRunManifest(jobID, kind string, request ownerConsoleOfflineRequest, configuration config.Configuration, configurationHash string,
-	dataset backtest.DatasetDescriptor, namespace backtest.ModelNamespace, timing replay.TimingMode,
-	acceleration uint64) (backtest.RunManifest, error) {
-	build := buildinfo.Current()
-	if build.Dirty || !ownerConsoleBuildIdentityValid(build.Commit, build.GoSumHash, build.PNPMLockHash) {
-		return backtest.RunManifest{}, fmt.Errorf("owner_console_job_build_identity_invalid")
-	}
-	runID, err := domain.NewRunID(jobID)
-	if err != nil {
-		return backtest.RunManifest{}, fmt.Errorf("owner_console_job_run_identity_invalid")
-	}
-	startingPayload, _ := json.Marshal(struct {
-		Asset    string `json:"asset"`
-		Quantity string `json:"quantity"`
-	}{Asset: configuration.Portfolio.SettlementAsset, Quantity: configuration.Portfolio.StartingCapital.Value})
-	return backtest.RunManifest{RunID: runID, Mode: kind, CodeCommit: build.Commit,
-		Build: backtest.CurrentBuildIdentity([]string{"trimpath"}, build.GoSumHash, build.PNPMLockHash), Dataset: dataset,
-		ConfigurationHash: configurationHash, StrategyVersion: request.StrategyVersion, Seed: request.RootSeedHash,
-		ResearchGenerationID: request.ResearchGenerationID,
-		SchedulerVersion:     fmt.Sprintf("deterministic-scheduler-v1:%s:%d", timing, acceleration),
-		SerializationVersion: "canonical-json-v1",
-		Models:               namespace, StartingBalanceHash: ownerConsoleSHA256(startingPayload)}, nil
-}
-
-func ownerConsoleOfflineStrategySupported(value string) bool {
-	switch value {
-	case "trend-following@1.0.0", "mean-reversion@1.0.0", "triangular-arbitrage@1.0.0", "cross-exchange-arbitrage@1.0.0",
-		"inventory-rebalancing@1.0.0":
-		return true
-	default:
-		return false
-	}
-}
-
-func ownerConsoleConfigurationMatchesStrategy(configuration config.Configuration, version string) bool {
-	switch version {
-	case "trend-following@1.0.0":
-		return configuration.Trend.StrategyVersion == version
-	case "mean-reversion@1.0.0":
-		return configuration.MeanReversion.StrategyVersion == version
-	case "triangular-arbitrage@1.0.0":
-		return configuration.Triangular.StrategyVersion == version
-	case "cross-exchange-arbitrage@1.0.0":
-		return configuration.CrossExchange.StrategyVersion == version
-	case "inventory-rebalancing@1.0.0":
-		return config.ValidateRebalancingConfiguration(configuration.Rebalancing) == nil
-	default:
-		return false
-	}
-}
-
-func offlineJobTiming(kind string, speed *string) (replay.TimingMode, uint64, error) {
-	if kind == "backtest" {
-		return replay.MaximumTiming, 1, nil
-	}
-	selected := "original"
-	if speed != nil {
-		selected = *speed
-	}
-	switch selected {
-	case "original":
-		return replay.OriginalTiming, 1, nil
-	case "accelerated":
-		return replay.AcceleratedTiming, 10, nil
-	case "maximum":
-		return replay.MaximumTiming, 1, nil
-	default:
-		return "", 0, fmt.Errorf("owner_console_job_timing_invalid")
-	}
-}
-
-func ownerConsoleReplaySource(reader *backtest.DatasetReader, request ownerConsoleOfflineRequest) (replay.Source, error) {
-	if request.FirstOrdinal == nil {
-		return backtest.NewDatasetSource(reader)
-	}
-	first, firstErr := strconv.ParseUint(*request.FirstOrdinal, 10, 64)
-	last, lastErr := strconv.ParseUint(*request.LastOrdinal, 10, 64)
-	if firstErr != nil || lastErr != nil {
-		return nil, fmt.Errorf("owner_console_job_window_invalid")
-	}
-	return backtest.NewDatasetWindowSource(reader, first, last)
-}
-
-func ownerConsoleBuildIdentityValid(values ...string) bool {
-	for _, value := range values {
-		decoded, err := hex.DecodeString(value)
-		if err != nil || (len(decoded) != sha256.Size && len(decoded) != 20) {
-			return false
-		}
-	}
-	return true
-}
-
-func ownerConsoleSHA256(value []byte) string {
-	digest := sha256.Sum256(value)
-	return hex.EncodeToString(digest[:])
 }

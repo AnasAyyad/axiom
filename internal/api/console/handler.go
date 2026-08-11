@@ -41,6 +41,7 @@ type Options struct {
 	Runs                    RunReadService
 	RunCommands             RunCommandService
 	DataCatalogue           DataCatalogueReadService
+	EvaluationCampaigns     EvaluationCampaignService
 }
 
 // Register installs all authenticated owner console routes on one mux.
@@ -69,6 +70,14 @@ func Register(mux *http.ServeMux, options Options) {
 		mux.HandleFunc("POST /api/v1/runs/{id}/"+action, handler.authorizedMutation(handler.controlRun(action), ""))
 	}
 	mux.HandleFunc("GET /api/v1/data-catalogue", handler.authorized(handler.dataCatalogue, ""))
+	mux.HandleFunc("GET /api/v1/evaluation-campaigns", handler.authorized(handler.evaluationCampaigns, ""))
+	mux.HandleFunc("POST /api/v1/evaluation-campaigns", handler.authorizedMutation(handler.createEvaluationCampaign, ""))
+	mux.HandleFunc("GET /api/v1/evaluation-campaigns/{id}", handler.authorized(handler.evaluationCampaign, ""))
+	mux.HandleFunc("POST /api/v1/evaluation-campaigns/{id}/cancel", handler.authorizedMutation(handler.cancelEvaluationCampaign, ""))
+	mux.HandleFunc("GET /api/v1/evaluation-campaigns/{id}/events", handler.authorized(handler.evaluationCampaignEvents, ""))
+	mux.HandleFunc("GET /api/v1/evaluation-campaigns/{id}/report", handler.authorized(handler.evaluationCampaignReport, ""))
+	mux.HandleFunc("POST /api/v1/data-audits", handler.authorizedMutation(handler.createDataAudit, ""))
+	mux.HandleFunc("GET /api/v1/data-audits/{id}", handler.authorized(handler.dataAudit, ""))
 	handler.registerReads(mux)
 	handler.registerCommands(mux)
 	handler.registerSandbox(mux)

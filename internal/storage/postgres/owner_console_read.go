@@ -212,7 +212,7 @@ func (store *OwnerConsoleStore) Trend(ctx context.Context) (generated.TrendStatu
 	}
 	_ = promotion
 	return generated.TrendStatus{Version: generated.TrendFollowing100, Revision: strconv.FormatInt(version, 10),
-		Timeframe: generated.N4h, Health: generated.TrendStatusHealthPaused, Parameters: parameters,
+		Timeframe: generated.TrendStatusTimeframeN4h, Health: generated.TrendStatusHealthPaused, Parameters: parameters,
 		EvidenceMaturity: generated.TrendStatusEvidenceMaturityLocalTierB,
 		Viability:        ptr(generated.TrendStatusViabilityUndetermined)}, rows.Err()
 }

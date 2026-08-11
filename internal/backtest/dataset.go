@@ -92,6 +92,49 @@ func (reader *DatasetReader) Gaps() []recorder.Gap {
 	return append([]recorder.Gap(nil), reader.manifest.Gaps...)
 }
 
+// OrdinalRange returns the exact inclusive recorder range represented by the
+// immutable manifest. Recorder ordinals may contain holes belonging to a
+// sibling exchange dataset, so callers must not infer record count from the
+// numeric span.
+func (reader *DatasetReader) OrdinalRange() (uint64, uint64, error) {
+	if len(reader.manifest.Segments) < 2 {
+		return 0, 0, backtestError("dataset_range_invalid")
+	}
+	first := reader.manifest.Segments[1].Manifest.Spec.FirstOrdinal
+	last := reader.manifest.Segments[len(reader.manifest.Segments)-1].Manifest.Spec.LastOrdinal
+	if first == 0 || last < first {
+		return 0, 0, backtestError("dataset_range_invalid")
+	}
+	return first, last, nil
+}
+
+// SeekAtOrAfter positions a merge reader at the first event whose recorder
+// ordinal is at least the requested value. It is intentionally distinct from
+// exact SeekOrdinal because interleaved exchange recorders have valid holes.
+func (reader *DatasetReader) SeekAtOrAfter(ordinal uint64) error {
+	if ordinal == 0 {
+		return backtestError("dataset_seek_invalid")
+	}
+	for pair := 0; pair*2 < len(reader.manifest.Segments); pair++ {
+		spec := reader.manifest.Segments[pair*2+1].Manifest.Spec
+		if spec.LastOrdinal < ordinal {
+			continue
+		}
+		reader.pair, reader.rows, reader.row, reader.previous = pair, nil, 0, ordinal-1
+		if err := reader.loadPair(); err != nil {
+			return err
+		}
+		for index := range reader.rows {
+			if reader.rows[index].IngestOrdinal >= ordinal {
+				reader.row = index
+				return nil
+			}
+		}
+		return backtestError("dataset_seek_invalid")
+	}
+	return backtestError("dataset_seek_invalid")
+}
+
 // SeekOrdinal uses manifest coverage indexes and positions the next read at the
 // exact selected event without retaining earlier segments.
 func (reader *DatasetReader) SeekOrdinal(ordinal uint64) error {

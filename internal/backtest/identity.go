@@ -103,13 +103,24 @@ type RunManifest struct {
 	// interpreted its recorded decision inputs. It is optional for historical
 	// manifests so legacy evidence remains readable, but new materialized jobs
 	// must set it before a worker will run them.
-	StrategyVersion      string         `json:"strategy_version,omitempty"`
-	ResearchGenerationID string         `json:"research_generation_id,omitempty"`
-	Seed                 string         `json:"seed"`
-	SchedulerVersion     string         `json:"scheduler_version"`
-	SerializationVersion string         `json:"serialization_version"`
-	Models               ModelNamespace `json:"models"`
-	StartingBalanceHash  string         `json:"starting_balance_hash"`
+	StrategyVersion      string                 `json:"strategy_version,omitempty"`
+	ResearchGenerationID string                 `json:"research_generation_id,omitempty"`
+	Seed                 string                 `json:"seed"`
+	SchedulerVersion     string                 `json:"scheduler_version"`
+	SerializationVersion string                 `json:"serialization_version"`
+	Models               ModelNamespace         `json:"models"`
+	StartingBalanceHash  string                 `json:"starting_balance_hash"`
+	Evaluation           *EvaluationRunIdentity `json:"evaluation,omitempty"`
+}
+
+// EvaluationRunIdentity binds a system-owned matrix member to its exact
+// capital and cost-stress world without affecting ordinary owner-created jobs.
+type EvaluationRunIdentity struct {
+	CampaignID       string `json:"campaign_id"`
+	MemberID         string `json:"member_id"`
+	ConfigurationKey string `json:"configuration_key"`
+	CapitalMicros    int64  `json:"capital_micros"`
+	CostStressBPS    int32  `json:"cost_stress_bps"`
 }
 
 // CanonicalHash validates and hashes the canonical manifest representation.
@@ -138,7 +149,23 @@ func (manifest RunManifest) validate() error {
 		!validHash(manifest.Build.GoSumHash) || !validHash(manifest.Build.PNPMLockHash) {
 		return backtestError("manifest_invalid")
 	}
+	if manifest.Evaluation != nil && !manifest.Evaluation.valid() {
+		return backtestError("manifest_invalid")
+	}
 	return validateDatasetDescriptor(manifest.Dataset)
+}
+
+func (identity EvaluationRunIdentity) valid() bool {
+	if identity.CampaignID == "" || identity.MemberID == "" || identity.ConfigurationKey == "" ||
+		(identity.CostStressBPS != 10_000 && identity.CostStressBPS != 15_000 && identity.CostStressBPS != 20_000) {
+		return false
+	}
+	switch identity.CapitalMicros {
+	case 500_000_000, 1_000_000_000, 1_500_000_000, 2_000_000_000, 10_000_000_000:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateDatasetDescriptor(descriptor DatasetDescriptor) error {
