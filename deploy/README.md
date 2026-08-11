@@ -657,34 +657,31 @@ tag or `latest`; copy only the `name@sha256:...` references from the retained CI
 artifact after checking the merged commit identity and green workflow.
 
 The two GHCR package namespaces are a deployment prerequisite, not something
-CI may silently make public. Before the first merged publication, an owner must
-create `anasayyad/axiom` and `anasayyad/axiom-backup` as **private** packages
-without repository-inherited visibility, grant the `AnasAyyad/axiom`
-repository Actions admin access, and verify that an unauthenticated pull is
-denied. Keep package-administration credentials outside the repository and
-workflow. GitHub does not allow a public container package to be changed back
-to private; if a new empty namespace was accidentally created public, inventory
-and preserve its evidence, delete that exact package through an authenticated
-owner session, and recreate it privately before publishing again. Do not
-delete a package containing unrelated or deployed versions.
+CI may silently create. Before the first merged publication, an owner must use
+a device-authorized or interactively entered package-administration credential
+to create `anasayyad/axiom` and `anasayyad/axiom-backup` as **private**
+packages, connect them to `AnasAyyad/axiom`, grant that repository Actions
+admin access, and verify that an unauthenticated pull is denied. Keep that
+credential outside chat, command arguments, logs, the repository, and the
+workflow, then log out after bootstrap.
 
-The one-time recovery for the accidental packages created by workflow run
-`31515133196` is encoded in
-`.github/workflows/ghcr-private-bootstrap.yml`. It will run only from `main`
-with the exact confirmation phrase, requires the exact seven recorded version
-IDs and two image digests, and uses the repository-scoped `GITHUB_TOKEN`. It
-builds the replacement images before deletion. If either recreated package is
-still anonymously readable, its error trap deletes both new namespaces again.
-After a successful run, the changed version inventory makes the workflow
-self-disabling. Do not update its allowlist for routine publication.
+GitHub does not allow a public container package to be changed back to private.
+If a new namespace was accidentally created public, inventory and preserve its
+evidence, delete that exact package through an authenticated owner session, and
+recreate it privately. Do not delete a package containing unrelated or deployed
+versions. Recovery run `31519921408` proved that this public source repository's
+`GITHUB_TOKEN` recreates an absent package as public; its fail-closed error trap
+deleted both recreated packages. Never use `GITHUB_TOKEN` to bootstrap an
+absent package namespace.
 
-The merged-main workflow uses only `GITHUB_TOKEN` for publication, refuses to
-push when either package is already anonymously readable, and probes both
-published digest subjects again before signing or attesting them. The backup
-image deliberately omits `org.opencontainers.image.source` so a private
-namespace can be bootstrapped without repository permission inheritance;
-signed provenance still binds the immutable digest to this repository and
-workflow.
+After owner bootstrap, the merged-main workflow uses only `GITHUB_TOKEN` for
+routine publication. Before pushing, it requires authenticated package
+metadata to report `private` for both existing packages and separately refuses
+anonymous access. It probes both published digest subjects again before
+signing or attesting them. The backup runtime image deliberately omits
+`org.opencontainers.image.source`; a one-time bootstrap wrapper may carry that
+label to connect the private package, while signed provenance binds every
+deployable immutable digest to this repository and workflow.
 
 On `axiom-server`, first preserve the prior state. Gracefully stop the recorder
 so its shutdown path can finish the current segment, verify that the final
