@@ -18,10 +18,10 @@ readiness runner. No service can target a production-private exchange host.
 
 ```bash
 cp .env.example .env
-mkdir -p .secrets .local/market-data .local/backup-staging .local/sandbox-canaries
+mkdir -p .secrets .local/market-data/evaluation-history .local/backup-staging .local/sandbox-canaries
 chmod 700 .secrets
 # On Linux, ensure bind-mounted writable paths match APP_UID/APP_GID.
-sudo chown -R 10001:10001 .local/market-data
+sudo chown -R 10001:70 .local/market-data
 sudo chown -R 10002:70 .local/backup-staging
 sudo chown 10001:70 .local/sandbox-canaries
 chmod 750 .local/sandbox-canaries
@@ -34,8 +34,9 @@ reporting policy are not deployment-environment overrides. They belong to the
 immutable versioned research configuration selected by `APP_CONFIG_FILE`; a
 deployment cannot replace or augment those values through `.env`.
 
-The A2 image includes the reviewed `deploy/config/platform-shadow.json` at
-`/etc/axiom/platform.json`. The strict loader validates that complete graph
+The image includes the reviewed `deploy/config/platform-shadow.json` at
+`/etc/axiom/platform.json` and `deploy/config/platform-research.json` at
+`/etc/axiom/platform-research.json`. The strict loader validates the selected graph
 before opening the database or a listener. A deployment-specific replacement
 must be mounted explicitly at an absolute path and selected with
 `APP_CONFIG_FILE`; partial environment overlays are rejected.
@@ -52,6 +53,13 @@ graph contains no secret references and does not enable authenticated exchange
 behavior. Older V1A and V1B.1 through V1B.4 configuration schemas remain
 loadable without reinterpretation. Later V1B roles retain their predecessor
 behavior until their sequential phase is implemented.
+
+The Compose recorder and worker roles select the research graph through
+`EVALUATION_CONFIG_FILE` by default. The worker sees existing market recordings
+read-only and receives a separate writable `EVALUATION_HISTORY_HOST_PATH` child
+mount for official historical candle artifacts. Keep that path beneath the
+same protected market-data filesystem; never point it at PostgreSQL, backup
+staging, or an existing recording directory.
 
 If you created `.env` or initialized PostgreSQL before the Axiom naming update, leave those existing database and role names alone for now. Branding does not require deleting or recreating a local database. Fresh setups copied from the current `.env.example` use the `axiom` names; an existing database can be renamed later only through a planned migration/backup procedure.
 
@@ -634,7 +642,100 @@ identity and live-evidence inputs. Follow
 reference server has not been selected by repository configuration, so local
 success cannot pass the formal gate.
 
-## 7. Unavailable production trading
+## 7. Automated strategy evaluation rollout after C6
+
+This rollout is deliberately deferred. Do not inspect, stop, or replace any C6
+process while its qualification is active. Continue only after the owner has
+explicitly confirmed that C6 finished and its immutable evidence has been
+preserved. Deployment must not create or start an evaluation campaign.
+
+CI publishes private, commit-tagged application and backup images only after a
+successful merged `main` workflow. The workflow records the two registry
+digest references in `published-images.env`, signs both digest subjects, and
+attaches build-provenance and SPDX SBOM attestations. Never deploy the commit
+tag or `latest`; copy only the `name@sha256:...` references from the retained CI
+artifact after checking the merged commit identity and green workflow.
+
+On `axiom-server`, first preserve the prior state. Gracefully stop the recorder
+so its shutdown path can finish the current segment, verify that the final
+manifest is registered and no `.partial` file is being advertised, and retain
+the C6 terminal files and logs unchanged. Run the normal encrypted backup with
+the existing pinned backup image and verify its manifest and restore-list check
+before migrating. Do not delete or recreate the `postgres_data` volume or
+anything under `/srv/axiom-data`.
+
+Authenticate to private GHCR without placing a token in chat, a command
+argument, shell history, Compose, or the repository:
+
+```bash
+read -r -s -p 'GHCR read:packages token: ' AXIOM_GHCR_TOKEN; printf '\n'
+printf '%s' "${AXIOM_GHCR_TOKEN}" | \
+  docker login ghcr.io --username anasayyad --password-stdin
+unset AXIOM_GHCR_TOKEN
+```
+
+Place the two reviewed digest references in the server `.env`. The evaluation
+paths are explicit and the application image supplies the immutable research
+graph:
+
+```dotenv
+APP_IMAGE=ghcr.io/anasayyad/axiom@sha256:REPLACE_WITH_PUBLISHED_DIGEST
+BACKUP_IMAGE=ghcr.io/anasayyad/axiom-backup@sha256:REPLACE_WITH_PUBLISHED_DIGEST
+APP_PULL_POLICY=always
+BACKUP_PULL_POLICY=always
+MARKET_DATA_HOST_PATH=/srv/axiom-data/market-data
+EVALUATION_HISTORY_HOST_PATH=/srv/axiom-data/market-data/evaluation-history
+EVALUATION_CONFIG_FILE=/etc/axiom/platform-research.json
+HOST_BIND_IP=127.0.0.1
+API_HOST_PORT=8080
+```
+
+Create only the new historical-import child when absent and give the existing
+non-root application identity access. Preserve every other recording:
+
+```bash
+sudo install -d -o 10001 -g 70 -m 0750 \
+  /srv/axiom-data/market-data/evaluation-history
+docker compose --env-file .env --profile app --profile observability config \
+  > /tmp/axiom-evaluation-compose.yaml
+docker compose --env-file .env --profile app --profile observability pull
+docker compose --env-file .env --profile app run --rm migrate
+docker compose --env-file .env --profile app --profile observability up -d --wait
+```
+
+Before handing the start button to the owner, verify all of the following and
+retain the outputs with the deployment record:
+
+- every application container runs the expected registry digest and the API
+  build/config identities match the merged commit and research graph;
+- migration `000055` is applied and rerunning the migrator is idempotent;
+- PostgreSQL and the existing owner identity are preserved;
+- the recorder has healthy Binance and Bybit production-public streams for
+  `BTC/USDT`, `ETH/USDT`, and `ETH/BTC`, with no credential files;
+- the worker is polling and the campaign metrics are present without campaign
+  IDs or other high-cardinality labels;
+- the campaign list/detail, event, report, and data-audit endpoints are
+  owner-authenticated and return their structured envelopes;
+- `/strategy-evaluation` renders through the private tunnel, including partial
+  and reconnecting states; and
+- Prometheus targets, Grafana, disk-pressure alerts, and recorder finalization
+  checks are healthy.
+
+Keep the console private:
+
+```bash
+ssh -N -L 18080:127.0.0.1:8080 axiom-server
+```
+
+Open `http://127.0.0.1:18080/strategy-evaluation`. The owner presses **Start
+Full Evaluation** once after reviewing deployment health. A successful deploy
+does not qualify the 72-hour dataset or complete the seven-day shadow run.
+
+See
+[`docs/operations/strategy-evaluation-campaign.md`](../docs/operations/strategy-evaluation-campaign.md)
+for campaign behavior and evidence semantics.
+
+## 8. Unavailable production trading
 
 The `testnet` and `demo` execution modes are reachable only through the two
 closed `sandbox-engine` commands and their compiled endpoint policies. There

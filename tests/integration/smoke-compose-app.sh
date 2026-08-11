@@ -8,7 +8,8 @@ project="axiom-observability-smoke-${$}"
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/axiom-compose-smoke.XXXXXX")"
 secret_dir="${temp_dir}/secrets"
 market_dir="${temp_dir}/market-data"
-mkdir -p "${secret_dir}" "${market_dir}"
+evaluation_history_dir="${market_dir}/evaluation-history"
+mkdir -p "${secret_dir}" "${market_dir}" "${evaluation_history_dir}"
 chmod 0770 "${market_dir}"
 
 compose() {
@@ -17,6 +18,7 @@ compose() {
     APP_PULL_POLICY=never \
     SECRETS_DIR="${secret_dir}" \
     MARKET_DATA_HOST_PATH="${market_dir}" \
+    EVALUATION_HISTORY_HOST_PATH="${evaluation_history_dir}" \
     RECORDER_FLUSH_INTERVAL=2s \
     HOST_BIND_IP=127.0.0.1 \
     API_HOST_PORT=0 \
@@ -97,7 +99,8 @@ printf 'header = "Authorization: Bearer %s"\n' "$(<"${secret_dir}/health_detail_
 chmod 0600 "${temp_dir}/health-curl.conf"
 docker run --rm --user 0:0 --entrypoint /bin/chown \
   --mount "type=bind,src=${market_dir},dst=/market-data" \
-  postgres:18.4-alpine "10001:$(id -g)" /market-data >/dev/null
+  postgres:18.4-alpine "10001:$(id -g)" \
+  /market-data /market-data/evaluation-history >/dev/null
 
 compose up --detach --wait --wait-timeout 180
 

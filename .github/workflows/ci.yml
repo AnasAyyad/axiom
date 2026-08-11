@@ -221,6 +221,43 @@ jobs:
           AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_operational_readiness_upgrade_operational_readiness_test?sslmode=disable
         run: make operational-readiness-postgres-qualify
 
+  evaluation_campaign-postgres:
+    name: evaluation campaign PostgreSQL clean-install and migration-54 upgrade qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Create isolated evaluation campaign qualification databases
+        env:
+          POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_evaluation_clean_evaluation_campaign_test
+          docker exec "${POSTGRES_SERVICE_ID}" createdb --username postgres axiom_evaluation_upgrade_evaluation_campaign_test
+      - name: Run evaluation campaign clean-install and migration-54 upgrade qualification
+        env:
+          AXIOM_EVALUATION_CAMPAIGN_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_evaluation_clean_evaluation_campaign_test?sslmode=disable
+          AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN: postgresql://postgres@127.0.0.1:5432/axiom_evaluation_upgrade_evaluation_campaign_test?sslmode=disable
+        run: make evaluation-campaign-postgres-qualify
+
   operational_readiness-local:
     name: operational readiness pressure, backup, lifecycle, chaos, and smoke gates
     runs-on: ubuntu-24.04
@@ -346,6 +383,9 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Check out source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -413,6 +453,87 @@ jobs:
         run: |
           docker image inspect --format '{{.Id}}' axiom:ci > artifacts/image-digest.txt
           docker image inspect --format '{{.Id}}' axiom-backup:ci > artifacts/backup-image-digest.txt
+      - name: Authenticate to private GHCR on merged main only
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@5e57cd118135c172c367b4c75cc6ac9a6c21401e # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install pinned Cosign on merged main only
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Publish immutable commit-tagged images
+        id: publish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          APP_IMAGE: ghcr.io/anasayyad/axiom:${{ github.sha }}
+          BACKUP_IMAGE: ghcr.io/anasayyad/axiom-backup:${{ github.sha }}
+        run: |
+          docker tag axiom:ci "${APP_IMAGE}"
+          docker tag axiom-backup:ci "${BACKUP_IMAGE}"
+          docker push "${APP_IMAGE}"
+          docker push "${BACKUP_IMAGE}"
+          docker buildx imagetools inspect "${APP_IMAGE}" \
+            --format '{{json .Manifest}}' > artifacts/ghcr-axiom-manifest.json
+          docker buildx imagetools inspect "${BACKUP_IMAGE}" \
+            --format '{{json .Manifest}}' > artifacts/ghcr-axiom-backup-manifest.json
+          app_digest="$(jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))' artifacts/ghcr-axiom-manifest.json)"
+          backup_digest="$(jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))' artifacts/ghcr-axiom-backup-manifest.json)"
+          printf 'app_digest=%s\n' "${app_digest}" >> "${GITHUB_OUTPUT}"
+          printf 'backup_digest=%s\n' "${backup_digest}" >> "${GITHUB_OUTPUT}"
+          printf 'APP_IMAGE=ghcr.io/anasayyad/axiom@%s\nBACKUP_IMAGE=ghcr.io/anasayyad/axiom-backup@%s\n' \
+            "${app_digest}" "${backup_digest}" > artifacts/published-images.env
+      - name: Sign immutable image digests with keyless OIDC
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          APP_DIGEST: ${{ steps.publish.outputs.app_digest }}
+          BACKUP_DIGEST: ${{ steps.publish.outputs.backup_digest }}
+        run: |
+          cosign sign --yes "ghcr.io/anasayyad/axiom@${APP_DIGEST}"
+          cosign sign --yes "ghcr.io/anasayyad/axiom-backup@${BACKUP_DIGEST}"
+          cosign verify \
+            --certificate-identity-regexp '(?i)^https://github[.]com/anasayyad/axiom/[.]github/workflows/ci[.]yml@refs/heads/main$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "ghcr.io/anasayyad/axiom@${APP_DIGEST}" > artifacts/cosign-axiom-verification.json
+          cosign verify \
+            --certificate-identity-regexp '(?i)^https://github[.]com/anasayyad/axiom/[.]github/workflows/ci[.]yml@refs/heads/main$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "ghcr.io/anasayyad/axiom-backup@${BACKUP_DIGEST}" > artifacts/cosign-axiom-backup-verification.json
+      - name: Attest application build provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ghcr.io/anasayyad/axiom
+          subject-digest: ${{ steps.publish.outputs.app_digest }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest backup build provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ghcr.io/anasayyad/axiom-backup
+          subject-digest: ${{ steps.publish.outputs.backup_digest }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest application SBOM
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ghcr.io/anasayyad/axiom
+          subject-digest: ${{ steps.publish.outputs.app_digest }}
+          sbom-path: artifacts/axiom.spdx.json
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest backup SBOM
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ghcr.io/anasayyad/axiom-backup
+          subject-digest: ${{ steps.publish.outputs.backup_digest }}
+          sbom-path: artifacts/axiom-backup.spdx.json
+          push-to-registry: true
+          create-storage-record: false
       - name: Upload supply-chain evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

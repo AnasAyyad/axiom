@@ -55,6 +55,7 @@ COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certif
 COPY --from=go-build /usr/share/zoneinfo/UTC /usr/share/zoneinfo/UTC
 COPY --from=go-build --chown=10001:70 /out/platform /app/platform
 COPY --chown=10001:70 deploy/config/platform-shadow.json /etc/axiom/platform.json
+COPY --chown=10001:70 deploy/config/platform-research.json /etc/axiom/platform-research.json
 COPY --from=go-build --chown=10001:70 /out/platform-binance-testnet.json /etc/axiom/platform-binance-testnet.json
 COPY --from=go-build --chown=10001:70 /out/platform-bybit-demo.json /etc/axiom/platform-bybit-demo.json
 ENV TZ=UTC

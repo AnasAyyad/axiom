@@ -260,6 +260,7 @@ services:
     command: ["recorder"]
     environment:
       <<: *runtime-environment
+      APP_CONFIG_FILE: ${EVALUATION_CONFIG_FILE:-/etc/axiom/platform-research.json}
       DB_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
       DB_PASSWORD_FILE: /run/secrets/postgres_recorder_password
       EXECUTION_MODE: shadow
@@ -318,6 +319,7 @@ services:
     command: ["worker"]
     environment:
       <<: *runtime-environment
+      APP_CONFIG_FILE: ${EVALUATION_CONFIG_FILE:-/etc/axiom/platform-research.json}
     secrets:
       - postgres_runtime_password
       - health_detail_token
@@ -326,12 +328,16 @@ services:
         source: ${MARKET_DATA_HOST_PATH:-./.local/market-data}
         target: /var/lib/axiom/market-data
         read_only: true
+      - type: bind
+        source: ${EVALUATION_HISTORY_HOST_PATH:-./.local/market-data/evaluation-history}
+        target: /var/lib/axiom/market-data/evaluation-history
     depends_on:
       migrate:
         condition: service_completed_successfully
     networks:
       - core
       - metrics
+      - exchange_egress
     healthcheck:
       test:
         [
