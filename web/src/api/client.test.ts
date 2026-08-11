@@ -225,3 +225,52 @@ it("accepts isolated multi-exchange console inventory and rejects a combined bal
     }),
   );
 });
+
+it("validates detailed evaluation progress and rejects a reset storage cap", async () => {
+  const campaign = {
+    id: "evaluation-1",
+    preset: "balanced_full_v1",
+    state: "RUNNING",
+    current_stage: "RECORDER_QUALIFICATION",
+    completed_stages: [
+      "HISTORICAL_IMPORT",
+      "EXISTING_DATA_AUDIT",
+      "RECORDER_ROTATION",
+    ],
+    valid_recording_seconds: 3600,
+    valid_shadow_seconds: 0,
+    wall_time_seconds: 7200,
+    recorded_bytes: 1024,
+    recording_limit_bytes: 214_748_364_800,
+    stages: [],
+    historical_imports: [],
+    coverage: [],
+    matrix: [],
+    feed_health: [],
+    revision: "4",
+    created_at: "2026-08-11T00:00:00Z",
+    updated_at: "2026-08-11T02:00:00Z",
+  };
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify(campaign), { status: 200 }),
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ ...campaign, recording_limit_bytes: 1_000 }),
+        { status: 200 },
+      ),
+    );
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(
+    getAPI<"EvaluationCampaign">("/api/v1/evaluation-campaigns/evaluation-1"),
+  ).resolves.toEqual(campaign);
+  await expect(
+    getAPI<"EvaluationCampaign">("/api/v1/evaluation-campaigns/evaluation-1"),
+  ).rejects.toEqual(
+    expect.objectContaining<Partial<APIError>>({
+      code: "invalid_server_response",
+    }),
+  );
+});

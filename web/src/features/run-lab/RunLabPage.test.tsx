@@ -8,6 +8,43 @@ import { RunLabPage } from "./RunLabPage";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("RunLabPage", () => {
+  it("keeps run history visible when the optional catalogue fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input) === "/api/v1/run-catalog") {
+          return new Response(
+            JSON.stringify({
+              code: "RUN_CATALOGUE_UNAVAILABLE",
+              correlation_id: "catalogue-correlation",
+              message: "catalogue unavailable",
+              summary: "The reviewed run catalogue is rebuilding.",
+              suggested_action: "Wait for the data audit to complete.",
+            }),
+            { status: 503 },
+          );
+        }
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }),
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <RunLabPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText(/The reviewed run catalogue is rebuilding/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No durable runs have been created yet/),
+    ).toBeInTheDocument();
+  });
+
   it("uses server-approved semantic choices and explains advisory rebalancing", async () => {
     vi.stubGlobal(
       "fetch",

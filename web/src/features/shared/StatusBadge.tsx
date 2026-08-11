@@ -13,6 +13,10 @@ function tone(value: string) {
       "normal",
       "fresh",
       "live",
+      "completed",
+      "succeeded",
+      "continue",
+      "eligible",
     ].some((item) => normalized.includes(item))
   )
     return "good";

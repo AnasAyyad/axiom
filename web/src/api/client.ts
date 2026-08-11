@@ -31,6 +31,22 @@ export class APIError extends Error {
   }
 }
 
+/** Preserve safe structured server detail at every page boundary. */
+export function apiErrorDetail(error: unknown, fallback: string) {
+  if (!(error instanceof APIError)) return fallback;
+  const detail = [
+    error.details?.summary,
+    error.details?.detail,
+    error.details?.impact,
+    error.details?.suggestedAction,
+    error.details?.blockingPrerequisites?.length
+      ? `Required before retrying: ${error.details.blockingPrerequisites.join(", ")}.`
+      : undefined,
+  ].filter((part): part is string => part !== undefined);
+  if (detail.length > 0) return detail.join(" ");
+  return `${fallback} Server reason: ${error.code}. Correlation: ${error.correlationID}.`;
+}
+
 export function setCSRFToken(value: string) {
   csrfToken = value;
 }

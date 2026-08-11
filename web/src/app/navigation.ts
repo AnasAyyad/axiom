@@ -32,6 +32,7 @@ export const navigationGroups: readonly NavigationGroup[] = [
   {
     label: "Run",
     items: [
+      { to: "/strategy-evaluation", label: "Strategy Evaluation" },
       { to: "/run-lab", label: "New Run" },
       { to: "/run-lab", label: "Run History" },
       { to: "/guided-demonstrations", label: "Guided Demonstrations" },
