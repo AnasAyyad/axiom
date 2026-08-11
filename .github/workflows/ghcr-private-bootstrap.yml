@@ -100,8 +100,20 @@ jobs:
 
           docker tag axiom:private-bootstrap "${APP_IMAGE}"
           docker tag axiom-backup:private-bootstrap "${BACKUP_IMAGE}"
-          docker push "${APP_IMAGE}"
-          docker push "${BACKUP_IMAGE}"
+          push_after_deletion() {
+            image=$1
+            for attempt in 1 2 3 4 5 6; do
+              if docker push "${image}"; then
+                return 0
+              fi
+              if (( attempt < 6 )); then
+                sleep 5
+              fi
+            done
+            return 1
+          }
+          push_after_deletion "${APP_IMAGE}"
+          push_after_deletion "${BACKUP_IMAGE}"
 
           mkdir -p artifacts
           docker buildx imagetools inspect "${APP_IMAGE}" \
