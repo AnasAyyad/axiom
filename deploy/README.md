@@ -668,6 +668,16 @@ and preserve its evidence, delete that exact package through an authenticated
 owner session, and recreate it privately before publishing again. Do not
 delete a package containing unrelated or deployed versions.
 
+The one-time recovery for the accidental packages created by workflow run
+`31515133196` is encoded in
+`.github/workflows/ghcr-private-bootstrap.yml`. It will run only from `main`
+with the exact confirmation phrase, requires the exact seven recorded version
+IDs and two image digests, and uses the repository-scoped `GITHUB_TOKEN`. It
+builds the replacement images before deletion. If either recreated package is
+still anonymously readable, its error trap deletes both new namespaces again.
+After a successful run, the changed version inventory makes the workflow
+self-disabling. Do not update its allowlist for routine publication.
+
 The merged-main workflow uses only `GITHUB_TOKEN` for publication, refuses to
 push when either package is already anonymously readable, and probes both
 published digest subjects again before signing or attesting them. The backup
