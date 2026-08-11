@@ -13,14 +13,13 @@ mkdir -p "${secret_dir}" "${market_dir}" "${evaluation_history_dir}"
 chmod 0770 "${market_dir}"
 
 compose() {
-  # Keep the image/deployment rehearsal deterministic. The complete two-exchange
-  # research graph is exercised by accelerated fixtures and is probed live only
-  # during the gated server deployment; hosted CI runners can be denied by a
-  # production-public venue solely because of their network location.
+  # Keep recorder startup independent of a hosted runner's Bybit geography.
+  # The worker still loads the complete two-exchange research graph, whose
+  # behavior is exercised with accelerated fixtures. Live two-exchange recorder
+  # verification remains an explicit gated server-deployment check.
   COMPOSE_PROJECT_NAME="${project}" \
     APP_IMAGE="${image}" \
     APP_PULL_POLICY=never \
-    EVALUATION_CONFIG_FILE="${COMPOSE_SMOKE_CONFIG_FILE:-/etc/axiom/platform.json}" \
     SECRETS_DIR="${secret_dir}" \
     MARKET_DATA_HOST_PATH="${market_dir}" \
     EVALUATION_HISTORY_HOST_PATH="${evaluation_history_dir}" \
@@ -29,6 +28,7 @@ compose() {
     API_HOST_PORT=0 \
     GRAFANA_HOST_PORT=0 \
     docker compose --env-file .env.example \
+      -f docker-compose.yml -f tests/integration/compose-smoke-app.override.yml \
       --profile app --profile record --profile workers --profile observability "$@"
 }
 

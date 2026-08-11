@@ -1,6 +1,26 @@
 package postgres
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
+
+func TestEvaluationRecorderObservationValidationKeepsCampaignUniverseFailClosed(t *testing.T) {
+	now := time.Date(2030, 8, 11, 12, 0, 0, 0, time.UTC)
+	baseline := []EvaluationRecorderInstrumentObservation{
+		{ExchangeID: "binance", Instrument: "BTCUSDT", LatestEventAt: now},
+		{ExchangeID: "binance", Instrument: "ETHUSDT", LatestEventAt: now},
+	}
+	if err := validateEvaluationRecorderObservationIdentity("baseline-recorder", now); err != nil {
+		t.Fatalf("valid recorder identity rejected: %v", err)
+	}
+	if err := validateEvaluationRecorderObservation("baseline-recorder", now, baseline); err == nil {
+		t.Fatal("active-campaign validation accepted an incomplete instrument universe")
+	}
+	if err := validateEvaluationRecorderObservationIdentity("", now); err == nil {
+		t.Fatal("empty recorder identity accepted")
+	}
+}
 
 func TestEvaluationShadowReserveLeavesFinalSafeBoundaryAllowance(t *testing.T) {
 	reserve := int64(20 * 1024 * 1024 * 1024)

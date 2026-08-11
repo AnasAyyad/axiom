@@ -56,10 +56,33 @@ func assertEvaluationCampaignSchemaAndRecovery(t *testing.T, ctx context.Context
 	}
 	assertEvaluationCampaignRoleGrants(t, ctx, pool)
 	now := time.Date(2030, 8, 11, 12, 0, 0, 0, time.UTC)
+	assertNonCampaignRecorderObservationNoop(t, ctx, pool, now)
 	assertStandaloneEvaluationAudit(t, ctx, pool, now)
 	assertEvaluationCandidateLockAndShadowIsolation(t, ctx, pool, now)
 	assertEvaluationPartialReportEvidence(t, ctx, pool, now)
 	assertEvaluationRestartClaim(t, ctx, pool, now)
+}
+
+func assertNonCampaignRecorderObservationNoop(t *testing.T, ctx context.Context,
+	pool *pgxpool.Pool, now time.Time) {
+	t.Helper()
+	clock, _ := domain.NewReplayClock(now)
+	store, err := NewEvaluationRecorderControlStore(pool, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline := []EvaluationRecorderInstrumentObservation{
+		{ExchangeID: "binance", Instrument: "BTCUSDT", LatestEventAt: now},
+		{ExchangeID: "binance", Instrument: "ETHUSDT", LatestEventAt: now},
+	}
+	if err = store.Observe(ctx, "non-campaign-recorder", now, true, baseline); err != nil {
+		t.Fatalf("non-campaign recorder observation failed: %v", err)
+	}
+	var observations int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM evaluation_recorder_observations`).Scan(&observations); err != nil ||
+		observations != 0 {
+		t.Fatalf("non-campaign recorder persisted observations=%d error=%v", observations, err)
+	}
 }
 
 func assertEvaluationMarketReferences(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {

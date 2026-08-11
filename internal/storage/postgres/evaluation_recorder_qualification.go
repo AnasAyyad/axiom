@@ -123,12 +123,8 @@ func evaluationShadowReserveFits(recorded, reserve int64) bool {
 func (store *EvaluationRecorderControlStore) Observe(ctx context.Context, session string,
 	observedAt time.Time, persistenceHealthy bool,
 	instruments []EvaluationRecorderInstrumentObservation) error {
-	if err := validateEvaluationRecorderObservation(session, observedAt, instruments); err != nil {
+	if err := validateEvaluationRecorderObservationIdentity(session, observedAt); err != nil {
 		return err
-	}
-	messages, queueDrops, gaps, decoderErrors, allEligible := evaluationObservationCounters(instruments)
-	if messages > math.MaxInt64 || queueDrops > math.MaxInt64 || gaps > math.MaxInt64 || decoderErrors > math.MaxInt64 {
-		return fmt.Errorf("evaluation_recorder_observation_overflow")
 	}
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
@@ -141,6 +137,13 @@ func (store *EvaluationRecorderControlStore) Observe(ctx context.Context, sessio
 	}
 	if !found {
 		return tx.Commit(ctx)
+	}
+	if err = validateEvaluationRecorderObservation(session, observedAt, instruments); err != nil {
+		return err
+	}
+	messages, queueDrops, gaps, decoderErrors, allEligible := evaluationObservationCounters(instruments)
+	if messages > math.MaxInt64 || queueDrops > math.MaxInt64 || gaps > math.MaxInt64 || decoderErrors > math.MaxInt64 {
+		return fmt.Errorf("evaluation_recorder_observation_overflow")
 	}
 	prior, priorFound, err := loadPriorEvaluationObservation(ctx, tx, campaignID)
 	if err != nil {
@@ -167,7 +170,21 @@ func (store *EvaluationRecorderControlStore) Observe(ctx context.Context, sessio
 
 func validateEvaluationRecorderObservation(session string, observedAt time.Time,
 	instruments []EvaluationRecorderInstrumentObservation) error {
-	if session == "" || observedAt.IsZero() || observedAt.Location() != time.UTC || len(instruments) != 6 {
+	if err := validateEvaluationRecorderObservationIdentity(session, observedAt); err != nil {
+		return err
+	}
+	return validateEvaluationRecorderInstruments(instruments)
+}
+
+func validateEvaluationRecorderObservationIdentity(session string, observedAt time.Time) error {
+	if session == "" || observedAt.IsZero() || observedAt.Location() != time.UTC {
+		return fmt.Errorf("evaluation_recorder_observation_invalid")
+	}
+	return nil
+}
+
+func validateEvaluationRecorderInstruments(instruments []EvaluationRecorderInstrumentObservation) error {
+	if len(instruments) != 6 {
 		return fmt.Errorf("evaluation_recorder_observation_invalid")
 	}
 	seen := make(map[string]struct{}, 6)
