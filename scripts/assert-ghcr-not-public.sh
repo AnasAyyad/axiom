@@ -20,26 +20,60 @@ if [[ -n "${manifest}" ]]; then
   subject="${subject}@${manifest}"
 fi
 
-# The token is anonymous and is passed between processes over stdin. It is never
-# printed, stored, or placed in a command argument.
-status="$(
+# GHCR can deny an anonymous pull at either the token endpoint or the registry
+# endpoint. Accept only explicit authorization-denial codes. Unknown token
+# responses, transport errors, and rate limits remain fail-closed errors.
+token_response="$(mktemp)"
+trap 'rm -f -- "${token_response}"' EXIT
+token_status="$(
   curl --silent --show-error --get \
+    --output "${token_response}" \
+    --write-out '%{http_code}' \
     --data-urlencode "scope=repository:${repository}:pull" \
-    https://ghcr.io/token |
-    jq --exit-status --raw-output \
-      'if .token then
-         "header = \"Authorization: Bearer \(.token)\""
-       elif any(.errors[]?; .code == "DENIED") then
-         "header = \"Authorization: Bearer denied\""
-       else
-         error("unexpected GHCR token response")
-       end' |
-    curl --silent --show-error --config - \
-      --output /dev/null \
-      --write-out '%{http_code}' \
-      --header 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
-      "https://ghcr.io/v2/${repository}/${endpoint}"
+    https://ghcr.io/token
 )"
+
+explicit_denial=false
+if jq --exit-status \
+  'any(.errors[]?; .code == "DENIED" or .code == "UNAUTHORIZED")' \
+  "${token_response}" >/dev/null; then
+  explicit_denial=true
+fi
+
+case "${token_status}" in
+  200)
+    if [[ "${explicit_denial}" == true ]]; then
+      status=403
+    else
+      # The anonymous token is passed to curl over stdin. It is never printed or
+      # placed in a command argument, and the mode-600 response is removed on exit.
+      status="$(
+        jq --exit-status --raw-output \
+          'if .token then
+             "header = \"Authorization: Bearer \(.token)\""
+           else
+             error("unexpected GHCR token response")
+           end' "${token_response}" |
+        curl --silent --show-error --config - \
+          --output /dev/null \
+          --write-out '%{http_code}' \
+          --header 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+          "https://ghcr.io/v2/${repository}/${endpoint}"
+      )"
+    fi
+    ;;
+  401 | 403)
+    if [[ "${explicit_denial}" != true ]]; then
+      echo "unexpected GHCR token-service response for ${subject}: HTTP ${token_status}" >&2
+      exit 1
+    fi
+    status="${token_status}"
+    ;;
+  *)
+    echo "unexpected GHCR token-service response for ${subject}: HTTP ${token_status}" >&2
+    exit 1
+    ;;
+esac
 
 case "${status}" in
   200)
