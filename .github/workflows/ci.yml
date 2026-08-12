@@ -453,6 +453,13 @@ jobs:
         run: |
           docker image inspect --format '{{.Id}}' axiom:ci > artifacts/image-digest.txt
           docker image inspect --format '{{.Id}}' axiom-backup:ci > artifacts/backup-image-digest.txt
+      - name: Require existing private GHCR package metadata
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test "$(gh api /users/AnasAyyad/packages/container/axiom --jq .visibility)" = private
+          test "$(gh api /users/AnasAyyad/packages/container/axiom-backup --jq .visibility)" = private
       - name: Refuse publication to public GHCR packages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
