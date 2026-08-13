@@ -132,6 +132,9 @@ func (client *PublicClient) Health() ClockHealth {
 	return client.clockEstimator.Health()
 }
 
+// ClockHealth exposes the shared exchange clock through an exchange-neutral contract.
+func (client *PublicClient) ClockHealth() exchangecontracts.ClockHealth { return client.Health() }
+
 // RateBudget returns the latest bounded admission result.
 func (client *PublicClient) RateBudget() RateBudgetTelemetry {
 	client.telemetryMutex.RLock()

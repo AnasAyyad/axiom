@@ -21,6 +21,7 @@ type InstrumentCollector struct {
 	candles          map[string]*marketdata.CandleStore
 	provider         *marketdata.Provider
 	stats            *collectorCounters
+	marketUpdates    chan struct{}
 	lifecycle        collectorLifecycle
 	running          atomic.Bool
 	healthMutex      sync.RWMutex
@@ -61,7 +62,8 @@ func NewInstrumentCollector(
 	}
 	return &InstrumentCollector{config: config, source: source, recorder: recorder,
 		clock: clock, book: book, candles: stores, provider: provider,
-		evidenceSink: config.LifecycleEvidence, evidenceFailed: make(chan struct{}),
+		marketUpdates: make(chan struct{}, 1),
+		evidenceSink:  config.LifecycleEvidence, evidenceFailed: make(chan struct{}),
 		stats: newCollectorCounters(), lifecycle: systemCollectorLifecycle{}}, nil
 }
 
@@ -87,6 +89,16 @@ func newCandleStores(
 // Views exposes immutable book and completed-candle snapshots.
 func (collector *InstrumentCollector) Views() marketdata.MarketViewProvider {
 	return collector.provider
+}
+
+// MarketUpdates exposes coalesced commit notifications without blocking the collector hot path.
+func (collector *InstrumentCollector) MarketUpdates() <-chan struct{} { return collector.marketUpdates }
+
+func (collector *InstrumentCollector) notifyMarketUpdate() {
+	select {
+	case collector.marketUpdates <- struct{}{}:
+	default:
+	}
 }
 
 // Stats returns bounded qualification metrics.
