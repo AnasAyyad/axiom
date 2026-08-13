@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,9 @@ import (
 func TestOwnerConsoleTriangularInputBindsThreeBooksCapitalRiskAndReplay(t *testing.T) {
 	now := time.Date(2026, 8, 9, 19, 0, 0, 0, time.UTC)
 	claim, session := newOwnerConsoleTriangularTestSession(t, now)
+	if !session.consumeCurrentTriangularTrigger() {
+		t.Fatal("ETHBTC trigger was not consumed")
+	}
 	input, err := session.buildTriangularInput(context.Background(), now)
 	if err != nil {
 		t.Fatal(err)
@@ -33,6 +37,18 @@ func TestOwnerConsoleTriangularInputBindsThreeBooksCapitalRiskAndReplay(t *testi
 	}
 	if _, err = triangular.Evaluate(evaluation); err == nil {
 		t.Fatal("missing exact third-asset fee mark was accepted")
+	}
+}
+
+func TestOwnerConsoleTriangularCaptureRejectsDifferentETHBTCTriggerVersion(t *testing.T) {
+	now := time.Date(2026, 8, 9, 19, 5, 0, 0, time.UTC)
+	_, session := newOwnerConsoleTriangularTestSession(t, now)
+	if !session.consumeTriangularTrigger(1, 99) {
+		t.Fatal("test trigger was not consumed")
+	}
+	_, err := session.captureTriangularMarket(context.Background(), now)
+	if !errors.Is(err, errPublicShadowTriangularMarketInputUnavailable) {
+		t.Fatalf("mismatched ETHBTC trigger capture error = %v", err)
 	}
 }
 

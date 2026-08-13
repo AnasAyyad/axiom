@@ -22,6 +22,9 @@ func TestPublicShadowSagaMarketSourceBuildsCoherentUSDTFeeRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if set.Trigger.IngestOrdinal != 3 || set.Trigger.MonotonicNanos != 1_000_000 {
+		t.Fatalf("capture trigger = %#v", set.Trigger)
+	}
 	for _, member := range set.Members {
 		if member.Clock.Offset != 0 || member.Clock.Uncertainty != time.Millisecond || !member.Clock.Eligible {
 			t.Fatalf("member did not use the single capture clock: %#v", member.Clock)
@@ -31,13 +34,13 @@ func TestPublicShadowSagaMarketSourceBuildsCoherentUSDTFeeRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	capture, err := reader.capture(context.Background(), keys, now)
+	capture, err := reader.captureTriangular(context.Background(), keys, now, 100*time.Millisecond)
 	if err != nil || len(capture.members) != 3 || capture.coherent.Identity() == "" {
 		t.Fatalf("coherent owner console capture=%#v error=%v", capture, err)
 	}
 	assertPublicShadowSagaFeeRules(t, capture)
 	collectors[keys[1].Instrument].(*publicShadowSagaCollector).health.Eligible = false
-	if _, err = reader.capture(context.Background(), keys, now); err == nil {
+	if _, err = reader.captureTriangular(context.Background(), keys, now, 100*time.Millisecond); err == nil {
 		t.Fatal("ineligible public member was accepted")
 	}
 }

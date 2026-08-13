@@ -35,7 +35,7 @@ func defaultTriangularConfiguration() TriangularConfiguration {
 		parameter("triangular.dynamic_size_enabled", "One dynamically clipped size is evaluated with the reviewed ladder.", "triangular-dynamic-clip.v1", "1", "boolean_integer", "1", "1", true, true, 0, "down", "portfolio_policy", "depth_model"),
 		parameter("triangular.maximum_cycle_notional", "Maximum settlement amount entering one cycle.", "triangular-size-cap.v1", "100", "USDT", "0", "100", false, true, 18, "down", "portfolio_policy"),
 		parameter("triangular.candidate_lifetime", "Candidate claim and dispatch must occur at or before this lifetime.", "triangular-opportunity-lifetime.v1", "250", "milliseconds", "0", "250", false, true, 0, "down", "latency_model"),
-		parameter("triangular.arrival_book_max_age", "Every leg book age must remain strictly below this threshold.", "triangular-book-freshness.v1", "250", "milliseconds", "0", "250", false, true, 0, "down", "market_view_model"),
+		parameter("triangular.arrival_book_max_age", "Every leg book age must remain at or below this threshold.", "triangular-book-freshness.v2", "100", "milliseconds", "0", "250", false, true, 0, "down", "market_view_model"),
 		parameter("triangular.minimum_net_edge", "Expected and worst-case cycle economics must be strictly positive.", "triangular-net-edge.v1", "0", "decimal_fraction", "0", "1", true, true, 18, "down", "fee_model", "depth_model"),
 		parameter("triangular.additional_safety_margin", "Worst-case net edge must be strictly above fifteen basis points.", "triangular-safety-margin.v1", "0.0015", "decimal_fraction", "0.0015", "0.0015", true, true, 18, "ceiling", "risk_policy", "latency_model"),
 		parameter("triangular.latency_deterioration", "Per-leg conservative output haircut used by worst-case qualification.", "triangular-latency-haircut.v1", "0.0005", "decimal_fraction", "0", "0.01", true, true, 18, "ceiling", "latency_model"),
@@ -45,6 +45,14 @@ func defaultTriangularConfiguration() TriangularConfiguration {
 		parameter("triangular.approved_book_required", "Only healthy approved active-generation books are eligible.", "approved-book-view.v1", "1", "boolean_integer", "1", "1", true, true, 0, "down", "market_view_model"),
 		parameter("triangular.opportunity_metric_window", "Bounded survivor samples retained for p50, p95, and p99 lifetime evidence.", "opportunity-lifetime-window.v1", "1000", "samples", "100", "10000", true, true, 0, "down", "observability_model"),
 		parameter("triangular.maximum_concurrent_claims", "One portfolio resource can have only one active or quarantined owner.", "exclusive-claim-ownership.v1", "1", "count", "1", "1", true, true, 0, "down", "claim_model"),
+	}
+	for index := range parameters {
+		if parameters[index].ID == "triangular.arrival_book_max_age" {
+			parameters[index].ApprovalActor = "owner_review"
+			parameters[index].ApprovalReference = "ADR-0028"
+			parameters[index].ApprovedAt = "2026-08-13T00:00:00Z"
+			parameters[index].ChangeReason = "reviewed 100ms same-exchange as-of freshness ceiling"
+		}
 	}
 	return TriangularConfiguration{
 		StrategyVersion: "triangular-arbitrage@1.0.0", SettlementAsset: "USDT",

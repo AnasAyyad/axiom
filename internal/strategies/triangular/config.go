@@ -30,7 +30,7 @@ func DefaultConfiguration() Configuration {
 		SizeLadder:              []domain.Quantity{quantity("10"), quantity("25"), quantity("50"), quantity("100")},
 		MaximumCycleNotional:    quantity("100"),
 		DynamicSizing:           true,
-		MaximumBookAge:          250 * time.Millisecond,
+		MaximumBookAge:          100 * time.Millisecond,
 		CandidateLifetime:       250 * time.Millisecond,
 		AdditionalSafetyMargin:  percent("0.0015"),
 		LatencyDeterioration:    rate("0.0005"),

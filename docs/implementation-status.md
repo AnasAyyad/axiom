@@ -1,5 +1,28 @@
 # Axiom implementation status
 
+## Same-exchange triangular as-of coherence — 2026-08-13
+
+**Status:** Implemented and locally validated on
+`feature/triangular-asof-coherence`. No deployment, campaign, qualification,
+or certification is implied.
+
+This slice replaces corrected-clock interval overlap only for Binance and
+Bybit same-exchange triangular shadow evaluation. ETH/BTC book changes trigger
+an in-process capture of the latest already-committed BTC/USDT, ETH/USDT, and
+ETH/BTC books. Every member must be healthy, in the active generation, ordered
+at or before the decision boundary, and no older than the reviewed 100 ms
+strategy limit. Missing, stale, post-trigger, gap, reconnect, or excessive
+clock-uncertainty evidence fails closed and skips the opportunity. The generic
+cross-exchange coherent-view policy remains unchanged.
+
+This remains production-public shadow simulation only. It adds no credentials,
+private endpoint, production broker, or real-money order capability. The
+five-minute regional timing probes motivate the slice but do not qualify it.
+Focused runtime, configuration, triangular-strategy, and bootstrap tests, plus
+the repository-wide Go test suite, pass with Go 1.26.5. The separately
+authorized long-running campaign remains pending and is required before any
+qualification claim.
+
 ## Owner-console response and PR corrective slice — 2026-08-10
 
 **Status:** Implemented; hosted rerun pending after PostgreSQL qualification

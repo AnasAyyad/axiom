@@ -17,6 +17,7 @@ import (
 	"axiom/internal/portfolio"
 	marketrecorder "axiom/internal/recorder"
 	"axiom/internal/replay"
+	runtimecore "axiom/internal/runtime"
 	"axiom/internal/strategies/trend"
 	"axiom/internal/strategies/triangular"
 )
@@ -36,6 +37,9 @@ func (session *ownerConsoleLiveShadowSession) evaluateReadyInputs(ctx context.Co
 
 func (session *ownerConsoleLiveShadowSession) evaluateReadyTriangularInputs(ctx context.Context) error {
 	if !session.entries.Load() {
+		return nil
+	}
+	if !session.consumeCurrentTriangularTrigger() {
 		return nil
 	}
 	for _, collector := range session.collectors {
@@ -65,6 +69,36 @@ func (session *ownerConsoleLiveShadowSession) evaluateReadyTriangularInputs(ctx 
 		return err
 	}
 	return session.recordAndProcessTriangular(ctx, &input, viewID, instrument)
+}
+
+func (session *ownerConsoleLiveShadowSession) consumeCurrentTriangularTrigger() bool {
+	instrument, err := sandboxSagaInstrument("ETHBTC")
+	if err != nil {
+		return false
+	}
+	view, err := collectorBook(session.collectors[instrument], runtimecore.MarketKey{
+		Exchange: session.claim.ExchangeID, Instrument: instrument,
+	})
+	if err != nil || view.Generation() == 0 || view.Version() == 0 {
+		return false
+	}
+	return session.consumeTriangularTrigger(view.Generation(), view.Version())
+}
+
+func (session *ownerConsoleLiveShadowSession) consumeTriangularTrigger(generation, version uint64) bool {
+	if generation == 0 || version == 0 {
+		return false
+	}
+	session.stateMutex.Lock()
+	defer session.stateMutex.Unlock()
+	if generation < session.lastTriangularTriggerGeneration ||
+		(generation == session.lastTriangularTriggerGeneration &&
+			version <= session.lastTriangularTriggerVersion) {
+		return false
+	}
+	session.lastTriangularTriggerGeneration = generation
+	session.lastTriangularTriggerVersion = version
+	return true
 }
 
 func (session *ownerConsoleLiveShadowSession) recordAndProcessTriangular(

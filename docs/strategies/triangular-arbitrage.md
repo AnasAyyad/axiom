@@ -40,11 +40,26 @@ immutable parameter contracts. Older configuration schemas retain their
 original interpretation.
 
 A candidate exists only when all three books are active, generation-valid,
-sequence-healthy, and no older than 250 ms; every conversion is filter-valid
-and fully executable; expected net and worst-case net are positive; and the
-worst-case edge is strictly greater than the additional 15 bps safety margin.
-The reviewed deterioration applies a conservative per-leg haircut. Candidate
-lifetime is 250 ms from first detection.
+sequence-healthy, and no older than the reviewed 100 ms ceiling; every
+conversion is filter-valid and fully executable; expected net and worst-case
+net are positive; and the worst-case edge is strictly greater than the
+additional 15 bps safety margin. Candidate lifetime remains 250 ms from first
+detection.
+
+Live public-shadow evaluation is driven by a new ETH/BTC committed-book
+version. At that event boundary the runtime captures the newest already
+committed BTC/USDT, ETH/USDT, and ETH/BTC books. The three books must belong to
+the selected exchange, use its one shared public-client clock estimate, be at
+or before the trigger, and remain inside the 100 ms monotonic receive-age and
+inter-book window. Missing members, future members, stale books, active-
+generation changes, unresolved gaps, or clock uncertainty above 100 ms skip
+that opportunity. No REST fetch, waiting window, or later fast-leg retry is
+used for the same ETH/BTC version.
+
+Corrected UTC interval overlap is not required for this same-exchange join.
+That rule remains unchanged for cross-exchange coherent views, where separate
+venue clocks must be compared. The reviewed deterioration applies a
+conservative per-leg haircut after a triangular input passes admission.
 
 Central risk approval precedes allocation. One all-or-nothing claim group
 acquires settlement capital, fee buffers, each exact displayed-liquidity slice,
