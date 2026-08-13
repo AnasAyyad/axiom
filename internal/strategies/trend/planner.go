@@ -21,12 +21,23 @@ type Planner struct {
 	source    CandidateSource
 }
 
-// NewPlanner constructs the A10 execution-planner adapter.
+// NewPlanner constructs the shared execution-planner adapter. Sandbox modes
+// only affect deterministic client-order identities; adapter submission stays
+// outside this planner behind the sandbox dispatcher.
 func NewPlanner(mode, namespace string, source CandidateSource) (*Planner, error) {
-	if (mode != "backtest" && mode != "replay" && mode != "paper" && mode != "shadow") || namespace == "" || source == nil {
+	if !supportedPlannerMode(mode) || namespace == "" || source == nil {
 		return nil, trendError(ReasonInvalidConfiguration)
 	}
 	return &Planner{mode: mode, namespace: namespace, source: source}, nil
+}
+
+func supportedPlannerMode(mode string) bool {
+	switch mode {
+	case "backtest", "replay", "paper", "shadow", "testnet", "demo":
+		return true
+	default:
+		return false
+	}
 }
 
 // Plan preserves exact strategy quantity/price and adds deterministic identities.

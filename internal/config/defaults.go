@@ -2,10 +2,10 @@ package config
 
 import "axiom/internal/domain"
 
-// MeanReversionParameterCount is the immutable size of the B3 baseline graph.
+// MeanReversionParameterCount is the immutable size of the mean reversion baseline graph.
 const MeanReversionParameterCount = 27
 
-// DefaultConfiguration returns a credential-free, paused V1A paper configuration.
+// DefaultConfiguration returns a credential-free, paused initial trend paper configuration.
 func DefaultConfiguration() Configuration {
 	return Configuration{
 		SchemaVersion: SchemaVersion,
@@ -46,7 +46,7 @@ func defaultTrendConfiguration() TrendConfiguration {
 			Cadence: "completed_4h_candle", WarmUp: warmUp, Mutability: "immutable_per_run",
 			ModelDependencies: dependencies}
 	}
-	return TrendConfiguration{StrategyVersion: "trend.v1a.1", Timeframe: "4h", Parameters: []StrategyParameter{
+	return TrendConfiguration{StrategyVersion: "trend-following@1.0.0", Timeframe: "4h", Parameters: []StrategyParameter{
 		parameter("trend.ema_confirmation_period", "Completed-candle EMA used for trend confirmation and the secondary exit.", "50", "completed_candles", "1", "10000", true, true, 0, "half_even", "50_candles", "candle_model"),
 		parameter("trend.ema_regime_period", "Completed-candle EMA used for the long-term regime.", "200", "completed_candles", "2", "10000", true, true, 0, "half_even", "200_candles", "candle_model"),
 		parameter("trend.breakout_lookback", "Prior completed candles used by the strict breakout test.", "20", "completed_candles", "1", "1000", true, true, 0, "half_even", "20_candles", "candle_model"),
@@ -78,7 +78,7 @@ func defaultMeanReversionConfiguration() MeanReversionConfiguration {
 			ModelDependencies: dependencies, AlgorithmVersion: algorithm,
 			EvaluationTimezone: "UTC", ChangeBehavior: "existing positions retain their opening configuration; new decisions require a new snapshot",
 			ApprovalActor: "authoritative_specification", ApprovalReference: "AX-V1B-B03-FUN-001/AX-V1B-B03-SAF-001",
-			ApprovedAt: "2026-07-22T00:00:00Z", ChangeReason: "initial immutable B3 baseline"}
+			ApprovedAt: "2026-07-22T00:00:00Z", ChangeReason: "initial immutable mean reversion baseline"}
 	}
 	parameters := []StrategyParameter{
 		parameter("mean_reversion.primary_timeframe_hours", "UTC-aligned completed primary candle duration.", "utc-candle-hours.v1", "1", "hours", "1", "1", true, true, 0, "half_even", "28_primary_candles", "candle_model"),
@@ -109,7 +109,7 @@ func defaultMeanReversionConfiguration() MeanReversionConfiguration {
 		parameter("mean_reversion.maximum_notional", "Maximum notional for one mean-reversion simulated order.", "mean-reversion-allocation-cap.v1", "75", "USDT", "0", "75", false, true, 18, "down", "210_higher_timeframe_candles", "instrument_metadata", "portfolio_policy"),
 		parameter("mean_reversion.maximum_allocation", "Maximum fraction of mean-reversion equity allocated to one position.", "mean-reversion-allocation-cap.v1", "0.10", "decimal_fraction", "0", "0.10", false, true, 18, "down", "210_higher_timeframe_candles", "portfolio_policy", "risk_policy"),
 	}
-	return MeanReversionConfiguration{StrategyVersion: "mean-reversion.v1b.1", PrimaryTimeframe: "1h",
+	return MeanReversionConfiguration{StrategyVersion: "mean-reversion@1.0.0", PrimaryTimeframe: "1h",
 		HigherTimeframe: "4h", Parameters: parameters}
 }
 

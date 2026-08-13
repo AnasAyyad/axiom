@@ -19,8 +19,8 @@ type sandboxPrivateStreamSignal struct {
 
 func (work *sandboxEngineRoleWork) consumePrivateEvents(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	fence uint64,
 	source sandbox.PrivateEventSource,
 	signals chan<- sandboxPrivateStreamSignal,
@@ -51,8 +51,8 @@ func (work *sandboxEngineRoleWork) consumePrivateEvents(
 
 func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	fence uint64,
 	source sandbox.PrivateEventSource,
 	signals chan<- sandboxPrivateStreamSignal,
@@ -65,9 +65,7 @@ func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
 		"PRIVATE_STREAM", time.Since(incidentStarted), false,
 		failureKind, causeCode, time.Now().UTC(),
 	); err != nil {
-		sendSandboxPrivateSignal(
-			ctx, signals, sandboxPrivateStreamSignal{fatal: err},
-		)
+		sendSandboxPrivateFatal(ctx, signals, err)
 		return false
 	}
 	if !sendSandboxPrivateSignal(
@@ -77,13 +75,26 @@ func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
 	) {
 		return false
 	}
+	return work.reconnectSandboxPrivateEvents(
+		ctx, store, account, fence, source, signals,
+	)
+}
+
+func (work *sandboxEngineRoleWork) reconnectSandboxPrivateEvents(
+	ctx context.Context,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
+	fence uint64,
+	source sandbox.PrivateEventSource,
+	signals chan<- sandboxPrivateStreamSignal,
+) bool {
 	reconnectStarted := time.Now()
 	reconnectErr := reconnectSandboxPrivateSource(ctx, source)
 	if reconnectErr != nil {
 		if ctx.Err() != nil {
 			return false
 		}
-		failureKind, causeCode = sandbox.ClassifyRecoveryFailure(reconnectErr)
+		failureKind, causeCode := sandbox.ClassifyRecoveryFailure(reconnectErr)
 		err := store.RecordEngineRuntimeRecoveryEvent(
 			ctx, account.AccountID, account.Epoch, work.exchange, fence,
 			"PRIVATE_RECONNECT", time.Since(reconnectStarted), false,
@@ -92,9 +103,7 @@ func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
 		if err == nil {
 			err = reconnectErr
 		}
-		sendSandboxPrivateSignal(
-			ctx, signals, sandboxPrivateStreamSignal{fatal: err},
-		)
+		sendSandboxPrivateFatal(ctx, signals, err)
 		return false
 	}
 	err := store.RecordEngineRuntimeEvent(
@@ -102,9 +111,7 @@ func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
 		"PRIVATE_RECONNECT", time.Since(reconnectStarted), true, time.Now().UTC(),
 	)
 	if err != nil {
-		sendSandboxPrivateSignal(
-			ctx, signals, sandboxPrivateStreamSignal{fatal: err},
-		)
+		sendSandboxPrivateFatal(ctx, signals, err)
 		return false
 	}
 	return sendSandboxPrivateSignal(
@@ -112,6 +119,14 @@ func (work *sandboxEngineRoleWork) recoverSandboxPrivateEvents(
 			healthy: true, reconcileNow: true,
 		},
 	)
+}
+
+func sendSandboxPrivateFatal(
+	ctx context.Context,
+	signals chan<- sandboxPrivateStreamSignal,
+	err error,
+) {
+	sendSandboxPrivateSignal(ctx, signals, sandboxPrivateStreamSignal{fatal: err})
 }
 
 func reconnectSandboxPrivateSource(

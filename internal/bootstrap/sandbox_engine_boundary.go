@@ -12,7 +12,7 @@ import (
 
 func (work *sandboxEngineRoleWork) validateSandboxIdentity(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	configurationID string,
 	attestation sandboxEngineAttestation,
 ) (any, sandbox.AccountIdentity, error) {
@@ -56,7 +56,7 @@ func (work *sandboxEngineRoleWork) buildSandboxAdapter(
 	client any,
 	identity sandbox.AccountIdentity,
 	epoch uint64,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 ) (sandboxEngineAdapter, error) {
 	switch typed := client.(type) {
 	case *binance.SandboxClient:
@@ -86,7 +86,7 @@ func (work *sandboxEngineRoleWork) openPrivateSource(
 	ctx context.Context,
 	client any,
 	adapter sandboxEngineAdapter,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 ) (sandbox.PrivateEventSource, error) {
 	switch typed := client.(type) {
 	case *binance.SandboxClient:

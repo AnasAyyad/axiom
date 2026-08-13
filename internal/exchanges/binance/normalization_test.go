@@ -62,6 +62,7 @@ type instrumentGolden struct {
 	PriceTick       string `json:"price_tick"`
 	QuantityStep    string `json:"quantity_step"`
 	MinimumQuantity string `json:"minimum_quantity"`
+	MaximumQuantity string `json:"maximum_quantity"`
 	MinimumNotional string `json:"minimum_notional"`
 	RawPayloadHash  string `json:"raw_payload_hash"`
 }
@@ -205,6 +206,7 @@ func assertInstrumentGolden(t *testing.T, actual exchangecontracts.InstrumentRec
 	if actual.NativeSymbol != expected.NativeSymbol || actual.NativeStatus != expected.NativeStatus ||
 		actual.Metadata.PriceTick.String() != expected.PriceTick || actual.Metadata.QuantityStep.String() != expected.QuantityStep ||
 		actual.Metadata.MinimumQuantity.String() != expected.MinimumQuantity ||
+		actual.MaximumQuantity.String() != expected.MaximumQuantity ||
 		actual.Metadata.MinimumNotional.String() != expected.MinimumNotional || actual.RawPayloadHash != expected.RawPayloadHash {
 		t.Fatalf("instrument mismatch: %+v", actual)
 	}

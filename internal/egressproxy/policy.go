@@ -5,7 +5,7 @@ import "sort"
 // Policy identifies one closed authenticated-engine egress boundary.
 type Policy string
 
-// Closed V1C egress policies.
+// Closed sandbox runtime egress policies.
 const (
 	PolicyBinanceTestnet Policy = "binance_testnet"
 	PolicyBybitDemo      Policy = "bybit_demo"

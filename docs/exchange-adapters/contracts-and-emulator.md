@@ -99,7 +99,7 @@ Run the narrow gate with:
 ```text
 go test ./internal/exchanges/...
 go test -race ./internal/exchanges/...
-node scripts/check-a6-exchange-boundary.mjs
+node scripts/check-exchange-integration-exchange-boundary.mjs
 scripts/check-prohibited-capabilities.sh
 ```
 

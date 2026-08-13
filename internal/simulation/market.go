@@ -27,7 +27,7 @@ type MetadataSource interface {
 }
 
 // BoundaryGuard rechecks eligibility and owned inventory at broker arrival.
-// A9 supplies the operational implementation; A8 qualification uses explicit
+// portfolio and risk supplies the operational implementation; strategy execution qualification uses explicit
 // test-only guards and production composition fails closed when this is absent.
 type BoundaryGuard interface {
 	Authorize(execution.PlannedLeg, BookState) (domain.Balance, error)

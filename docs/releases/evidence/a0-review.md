@@ -55,7 +55,7 @@ implementation.
 
 | Check | Exact command or procedure | Result |
 |---|---|---|
-| Requirements structure and plan endpoints | `/tmp/axiom-node-v24.18.0/bin/node scripts/check-a0-traceability.mjs /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/pasted-text-1.txt` | Passed: 381 unique rows, 37 verified A0 rows, 10 retired IDs with successors, total reverse coverage, and 30 exact A11 endpoints |
+| Requirements structure and plan endpoints | `/tmp/axiom-node-v24.18.0/bin/node scripts/check-traceability-traceability.mjs /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/pasted-text-1.txt` | Passed: 381 unique rows, 37 verified A0 rows, 10 retired IDs with successors, total reverse coverage, and 30 exact A11 endpoints |
 | Documentation links | `/tmp/axiom-node-v24.18.0/bin/node scripts/check-doc-links.mjs` | Passed after this evidence file was registered: all local paths and anchors resolve |
 | Static prohibited-capability scan | `bash scripts/check-prohibited-capabilities.sh` | Passed |
 | Scanner seeded-negative suite | `bash scripts/test-check-prohibited-capabilities.sh` | Passed; representative forbidden modes, routes, keys, products, and capability flags are rejected |

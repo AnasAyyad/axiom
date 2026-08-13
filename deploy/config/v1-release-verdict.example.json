@@ -1,0 +1,14 @@
+{
+  "schema_version": "axiom.v1.release-verdict.v1",
+  "candidate_id": "CHANGE_ME",
+  "candidate_hash": "",
+  "source_sha": "0000000000000000000000000000000000000000",
+  "state": "NOT_CERTIFIED",
+  "certified": false,
+  "profitability_evidence": false,
+  "issued_at": "1970-01-01T00:00:00Z",
+  "valid_until": "1970-01-01T00:00:00Z",
+  "evidence_hash": "",
+  "signing_key_fingerprint": "",
+  "signature": ""
+}

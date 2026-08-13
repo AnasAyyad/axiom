@@ -14,6 +14,249 @@ const (
 	SessionCookieScopes     sessionCookieContextKey     = "sessionCookie.Scopes"
 )
 
+// Defines values for ActivityResourceMode.
+const (
+	ActivityResourceModeBacktest ActivityResourceMode = "backtest"
+	ActivityResourceModeDemo     ActivityResourceMode = "demo"
+	ActivityResourceModePaper    ActivityResourceMode = "paper"
+	ActivityResourceModeReplay   ActivityResourceMode = "replay"
+	ActivityResourceModeShadow   ActivityResourceMode = "shadow"
+	ActivityResourceModeTestnet  ActivityResourceMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the ActivityResourceMode enum.
+func (e ActivityResourceMode) Valid() bool {
+	switch e {
+	case ActivityResourceModeBacktest:
+		return true
+	case ActivityResourceModeDemo:
+		return true
+	case ActivityResourceModePaper:
+		return true
+	case ActivityResourceModeReplay:
+		return true
+	case ActivityResourceModeShadow:
+		return true
+	case ActivityResourceModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivityResourceSide.
+const (
+	ActivityResourceSideBuy  ActivityResourceSide = "buy"
+	ActivityResourceSideSell ActivityResourceSide = "sell"
+)
+
+// Valid indicates whether the value is a known member of the ActivityResourceSide enum.
+func (e ActivityResourceSide) Valid() bool {
+	switch e {
+	case ActivityResourceSideBuy:
+		return true
+	case ActivityResourceSideSell:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivityResourceView.
+const (
+	ActivityResourceViewDecisionsOrders ActivityResourceView = "decisions_orders"
+	ActivityResourceViewSystemEvents    ActivityResourceView = "system_events"
+)
+
+// Valid indicates whether the value is a known member of the ActivityResourceView enum.
+func (e ActivityResourceView) Valid() bool {
+	switch e {
+	case ActivityResourceViewDecisionsOrders:
+		return true
+	case ActivityResourceViewSystemEvents:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertDeliveryAttemptState.
+const (
+	AlertDeliveryAttemptStateDelivered AlertDeliveryAttemptState = "delivered"
+	AlertDeliveryAttemptStateFailed    AlertDeliveryAttemptState = "failed"
+)
+
+// Valid indicates whether the value is a known member of the AlertDeliveryAttemptState enum.
+func (e AlertDeliveryAttemptState) Valid() bool {
+	switch e {
+	case AlertDeliveryAttemptStateDelivered:
+		return true
+	case AlertDeliveryAttemptStateFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertDetailSeverity.
+const (
+	AlertDetailSeverityCritical AlertDetailSeverity = "critical"
+	AlertDetailSeverityInfo     AlertDetailSeverity = "info"
+	AlertDetailSeverityWarning  AlertDetailSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the AlertDetailSeverity enum.
+func (e AlertDetailSeverity) Valid() bool {
+	switch e {
+	case AlertDetailSeverityCritical:
+		return true
+	case AlertDetailSeverityInfo:
+		return true
+	case AlertDetailSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertDetailState.
+const (
+	AlertDetailStateAcknowledged AlertDetailState = "acknowledged"
+	AlertDetailStateOpen         AlertDetailState = "open"
+	AlertDetailStateResolved     AlertDetailState = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the AlertDetailState enum.
+func (e AlertDetailState) Valid() bool {
+	switch e {
+	case AlertDetailStateAcknowledged:
+		return true
+	case AlertDetailStateOpen:
+		return true
+	case AlertDetailStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertRouteLastTestState.
+const (
+	AlertRouteLastTestStateDelivered AlertRouteLastTestState = "delivered"
+	AlertRouteLastTestStateFailed    AlertRouteLastTestState = "failed"
+	AlertRouteLastTestStatePending   AlertRouteLastTestState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the AlertRouteLastTestState enum.
+func (e AlertRouteLastTestState) Valid() bool {
+	switch e {
+	case AlertRouteLastTestStateDelivered:
+		return true
+	case AlertRouteLastTestStateFailed:
+		return true
+	case AlertRouteLastTestStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AlertRouteMinimumSeverity.
+const (
+	AlertRouteMinimumSeverityCritical AlertRouteMinimumSeverity = "critical"
+	AlertRouteMinimumSeverityInfo     AlertRouteMinimumSeverity = "info"
+	AlertRouteMinimumSeverityWarning  AlertRouteMinimumSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the AlertRouteMinimumSeverity enum.
+func (e AlertRouteMinimumSeverity) Valid() bool {
+	switch e {
+	case AlertRouteMinimumSeverityCritical:
+		return true
+	case AlertRouteMinimumSeverityInfo:
+		return true
+	case AlertRouteMinimumSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ArtifactHoldRequestHoldType.
+const (
+	ArtifactHoldRequestHoldTypeIncident        ArtifactHoldRequestHoldType = "incident"
+	ArtifactHoldRequestHoldTypeReproducibility ArtifactHoldRequestHoldType = "reproducibility"
+)
+
+// Valid indicates whether the value is a known member of the ArtifactHoldRequestHoldType enum.
+func (e ArtifactHoldRequestHoldType) Valid() bool {
+	switch e {
+	case ArtifactHoldRequestHoldTypeIncident:
+		return true
+	case ArtifactHoldRequestHoldTypeReproducibility:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditEventCategory.
+const (
+	AuditEventCategoryAlert          AuditEventCategory = "alert"
+	AuditEventCategoryAuthentication AuditEventCategory = "authentication"
+	AuditEventCategoryConfiguration  AuditEventCategory = "configuration"
+	AuditEventCategoryControl        AuditEventCategory = "control"
+	AuditEventCategoryEvidenceAccess AuditEventCategory = "evidence_access"
+	AuditEventCategoryExport         AuditEventCategory = "export"
+	AuditEventCategoryIncident       AuditEventCategory = "incident"
+	AuditEventCategoryQualification  AuditEventCategory = "qualification"
+	AuditEventCategorySystem         AuditEventCategory = "system"
+)
+
+// Valid indicates whether the value is a known member of the AuditEventCategory enum.
+func (e AuditEventCategory) Valid() bool {
+	switch e {
+	case AuditEventCategoryAlert:
+		return true
+	case AuditEventCategoryAuthentication:
+		return true
+	case AuditEventCategoryConfiguration:
+		return true
+	case AuditEventCategoryControl:
+		return true
+	case AuditEventCategoryEvidenceAccess:
+		return true
+	case AuditEventCategoryExport:
+		return true
+	case AuditEventCategoryIncident:
+		return true
+	case AuditEventCategoryQualification:
+		return true
+	case AuditEventCategorySystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditVerificationVerdict.
+const (
+	Broken AuditVerificationVerdict = "broken"
+	Valid  AuditVerificationVerdict = "valid"
+)
+
+// Valid indicates whether the value is a known member of the AuditVerificationVerdict enum.
+func (e AuditVerificationVerdict) Valid() bool {
+	switch e {
+	case Broken:
+		return true
+	case Valid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BinanceHealthBookState.
 const (
 	BinanceHealthBookStateGapped     BinanceHealthBookState = "gapped"
@@ -116,174 +359,6 @@ func (e BinanceHealthWebsocketState) Valid() bool {
 	}
 }
 
-// Defines values for C6ChaosSummaryStatus.
-const (
-	C6ChaosSummaryStatusFailed C6ChaosSummaryStatus = "failed"
-	C6ChaosSummaryStatusNotRun C6ChaosSummaryStatus = "not_run"
-	C6ChaosSummaryStatusPassed C6ChaosSummaryStatus = "passed"
-)
-
-// Valid indicates whether the value is a known member of the C6ChaosSummaryStatus enum.
-func (e C6ChaosSummaryStatus) Valid() bool {
-	switch e {
-	case C6ChaosSummaryStatusFailed:
-		return true
-	case C6ChaosSummaryStatusNotRun:
-		return true
-	case C6ChaosSummaryStatusPassed:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6QualificationStatusMode.
-const (
-	C6QualificationStatusModeFormal C6QualificationStatusMode = "formal"
-	C6QualificationStatusModeNone   C6QualificationStatusMode = "none"
-	C6QualificationStatusModeSmoke  C6QualificationStatusMode = "smoke"
-)
-
-// Valid indicates whether the value is a known member of the C6QualificationStatusMode enum.
-func (e C6QualificationStatusMode) Valid() bool {
-	switch e {
-	case C6QualificationStatusModeFormal:
-		return true
-	case C6QualificationStatusModeNone:
-		return true
-	case C6QualificationStatusModeSmoke:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6QualificationStatusProfitabilityEvidence.
-const (
-	C6QualificationStatusProfitabilityEvidenceFalse C6QualificationStatusProfitabilityEvidence = false
-)
-
-// Valid indicates whether the value is a known member of the C6QualificationStatusProfitabilityEvidence enum.
-func (e C6QualificationStatusProfitabilityEvidence) Valid() bool {
-	switch e {
-	case C6QualificationStatusProfitabilityEvidenceFalse:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6QualificationStatusState.
-const (
-	C6QualificationStatusStateFailed      C6QualificationStatusState = "FAILED"
-	C6QualificationStatusStateNotStarted  C6QualificationStatusState = "not_started"
-	C6QualificationStatusStatePassed      C6QualificationStatusState = "PASSED"
-	C6QualificationStatusStatePending     C6QualificationStatusState = "PENDING"
-	C6QualificationStatusStateRunning     C6QualificationStatusState = "RUNNING"
-	C6QualificationStatusStateSmokePassed C6QualificationStatusState = "SMOKE_PASSED"
-)
-
-// Valid indicates whether the value is a known member of the C6QualificationStatusState enum.
-func (e C6QualificationStatusState) Valid() bool {
-	switch e {
-	case C6QualificationStatusStateFailed:
-		return true
-	case C6QualificationStatusStateNotStarted:
-		return true
-	case C6QualificationStatusStatePassed:
-		return true
-	case C6QualificationStatusStatePending:
-		return true
-	case C6QualificationStatusStateRunning:
-		return true
-	case C6QualificationStatusStateSmokePassed:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6RecoveryIncidentEnvironment.
-const (
-	C6RecoveryIncidentEnvironmentDemo        C6RecoveryIncidentEnvironment = "demo"
-	C6RecoveryIncidentEnvironmentSpotTestnet C6RecoveryIncidentEnvironment = "spot_testnet"
-)
-
-// Valid indicates whether the value is a known member of the C6RecoveryIncidentEnvironment enum.
-func (e C6RecoveryIncidentEnvironment) Valid() bool {
-	switch e {
-	case C6RecoveryIncidentEnvironmentDemo:
-		return true
-	case C6RecoveryIncidentEnvironmentSpotTestnet:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6RecoveryIncidentExchange.
-const (
-	C6RecoveryIncidentExchangeBinance C6RecoveryIncidentExchange = "binance"
-	C6RecoveryIncidentExchangeBybit   C6RecoveryIncidentExchange = "bybit"
-)
-
-// Valid indicates whether the value is a known member of the C6RecoveryIncidentExchange enum.
-func (e C6RecoveryIncidentExchange) Valid() bool {
-	switch e {
-	case C6RecoveryIncidentExchangeBinance:
-		return true
-	case C6RecoveryIncidentExchangeBybit:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6RecoveryIncidentIncidentSource.
-const (
-	C6RecoveryIncidentIncidentSourcePrivateStream  C6RecoveryIncidentIncidentSource = "private_stream"
-	C6RecoveryIncidentIncidentSourceReconciliation C6RecoveryIncidentIncidentSource = "reconciliation"
-)
-
-// Valid indicates whether the value is a known member of the C6RecoveryIncidentIncidentSource enum.
-func (e C6RecoveryIncidentIncidentSource) Valid() bool {
-	switch e {
-	case C6RecoveryIncidentIncidentSourcePrivateStream:
-		return true
-	case C6RecoveryIncidentIncidentSourceReconciliation:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for C6RecoveryIncidentState.
-const (
-	C6RecoveryIncidentStateActive        C6RecoveryIncidentState = "active"
-	C6RecoveryIncidentStateExpired       C6RecoveryIncidentState = "expired"
-	C6RecoveryIncidentStateRecovered     C6RecoveryIncidentState = "recovered"
-	C6RecoveryIncidentStateRepeated      C6RecoveryIncidentState = "repeated"
-	C6RecoveryIncidentStateUnrecoverable C6RecoveryIncidentState = "unrecoverable"
-)
-
-// Valid indicates whether the value is a known member of the C6RecoveryIncidentState enum.
-func (e C6RecoveryIncidentState) Valid() bool {
-	switch e {
-	case C6RecoveryIncidentStateActive:
-		return true
-	case C6RecoveryIncidentStateExpired:
-		return true
-	case C6RecoveryIncidentStateRecovered:
-		return true
-	case C6RecoveryIncidentStateRepeated:
-		return true
-	case C6RecoveryIncidentStateUnrecoverable:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for CommandAcceptedState.
 const (
 	CommandAcceptedStateApplied  CommandAcceptedState = "applied"
@@ -302,6 +377,129 @@ func (e CommandAcceptedState) Valid() bool {
 	case CommandAcceptedStatePending:
 		return true
 	case CommandAcceptedStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataAuditState.
+const (
+	DataAuditStateBLOCKED   DataAuditState = "BLOCKED"
+	DataAuditStateCOMPLETED DataAuditState = "COMPLETED"
+	DataAuditStatePENDING   DataAuditState = "PENDING"
+	DataAuditStateRUNNING   DataAuditState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the DataAuditState enum.
+func (e DataAuditState) Valid() bool {
+	switch e {
+	case DataAuditStateBLOCKED:
+		return true
+	case DataAuditStateCOMPLETED:
+		return true
+	case DataAuditStatePENDING:
+		return true
+	case DataAuditStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemExchanges.
+const (
+	DataCatalogueItemExchangesBinance DataCatalogueItemExchanges = "binance"
+	DataCatalogueItemExchangesBybit   DataCatalogueItemExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemExchanges enum.
+func (e DataCatalogueItemExchanges) Valid() bool {
+	switch e {
+	case DataCatalogueItemExchangesBinance:
+		return true
+	case DataCatalogueItemExchangesBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemQualityTier.
+const (
+	TierA        DataCatalogueItemQualityTier = "tier_a"
+	Unclassified DataCatalogueItemQualityTier = "unclassified"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemQualityTier enum.
+func (e DataCatalogueItemQualityTier) Valid() bool {
+	switch e {
+	case TierA:
+		return true
+	case Unclassified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemSource.
+const (
+	ApprovedHistoricalData DataCatalogueItemSource = "approved_historical_data"
+	RecordedPublicData     DataCatalogueItemSource = "recorded_public_data"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemSource enum.
+func (e DataCatalogueItemSource) Valid() bool {
+	switch e {
+	case ApprovedHistoricalData:
+		return true
+	case RecordedPublicData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemState.
+const (
+	DataCatalogueItemStateBuilding  DataCatalogueItemState = "building"
+	DataCatalogueItemStateQualified DataCatalogueItemState = "qualified"
+	DataCatalogueItemStateReady     DataCatalogueItemState = "ready"
+	DataCatalogueItemStateRejected  DataCatalogueItemState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemState enum.
+func (e DataCatalogueItemState) Valid() bool {
+	switch e {
+	case DataCatalogueItemStateBuilding:
+		return true
+	case DataCatalogueItemStateQualified:
+		return true
+	case DataCatalogueItemStateReady:
+		return true
+	case DataCatalogueItemStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataCatalogueItemSupportedModes.
+const (
+	DataCatalogueItemSupportedModesBacktest DataCatalogueItemSupportedModes = "backtest"
+	DataCatalogueItemSupportedModesReplay   DataCatalogueItemSupportedModes = "replay"
+	DataCatalogueItemSupportedModesShadow   DataCatalogueItemSupportedModes = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the DataCatalogueItemSupportedModes enum.
+func (e DataCatalogueItemSupportedModes) Valid() bool {
+	switch e {
+	case DataCatalogueItemSupportedModesBacktest:
+		return true
+	case DataCatalogueItemSupportedModesReplay:
+		return true
+	case DataCatalogueItemSupportedModesShadow:
 		return true
 	default:
 		return false
@@ -362,6 +560,564 @@ func (e DetailedHealthResponseStatus) Valid() bool {
 	case DetailedHealthResponseStatusNotReady:
 		return true
 	case DetailedHealthResponseStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignCompletedStages.
+const (
+	EvaluationCampaignCompletedStagesBACKTESTMATRIX        EvaluationCampaignCompletedStages = "BACKTEST_MATRIX"
+	EvaluationCampaignCompletedStagesCANDIDATESELECTION    EvaluationCampaignCompletedStages = "CANDIDATE_SELECTION"
+	EvaluationCampaignCompletedStagesCOMBINEDSHADOW        EvaluationCampaignCompletedStages = "COMBINED_SHADOW"
+	EvaluationCampaignCompletedStagesEXISTINGDATAAUDIT     EvaluationCampaignCompletedStages = "EXISTING_DATA_AUDIT"
+	EvaluationCampaignCompletedStagesFINALREPORT           EvaluationCampaignCompletedStages = "FINAL_REPORT"
+	EvaluationCampaignCompletedStagesHISTORICALIMPORT      EvaluationCampaignCompletedStages = "HISTORICAL_IMPORT"
+	EvaluationCampaignCompletedStagesRECORDERQUALIFICATION EvaluationCampaignCompletedStages = "RECORDER_QUALIFICATION"
+	EvaluationCampaignCompletedStagesRECORDERROTATION      EvaluationCampaignCompletedStages = "RECORDER_ROTATION"
+	EvaluationCampaignCompletedStagesREPLAYMATRIX          EvaluationCampaignCompletedStages = "REPLAY_MATRIX"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignCompletedStages enum.
+func (e EvaluationCampaignCompletedStages) Valid() bool {
+	switch e {
+	case EvaluationCampaignCompletedStagesBACKTESTMATRIX:
+		return true
+	case EvaluationCampaignCompletedStagesCANDIDATESELECTION:
+		return true
+	case EvaluationCampaignCompletedStagesCOMBINEDSHADOW:
+		return true
+	case EvaluationCampaignCompletedStagesEXISTINGDATAAUDIT:
+		return true
+	case EvaluationCampaignCompletedStagesFINALREPORT:
+		return true
+	case EvaluationCampaignCompletedStagesHISTORICALIMPORT:
+		return true
+	case EvaluationCampaignCompletedStagesRECORDERQUALIFICATION:
+		return true
+	case EvaluationCampaignCompletedStagesRECORDERROTATION:
+		return true
+	case EvaluationCampaignCompletedStagesREPLAYMATRIX:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignCurrentStage.
+const (
+	EvaluationCampaignCurrentStageBACKTESTMATRIX        EvaluationCampaignCurrentStage = "BACKTEST_MATRIX"
+	EvaluationCampaignCurrentStageCANDIDATESELECTION    EvaluationCampaignCurrentStage = "CANDIDATE_SELECTION"
+	EvaluationCampaignCurrentStageCOMBINEDSHADOW        EvaluationCampaignCurrentStage = "COMBINED_SHADOW"
+	EvaluationCampaignCurrentStageEXISTINGDATAAUDIT     EvaluationCampaignCurrentStage = "EXISTING_DATA_AUDIT"
+	EvaluationCampaignCurrentStageFINALREPORT           EvaluationCampaignCurrentStage = "FINAL_REPORT"
+	EvaluationCampaignCurrentStageHISTORICALIMPORT      EvaluationCampaignCurrentStage = "HISTORICAL_IMPORT"
+	EvaluationCampaignCurrentStageRECORDERQUALIFICATION EvaluationCampaignCurrentStage = "RECORDER_QUALIFICATION"
+	EvaluationCampaignCurrentStageRECORDERROTATION      EvaluationCampaignCurrentStage = "RECORDER_ROTATION"
+	EvaluationCampaignCurrentStageREPLAYMATRIX          EvaluationCampaignCurrentStage = "REPLAY_MATRIX"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignCurrentStage enum.
+func (e EvaluationCampaignCurrentStage) Valid() bool {
+	switch e {
+	case EvaluationCampaignCurrentStageBACKTESTMATRIX:
+		return true
+	case EvaluationCampaignCurrentStageCANDIDATESELECTION:
+		return true
+	case EvaluationCampaignCurrentStageCOMBINEDSHADOW:
+		return true
+	case EvaluationCampaignCurrentStageEXISTINGDATAAUDIT:
+		return true
+	case EvaluationCampaignCurrentStageFINALREPORT:
+		return true
+	case EvaluationCampaignCurrentStageHISTORICALIMPORT:
+		return true
+	case EvaluationCampaignCurrentStageRECORDERQUALIFICATION:
+		return true
+	case EvaluationCampaignCurrentStageRECORDERROTATION:
+		return true
+	case EvaluationCampaignCurrentStageREPLAYMATRIX:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignPreset.
+const (
+	EvaluationCampaignPresetBalancedFullV1 EvaluationCampaignPreset = "balanced_full_v1"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignPreset enum.
+func (e EvaluationCampaignPreset) Valid() bool {
+	switch e {
+	case EvaluationCampaignPresetBalancedFullV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignState.
+const (
+	EvaluationCampaignStateBLOCKED           EvaluationCampaignState = "BLOCKED"
+	EvaluationCampaignStateCANCELED          EvaluationCampaignState = "CANCELED"
+	EvaluationCampaignStateCOMPLETED         EvaluationCampaignState = "COMPLETED"
+	EvaluationCampaignStatePARTIAL           EvaluationCampaignState = "PARTIAL"
+	EvaluationCampaignStatePAUSEDRECOVERABLE EvaluationCampaignState = "PAUSED_RECOVERABLE"
+	EvaluationCampaignStatePENDING           EvaluationCampaignState = "PENDING"
+	EvaluationCampaignStateRUNNING           EvaluationCampaignState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignState enum.
+func (e EvaluationCampaignState) Valid() bool {
+	switch e {
+	case EvaluationCampaignStateBLOCKED:
+		return true
+	case EvaluationCampaignStateCANCELED:
+		return true
+	case EvaluationCampaignStateCOMPLETED:
+		return true
+	case EvaluationCampaignStatePARTIAL:
+		return true
+	case EvaluationCampaignStatePAUSEDRECOVERABLE:
+		return true
+	case EvaluationCampaignStatePENDING:
+		return true
+	case EvaluationCampaignStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignCreateRequestPreset.
+const (
+	EvaluationCampaignCreateRequestPresetBalancedFullV1 EvaluationCampaignCreateRequestPreset = "balanced_full_v1"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignCreateRequestPreset enum.
+func (e EvaluationCampaignCreateRequestPreset) Valid() bool {
+	switch e {
+	case EvaluationCampaignCreateRequestPresetBalancedFullV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignReportState.
+const (
+	EvaluationCampaignReportStateFinal    EvaluationCampaignReportState = "final"
+	EvaluationCampaignReportStateNotReady EvaluationCampaignReportState = "not_ready"
+	EvaluationCampaignReportStatePartial  EvaluationCampaignReportState = "partial"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignReportState enum.
+func (e EvaluationCampaignReportState) Valid() bool {
+	switch e {
+	case EvaluationCampaignReportStateFinal:
+		return true
+	case EvaluationCampaignReportStateNotReady:
+		return true
+	case EvaluationCampaignReportStatePartial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCampaignReportVerdict.
+const (
+	EvaluationCampaignReportVerdictBLOCKED  EvaluationCampaignReportVerdict = "BLOCKED"
+	EvaluationCampaignReportVerdictCONTINUE EvaluationCampaignReportVerdict = "CONTINUE"
+	EvaluationCampaignReportVerdictIMPROVE  EvaluationCampaignReportVerdict = "IMPROVE"
+	EvaluationCampaignReportVerdictREJECT   EvaluationCampaignReportVerdict = "REJECT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCampaignReportVerdict enum.
+func (e EvaluationCampaignReportVerdict) Valid() bool {
+	switch e {
+	case EvaluationCampaignReportVerdictBLOCKED:
+		return true
+	case EvaluationCampaignReportVerdictCONTINUE:
+		return true
+	case EvaluationCampaignReportVerdictIMPROVE:
+		return true
+	case EvaluationCampaignReportVerdictREJECT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationCoverageEligibility.
+const (
+	EvaluationCoverageEligibilityBlocked    EvaluationCoverageEligibility = "blocked"
+	EvaluationCoverageEligibilityEligible   EvaluationCoverageEligibility = "eligible"
+	EvaluationCoverageEligibilityIneligible EvaluationCoverageEligibility = "ineligible"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationCoverageEligibility enum.
+func (e EvaluationCoverageEligibility) Valid() bool {
+	switch e {
+	case EvaluationCoverageEligibilityBlocked:
+		return true
+	case EvaluationCoverageEligibilityEligible:
+		return true
+	case EvaluationCoverageEligibilityIneligible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationFeedHealthExchange.
+const (
+	EvaluationFeedHealthExchangeBinance EvaluationFeedHealthExchange = "binance"
+	EvaluationFeedHealthExchangeBybit   EvaluationFeedHealthExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationFeedHealthExchange enum.
+func (e EvaluationFeedHealthExchange) Valid() bool {
+	switch e {
+	case EvaluationFeedHealthExchangeBinance:
+		return true
+	case EvaluationFeedHealthExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationFeedHealthInstrument.
+const (
+	EvaluationFeedHealthInstrumentBTCUSDT EvaluationFeedHealthInstrument = "BTCUSDT"
+	EvaluationFeedHealthInstrumentETHBTC  EvaluationFeedHealthInstrument = "ETHBTC"
+	EvaluationFeedHealthInstrumentETHUSDT EvaluationFeedHealthInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationFeedHealthInstrument enum.
+func (e EvaluationFeedHealthInstrument) Valid() bool {
+	switch e {
+	case EvaluationFeedHealthInstrumentBTCUSDT:
+		return true
+	case EvaluationFeedHealthInstrumentETHBTC:
+		return true
+	case EvaluationFeedHealthInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressExchange.
+const (
+	EvaluationHistoricalImportProgressExchangeBinance EvaluationHistoricalImportProgressExchange = "binance"
+	EvaluationHistoricalImportProgressExchangeBybit   EvaluationHistoricalImportProgressExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressExchange enum.
+func (e EvaluationHistoricalImportProgressExchange) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressExchangeBinance:
+		return true
+	case EvaluationHistoricalImportProgressExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressInstrument.
+const (
+	EvaluationHistoricalImportProgressInstrumentBTCUSDT EvaluationHistoricalImportProgressInstrument = "BTC/USDT"
+	EvaluationHistoricalImportProgressInstrumentETHUSDT EvaluationHistoricalImportProgressInstrument = "ETH/USDT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressInstrument enum.
+func (e EvaluationHistoricalImportProgressInstrument) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressInstrumentBTCUSDT:
+		return true
+	case EvaluationHistoricalImportProgressInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressInterval.
+const (
+	EvaluationHistoricalImportProgressIntervalN15m EvaluationHistoricalImportProgressInterval = "15m"
+	EvaluationHistoricalImportProgressIntervalN1h  EvaluationHistoricalImportProgressInterval = "1h"
+	EvaluationHistoricalImportProgressIntervalN4h  EvaluationHistoricalImportProgressInterval = "4h"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressInterval enum.
+func (e EvaluationHistoricalImportProgressInterval) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressIntervalN15m:
+		return true
+	case EvaluationHistoricalImportProgressIntervalN1h:
+		return true
+	case EvaluationHistoricalImportProgressIntervalN4h:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationHistoricalImportProgressState.
+const (
+	EvaluationHistoricalImportProgressStateBLOCKED   EvaluationHistoricalImportProgressState = "BLOCKED"
+	EvaluationHistoricalImportProgressStateCOMPLETED EvaluationHistoricalImportProgressState = "COMPLETED"
+	EvaluationHistoricalImportProgressStatePENDING   EvaluationHistoricalImportProgressState = "PENDING"
+	EvaluationHistoricalImportProgressStateRUNNING   EvaluationHistoricalImportProgressState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationHistoricalImportProgressState enum.
+func (e EvaluationHistoricalImportProgressState) Valid() bool {
+	switch e {
+	case EvaluationHistoricalImportProgressStateBLOCKED:
+		return true
+	case EvaluationHistoricalImportProgressStateCOMPLETED:
+		return true
+	case EvaluationHistoricalImportProgressStatePENDING:
+		return true
+	case EvaluationHistoricalImportProgressStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberMode.
+const (
+	EvaluationMatrixMemberModeAdvisory EvaluationMatrixMemberMode = "advisory"
+	EvaluationMatrixMemberModeBacktest EvaluationMatrixMemberMode = "backtest"
+	EvaluationMatrixMemberModeReplay   EvaluationMatrixMemberMode = "replay"
+	EvaluationMatrixMemberModeShadow   EvaluationMatrixMemberMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberMode enum.
+func (e EvaluationMatrixMemberMode) Valid() bool {
+	switch e {
+	case EvaluationMatrixMemberModeAdvisory:
+		return true
+	case EvaluationMatrixMemberModeBacktest:
+		return true
+	case EvaluationMatrixMemberModeReplay:
+		return true
+	case EvaluationMatrixMemberModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberState.
+const (
+	EvaluationMatrixMemberStateCANCELED  EvaluationMatrixMemberState = "CANCELED"
+	EvaluationMatrixMemberStateEXCLUDED  EvaluationMatrixMemberState = "EXCLUDED"
+	EvaluationMatrixMemberStateFAILED    EvaluationMatrixMemberState = "FAILED"
+	EvaluationMatrixMemberStatePENDING   EvaluationMatrixMemberState = "PENDING"
+	EvaluationMatrixMemberStateQUEUED    EvaluationMatrixMemberState = "QUEUED"
+	EvaluationMatrixMemberStateRUNNING   EvaluationMatrixMemberState = "RUNNING"
+	EvaluationMatrixMemberStateSUCCEEDED EvaluationMatrixMemberState = "SUCCEEDED"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberState enum.
+func (e EvaluationMatrixMemberState) Valid() bool {
+	switch e {
+	case EvaluationMatrixMemberStateCANCELED:
+		return true
+	case EvaluationMatrixMemberStateEXCLUDED:
+		return true
+	case EvaluationMatrixMemberStateFAILED:
+		return true
+	case EvaluationMatrixMemberStatePENDING:
+		return true
+	case EvaluationMatrixMemberStateQUEUED:
+		return true
+	case EvaluationMatrixMemberStateRUNNING:
+		return true
+	case EvaluationMatrixMemberStateSUCCEEDED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberStrategy.
+const (
+	CrossExchangeArbitrage EvaluationMatrixMemberStrategy = "cross-exchange-arbitrage"
+	InventoryRebalancing   EvaluationMatrixMemberStrategy = "inventory-rebalancing"
+	MeanReversion          EvaluationMatrixMemberStrategy = "mean-reversion"
+	TrendFollowing         EvaluationMatrixMemberStrategy = "trend-following"
+	TriangularArbitrage    EvaluationMatrixMemberStrategy = "triangular-arbitrage"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberStrategy enum.
+func (e EvaluationMatrixMemberStrategy) Valid() bool {
+	switch e {
+	case CrossExchangeArbitrage:
+		return true
+	case InventoryRebalancing:
+		return true
+	case MeanReversion:
+		return true
+	case TrendFollowing:
+		return true
+	case TriangularArbitrage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationMatrixMemberVerdict.
+const (
+	EvaluationMatrixMemberVerdictBLOCKED  EvaluationMatrixMemberVerdict = "BLOCKED"
+	EvaluationMatrixMemberVerdictCONTINUE EvaluationMatrixMemberVerdict = "CONTINUE"
+	EvaluationMatrixMemberVerdictIMPROVE  EvaluationMatrixMemberVerdict = "IMPROVE"
+	EvaluationMatrixMemberVerdictREJECT   EvaluationMatrixMemberVerdict = "REJECT"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationMatrixMemberVerdict enum.
+func (e EvaluationMatrixMemberVerdict) Valid() bool {
+	switch e {
+	case EvaluationMatrixMemberVerdictBLOCKED:
+		return true
+	case EvaluationMatrixMemberVerdictCONTINUE:
+		return true
+	case EvaluationMatrixMemberVerdictIMPROVE:
+		return true
+	case EvaluationMatrixMemberVerdictREJECT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationShadowProgressState.
+const (
+	EvaluationShadowProgressStateBLOCKED           EvaluationShadowProgressState = "BLOCKED"
+	EvaluationShadowProgressStateCANCELED          EvaluationShadowProgressState = "CANCELED"
+	EvaluationShadowProgressStateCOMPLETED         EvaluationShadowProgressState = "COMPLETED"
+	EvaluationShadowProgressStatePAUSEDRECOVERABLE EvaluationShadowProgressState = "PAUSED_RECOVERABLE"
+	EvaluationShadowProgressStatePENDING           EvaluationShadowProgressState = "PENDING"
+	EvaluationShadowProgressStateRUNNING           EvaluationShadowProgressState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationShadowProgressState enum.
+func (e EvaluationShadowProgressState) Valid() bool {
+	switch e {
+	case EvaluationShadowProgressStateBLOCKED:
+		return true
+	case EvaluationShadowProgressStateCANCELED:
+		return true
+	case EvaluationShadowProgressStateCOMPLETED:
+		return true
+	case EvaluationShadowProgressStatePAUSEDRECOVERABLE:
+		return true
+	case EvaluationShadowProgressStatePENDING:
+		return true
+	case EvaluationShadowProgressStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationStageProgressStage.
+const (
+	BACKTESTMATRIX        EvaluationStageProgressStage = "BACKTEST_MATRIX"
+	CANDIDATESELECTION    EvaluationStageProgressStage = "CANDIDATE_SELECTION"
+	COMBINEDSHADOW        EvaluationStageProgressStage = "COMBINED_SHADOW"
+	EXISTINGDATAAUDIT     EvaluationStageProgressStage = "EXISTING_DATA_AUDIT"
+	FINALREPORT           EvaluationStageProgressStage = "FINAL_REPORT"
+	HISTORICALIMPORT      EvaluationStageProgressStage = "HISTORICAL_IMPORT"
+	RECORDERQUALIFICATION EvaluationStageProgressStage = "RECORDER_QUALIFICATION"
+	RECORDERROTATION      EvaluationStageProgressStage = "RECORDER_ROTATION"
+	REPLAYMATRIX          EvaluationStageProgressStage = "REPLAY_MATRIX"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationStageProgressStage enum.
+func (e EvaluationStageProgressStage) Valid() bool {
+	switch e {
+	case BACKTESTMATRIX:
+		return true
+	case CANDIDATESELECTION:
+		return true
+	case COMBINEDSHADOW:
+		return true
+	case EXISTINGDATAAUDIT:
+		return true
+	case FINALREPORT:
+		return true
+	case HISTORICALIMPORT:
+		return true
+	case RECORDERQUALIFICATION:
+		return true
+	case RECORDERROTATION:
+		return true
+	case REPLAYMATRIX:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvaluationStageProgressState.
+const (
+	EvaluationStageProgressStateBLOCKED           EvaluationStageProgressState = "BLOCKED"
+	EvaluationStageProgressStateCANCELED          EvaluationStageProgressState = "CANCELED"
+	EvaluationStageProgressStateCOMPLETED         EvaluationStageProgressState = "COMPLETED"
+	EvaluationStageProgressStatePAUSEDRECOVERABLE EvaluationStageProgressState = "PAUSED_RECOVERABLE"
+	EvaluationStageProgressStatePENDING           EvaluationStageProgressState = "PENDING"
+	EvaluationStageProgressStateRUNNING           EvaluationStageProgressState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationStageProgressState enum.
+func (e EvaluationStageProgressState) Valid() bool {
+	switch e {
+	case EvaluationStageProgressStateBLOCKED:
+		return true
+	case EvaluationStageProgressStateCANCELED:
+		return true
+	case EvaluationStageProgressStateCOMPLETED:
+		return true
+	case EvaluationStageProgressStatePAUSEDRECOVERABLE:
+		return true
+	case EvaluationStageProgressStatePENDING:
+		return true
+	case EvaluationStageProgressStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvidenceBundleRequestFormat.
+const (
+	EvidenceBundleRequestFormatCsv   EvidenceBundleRequestFormat = "csv"
+	EvidenceBundleRequestFormatJson  EvidenceBundleRequestFormat = "json"
+	EvidenceBundleRequestFormatJsonl EvidenceBundleRequestFormat = "jsonl"
+	EvidenceBundleRequestFormatTxt   EvidenceBundleRequestFormat = "txt"
+)
+
+// Valid indicates whether the value is a known member of the EvidenceBundleRequestFormat enum.
+func (e EvidenceBundleRequestFormat) Valid() bool {
+	switch e {
+	case EvidenceBundleRequestFormatCsv:
+		return true
+	case EvidenceBundleRequestFormatJson:
+		return true
+	case EvidenceBundleRequestFormatJsonl:
+		return true
+	case EvidenceBundleRequestFormatTxt:
 		return true
 	default:
 		return false
@@ -470,6 +1226,84 @@ func (e ExchangeSummaryWebsocketState) Valid() bool {
 	}
 }
 
+// Defines values for ExportArtifactFormat.
+const (
+	ExportArtifactFormatCsv   ExportArtifactFormat = "csv"
+	ExportArtifactFormatJson  ExportArtifactFormat = "json"
+	ExportArtifactFormatJsonl ExportArtifactFormat = "jsonl"
+	ExportArtifactFormatTxt   ExportArtifactFormat = "txt"
+)
+
+// Valid indicates whether the value is a known member of the ExportArtifactFormat enum.
+func (e ExportArtifactFormat) Valid() bool {
+	switch e {
+	case ExportArtifactFormatCsv:
+		return true
+	case ExportArtifactFormatJson:
+		return true
+	case ExportArtifactFormatJsonl:
+		return true
+	case ExportArtifactFormatTxt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportRequestFormat.
+const (
+	ExportRequestFormatCsv   ExportRequestFormat = "csv"
+	ExportRequestFormatJson  ExportRequestFormat = "json"
+	ExportRequestFormatJsonl ExportRequestFormat = "jsonl"
+	ExportRequestFormatTxt   ExportRequestFormat = "txt"
+)
+
+// Valid indicates whether the value is a known member of the ExportRequestFormat enum.
+func (e ExportRequestFormat) Valid() bool {
+	switch e {
+	case ExportRequestFormatCsv:
+		return true
+	case ExportRequestFormatJson:
+		return true
+	case ExportRequestFormatJsonl:
+		return true
+	case ExportRequestFormatTxt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportRequestResourceType.
+const (
+	ExportRequestResourceTypeActivity      ExportRequestResourceType = "activity"
+	ExportRequestResourceTypeAudit         ExportRequestResourceType = "audit"
+	ExportRequestResourceTypeIncident      ExportRequestResourceType = "incident"
+	ExportRequestResourceTypeLabRun        ExportRequestResourceType = "lab_run"
+	ExportRequestResourceTypeQualification ExportRequestResourceType = "qualification"
+	ExportRequestResourceTypeReport        ExportRequestResourceType = "report"
+)
+
+// Valid indicates whether the value is a known member of the ExportRequestResourceType enum.
+func (e ExportRequestResourceType) Valid() bool {
+	switch e {
+	case ExportRequestResourceTypeActivity:
+		return true
+	case ExportRequestResourceTypeAudit:
+		return true
+	case ExportRequestResourceTypeIncident:
+		return true
+	case ExportRequestResourceTypeLabRun:
+		return true
+	case ExportRequestResourceTypeQualification:
+		return true
+	case ExportRequestResourceTypeReport:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthComponentName.
 const (
 	Authentication HealthComponentName = "authentication"
@@ -542,39 +1376,96 @@ func (e HealthComponentStatus) Valid() bool {
 	}
 }
 
-// Defines values for HealthResponsePhase.
+// Defines values for HealthResponseStatus.
 const (
-	HealthResponsePhaseA1  HealthResponsePhase = "A1"
-	HealthResponsePhaseA11 HealthResponsePhase = "A11"
+	HealthResponseStatusLive     HealthResponseStatus = "live"
+	HealthResponseStatusNotReady HealthResponseStatus = "not_ready"
+	HealthResponseStatusReady    HealthResponseStatus = "ready"
 )
 
-// Valid indicates whether the value is a known member of the HealthResponsePhase enum.
-func (e HealthResponsePhase) Valid() bool {
+// Valid indicates whether the value is a known member of the HealthResponseStatus enum.
+func (e HealthResponseStatus) Valid() bool {
 	switch e {
-	case HealthResponsePhaseA1:
+	case HealthResponseStatusLive:
 		return true
-	case HealthResponsePhaseA11:
+	case HealthResponseStatusNotReady:
+		return true
+	case HealthResponseStatusReady:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for HealthResponseStatus.
+// Defines values for HighRiskAuthorizationGrantPurpose.
 const (
-	Live     HealthResponseStatus = "live"
-	NotReady HealthResponseStatus = "not_ready"
-	Ready    HealthResponseStatus = "ready"
+	HighRiskAuthorizationGrantPurposeArtifactHold            HighRiskAuthorizationGrantPurpose = "artifact_hold"
+	HighRiskAuthorizationGrantPurposeConfigurationActivation HighRiskAuthorizationGrantPurpose = "configuration_activation"
+	HighRiskAuthorizationGrantPurposeQualificationStart      HighRiskAuthorizationGrantPurpose = "qualification_start"
+	HighRiskAuthorizationGrantPurposeRiskControl             HighRiskAuthorizationGrantPurpose = "risk_control"
+	HighRiskAuthorizationGrantPurposeStrategyConfiguration   HighRiskAuthorizationGrantPurpose = "strategy_configuration"
 )
 
-// Valid indicates whether the value is a known member of the HealthResponseStatus enum.
-func (e HealthResponseStatus) Valid() bool {
+// Valid indicates whether the value is a known member of the HighRiskAuthorizationGrantPurpose enum.
+func (e HighRiskAuthorizationGrantPurpose) Valid() bool {
 	switch e {
-	case Live:
+	case HighRiskAuthorizationGrantPurposeArtifactHold:
 		return true
-	case NotReady:
+	case HighRiskAuthorizationGrantPurposeConfigurationActivation:
 		return true
-	case Ready:
+	case HighRiskAuthorizationGrantPurposeQualificationStart:
+		return true
+	case HighRiskAuthorizationGrantPurposeRiskControl:
+		return true
+	case HighRiskAuthorizationGrantPurposeStrategyConfiguration:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HighRiskAuthorizationRequestPurpose.
+const (
+	HighRiskAuthorizationRequestPurposeArtifactHold            HighRiskAuthorizationRequestPurpose = "artifact_hold"
+	HighRiskAuthorizationRequestPurposeConfigurationActivation HighRiskAuthorizationRequestPurpose = "configuration_activation"
+	HighRiskAuthorizationRequestPurposeQualificationStart      HighRiskAuthorizationRequestPurpose = "qualification_start"
+	HighRiskAuthorizationRequestPurposeRiskControl             HighRiskAuthorizationRequestPurpose = "risk_control"
+	HighRiskAuthorizationRequestPurposeStrategyConfiguration   HighRiskAuthorizationRequestPurpose = "strategy_configuration"
+)
+
+// Valid indicates whether the value is a known member of the HighRiskAuthorizationRequestPurpose enum.
+func (e HighRiskAuthorizationRequestPurpose) Valid() bool {
+	switch e {
+	case HighRiskAuthorizationRequestPurposeArtifactHold:
+		return true
+	case HighRiskAuthorizationRequestPurposeConfigurationActivation:
+		return true
+	case HighRiskAuthorizationRequestPurposeQualificationStart:
+		return true
+	case HighRiskAuthorizationRequestPurposeRiskControl:
+		return true
+	case HighRiskAuthorizationRequestPurposeStrategyConfiguration:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentCreateRequestSeverity.
+const (
+	IncidentCreateRequestSeverityCritical IncidentCreateRequestSeverity = "critical"
+	IncidentCreateRequestSeverityError    IncidentCreateRequestSeverity = "error"
+	IncidentCreateRequestSeverityWarning  IncidentCreateRequestSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the IncidentCreateRequestSeverity enum.
+func (e IncidentCreateRequestSeverity) Valid() bool {
+	switch e {
+	case IncidentCreateRequestSeverityCritical:
+		return true
+	case IncidentCreateRequestSeverityError:
+		return true
+	case IncidentCreateRequestSeverityWarning:
 		return true
 	default:
 		return false
@@ -623,6 +1514,24 @@ func (e IncidentDetailState) Valid() bool {
 	}
 }
 
+// Defines values for IncidentEvidenceHoldHoldType.
+const (
+	IncidentEvidenceHoldHoldTypeIncident        IncidentEvidenceHoldHoldType = "incident"
+	IncidentEvidenceHoldHoldTypeReproducibility IncidentEvidenceHoldHoldType = "reproducibility"
+)
+
+// Valid indicates whether the value is a known member of the IncidentEvidenceHoldHoldType enum.
+func (e IncidentEvidenceHoldHoldType) Valid() bool {
+	switch e {
+	case IncidentEvidenceHoldHoldTypeIncident:
+		return true
+	case IncidentEvidenceHoldHoldTypeReproducibility:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IncidentSummarySeverity.
 const (
 	IncidentSummarySeverityCritical IncidentSummarySeverity = "critical"
@@ -659,6 +1568,51 @@ func (e IncidentSummaryState) Valid() bool {
 	case IncidentSummaryStateOpen:
 		return true
 	case IncidentSummaryStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentTransitionRequestState.
+const (
+	IncidentTransitionRequestStateAcknowledged IncidentTransitionRequestState = "acknowledged"
+	IncidentTransitionRequestStateResolved     IncidentTransitionRequestState = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the IncidentTransitionRequestState enum.
+func (e IncidentTransitionRequestState) Valid() bool {
+	switch e {
+	case IncidentTransitionRequestStateAcknowledged:
+		return true
+	case IncidentTransitionRequestStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncidentUpdateRequestAction.
+const (
+	AddRemediation IncidentUpdateRequestAction = "add_remediation"
+	AssignOwner    IncidentUpdateRequestAction = "assign_owner"
+	LinkActivity   IncidentUpdateRequestAction = "link_activity"
+	LinkAlert      IncidentUpdateRequestAction = "link_alert"
+	LinkReplay     IncidentUpdateRequestAction = "link_replay"
+)
+
+// Valid indicates whether the value is a known member of the IncidentUpdateRequestAction enum.
+func (e IncidentUpdateRequestAction) Valid() bool {
+	switch e {
+	case AddRemediation:
+		return true
+	case AssignOwner:
+		return true
+	case LinkActivity:
+		return true
+	case LinkAlert:
+		return true
+	case LinkReplay:
 		return true
 	default:
 		return false
@@ -878,6 +1832,54 @@ func (e JournalPageVirtual) Valid() bool {
 	}
 }
 
+// Defines values for LabInputManifestSpeed.
+const (
+	LabInputManifestSpeedAccelerated LabInputManifestSpeed = "accelerated"
+	LabInputManifestSpeedMaximum     LabInputManifestSpeed = "maximum"
+	LabInputManifestSpeedOriginal    LabInputManifestSpeed = "original"
+)
+
+// Valid indicates whether the value is a known member of the LabInputManifestSpeed enum.
+func (e LabInputManifestSpeed) Valid() bool {
+	switch e {
+	case LabInputManifestSpeedAccelerated:
+		return true
+	case LabInputManifestSpeedMaximum:
+		return true
+	case LabInputManifestSpeedOriginal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LabInputManifestStrategyVersion.
+const (
+	LabInputManifestStrategyVersionCrossExchangeArbitrage100 LabInputManifestStrategyVersion = "cross-exchange-arbitrage@1.0.0"
+	LabInputManifestStrategyVersionInventoryRebalancing100   LabInputManifestStrategyVersion = "inventory-rebalancing@1.0.0"
+	LabInputManifestStrategyVersionMeanReversion100          LabInputManifestStrategyVersion = "mean-reversion@1.0.0"
+	LabInputManifestStrategyVersionTrendFollowing100         LabInputManifestStrategyVersion = "trend-following@1.0.0"
+	LabInputManifestStrategyVersionTriangularArbitrage100    LabInputManifestStrategyVersion = "triangular-arbitrage@1.0.0"
+)
+
+// Valid indicates whether the value is a known member of the LabInputManifestStrategyVersion enum.
+func (e LabInputManifestStrategyVersion) Valid() bool {
+	switch e {
+	case LabInputManifestStrategyVersionCrossExchangeArbitrage100:
+		return true
+	case LabInputManifestStrategyVersionInventoryRebalancing100:
+		return true
+	case LabInputManifestStrategyVersionMeanReversion100:
+		return true
+	case LabInputManifestStrategyVersionTrendFollowing100:
+		return true
+	case LabInputManifestStrategyVersionTriangularArbitrage100:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManualChecklistStepManualOnly.
 const (
 	ManualChecklistStepManualOnlyTrue ManualChecklistStepManualOnly = true
@@ -895,13 +1897,25 @@ func (e ManualChecklistStepManualOnly) Valid() bool {
 
 // Defines values for OfflineJobRequestStrategyVersion.
 const (
-	OfflineJobRequestStrategyVersionTrendV1a1 OfflineJobRequestStrategyVersion = "trend.v1a.1"
+	OfflineJobRequestStrategyVersionCrossExchangeArbitrage100 OfflineJobRequestStrategyVersion = "cross-exchange-arbitrage@1.0.0"
+	OfflineJobRequestStrategyVersionInventoryRebalancing100   OfflineJobRequestStrategyVersion = "inventory-rebalancing@1.0.0"
+	OfflineJobRequestStrategyVersionMeanReversion100          OfflineJobRequestStrategyVersion = "mean-reversion@1.0.0"
+	OfflineJobRequestStrategyVersionTrendFollowing100         OfflineJobRequestStrategyVersion = "trend-following@1.0.0"
+	OfflineJobRequestStrategyVersionTriangularArbitrage100    OfflineJobRequestStrategyVersion = "triangular-arbitrage@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the OfflineJobRequestStrategyVersion enum.
 func (e OfflineJobRequestStrategyVersion) Valid() bool {
 	switch e {
-	case OfflineJobRequestStrategyVersionTrendV1a1:
+	case OfflineJobRequestStrategyVersionCrossExchangeArbitrage100:
+		return true
+	case OfflineJobRequestStrategyVersionInventoryRebalancing100:
+		return true
+	case OfflineJobRequestStrategyVersionMeanReversion100:
+		return true
+	case OfflineJobRequestStrategyVersionTrendFollowing100:
+		return true
+	case OfflineJobRequestStrategyVersionTriangularArbitrage100:
 		return true
 	default:
 		return false
@@ -1148,6 +2162,30 @@ func (e QualityEvidenceTier) Valid() bool {
 	}
 }
 
+// Defines values for ReasonPresentationSeverity.
+const (
+	ReasonPresentationSeverityCritical ReasonPresentationSeverity = "critical"
+	ReasonPresentationSeverityError    ReasonPresentationSeverity = "error"
+	ReasonPresentationSeverityInfo     ReasonPresentationSeverity = "info"
+	ReasonPresentationSeverityWarning  ReasonPresentationSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ReasonPresentationSeverity enum.
+func (e ReasonPresentationSeverity) Valid() bool {
+	switch e {
+	case ReasonPresentationSeverityCritical:
+		return true
+	case ReasonPresentationSeverityError:
+		return true
+	case ReasonPresentationSeverityInfo:
+		return true
+	case ReasonPresentationSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RebalancingDetailExecutionAvailable.
 const (
 	RebalancingDetailExecutionAvailableFalse RebalancingDetailExecutionAvailable = false
@@ -1342,19 +2380,19 @@ func (e ReplayFaultResourceSimulationOnly) Valid() bool {
 
 // Defines values for ReplayJobRequestSpeed.
 const (
-	Accelerated ReplayJobRequestSpeed = "accelerated"
-	Maximum     ReplayJobRequestSpeed = "maximum"
-	Original    ReplayJobRequestSpeed = "original"
+	ReplayJobRequestSpeedAccelerated ReplayJobRequestSpeed = "accelerated"
+	ReplayJobRequestSpeedMaximum     ReplayJobRequestSpeed = "maximum"
+	ReplayJobRequestSpeedOriginal    ReplayJobRequestSpeed = "original"
 )
 
 // Valid indicates whether the value is a known member of the ReplayJobRequestSpeed enum.
 func (e ReplayJobRequestSpeed) Valid() bool {
 	switch e {
-	case Accelerated:
+	case ReplayJobRequestSpeedAccelerated:
 		return true
-	case Maximum:
+	case ReplayJobRequestSpeedMaximum:
 		return true
-	case Original:
+	case ReplayJobRequestSpeedOriginal:
 		return true
 	default:
 		return false
@@ -1363,13 +2401,25 @@ func (e ReplayJobRequestSpeed) Valid() bool {
 
 // Defines values for ReplayJobRequestStrategyVersion.
 const (
-	ReplayJobRequestStrategyVersionTrendV1a1 ReplayJobRequestStrategyVersion = "trend.v1a.1"
+	ReplayJobRequestStrategyVersionCrossExchangeArbitrage100 ReplayJobRequestStrategyVersion = "cross-exchange-arbitrage@1.0.0"
+	ReplayJobRequestStrategyVersionInventoryRebalancing100   ReplayJobRequestStrategyVersion = "inventory-rebalancing@1.0.0"
+	ReplayJobRequestStrategyVersionMeanReversion100          ReplayJobRequestStrategyVersion = "mean-reversion@1.0.0"
+	ReplayJobRequestStrategyVersionTrendFollowing100         ReplayJobRequestStrategyVersion = "trend-following@1.0.0"
+	ReplayJobRequestStrategyVersionTriangularArbitrage100    ReplayJobRequestStrategyVersion = "triangular-arbitrage@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the ReplayJobRequestStrategyVersion enum.
 func (e ReplayJobRequestStrategyVersion) Valid() bool {
 	switch e {
-	case ReplayJobRequestStrategyVersionTrendV1a1:
+	case ReplayJobRequestStrategyVersionCrossExchangeArbitrage100:
+		return true
+	case ReplayJobRequestStrategyVersionInventoryRebalancing100:
+		return true
+	case ReplayJobRequestStrategyVersionMeanReversion100:
+		return true
+	case ReplayJobRequestStrategyVersionTrendFollowing100:
+		return true
+	case ReplayJobRequestStrategyVersionTriangularArbitrage100:
 		return true
 	default:
 		return false
@@ -1414,16 +2464,16 @@ func (e ReportExportResourceContentType) Valid() bool {
 
 // Defines values for ReportExportResourceFormat.
 const (
-	ReportExportResourceFormatCsv  ReportExportResourceFormat = "csv"
-	ReportExportResourceFormatJson ReportExportResourceFormat = "json"
+	Csv  ReportExportResourceFormat = "csv"
+	Json ReportExportResourceFormat = "json"
 )
 
 // Valid indicates whether the value is a known member of the ReportExportResourceFormat enum.
 func (e ReportExportResourceFormat) Valid() bool {
 	switch e {
-	case ReportExportResourceFormatCsv:
+	case Csv:
 		return true
-	case ReportExportResourceFormatJson:
+	case Json:
 		return true
 	default:
 		return false
@@ -1439,6 +2489,345 @@ const (
 func (e ReportExportResourceSimulationOnly) Valid() bool {
 	switch e {
 	case ReportExportResourceSimulationOnlyTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportProvenanceMode.
+const (
+	ReportProvenanceModeBacktest    ReportProvenanceMode = "backtest"
+	ReportProvenanceModeDemo        ReportProvenanceMode = "demo"
+	ReportProvenanceModeMixed       ReportProvenanceMode = "mixed"
+	ReportProvenanceModeOperational ReportProvenanceMode = "operational"
+	ReportProvenanceModePaper       ReportProvenanceMode = "paper"
+	ReportProvenanceModeReplay      ReportProvenanceMode = "replay"
+	ReportProvenanceModeShadow      ReportProvenanceMode = "shadow"
+	ReportProvenanceModeTestnet     ReportProvenanceMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the ReportProvenanceMode enum.
+func (e ReportProvenanceMode) Valid() bool {
+	switch e {
+	case ReportProvenanceModeBacktest:
+		return true
+	case ReportProvenanceModeDemo:
+		return true
+	case ReportProvenanceModeMixed:
+		return true
+	case ReportProvenanceModeOperational:
+		return true
+	case ReportProvenanceModePaper:
+		return true
+	case ReportProvenanceModeReplay:
+		return true
+	case ReportProvenanceModeShadow:
+		return true
+	case ReportProvenanceModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportRequestReportType.
+const (
+	ReportRequestReportTypeDecisionsOrders       ReportRequestReportType = "decisions_orders"
+	ReportRequestReportTypeExchangeDataHealth    ReportRequestReportType = "exchange_data_health"
+	ReportRequestReportTypeInventoryPnl          ReportRequestReportType = "inventory_pnl"
+	ReportRequestReportTypeLabRuns               ReportRequestReportType = "lab_runs"
+	ReportRequestReportTypePlatformReadiness     ReportRequestReportType = "platform_readiness"
+	ReportRequestReportTypePortfolios            ReportRequestReportType = "portfolios"
+	ReportRequestReportTypeRisk                  ReportRequestReportType = "risk"
+	ReportRequestReportTypeSandboxQualifications ReportRequestReportType = "sandbox_qualifications"
+	ReportRequestReportTypeStrategyResults       ReportRequestReportType = "strategy_results"
+)
+
+// Valid indicates whether the value is a known member of the ReportRequestReportType enum.
+func (e ReportRequestReportType) Valid() bool {
+	switch e {
+	case ReportRequestReportTypeDecisionsOrders:
+		return true
+	case ReportRequestReportTypeExchangeDataHealth:
+		return true
+	case ReportRequestReportTypeInventoryPnl:
+		return true
+	case ReportRequestReportTypeLabRuns:
+		return true
+	case ReportRequestReportTypePlatformReadiness:
+		return true
+	case ReportRequestReportTypePortfolios:
+		return true
+	case ReportRequestReportTypeRisk:
+		return true
+	case ReportRequestReportTypeSandboxQualifications:
+		return true
+	case ReportRequestReportTypeStrategyResults:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportResourceReportType.
+const (
+	ReportResourceReportTypeDecisionsOrders       ReportResourceReportType = "decisions_orders"
+	ReportResourceReportTypeExchangeDataHealth    ReportResourceReportType = "exchange_data_health"
+	ReportResourceReportTypeInventoryPnl          ReportResourceReportType = "inventory_pnl"
+	ReportResourceReportTypeLabRuns               ReportResourceReportType = "lab_runs"
+	ReportResourceReportTypePlatformReadiness     ReportResourceReportType = "platform_readiness"
+	ReportResourceReportTypePortfolios            ReportResourceReportType = "portfolios"
+	ReportResourceReportTypeRisk                  ReportResourceReportType = "risk"
+	ReportResourceReportTypeSandboxQualifications ReportResourceReportType = "sandbox_qualifications"
+	ReportResourceReportTypeStrategyResults       ReportResourceReportType = "strategy_results"
+)
+
+// Valid indicates whether the value is a known member of the ReportResourceReportType enum.
+func (e ReportResourceReportType) Valid() bool {
+	switch e {
+	case ReportResourceReportTypeDecisionsOrders:
+		return true
+	case ReportResourceReportTypeExchangeDataHealth:
+		return true
+	case ReportResourceReportTypeInventoryPnl:
+		return true
+	case ReportResourceReportTypeLabRuns:
+		return true
+	case ReportResourceReportTypePlatformReadiness:
+		return true
+	case ReportResourceReportTypePortfolios:
+		return true
+	case ReportResourceReportTypeRisk:
+		return true
+	case ReportResourceReportTypeSandboxQualifications:
+		return true
+	case ReportResourceReportTypeStrategyResults:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportResourceState.
+const (
+	ReportResourceStateFAILED    ReportResourceState = "FAILED"
+	ReportResourceStateQUEUED    ReportResourceState = "QUEUED"
+	ReportResourceStateRUNNING   ReportResourceState = "RUNNING"
+	ReportResourceStateSUCCEEDED ReportResourceState = "SUCCEEDED"
+)
+
+// Valid indicates whether the value is a known member of the ReportResourceState enum.
+func (e ReportResourceState) Valid() bool {
+	switch e {
+	case ReportResourceStateFAILED:
+		return true
+	case ReportResourceStateQUEUED:
+		return true
+	case ReportResourceStateRUNNING:
+		return true
+	case ReportResourceStateSUCCEEDED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleFrequency.
+const (
+	ReportScheduleFrequencyDaily  ReportScheduleFrequency = "daily"
+	ReportScheduleFrequencyHourly ReportScheduleFrequency = "hourly"
+	ReportScheduleFrequencyWeekly ReportScheduleFrequency = "weekly"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleFrequency enum.
+func (e ReportScheduleFrequency) Valid() bool {
+	switch e {
+	case ReportScheduleFrequencyDaily:
+		return true
+	case ReportScheduleFrequencyHourly:
+		return true
+	case ReportScheduleFrequencyWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleReportType.
+const (
+	ReportScheduleReportTypeDecisionsOrders       ReportScheduleReportType = "decisions_orders"
+	ReportScheduleReportTypeExchangeDataHealth    ReportScheduleReportType = "exchange_data_health"
+	ReportScheduleReportTypeInventoryPnl          ReportScheduleReportType = "inventory_pnl"
+	ReportScheduleReportTypeLabRuns               ReportScheduleReportType = "lab_runs"
+	ReportScheduleReportTypePlatformReadiness     ReportScheduleReportType = "platform_readiness"
+	ReportScheduleReportTypePortfolios            ReportScheduleReportType = "portfolios"
+	ReportScheduleReportTypeRisk                  ReportScheduleReportType = "risk"
+	ReportScheduleReportTypeSandboxQualifications ReportScheduleReportType = "sandbox_qualifications"
+	ReportScheduleReportTypeStrategyResults       ReportScheduleReportType = "strategy_results"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleReportType enum.
+func (e ReportScheduleReportType) Valid() bool {
+	switch e {
+	case ReportScheduleReportTypeDecisionsOrders:
+		return true
+	case ReportScheduleReportTypeExchangeDataHealth:
+		return true
+	case ReportScheduleReportTypeInventoryPnl:
+		return true
+	case ReportScheduleReportTypeLabRuns:
+		return true
+	case ReportScheduleReportTypePlatformReadiness:
+		return true
+	case ReportScheduleReportTypePortfolios:
+		return true
+	case ReportScheduleReportTypeRisk:
+		return true
+	case ReportScheduleReportTypeSandboxQualifications:
+		return true
+	case ReportScheduleReportTypeStrategyResults:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleState.
+const (
+	ReportScheduleStateActive ReportScheduleState = "active"
+	ReportScheduleStatePaused ReportScheduleState = "paused"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleState enum.
+func (e ReportScheduleState) Valid() bool {
+	switch e {
+	case ReportScheduleStateActive:
+		return true
+	case ReportScheduleStatePaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleRequestFrequency.
+const (
+	ReportScheduleRequestFrequencyDaily  ReportScheduleRequestFrequency = "daily"
+	ReportScheduleRequestFrequencyHourly ReportScheduleRequestFrequency = "hourly"
+	ReportScheduleRequestFrequencyWeekly ReportScheduleRequestFrequency = "weekly"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleRequestFrequency enum.
+func (e ReportScheduleRequestFrequency) Valid() bool {
+	switch e {
+	case ReportScheduleRequestFrequencyDaily:
+		return true
+	case ReportScheduleRequestFrequencyHourly:
+		return true
+	case ReportScheduleRequestFrequencyWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleRequestReportType.
+const (
+	ReportScheduleRequestReportTypeDecisionsOrders       ReportScheduleRequestReportType = "decisions_orders"
+	ReportScheduleRequestReportTypeExchangeDataHealth    ReportScheduleRequestReportType = "exchange_data_health"
+	ReportScheduleRequestReportTypeInventoryPnl          ReportScheduleRequestReportType = "inventory_pnl"
+	ReportScheduleRequestReportTypeLabRuns               ReportScheduleRequestReportType = "lab_runs"
+	ReportScheduleRequestReportTypePlatformReadiness     ReportScheduleRequestReportType = "platform_readiness"
+	ReportScheduleRequestReportTypePortfolios            ReportScheduleRequestReportType = "portfolios"
+	ReportScheduleRequestReportTypeRisk                  ReportScheduleRequestReportType = "risk"
+	ReportScheduleRequestReportTypeSandboxQualifications ReportScheduleRequestReportType = "sandbox_qualifications"
+	ReportScheduleRequestReportTypeStrategyResults       ReportScheduleRequestReportType = "strategy_results"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleRequestReportType enum.
+func (e ReportScheduleRequestReportType) Valid() bool {
+	switch e {
+	case ReportScheduleRequestReportTypeDecisionsOrders:
+		return true
+	case ReportScheduleRequestReportTypeExchangeDataHealth:
+		return true
+	case ReportScheduleRequestReportTypeInventoryPnl:
+		return true
+	case ReportScheduleRequestReportTypeLabRuns:
+		return true
+	case ReportScheduleRequestReportTypePlatformReadiness:
+		return true
+	case ReportScheduleRequestReportTypePortfolios:
+		return true
+	case ReportScheduleRequestReportTypeRisk:
+		return true
+	case ReportScheduleRequestReportTypeSandboxQualifications:
+		return true
+	case ReportScheduleRequestReportTypeStrategyResults:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportScheduleTransitionRequestState.
+const (
+	ReportScheduleTransitionRequestStateActive ReportScheduleTransitionRequestState = "active"
+	ReportScheduleTransitionRequestStatePaused ReportScheduleTransitionRequestState = "paused"
+)
+
+// Valid indicates whether the value is a known member of the ReportScheduleTransitionRequestState enum.
+func (e ReportScheduleTransitionRequestState) Valid() bool {
+	switch e {
+	case ReportScheduleTransitionRequestStateActive:
+		return true
+	case ReportScheduleTransitionRequestStatePaused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReproductionBundleConfidenceTier.
+const (
+	ReproductionBundleConfidenceTierA ReproductionBundleConfidenceTier = "A"
+	ReproductionBundleConfidenceTierB ReproductionBundleConfidenceTier = "B"
+	ReproductionBundleConfidenceTierC ReproductionBundleConfidenceTier = "C"
+	ReproductionBundleConfidenceTierD ReproductionBundleConfidenceTier = "D"
+)
+
+// Valid indicates whether the value is a known member of the ReproductionBundleConfidenceTier enum.
+func (e ReproductionBundleConfidenceTier) Valid() bool {
+	switch e {
+	case ReproductionBundleConfidenceTierA:
+		return true
+	case ReproductionBundleConfidenceTierB:
+		return true
+	case ReproductionBundleConfidenceTierC:
+		return true
+	case ReproductionBundleConfidenceTierD:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RiskControlRequestState.
+const (
+	RiskControlRequestStateLocked RiskControlRequestState = "locked"
+	RiskControlRequestStateNormal RiskControlRequestState = "normal"
+	RiskControlRequestStatePaused RiskControlRequestState = "paused"
+)
+
+// Valid indicates whether the value is a known member of the RiskControlRequestState enum.
+func (e RiskControlRequestState) Valid() bool {
+	switch e {
+	case RiskControlRequestStateLocked:
+		return true
+	case RiskControlRequestStateNormal:
+		return true
+	case RiskControlRequestStatePaused:
 		return true
 	default:
 		return false
@@ -1463,6 +2852,429 @@ func (e RiskStatusState) Valid() bool {
 	case RiskStatusStateNORMAL:
 		return true
 	case RiskStatusStatePAUSED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunAction.
+const (
+	RunActionPause  RunAction = "pause"
+	RunActionResume RunAction = "resume"
+	RunActionStep   RunAction = "step"
+	RunActionStop   RunAction = "stop"
+)
+
+// Valid indicates whether the value is a known member of the RunAction enum.
+func (e RunAction) Valid() bool {
+	switch e {
+	case RunActionPause:
+		return true
+	case RunActionResume:
+		return true
+	case RunActionStep:
+		return true
+	case RunActionStop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunChoiceExchanges.
+const (
+	RunChoiceExchangesBinance RunChoiceExchanges = "binance"
+	RunChoiceExchangesBybit   RunChoiceExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunChoiceExchanges enum.
+func (e RunChoiceExchanges) Valid() bool {
+	switch e {
+	case RunChoiceExchangesBinance:
+		return true
+	case RunChoiceExchangesBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunChoiceMode.
+const (
+	RunChoiceModeBacktest      RunChoiceMode = "backtest"
+	RunChoiceModeDemo          RunChoiceMode = "demo"
+	RunChoiceModeDemonstration RunChoiceMode = "demonstration"
+	RunChoiceModeReplay        RunChoiceMode = "replay"
+	RunChoiceModeSandbox       RunChoiceMode = "sandbox"
+	RunChoiceModeShadow        RunChoiceMode = "shadow"
+	RunChoiceModeTestnet       RunChoiceMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the RunChoiceMode enum.
+func (e RunChoiceMode) Valid() bool {
+	switch e {
+	case RunChoiceModeBacktest:
+		return true
+	case RunChoiceModeDemo:
+		return true
+	case RunChoiceModeDemonstration:
+		return true
+	case RunChoiceModeReplay:
+		return true
+	case RunChoiceModeSandbox:
+		return true
+	case RunChoiceModeShadow:
+		return true
+	case RunChoiceModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunCreateRequestExchanges.
+const (
+	RunCreateRequestExchangesBinance RunCreateRequestExchanges = "binance"
+	RunCreateRequestExchangesBybit   RunCreateRequestExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunCreateRequestExchanges enum.
+func (e RunCreateRequestExchanges) Valid() bool {
+	switch e {
+	case RunCreateRequestExchangesBinance:
+		return true
+	case RunCreateRequestExchangesBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunCreateRequestMode.
+const (
+	RunCreateRequestModeBacktest      RunCreateRequestMode = "backtest"
+	RunCreateRequestModeDemo          RunCreateRequestMode = "demo"
+	RunCreateRequestModeDemonstration RunCreateRequestMode = "demonstration"
+	RunCreateRequestModeReplay        RunCreateRequestMode = "replay"
+	RunCreateRequestModeSandbox       RunCreateRequestMode = "sandbox"
+	RunCreateRequestModeShadow        RunCreateRequestMode = "shadow"
+	RunCreateRequestModeTestnet       RunCreateRequestMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the RunCreateRequestMode enum.
+func (e RunCreateRequestMode) Valid() bool {
+	switch e {
+	case RunCreateRequestModeBacktest:
+		return true
+	case RunCreateRequestModeDemo:
+		return true
+	case RunCreateRequestModeDemonstration:
+		return true
+	case RunCreateRequestModeReplay:
+		return true
+	case RunCreateRequestModeSandbox:
+		return true
+	case RunCreateRequestModeShadow:
+		return true
+	case RunCreateRequestModeTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunCreateRequestPreset.
+const (
+	LatestQualifiedInputs RunCreateRequestPreset = "latest-qualified-inputs"
+)
+
+// Valid indicates whether the value is a known member of the RunCreateRequestPreset enum.
+func (e RunCreateRequestPreset) Valid() bool {
+	switch e {
+	case LatestQualifiedInputs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunEvidenceConfidenceTier.
+const (
+	RunEvidenceConfidenceTierA RunEvidenceConfidenceTier = "A"
+	RunEvidenceConfidenceTierB RunEvidenceConfidenceTier = "B"
+	RunEvidenceConfidenceTierC RunEvidenceConfidenceTier = "C"
+	RunEvidenceConfidenceTierD RunEvidenceConfidenceTier = "D"
+)
+
+// Valid indicates whether the value is a known member of the RunEvidenceConfidenceTier enum.
+func (e RunEvidenceConfidenceTier) Valid() bool {
+	switch e {
+	case RunEvidenceConfidenceTierA:
+		return true
+	case RunEvidenceConfidenceTierB:
+		return true
+	case RunEvidenceConfidenceTierC:
+		return true
+	case RunEvidenceConfidenceTierD:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunEvidenceState.
+const (
+	RunEvidenceStateNotRecorded RunEvidenceState = "not_recorded"
+	RunEvidenceStateRecorded    RunEvidenceState = "recorded"
+)
+
+// Valid indicates whether the value is a known member of the RunEvidenceState enum.
+func (e RunEvidenceState) Valid() bool {
+	switch e {
+	case RunEvidenceStateNotRecorded:
+		return true
+	case RunEvidenceStateRecorded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunOutputKind.
+const (
+	Decision  RunOutputKind = "decision"
+	Event     RunOutputKind = "event"
+	Execution RunOutputKind = "execution"
+	Order     RunOutputKind = "order"
+)
+
+// Valid indicates whether the value is a known member of the RunOutputKind enum.
+func (e RunOutputKind) Valid() bool {
+	switch e {
+	case Decision:
+		return true
+	case Event:
+		return true
+	case Execution:
+		return true
+	case Order:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunPortfolioFeeExchange.
+const (
+	RunPortfolioFeeExchangeBinance RunPortfolioFeeExchange = "binance"
+	RunPortfolioFeeExchangeBybit   RunPortfolioFeeExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioFeeExchange enum.
+func (e RunPortfolioFeeExchange) Valid() bool {
+	switch e {
+	case RunPortfolioFeeExchangeBinance:
+		return true
+	case RunPortfolioFeeExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunPortfolioPositionExchange.
+const (
+	RunPortfolioPositionExchangeBinance RunPortfolioPositionExchange = "binance"
+	RunPortfolioPositionExchangeBybit   RunPortfolioPositionExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioPositionExchange enum.
+func (e RunPortfolioPositionExchange) Valid() bool {
+	switch e {
+	case RunPortfolioPositionExchangeBinance:
+		return true
+	case RunPortfolioPositionExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunPortfolioPositionValuationState.
+const (
+	RunPortfolioPositionValuationComplete         RunPortfolioPositionValuationState = "complete"
+	RunPortfolioPositionValuationUnvaluedFeeAsset RunPortfolioPositionValuationState = "unvalued_fee_asset"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioPositionValuationState enum.
+func (e RunPortfolioPositionValuationState) Valid() bool {
+	switch e {
+	case RunPortfolioPositionValuationComplete:
+		return true
+	case RunPortfolioPositionValuationUnvaluedFeeAsset:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunPortfolioProjectionState.
+const (
+	RunPortfolioProjectionStateNotRecorded RunPortfolioProjectionState = "not_recorded"
+	RunPortfolioProjectionStateRecorded    RunPortfolioProjectionState = "recorded"
+)
+
+// Valid indicates whether the value is a known member of the RunPortfolioProjectionState enum.
+func (e RunPortfolioProjectionState) Valid() bool {
+	switch e {
+	case RunPortfolioProjectionStateNotRecorded:
+		return true
+	case RunPortfolioProjectionStateRecorded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunResourceEnvironment.
+const (
+	BinanceSpotTestnet    RunResourceEnvironment = "binance_spot_testnet"
+	BybitDemo             RunResourceEnvironment = "bybit_demo"
+	PairedExchangeSandbox RunResourceEnvironment = "paired_exchange_sandbox"
+	ProductionPublic      RunResourceEnvironment = "production_public"
+	RecordedData          RunResourceEnvironment = "recorded_data"
+)
+
+// Valid indicates whether the value is a known member of the RunResourceEnvironment enum.
+func (e RunResourceEnvironment) Valid() bool {
+	switch e {
+	case BinanceSpotTestnet:
+		return true
+	case BybitDemo:
+		return true
+	case PairedExchangeSandbox:
+		return true
+	case ProductionPublic:
+		return true
+	case RecordedData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunResourceExchanges.
+const (
+	RunResourceExchangesBinance RunResourceExchanges = "binance"
+	RunResourceExchangesBybit   RunResourceExchanges = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunResourceExchanges enum.
+func (e RunResourceExchanges) Valid() bool {
+	switch e {
+	case RunResourceExchangesBinance:
+		return true
+	case RunResourceExchangesBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunResourceMode.
+const (
+	RunResourceModeBacktest RunResourceMode = "backtest"
+	RunResourceModeReplay   RunResourceMode = "replay"
+	RunResourceModeSandbox  RunResourceMode = "sandbox"
+	RunResourceModeShadow   RunResourceMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the RunResourceMode enum.
+func (e RunResourceMode) Valid() bool {
+	switch e {
+	case RunResourceModeBacktest:
+		return true
+	case RunResourceModeReplay:
+		return true
+	case RunResourceModeSandbox:
+		return true
+	case RunResourceModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunRiskObservationExchange.
+const (
+	RunRiskObservationExchangeBinance RunRiskObservationExchange = "binance"
+	RunRiskObservationExchangeBybit   RunRiskObservationExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the RunRiskObservationExchange enum.
+func (e RunRiskObservationExchange) Valid() bool {
+	switch e {
+	case RunRiskObservationExchangeBinance:
+		return true
+	case RunRiskObservationExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunRiskProjectionState.
+const (
+	RunRiskProjectionStateNotRecorded RunRiskProjectionState = "not_recorded"
+	RunRiskProjectionStateRecorded    RunRiskProjectionState = "recorded"
+)
+
+// Valid indicates whether the value is a known member of the RunRiskProjectionState enum.
+func (e RunRiskProjectionState) Valid() bool {
+	switch e {
+	case RunRiskProjectionStateNotRecorded:
+		return true
+	case RunRiskProjectionStateRecorded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunRiskProjectionStatus.
+const (
+	RunRiskProjectionStatusBlocked RunRiskProjectionStatus = "blocked"
+	RunRiskProjectionStatusNormal  RunRiskProjectionStatus = "normal"
+	RunRiskProjectionStatusWaiting RunRiskProjectionStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the RunRiskProjectionStatus enum.
+func (e RunRiskProjectionStatus) Valid() bool {
+	switch e {
+	case RunRiskProjectionStatusBlocked:
+		return true
+	case RunRiskProjectionStatusNormal:
+		return true
+	case RunRiskProjectionStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeControlRequestState.
+const (
+	RuntimeControlRequestStatePaused  RuntimeControlRequestState = "paused"
+	RuntimeControlRequestStateRunning RuntimeControlRequestState = "running"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeControlRequestState enum.
+func (e RuntimeControlRequestState) Valid() bool {
+	switch e {
+	case RuntimeControlRequestStatePaused:
+		return true
+	case RuntimeControlRequestStateRunning:
 		return true
 	default:
 		return false
@@ -1577,6 +3389,27 @@ const (
 func (e SandboxCapUsageGlobalOpenLimit) Valid() bool {
 	switch e {
 	case SandboxCapUsageGlobalOpenLimitTwo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxChaosSummaryStatus.
+const (
+	SandboxChaosSummaryStatusFailed SandboxChaosSummaryStatus = "failed"
+	SandboxChaosSummaryStatusNotRun SandboxChaosSummaryStatus = "not_run"
+	SandboxChaosSummaryStatusPassed SandboxChaosSummaryStatus = "passed"
+)
+
+// Valid indicates whether the value is a known member of the SandboxChaosSummaryStatus enum.
+func (e SandboxChaosSummaryStatus) Valid() bool {
+	switch e {
+	case SandboxChaosSummaryStatusFailed:
+		return true
+	case SandboxChaosSummaryStatusNotRun:
+		return true
+	case SandboxChaosSummaryStatusPassed:
 		return true
 	default:
 		return false
@@ -1892,6 +3725,72 @@ func (e SandboxOverviewRiskState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxQualificationStatusMode.
+const (
+	SandboxQualificationStatusModeFormal SandboxQualificationStatusMode = "formal"
+	SandboxQualificationStatusModeNone   SandboxQualificationStatusMode = "none"
+	SandboxQualificationStatusModeSmoke  SandboxQualificationStatusMode = "smoke"
+)
+
+// Valid indicates whether the value is a known member of the SandboxQualificationStatusMode enum.
+func (e SandboxQualificationStatusMode) Valid() bool {
+	switch e {
+	case SandboxQualificationStatusModeFormal:
+		return true
+	case SandboxQualificationStatusModeNone:
+		return true
+	case SandboxQualificationStatusModeSmoke:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxQualificationStatusProfitabilityEvidence.
+const (
+	SandboxQualificationStatusProfitabilityEvidenceFalse SandboxQualificationStatusProfitabilityEvidence = false
+)
+
+// Valid indicates whether the value is a known member of the SandboxQualificationStatusProfitabilityEvidence enum.
+func (e SandboxQualificationStatusProfitabilityEvidence) Valid() bool {
+	switch e {
+	case SandboxQualificationStatusProfitabilityEvidenceFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxQualificationStatusState.
+const (
+	SandboxQualificationStatusStateFailed      SandboxQualificationStatusState = "FAILED"
+	SandboxQualificationStatusStateNotStarted  SandboxQualificationStatusState = "not_started"
+	SandboxQualificationStatusStatePassed      SandboxQualificationStatusState = "PASSED"
+	SandboxQualificationStatusStatePending     SandboxQualificationStatusState = "PENDING"
+	SandboxQualificationStatusStateRunning     SandboxQualificationStatusState = "RUNNING"
+	SandboxQualificationStatusStateSmokePassed SandboxQualificationStatusState = "SMOKE_PASSED"
+)
+
+// Valid indicates whether the value is a known member of the SandboxQualificationStatusState enum.
+func (e SandboxQualificationStatusState) Valid() bool {
+	switch e {
+	case SandboxQualificationStatusStateFailed:
+		return true
+	case SandboxQualificationStatusStateNotStarted:
+		return true
+	case SandboxQualificationStatusStatePassed:
+		return true
+	case SandboxQualificationStatusStatePending:
+		return true
+	case SandboxQualificationStatusStateRunning:
+		return true
+	case SandboxQualificationStatusStateSmokePassed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxReconciliationState.
 const (
 	SandboxReconciliationStateClean       SandboxReconciliationState = "clean"
@@ -1904,6 +3803,87 @@ func (e SandboxReconciliationState) Valid() bool {
 	case SandboxReconciliationStateClean:
 		return true
 	case SandboxReconciliationStateQuarantined:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxRecoveryIncidentEnvironment.
+const (
+	SandboxRecoveryIncidentEnvironmentDemo        SandboxRecoveryIncidentEnvironment = "demo"
+	SandboxRecoveryIncidentEnvironmentSpotTestnet SandboxRecoveryIncidentEnvironment = "spot_testnet"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentEnvironment enum.
+func (e SandboxRecoveryIncidentEnvironment) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentEnvironmentDemo:
+		return true
+	case SandboxRecoveryIncidentEnvironmentSpotTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxRecoveryIncidentExchange.
+const (
+	SandboxRecoveryIncidentExchangeBinance SandboxRecoveryIncidentExchange = "binance"
+	SandboxRecoveryIncidentExchangeBybit   SandboxRecoveryIncidentExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentExchange enum.
+func (e SandboxRecoveryIncidentExchange) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentExchangeBinance:
+		return true
+	case SandboxRecoveryIncidentExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxRecoveryIncidentIncidentSource.
+const (
+	SandboxRecoveryIncidentIncidentSourcePrivateStream  SandboxRecoveryIncidentIncidentSource = "private_stream"
+	SandboxRecoveryIncidentIncidentSourceReconciliation SandboxRecoveryIncidentIncidentSource = "reconciliation"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentIncidentSource enum.
+func (e SandboxRecoveryIncidentIncidentSource) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentIncidentSourcePrivateStream:
+		return true
+	case SandboxRecoveryIncidentIncidentSourceReconciliation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxRecoveryIncidentState.
+const (
+	SandboxRecoveryIncidentStateActive        SandboxRecoveryIncidentState = "active"
+	SandboxRecoveryIncidentStateExpired       SandboxRecoveryIncidentState = "expired"
+	SandboxRecoveryIncidentStateRecovered     SandboxRecoveryIncidentState = "recovered"
+	SandboxRecoveryIncidentStateRepeated      SandboxRecoveryIncidentState = "repeated"
+	SandboxRecoveryIncidentStateUnrecoverable SandboxRecoveryIncidentState = "unrecoverable"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentState enum.
+func (e SandboxRecoveryIncidentState) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentStateActive:
+		return true
+	case SandboxRecoveryIncidentStateExpired:
+		return true
+	case SandboxRecoveryIncidentStateRecovered:
+		return true
+	case SandboxRecoveryIncidentStateRepeated:
+		return true
+	case SandboxRecoveryIncidentStateUnrecoverable:
 		return true
 	default:
 		return false
@@ -1970,6 +3950,105 @@ func (e SandboxResetIncidentState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxStrategySessionInstrument.
+const (
+	SandboxStrategySessionInstrumentBTCUSDT SandboxStrategySessionInstrument = "BTCUSDT"
+	SandboxStrategySessionInstrumentETHUSDT SandboxStrategySessionInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionInstrument enum.
+func (e SandboxStrategySessionInstrument) Valid() bool {
+	switch e {
+	case SandboxStrategySessionInstrumentBTCUSDT:
+		return true
+	case SandboxStrategySessionInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxStrategySessionState.
+const (
+	SandboxStrategySessionStateBlocked  SandboxStrategySessionState = "blocked"
+	SandboxStrategySessionStatePrepared SandboxStrategySessionState = "prepared"
+	SandboxStrategySessionStateRunning  SandboxStrategySessionState = "running"
+	SandboxStrategySessionStateStopped  SandboxStrategySessionState = "stopped"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionState enum.
+func (e SandboxStrategySessionState) Valid() bool {
+	switch e {
+	case SandboxStrategySessionStateBlocked:
+		return true
+	case SandboxStrategySessionStatePrepared:
+		return true
+	case SandboxStrategySessionStateRunning:
+		return true
+	case SandboxStrategySessionStateStopped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxStrategySessionCreateRequestInstrument.
+const (
+	SandboxStrategySessionCreateRequestInstrumentBTCUSDT SandboxStrategySessionCreateRequestInstrument = "BTCUSDT"
+	SandboxStrategySessionCreateRequestInstrumentETHUSDT SandboxStrategySessionCreateRequestInstrument = "ETHUSDT"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionCreateRequestInstrument enum.
+func (e SandboxStrategySessionCreateRequestInstrument) Valid() bool {
+	switch e {
+	case SandboxStrategySessionCreateRequestInstrumentBTCUSDT:
+		return true
+	case SandboxStrategySessionCreateRequestInstrumentETHUSDT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxStrategySessionCreateRequestPreset.
+const (
+	SandboxStrategySessionCreateRequestPresetLatestQualifiedInputs SandboxStrategySessionCreateRequestPreset = "latest-qualified-inputs"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionCreateRequestPreset enum.
+func (e SandboxStrategySessionCreateRequestPreset) Valid() bool {
+	switch e {
+	case SandboxStrategySessionCreateRequestPresetLatestQualifiedInputs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxStrategySessionCreateRequestStrategyId.
+const (
+	SandboxStrategySessionCreateRequestStrategyIdCrossExchangeArbitrage SandboxStrategySessionCreateRequestStrategyId = "cross-exchange-arbitrage"
+	SandboxStrategySessionCreateRequestStrategyIdMeanReversion          SandboxStrategySessionCreateRequestStrategyId = "mean-reversion"
+	SandboxStrategySessionCreateRequestStrategyIdTrendFollowing         SandboxStrategySessionCreateRequestStrategyId = "trend-following"
+	SandboxStrategySessionCreateRequestStrategyIdTriangularArbitrage    SandboxStrategySessionCreateRequestStrategyId = "triangular-arbitrage"
+)
+
+// Valid indicates whether the value is a known member of the SandboxStrategySessionCreateRequestStrategyId enum.
+func (e SandboxStrategySessionCreateRequestStrategyId) Valid() bool {
+	switch e {
+	case SandboxStrategySessionCreateRequestStrategyIdCrossExchangeArbitrage:
+		return true
+	case SandboxStrategySessionCreateRequestStrategyIdMeanReversion:
+		return true
+	case SandboxStrategySessionCreateRequestStrategyIdTrendFollowing:
+		return true
+	case SandboxStrategySessionCreateRequestStrategyIdTriangularArbitrage:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxTestOrderRequestInstrument.
 const (
 	SandboxTestOrderRequestInstrumentBTCUSDT SandboxTestOrderRequestInstrument = "BTCUSDT"
@@ -2024,15 +4103,174 @@ func (e SandboxTestOrderRequestStyle) Valid() bool {
 	}
 }
 
+// Defines values for ShadowDataHealthState.
+const (
+	ShadowDataHealthStateCONNECTING   ShadowDataHealthState = "CONNECTING"
+	ShadowDataHealthStateDISCONNECTED ShadowDataHealthState = "DISCONNECTED"
+	ShadowDataHealthStateHEALTHY      ShadowDataHealthState = "HEALTHY"
+	ShadowDataHealthStatePAUSED       ShadowDataHealthState = "PAUSED"
+	ShadowDataHealthStateSUBSCRIBED   ShadowDataHealthState = "SUBSCRIBED"
+	ShadowDataHealthStateSYNCING      ShadowDataHealthState = "SYNCING"
+)
+
+// Valid indicates whether the value is a known member of the ShadowDataHealthState enum.
+func (e ShadowDataHealthState) Valid() bool {
+	switch e {
+	case ShadowDataHealthStateCONNECTING:
+		return true
+	case ShadowDataHealthStateDISCONNECTED:
+		return true
+	case ShadowDataHealthStateHEALTHY:
+		return true
+	case ShadowDataHealthStatePAUSED:
+		return true
+	case ShadowDataHealthStateSUBSCRIBED:
+		return true
+	case ShadowDataHealthStateSYNCING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowDecisionSummaryRiskOutcome.
+const (
+	ShadowDecisionSummaryRiskOutcomeApproved     ShadowDecisionSummaryRiskOutcome = "approved"
+	ShadowDecisionSummaryRiskOutcomeLocked       ShadowDecisionSummaryRiskOutcome = "locked"
+	ShadowDecisionSummaryRiskOutcomeNotEvaluated ShadowDecisionSummaryRiskOutcome = "not_evaluated"
+	ShadowDecisionSummaryRiskOutcomePaused       ShadowDecisionSummaryRiskOutcome = "paused"
+	ShadowDecisionSummaryRiskOutcomeRejected     ShadowDecisionSummaryRiskOutcome = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ShadowDecisionSummaryRiskOutcome enum.
+func (e ShadowDecisionSummaryRiskOutcome) Valid() bool {
+	switch e {
+	case ShadowDecisionSummaryRiskOutcomeApproved:
+		return true
+	case ShadowDecisionSummaryRiskOutcomeLocked:
+		return true
+	case ShadowDecisionSummaryRiskOutcomeNotEvaluated:
+		return true
+	case ShadowDecisionSummaryRiskOutcomePaused:
+		return true
+	case ShadowDecisionSummaryRiskOutcomeRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowInputHealthExchange.
+const (
+	Binance ShadowInputHealthExchange = "binance"
+	Bybit   ShadowInputHealthExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the ShadowInputHealthExchange enum.
+func (e ShadowInputHealthExchange) Valid() bool {
+	switch e {
+	case Binance:
+		return true
+	case Bybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowInputHealthState.
+const (
+	ShadowInputHealthStateCONNECTING   ShadowInputHealthState = "CONNECTING"
+	ShadowInputHealthStateDISCONNECTED ShadowInputHealthState = "DISCONNECTED"
+	ShadowInputHealthStateHEALTHY      ShadowInputHealthState = "HEALTHY"
+	ShadowInputHealthStatePAUSED       ShadowInputHealthState = "PAUSED"
+	ShadowInputHealthStateSTALE        ShadowInputHealthState = "STALE"
+	ShadowInputHealthStateSYNCING      ShadowInputHealthState = "SYNCING"
+	ShadowInputHealthStateUNAVAILABLE  ShadowInputHealthState = "UNAVAILABLE"
+)
+
+// Valid indicates whether the value is a known member of the ShadowInputHealthState enum.
+func (e ShadowInputHealthState) Valid() bool {
+	switch e {
+	case ShadowInputHealthStateCONNECTING:
+		return true
+	case ShadowInputHealthStateDISCONNECTED:
+		return true
+	case ShadowInputHealthStateHEALTHY:
+		return true
+	case ShadowInputHealthStatePAUSED:
+		return true
+	case ShadowInputHealthStateSTALE:
+		return true
+	case ShadowInputHealthStateSYNCING:
+		return true
+	case ShadowInputHealthStateUNAVAILABLE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowPnlAttributionValuationBasis.
+const (
+	SealedLedgerFunctionalValue ShadowPnlAttributionValuationBasis = "sealed_ledger_functional_value"
+)
+
+// Valid indicates whether the value is a known member of the ShadowPnlAttributionValuationBasis enum.
+func (e ShadowPnlAttributionValuationBasis) Valid() bool {
+	switch e {
+	case SealedLedgerFunctionalValue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ShadowSessionRequestStrategyVersion.
 const (
-	ShadowSessionRequestStrategyVersionTrendV1a1 ShadowSessionRequestStrategyVersion = "trend.v1a.1"
+	ShadowSessionRequestStrategyVersionTrendFollowing100 ShadowSessionRequestStrategyVersion = "trend-following@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the ShadowSessionRequestStrategyVersion enum.
 func (e ShadowSessionRequestStrategyVersion) Valid() bool {
 	switch e {
-	case ShadowSessionRequestStrategyVersionTrendV1a1:
+	case ShadowSessionRequestStrategyVersionTrendFollowing100:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionResourceActivityState.
+const (
+	ShadowSessionResourceActivityStateBlocked    ShadowSessionResourceActivityState = "blocked"
+	ShadowSessionResourceActivityStateEvaluating ShadowSessionResourceActivityState = "evaluating"
+	ShadowSessionResourceActivityStatePaused     ShadowSessionResourceActivityState = "paused"
+	ShadowSessionResourceActivityStatePreparing  ShadowSessionResourceActivityState = "preparing"
+	ShadowSessionResourceActivityStateRunning    ShadowSessionResourceActivityState = "running"
+	ShadowSessionResourceActivityStateStopped    ShadowSessionResourceActivityState = "stopped"
+	ShadowSessionResourceActivityStateWaiting    ShadowSessionResourceActivityState = "waiting"
+	ShadowSessionResourceActivityStateWarmingUp  ShadowSessionResourceActivityState = "warming_up"
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionResourceActivityState enum.
+func (e ShadowSessionResourceActivityState) Valid() bool {
+	switch e {
+	case ShadowSessionResourceActivityStateBlocked:
+		return true
+	case ShadowSessionResourceActivityStateEvaluating:
+		return true
+	case ShadowSessionResourceActivityStatePaused:
+		return true
+	case ShadowSessionResourceActivityStatePreparing:
+		return true
+	case ShadowSessionResourceActivityStateRunning:
+		return true
+	case ShadowSessionResourceActivityStateStopped:
+		return true
+	case ShadowSessionResourceActivityStateWaiting:
+		return true
+	case ShadowSessionResourceActivityStateWarmingUp:
 		return true
 	default:
 		return false
@@ -2135,6 +4373,84 @@ func (e ShadowSessionResourceState) Valid() bool {
 	}
 }
 
+// Defines values for ShadowSessionSummaryPublicOnly.
+const (
+	ShadowSessionSummaryPublicOnlyTrue ShadowSessionSummaryPublicOnly = true
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummaryPublicOnly enum.
+func (e ShadowSessionSummaryPublicOnly) Valid() bool {
+	switch e {
+	case ShadowSessionSummaryPublicOnlyTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionSummarySimulationOnly.
+const (
+	ShadowSessionSummarySimulationOnlyTrue ShadowSessionSummarySimulationOnly = true
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummarySimulationOnly enum.
+func (e ShadowSessionSummarySimulationOnly) Valid() bool {
+	switch e {
+	case ShadowSessionSummarySimulationOnlyTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionSummaryState.
+const (
+	ShadowSessionSummaryStateCANCELED        ShadowSessionSummaryState = "CANCELED"
+	ShadowSessionSummaryStateCANCELREQUESTED ShadowSessionSummaryState = "CANCEL_REQUESTED"
+	ShadowSessionSummaryStateFAILED          ShadowSessionSummaryState = "FAILED"
+	ShadowSessionSummaryStatePAUSED          ShadowSessionSummaryState = "PAUSED"
+	ShadowSessionSummaryStateQUEUED          ShadowSessionSummaryState = "QUEUED"
+	ShadowSessionSummaryStateRUNNING         ShadowSessionSummaryState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummaryState enum.
+func (e ShadowSessionSummaryState) Valid() bool {
+	switch e {
+	case ShadowSessionSummaryStateCANCELED:
+		return true
+	case ShadowSessionSummaryStateCANCELREQUESTED:
+		return true
+	case ShadowSessionSummaryStateFAILED:
+		return true
+	case ShadowSessionSummaryStatePAUSED:
+		return true
+	case ShadowSessionSummaryStateQUEUED:
+		return true
+	case ShadowSessionSummaryStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ShadowSessionSummaryStrategyVersion.
+const (
+	ShadowSessionSummaryStrategyVersionMeanReversion100  ShadowSessionSummaryStrategyVersion = "mean-reversion@1.0.0"
+	ShadowSessionSummaryStrategyVersionTrendFollowing100 ShadowSessionSummaryStrategyVersion = "trend-following@1.0.0"
+)
+
+// Valid indicates whether the value is a known member of the ShadowSessionSummaryStrategyVersion enum.
+func (e ShadowSessionSummaryStrategyVersion) Valid() bool {
+	switch e {
+	case ShadowSessionSummaryStrategyVersionMeanReversion100:
+		return true
+	case ShadowSessionSummaryStrategyVersionTrendFollowing100:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SimulatedOrderSide.
 const (
 	SimulatedOrderSideBuy  SimulatedOrderSide = "buy"
@@ -2162,6 +4478,24 @@ const (
 func (e SimulatedOrderSimulated) Valid() bool {
 	switch e {
 	case True:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StrategyConfigurationRequestState.
+const (
+	Disabled StrategyConfigurationRequestState = "disabled"
+	Enabled  StrategyConfigurationRequestState = "enabled"
+)
+
+// Valid indicates whether the value is a known member of the StrategyConfigurationRequestState enum.
+func (e StrategyConfigurationRequestState) Valid() bool {
+	switch e {
+	case Disabled:
+		return true
+	case Enabled:
 		return true
 	default:
 		return false
@@ -2299,31 +4633,41 @@ func (e StreamEventSchemaVersion) Valid() bool {
 
 // Defines values for StreamEventStream.
 const (
-	StreamEventStreamAlert       StreamEventStream = "alert"
-	StreamEventStreamExchange    StreamEventStream = "exchange"
-	StreamEventStreamFill        StreamEventStream = "fill"
-	StreamEventStreamIncident    StreamEventStream = "incident"
-	StreamEventStreamInventory   StreamEventStream = "inventory"
-	StreamEventStreamJob         StreamEventStream = "job"
-	StreamEventStreamOpportunity StreamEventStream = "opportunity"
-	StreamEventStreamOrder       StreamEventStream = "order"
-	StreamEventStreamPortfolio   StreamEventStream = "portfolio"
-	StreamEventStreamRebalancing StreamEventStream = "rebalancing"
-	StreamEventStreamResearch    StreamEventStream = "research"
-	StreamEventStreamRisk        StreamEventStream = "risk"
-	StreamEventStreamSandbox     StreamEventStream = "sandbox"
-	StreamEventStreamShadow      StreamEventStream = "shadow"
-	StreamEventStreamStrategy    StreamEventStream = "strategy"
-	StreamEventStreamSystem      StreamEventStream = "system"
-	StreamEventStreamTrend       StreamEventStream = "trend"
+	StreamEventStreamActivity      StreamEventStream = "activity"
+	StreamEventStreamAlert         StreamEventStream = "alert"
+	StreamEventStreamConfiguration StreamEventStream = "configuration"
+	StreamEventStreamExchange      StreamEventStream = "exchange"
+	StreamEventStreamExport        StreamEventStream = "export"
+	StreamEventStreamFill          StreamEventStream = "fill"
+	StreamEventStreamIncident      StreamEventStream = "incident"
+	StreamEventStreamInventory     StreamEventStream = "inventory"
+	StreamEventStreamJob           StreamEventStream = "job"
+	StreamEventStreamOpportunity   StreamEventStream = "opportunity"
+	StreamEventStreamOrder         StreamEventStream = "order"
+	StreamEventStreamPortfolio     StreamEventStream = "portfolio"
+	StreamEventStreamQualification StreamEventStream = "qualification"
+	StreamEventStreamRebalancing   StreamEventStream = "rebalancing"
+	StreamEventStreamResearch      StreamEventStream = "research"
+	StreamEventStreamRisk          StreamEventStream = "risk"
+	StreamEventStreamSandbox       StreamEventStream = "sandbox"
+	StreamEventStreamShadow        StreamEventStream = "shadow"
+	StreamEventStreamStrategy      StreamEventStream = "strategy"
+	StreamEventStreamSystem        StreamEventStream = "system"
+	StreamEventStreamTrend         StreamEventStream = "trend"
 )
 
 // Valid indicates whether the value is a known member of the StreamEventStream enum.
 func (e StreamEventStream) Valid() bool {
 	switch e {
+	case StreamEventStreamActivity:
+		return true
 	case StreamEventStreamAlert:
 		return true
+	case StreamEventStreamConfiguration:
+		return true
 	case StreamEventStreamExchange:
+		return true
+	case StreamEventStreamExport:
 		return true
 	case StreamEventStreamFill:
 		return true
@@ -2338,6 +4682,8 @@ func (e StreamEventStream) Valid() bool {
 	case StreamEventStreamOrder:
 		return true
 	case StreamEventStreamPortfolio:
+		return true
+	case StreamEventStreamQualification:
 		return true
 	case StreamEventStreamRebalancing:
 		return true
@@ -2411,21 +4757,21 @@ func (e SystemStatusLifecycleState) Valid() bool {
 	}
 }
 
-// Defines values for SystemStatusPhase.
+// Defines values for SystemStatusReadinessState.
 const (
-	SystemStatusPhaseA1  SystemStatusPhase = "A1"
-	SystemStatusPhaseA11 SystemStatusPhase = "A11"
-	SystemStatusPhaseB8  SystemStatusPhase = "B8"
+	SystemStatusReadinessStateBlocked  SystemStatusReadinessState = "blocked"
+	SystemStatusReadinessStateDegraded SystemStatusReadinessState = "degraded"
+	SystemStatusReadinessStateReady    SystemStatusReadinessState = "ready"
 )
 
-// Valid indicates whether the value is a known member of the SystemStatusPhase enum.
-func (e SystemStatusPhase) Valid() bool {
+// Valid indicates whether the value is a known member of the SystemStatusReadinessState enum.
+func (e SystemStatusReadinessState) Valid() bool {
 	switch e {
-	case SystemStatusPhaseA1:
+	case SystemStatusReadinessStateBlocked:
 		return true
-	case SystemStatusPhaseA11:
+	case SystemStatusReadinessStateDegraded:
 		return true
-	case SystemStatusPhaseB8:
+	case SystemStatusReadinessStateReady:
 		return true
 	default:
 		return false
@@ -2447,39 +4793,21 @@ func (e SystemStatusRealTradingEnabled) Valid() bool {
 	}
 }
 
-// Defines values for SystemStatusRelease.
-const (
-	V1A SystemStatusRelease = "V1A"
-	V1B SystemStatusRelease = "V1B"
-)
-
-// Valid indicates whether the value is a known member of the SystemStatusRelease enum.
-func (e SystemStatusRelease) Valid() bool {
-	switch e {
-	case V1A:
-		return true
-	case V1B:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for SystemStatusRiskState.
 const (
-	LOCKED  SystemStatusRiskState = "LOCKED"
-	PAUSED  SystemStatusRiskState = "PAUSED"
-	RESUMED SystemStatusRiskState = "RESUMED"
+	SystemStatusRiskStateLOCKED  SystemStatusRiskState = "LOCKED"
+	SystemStatusRiskStatePAUSED  SystemStatusRiskState = "PAUSED"
+	SystemStatusRiskStateRESUMED SystemStatusRiskState = "RESUMED"
 )
 
 // Valid indicates whether the value is a known member of the SystemStatusRiskState enum.
 func (e SystemStatusRiskState) Valid() bool {
 	switch e {
-	case LOCKED:
+	case SystemStatusRiskStateLOCKED:
 		return true
-	case PAUSED:
+	case SystemStatusRiskStatePAUSED:
 		return true
-	case RESUMED:
+	case SystemStatusRiskStateRESUMED:
 		return true
 	default:
 		return false
@@ -2488,14 +4816,14 @@ func (e SystemStatusRiskState) Valid() bool {
 
 // Defines values for SystemStatusStrategyActivation.
 const (
-	SystemStatusStrategyActivationTrendV1a1   SystemStatusStrategyActivation = "trend.v1a.1"
-	SystemStatusStrategyActivationUnavailable SystemStatusStrategyActivation = "unavailable"
+	SystemStatusStrategyActivationTrendFollowing100 SystemStatusStrategyActivation = "trend-following@1.0.0"
+	SystemStatusStrategyActivationUnavailable       SystemStatusStrategyActivation = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the SystemStatusStrategyActivation enum.
 func (e SystemStatusStrategyActivation) Valid() bool {
 	switch e {
-	case SystemStatusStrategyActivationTrendV1a1:
+	case SystemStatusStrategyActivationTrendFollowing100:
 		return true
 	case SystemStatusStrategyActivationUnavailable:
 		return true
@@ -2563,25 +4891,25 @@ func (e TrendStatusEvidenceMaturity) Valid() bool {
 
 // Defines values for TrendStatusHealth.
 const (
-	Degraded TrendStatusHealth = "degraded"
-	Healthy  TrendStatusHealth = "healthy"
-	Locked   TrendStatusHealth = "locked"
-	Paused   TrendStatusHealth = "paused"
-	Warming  TrendStatusHealth = "warming"
+	TrendStatusHealthDegraded TrendStatusHealth = "degraded"
+	TrendStatusHealthHealthy  TrendStatusHealth = "healthy"
+	TrendStatusHealthLocked   TrendStatusHealth = "locked"
+	TrendStatusHealthPaused   TrendStatusHealth = "paused"
+	TrendStatusHealthWarming  TrendStatusHealth = "warming"
 )
 
 // Valid indicates whether the value is a known member of the TrendStatusHealth enum.
 func (e TrendStatusHealth) Valid() bool {
 	switch e {
-	case Degraded:
+	case TrendStatusHealthDegraded:
 		return true
-	case Healthy:
+	case TrendStatusHealthHealthy:
 		return true
-	case Locked:
+	case TrendStatusHealthLocked:
 		return true
-	case Paused:
+	case TrendStatusHealthPaused:
 		return true
-	case Warming:
+	case TrendStatusHealthWarming:
 		return true
 	default:
 		return false
@@ -2590,13 +4918,13 @@ func (e TrendStatusHealth) Valid() bool {
 
 // Defines values for TrendStatusTimeframe.
 const (
-	N4h TrendStatusTimeframe = "4h"
+	TrendStatusTimeframeN4h TrendStatusTimeframe = "4h"
 )
 
 // Valid indicates whether the value is a known member of the TrendStatusTimeframe enum.
 func (e TrendStatusTimeframe) Valid() bool {
 	switch e {
-	case N4h:
+	case TrendStatusTimeframeN4h:
 		return true
 	default:
 		return false
@@ -2605,13 +4933,13 @@ func (e TrendStatusTimeframe) Valid() bool {
 
 // Defines values for TrendStatusVersion.
 const (
-	TrendV1a1 TrendStatusVersion = "trend.v1a.1"
+	TrendFollowing100 TrendStatusVersion = "trend-following@1.0.0"
 )
 
 // Valid indicates whether the value is a known member of the TrendStatusVersion enum.
 func (e TrendStatusVersion) Valid() bool {
 	switch e {
-	case TrendV1a1:
+	case TrendFollowing100:
 		return true
 	default:
 		return false
@@ -2639,6 +4967,72 @@ func (e TrendStatusViability) Valid() bool {
 	}
 }
 
+// Defines values for ListActivityParamsView.
+const (
+	DecisionsOrders ListActivityParamsView = "decisions_orders"
+	SystemEvents    ListActivityParamsView = "system_events"
+)
+
+// Valid indicates whether the value is a known member of the ListActivityParamsView enum.
+func (e ListActivityParamsView) Valid() bool {
+	switch e {
+	case DecisionsOrders:
+		return true
+	case SystemEvents:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListActivityParamsSide.
+const (
+	ListActivityParamsSideBuy  ListActivityParamsSide = "buy"
+	ListActivityParamsSideSell ListActivityParamsSide = "sell"
+)
+
+// Valid indicates whether the value is a known member of the ListActivityParamsSide enum.
+func (e ListActivityParamsSide) Valid() bool {
+	switch e {
+	case ListActivityParamsSideBuy:
+		return true
+	case ListActivityParamsSideSell:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListActivityParamsMode.
+const (
+	Backtest ListActivityParamsMode = "backtest"
+	Demo     ListActivityParamsMode = "demo"
+	Paper    ListActivityParamsMode = "paper"
+	Replay   ListActivityParamsMode = "replay"
+	Shadow   ListActivityParamsMode = "shadow"
+	Testnet  ListActivityParamsMode = "testnet"
+)
+
+// Valid indicates whether the value is a known member of the ListActivityParamsMode enum.
+func (e ListActivityParamsMode) Valid() bool {
+	switch e {
+	case Backtest:
+		return true
+	case Demo:
+		return true
+	case Paper:
+		return true
+	case Replay:
+		return true
+	case Shadow:
+		return true
+	case Testnet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListIncidentsParamsState.
 const (
 	Acknowledged ListIncidentsParamsState = "acknowledged"
@@ -2654,6 +5048,30 @@ func (e ListIncidentsParamsState) Valid() bool {
 	case Open:
 		return true
 	case Resolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ControlLabRunParamsAction.
+const (
+	ControlLabRunParamsActionCancel    ControlLabRunParamsAction = "cancel"
+	ControlLabRunParamsActionPause     ControlLabRunParamsAction = "pause"
+	ControlLabRunParamsActionReproduce ControlLabRunParamsAction = "reproduce"
+	ControlLabRunParamsActionResume    ControlLabRunParamsAction = "resume"
+)
+
+// Valid indicates whether the value is a known member of the ControlLabRunParamsAction enum.
+func (e ControlLabRunParamsAction) Valid() bool {
+	switch e {
+	case ControlLabRunParamsActionCancel:
+		return true
+	case ControlLabRunParamsActionPause:
+		return true
+	case ControlLabRunParamsActionReproduce:
+		return true
+	case ControlLabRunParamsActionResume:
 		return true
 	default:
 		return false
@@ -2678,6 +5096,63 @@ func (e ListOpportunitiesParamsKind) Valid() bool {
 	}
 }
 
+// Defines values for ControlRiskScopeParamsScope.
+const (
+	ControlRiskScopeParamsScopeExchange   ControlRiskScopeParamsScope = "exchange"
+	ControlRiskScopeParamsScopeGlobal     ControlRiskScopeParamsScope = "global"
+	ControlRiskScopeParamsScopeInstrument ControlRiskScopeParamsScope = "instrument"
+	ControlRiskScopeParamsScopeNewEntries ControlRiskScopeParamsScope = "new_entries"
+	ControlRiskScopeParamsScopeStrategy   ControlRiskScopeParamsScope = "strategy"
+)
+
+// Valid indicates whether the value is a known member of the ControlRiskScopeParamsScope enum.
+func (e ControlRiskScopeParamsScope) Valid() bool {
+	switch e {
+	case ControlRiskScopeParamsScopeExchange:
+		return true
+	case ControlRiskScopeParamsScopeGlobal:
+		return true
+	case ControlRiskScopeParamsScopeInstrument:
+		return true
+	case ControlRiskScopeParamsScopeNewEntries:
+		return true
+	case ControlRiskScopeParamsScopeStrategy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListShadowSessionsParamsState.
+const (
+	ListShadowSessionsParamsStateCANCELED        ListShadowSessionsParamsState = "CANCELED"
+	ListShadowSessionsParamsStateCANCELREQUESTED ListShadowSessionsParamsState = "CANCEL_REQUESTED"
+	ListShadowSessionsParamsStateFAILED          ListShadowSessionsParamsState = "FAILED"
+	ListShadowSessionsParamsStatePAUSED          ListShadowSessionsParamsState = "PAUSED"
+	ListShadowSessionsParamsStateQUEUED          ListShadowSessionsParamsState = "QUEUED"
+	ListShadowSessionsParamsStateRUNNING         ListShadowSessionsParamsState = "RUNNING"
+)
+
+// Valid indicates whether the value is a known member of the ListShadowSessionsParamsState enum.
+func (e ListShadowSessionsParamsState) Valid() bool {
+	switch e {
+	case ListShadowSessionsParamsStateCANCELED:
+		return true
+	case ListShadowSessionsParamsStateCANCELREQUESTED:
+		return true
+	case ListShadowSessionsParamsStateFAILED:
+		return true
+	case ListShadowSessionsParamsStatePAUSED:
+		return true
+	case ListShadowSessionsParamsStateQUEUED:
+		return true
+	case ListShadowSessionsParamsStateRUNNING:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListTrendDecisionsParamsOutcome.
 const (
 	ListTrendDecisionsParamsOutcomeAccepted ListTrendDecisionsParamsOutcome = "accepted"
@@ -2696,19 +5171,166 @@ func (e ListTrendDecisionsParamsOutcome) Valid() bool {
 	}
 }
 
+// ActivityPage defines model for ActivityPage.
+type ActivityPage struct {
+	HasMore          bool               `json:"has_more"`
+	Items            []ActivityResource `json:"items"`
+	NextCursor       *string            `json:"next_cursor,omitempty"`
+	Revision         Revision           `json:"revision"`
+	SnapshotRevision Revision           `json:"snapshot_revision"`
+}
+
+// ActivityResource defines model for ActivityResource.
+type ActivityResource struct {
+	ActivityRevision Revision               `json:"activity_revision"`
+	CausationId      *string                `json:"causation_id,omitempty"`
+	CorrelationId    string                 `json:"correlation_id"`
+	Details          map[string]interface{} `json:"details"`
+	ExchangeId       *string                `json:"exchange_id,omitempty"`
+	Id               string                 `json:"id"`
+	InstrumentId     *string                `json:"instrument_id,omitempty"`
+	Links            map[string]string      `json:"links"`
+	Mode             *ActivityResourceMode  `json:"mode,omitempty"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt     Timestamp             `json:"occurred_at"`
+	Outcome        string                `json:"outcome"`
+	Reason         ReasonPresentation    `json:"reason"`
+	Side           *ActivityResourceSide `json:"side,omitempty"`
+	SourceId       string                `json:"source_id"`
+	SourceRevision string                `json:"source_revision"`
+	SourceType     string                `json:"source_type"`
+	StrategyId     *string               `json:"strategy_id,omitempty"`
+	View           ActivityResourceView  `json:"view"`
+}
+
+// ActivityResourceMode defines model for ActivityResource.Mode.
+type ActivityResourceMode string
+
+// ActivityResourceSide defines model for ActivityResource.Side.
+type ActivityResourceSide string
+
+// ActivityResourceView defines model for ActivityResource.View.
+type ActivityResourceView string
+
+// AlertDeliveryAttempt defines model for AlertDeliveryAttempt.
+type AlertDeliveryAttempt struct {
+	Attempt int `json:"attempt"`
+
+	// CompletedAt RFC 3339 timestamp with an explicit UTC offset.
+	CompletedAt Timestamp `json:"completed_at"`
+	Id          string    `json:"id"`
+	LatencyMs   *int64    `json:"latency_ms,omitempty"`
+	ReasonCode  *string   `json:"reason_code,omitempty"`
+	SinkName    string    `json:"sink_name"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt Timestamp                 `json:"started_at"`
+	State     AlertDeliveryAttemptState `json:"state"`
+}
+
+// AlertDeliveryAttemptState defines model for AlertDeliveryAttempt.State.
+type AlertDeliveryAttemptState string
+
+// AlertDetail defines model for AlertDetail.
+type AlertDetail struct {
+	Component     string `json:"component"`
+	CorrelationId string `json:"correlation_id"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt   Timestamp              `json:"created_at"`
+	Deliveries  []AlertDeliveryAttempt `json:"deliveries"`
+	Escalations []AlertEscalation      `json:"escalations"`
+	Id          string                 `json:"id"`
+	IncidentId  *string                `json:"incident_id,omitempty"`
+
+	// LastSeenAt RFC 3339 timestamp with an explicit UTC offset.
+	LastSeenAt  Timestamp           `json:"last_seen_at"`
+	Occurrences int64               `json:"occurrences"`
+	ReasonCode  string              `json:"reason_code"`
+	Revision    Revision            `json:"revision"`
+	Severity    AlertDetailSeverity `json:"severity"`
+	State       AlertDetailState    `json:"state"`
+}
+
+// AlertDetailSeverity defines model for AlertDetail.Severity.
+type AlertDetailSeverity string
+
+// AlertDetailState defines model for AlertDetail.State.
+type AlertDetailState string
+
+// AlertEscalation defines model for AlertEscalation.
+type AlertEscalation struct {
+	ActorUserId string `json:"actor_user_id"`
+
+	// EscalatedAt RFC 3339 timestamp with an explicit UTC offset.
+	EscalatedAt Timestamp `json:"escalated_at"`
+	Id          string    `json:"id"`
+	Reason      string    `json:"reason"`
+	Revision    Revision  `json:"revision"`
+}
+
+// AlertRoute defines model for AlertRoute.
+type AlertRoute struct {
+	Enabled       bool                     `json:"enabled"`
+	Id            string                   `json:"id"`
+	LastTestState *AlertRouteLastTestState `json:"last_test_state,omitempty"`
+
+	// LastTestedAt RFC 3339 timestamp with an explicit UTC offset.
+	LastTestedAt    *Timestamp                `json:"last_tested_at,omitempty"`
+	MinimumSeverity AlertRouteMinimumSeverity `json:"minimum_severity"`
+	Revision        Revision                  `json:"revision"`
+	SinkName        string                    `json:"sink_name"`
+	TargetLabel     *string                   `json:"target_label,omitempty"`
+}
+
+// AlertRouteLastTestState defines model for AlertRoute.LastTestState.
+type AlertRouteLastTestState string
+
+// AlertRouteMinimumSeverity defines model for AlertRoute.MinimumSeverity.
+type AlertRouteMinimumSeverity string
+
+// AlertRoutePage defines model for AlertRoutePage.
+type AlertRoutePage struct {
+	Items    []AlertRoute `json:"items"`
+	Revision Revision     `json:"revision"`
+}
+
+// AlertTestRequest defines model for AlertTestRequest.
+type AlertTestRequest struct {
+	ExpectedRevision Revision `json:"expected_revision"`
+	Reason           string   `json:"reason"`
+}
+
+// ArtifactHoldRequest defines model for ArtifactHoldRequest.
+type ArtifactHoldRequest struct {
+	AuthorizationToken string                      `json:"authorization_token"`
+	ExpectedRevision   Revision                    `json:"expected_revision"`
+	HoldType           ArtifactHoldRequestHoldType `json:"hold_type"`
+	Reason             string                      `json:"reason"`
+	ReferenceId        string                      `json:"reference_id"`
+}
+
+// ArtifactHoldRequestHoldType defines model for ArtifactHoldRequest.HoldType.
+type ArtifactHoldRequestHoldType string
+
 // AuditEvent defines model for AuditEvent.
 type AuditEvent struct {
-	Actor         string `json:"actor"`
-	CausationId   string `json:"causation_id"`
-	CorrelationId string `json:"correlation_id"`
-	EventType     string `json:"event_type"`
-	Id            string `json:"id"`
+	Actor         string              `json:"actor"`
+	Category      *AuditEventCategory `json:"category,omitempty"`
+	CausationId   string              `json:"causation_id"`
+	CorrelationId string              `json:"correlation_id"`
+	EventType     string              `json:"event_type"`
+	Id            string              `json:"id"`
 
 	// RecordedAt RFC 3339 timestamp with an explicit UTC offset.
 	RecordedAt Timestamp `json:"recorded_at"`
 	Redacted   bool      `json:"redacted"`
 	SafeDetail *string   `json:"safe_detail,omitempty"`
 }
+
+// AuditEventCategory defines model for AuditEvent.Category.
+type AuditEventCategory string
 
 // AuditEventPage defines model for AuditEventPage.
 type AuditEventPage struct {
@@ -2717,6 +5339,21 @@ type AuditEventPage struct {
 	NextCursor *string      `json:"next_cursor,omitempty"`
 	Revision   Revision     `json:"revision"`
 }
+
+// AuditVerification defines model for AuditVerification.
+type AuditVerification struct {
+	CheckedEvents       int64                    `json:"checked_events"`
+	FirstBrokenSequence *int64                   `json:"first_broken_sequence,omitempty"`
+	HeadHash            string                   `json:"head_hash"`
+	ReasonCode          *string                  `json:"reason_code,omitempty"`
+	Verdict             AuditVerificationVerdict `json:"verdict"`
+
+	// VerifiedAt RFC 3339 timestamp with an explicit UTC offset.
+	VerifiedAt Timestamp `json:"verified_at"`
+}
+
+// AuditVerificationVerdict defines model for AuditVerification.Verdict.
+type AuditVerificationVerdict string
 
 // Balance defines model for Balance.
 type Balance struct {
@@ -2766,109 +5403,6 @@ type BuildInformation struct {
 	Version   string `json:"version"`
 }
 
-// C6ChaosSummary defines model for C6ChaosSummary.
-type C6ChaosSummary struct {
-	Failed int `json:"failed"`
-
-	// LastObservedAt RFC 3339 timestamp with an explicit UTC offset.
-	LastObservedAt Timestamp            `json:"last_observed_at"`
-	Passed         int                  `json:"passed"`
-	Status         C6ChaosSummaryStatus `json:"status"`
-}
-
-// C6ChaosSummaryStatus defines model for C6ChaosSummary.Status.
-type C6ChaosSummaryStatus string
-
-// C6QualificationStatus defines model for C6QualificationStatus.
-type C6QualificationStatus struct {
-	AuditUrl          string         `json:"audit_url"`
-	BuildHash         *string        `json:"build_hash,omitempty"`
-	Chaos             C6ChaosSummary `json:"chaos"`
-	CommitSha         *string        `json:"commit_sha,omitempty"`
-	ConfigurationHash *string        `json:"configuration_hash,omitempty"`
-
-	// EndedAt RFC 3339 timestamp with an explicit UTC offset.
-	EndedAt                 *Timestamp                                 `json:"ended_at,omitempty"`
-	EvidenceHash            *string                                    `json:"evidence_hash,omitempty"`
-	ExecutableHash          *string                                    `json:"executable_hash,omitempty"`
-	Failures                []string                                   `json:"failures"`
-	FormalSoakPending       bool                                       `json:"formal_soak_pending"`
-	Id                      *string                                    `json:"id,omitempty"`
-	ImageHash               *string                                    `json:"image_hash,omitempty"`
-	Mode                    C6QualificationStatusMode                  `json:"mode"`
-	ObservedDurationSeconds int64                                      `json:"observed_duration_seconds"`
-	ProfitabilityEvidence   C6QualificationStatusProfitabilityEvidence `json:"profitability_evidence"`
-	Qualified               bool                                       `json:"qualified"`
-	RecoveryIncidents       []C6RecoveryIncident                       `json:"recovery_incidents"`
-	RequiredDurationSeconds int64                                      `json:"required_duration_seconds"`
-	Slo                     C6SLOSummary                               `json:"slo"`
-
-	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
-	StartedAt *Timestamp                 `json:"started_at,omitempty"`
-	State     C6QualificationStatusState `json:"state"`
-}
-
-// C6QualificationStatusMode defines model for C6QualificationStatus.Mode.
-type C6QualificationStatusMode string
-
-// C6QualificationStatusProfitabilityEvidence defines model for C6QualificationStatus.ProfitabilityEvidence.
-type C6QualificationStatusProfitabilityEvidence bool
-
-// C6QualificationStatusState defines model for C6QualificationStatus.State.
-type C6QualificationStatusState string
-
-// C6RecoveryIncident defines model for C6RecoveryIncident.
-type C6RecoveryIncident struct {
-	AccountId       string `json:"account_id"`
-	CauseCode       string `json:"cause_code"`
-	CleanCheckCount int    `json:"clean_check_count"`
-
-	// DeadlineAt RFC 3339 timestamp with an explicit UTC offset.
-	DeadlineAt Timestamp `json:"deadline_at"`
-
-	// DetectedAt RFC 3339 timestamp with an explicit UTC offset.
-	DetectedAt     Timestamp                        `json:"detected_at"`
-	Environment    C6RecoveryIncidentEnvironment    `json:"environment"`
-	EvidenceHash   string                           `json:"evidence_hash"`
-	Exchange       C6RecoveryIncidentExchange       `json:"exchange"`
-	IncidentSource C6RecoveryIncidentIncidentSource `json:"incident_source"`
-	ReasonCategory string                           `json:"reason_category"`
-
-	// RecoveryTimestamp RFC 3339 timestamp with an explicit UTC offset.
-	RecoveryTimestamp *Timestamp              `json:"recovery_timestamp,omitempty"`
-	State             C6RecoveryIncidentState `json:"state"`
-}
-
-// C6RecoveryIncidentEnvironment defines model for C6RecoveryIncident.Environment.
-type C6RecoveryIncidentEnvironment string
-
-// C6RecoveryIncidentExchange defines model for C6RecoveryIncident.Exchange.
-type C6RecoveryIncidentExchange string
-
-// C6RecoveryIncidentIncidentSource defines model for C6RecoveryIncident.IncidentSource.
-type C6RecoveryIncidentIncidentSource string
-
-// C6RecoveryIncidentState defines model for C6RecoveryIncident.State.
-type C6RecoveryIncidentState string
-
-// C6SLOSummary defines model for C6SLOSummary.
-type C6SLOSummary struct {
-	CriticalAlertLatencyMs   int64 `json:"critical_alert_latency_ms"`
-	DoublePostedFills        int64 `json:"double_posted_fills"`
-	DuplicateCreates         int64 `json:"duplicate_creates"`
-	LostFills                int64 `json:"lost_fills"`
-	Passing                  bool  `json:"passing"`
-	PositiveMemoryLeakTrend  bool  `json:"positive_memory_leak_trend"`
-	ReconciliationMismatches int64 `json:"reconciliation_mismatches"`
-	Reconnects               int64 `json:"reconnects"`
-	RecoveryDurationMs       int64 `json:"recovery_duration_ms"`
-	ResidentMemoryDeltaBytes int64 `json:"resident_memory_delta_bytes"`
-	Restarts                 int64 `json:"restarts"`
-	Samples                  int64 `json:"samples"`
-	SuspenseItems            int64 `json:"suspense_items"`
-	UnknownOrders            int64 `json:"unknown_orders"`
-}
-
 // ChampionChallengerPage defines model for ChampionChallengerPage.
 type ChampionChallengerPage struct {
 	HasMore          bool                       `json:"has_more"`
@@ -2911,6 +5445,69 @@ type CommandAccepted struct {
 // CommandAcceptedState defines model for CommandAccepted.State.
 type CommandAcceptedState string
 
+// ConfigurationActivationRequest defines model for ConfigurationActivationRequest.
+type ConfigurationActivationRequest struct {
+	AuthorizationToken string   `json:"authorization_token"`
+	ConfigurationId    string   `json:"configuration_id"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	Reason             string   `json:"reason"`
+}
+
+// DataAudit defines model for DataAudit.
+type DataAudit struct {
+	// CompletedAt RFC 3339 timestamp with an explicit UTC offset.
+	CompletedAt *Timestamp `json:"completed_at,omitempty"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt  Timestamp      `json:"created_at"`
+	Id         string         `json:"id"`
+	ReasonCode *string        `json:"reason_code,omitempty"`
+	State      DataAuditState `json:"state"`
+}
+
+// DataAuditState defines model for DataAudit.State.
+type DataAuditState string
+
+// DataCatalogueItem defines model for DataCatalogueItem.
+type DataCatalogueItem struct {
+	// CoverageEnd RFC 3339 timestamp with an explicit UTC offset.
+	CoverageEnd Timestamp `json:"coverage_end"`
+
+	// CoverageStart RFC 3339 timestamp with an explicit UTC offset.
+	CoverageStart  Timestamp                         `json:"coverage_start"`
+	CoverageTypes  []string                          `json:"coverage_types"`
+	Exchanges      []DataCatalogueItemExchanges      `json:"exchanges"`
+	Instruments    []string                          `json:"instruments"`
+	KnownGapCount  int                               `json:"known_gap_count"`
+	ManifestHash   string                            `json:"manifest_hash"`
+	Name           string                            `json:"name"`
+	QualityTier    *DataCatalogueItemQualityTier     `json:"quality_tier,omitempty"`
+	SegmentCount   int                               `json:"segment_count"`
+	Source         DataCatalogueItemSource           `json:"source"`
+	State          DataCatalogueItemState            `json:"state"`
+	SupportedModes []DataCatalogueItemSupportedModes `json:"supported_modes"`
+}
+
+// DataCatalogueItemExchanges defines model for DataCatalogueItem.Exchanges.
+type DataCatalogueItemExchanges string
+
+// DataCatalogueItemQualityTier defines model for DataCatalogueItem.QualityTier.
+type DataCatalogueItemQualityTier string
+
+// DataCatalogueItemSource defines model for DataCatalogueItem.Source.
+type DataCatalogueItemSource string
+
+// DataCatalogueItemState defines model for DataCatalogueItem.State.
+type DataCatalogueItemState string
+
+// DataCatalogueItemSupportedModes defines model for DataCatalogueItem.SupportedModes.
+type DataCatalogueItemSupportedModes string
+
+// DataCataloguePage defines model for DataCataloguePage.
+type DataCataloguePage struct {
+	Items []DataCatalogueItem `json:"items"`
+}
+
 // Decimal defines model for Decimal.
 type Decimal = string
 
@@ -2934,11 +5531,265 @@ type DetailedHealthResponseStatus string
 
 // Error defines model for Error.
 type Error struct {
-	Code          string             `json:"code"`
-	CorrelationId string             `json:"correlation_id"`
-	FieldDetails  *map[string]string `json:"field_details,omitempty"`
-	Message       string             `json:"message"`
+	BlockingPrerequisites *[]string          `json:"blocking_prerequisites,omitempty"`
+	Code                  string             `json:"code"`
+	CorrelationId         string             `json:"correlation_id"`
+	CurrentState          *string            `json:"current_state,omitempty"`
+	Detail                *string            `json:"detail,omitempty"`
+	FieldDetails          *map[string]string `json:"field_details,omitempty"`
+	Impact                *string            `json:"impact,omitempty"`
+	Message               string             `json:"message"`
+	RequiredState         *string            `json:"required_state,omitempty"`
+	SuggestedAction       *string            `json:"suggested_action,omitempty"`
+	Summary               *string            `json:"summary,omitempty"`
 }
+
+// EvaluationCampaign defines model for EvaluationCampaign.
+type EvaluationCampaign struct {
+	CompletedStages []EvaluationCampaignCompletedStages `json:"completed_stages"`
+	Coverage        *[]EvaluationCoverage               `json:"coverage,omitempty"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt                 Timestamp                             `json:"created_at"`
+	CurrentStage              *EvaluationCampaignCurrentStage       `json:"current_stage,omitempty"`
+	EstimatedRemainingSeconds *int64                                `json:"estimated_remaining_seconds,omitempty"`
+	FeedHealth                *[]EvaluationFeedHealth               `json:"feed_health,omitempty"`
+	HistoricalImports         *[]EvaluationHistoricalImportProgress `json:"historical_imports,omitempty"`
+	Id                        string                                `json:"id"`
+	Matrix                    *[]EvaluationMatrixMember             `json:"matrix,omitempty"`
+	MeasuredBytesPerHour      *int64                                `json:"measured_bytes_per_hour,omitempty"`
+	Preset                    EvaluationCampaignPreset              `json:"preset"`
+	ReasonCode                *string                               `json:"reason_code,omitempty"`
+	RecordedBytes             *int64                                `json:"recorded_bytes,omitempty"`
+
+	// RecordingLastValidAt RFC 3339 timestamp with an explicit UTC offset.
+	RecordingLastValidAt *Timestamp                `json:"recording_last_valid_at,omitempty"`
+	RecordingLimitBytes  *int64                    `json:"recording_limit_bytes,omitempty"`
+	Revision             Revision                  `json:"revision"`
+	Shadow               *EvaluationShadowProgress `json:"shadow,omitempty"`
+
+	// ShadowLastValidAt RFC 3339 timestamp with an explicit UTC offset.
+	ShadowLastValidAt   *Timestamp                 `json:"shadow_last_valid_at,omitempty"`
+	ShadowReservedBytes *int64                     `json:"shadow_reserved_bytes,omitempty"`
+	Stages              *[]EvaluationStageProgress `json:"stages,omitempty"`
+	State               EvaluationCampaignState    `json:"state"`
+	SuggestedAction     *string                    `json:"suggested_action,omitempty"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt             Timestamp `json:"updated_at"`
+	ValidRecordingSeconds *int64    `json:"valid_recording_seconds,omitempty"`
+	ValidShadowSeconds    *int64    `json:"valid_shadow_seconds,omitempty"`
+	WallTimeSeconds       *int64    `json:"wall_time_seconds,omitempty"`
+}
+
+// EvaluationCampaignCompletedStages defines model for EvaluationCampaign.CompletedStages.
+type EvaluationCampaignCompletedStages string
+
+// EvaluationCampaignCurrentStage defines model for EvaluationCampaign.CurrentStage.
+type EvaluationCampaignCurrentStage string
+
+// EvaluationCampaignPreset defines model for EvaluationCampaign.Preset.
+type EvaluationCampaignPreset string
+
+// EvaluationCampaignState defines model for EvaluationCampaign.State.
+type EvaluationCampaignState string
+
+// EvaluationCampaignCreateRequest defines model for EvaluationCampaignCreateRequest.
+type EvaluationCampaignCreateRequest struct {
+	Preset EvaluationCampaignCreateRequestPreset `json:"preset"`
+}
+
+// EvaluationCampaignCreateRequestPreset defines model for EvaluationCampaignCreateRequest.Preset.
+type EvaluationCampaignCreateRequestPreset string
+
+// EvaluationCampaignEvent defines model for EvaluationCampaignEvent.
+type EvaluationCampaignEvent struct {
+	EventType string `json:"event_type"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt Timestamp `json:"occurred_at"`
+	Ordinal    Revision  `json:"ordinal"`
+	ReasonCode *string   `json:"reason_code,omitempty"`
+	Stage      *string   `json:"stage,omitempty"`
+	Summary    *string   `json:"summary,omitempty"`
+}
+
+// EvaluationCampaignEventPage defines model for EvaluationCampaignEventPage.
+type EvaluationCampaignEventPage struct {
+	Items []EvaluationCampaignEvent `json:"items"`
+}
+
+// EvaluationCampaignPage defines model for EvaluationCampaignPage.
+type EvaluationCampaignPage struct {
+	Items []EvaluationCampaign `json:"items"`
+}
+
+// EvaluationCampaignReport defines model for EvaluationCampaignReport.
+type EvaluationCampaignReport struct {
+	Content *map[string]interface{} `json:"content,omitempty"`
+
+	// GeneratedAt RFC 3339 timestamp with an explicit UTC offset.
+	GeneratedAt Timestamp                        `json:"generated_at"`
+	ReasonCode  *string                          `json:"reason_code,omitempty"`
+	ReportHash  *string                          `json:"report_hash,omitempty"`
+	State       EvaluationCampaignReportState    `json:"state"`
+	Summary     *string                          `json:"summary,omitempty"`
+	Verdict     *EvaluationCampaignReportVerdict `json:"verdict,omitempty"`
+}
+
+// EvaluationCampaignReportState defines model for EvaluationCampaignReport.State.
+type EvaluationCampaignReportState string
+
+// EvaluationCampaignReportVerdict defines model for EvaluationCampaignReport.Verdict.
+type EvaluationCampaignReportVerdict string
+
+// EvaluationCoverage defines model for EvaluationCoverage.
+type EvaluationCoverage struct {
+	ByteCount      int64                         `json:"byte_count"`
+	DatasetId      string                        `json:"dataset_id"`
+	DuplicateCount int64                         `json:"duplicate_count"`
+	Eligibility    EvaluationCoverageEligibility `json:"eligibility"`
+	Exchange       *string                       `json:"exchange,omitempty"`
+	GapCount       int64                         `json:"gap_count"`
+	Instrument     *string                       `json:"instrument,omitempty"`
+	ReasonCode     string                        `json:"reason_code"`
+	SegmentCount   int64                         `json:"segment_count"`
+}
+
+// EvaluationCoverageEligibility defines model for EvaluationCoverage.Eligibility.
+type EvaluationCoverageEligibility string
+
+// EvaluationFeedHealth defines model for EvaluationFeedHealth.
+type EvaluationFeedHealth struct {
+	BookFresh         bool                           `json:"book_fresh"`
+	ClockEligible     bool                           `json:"clock_eligible"`
+	DecoderErrorCount int64                          `json:"decoder_error_count"`
+	Eligible          bool                           `json:"eligible"`
+	Exchange          EvaluationFeedHealthExchange   `json:"exchange"`
+	GapCount          int64                          `json:"gap_count"`
+	Instrument        EvaluationFeedHealthInstrument `json:"instrument"`
+
+	// LatestEventAt RFC 3339 timestamp with an explicit UTC offset.
+	LatestEventAt  Timestamp `json:"latest_event_at"`
+	MessageCount   int64     `json:"message_count"`
+	QueueDropCount int64     `json:"queue_drop_count"`
+}
+
+// EvaluationFeedHealthExchange defines model for EvaluationFeedHealth.Exchange.
+type EvaluationFeedHealthExchange string
+
+// EvaluationFeedHealthInstrument defines model for EvaluationFeedHealth.Instrument.
+type EvaluationFeedHealthInstrument string
+
+// EvaluationHistoricalImportProgress defines model for EvaluationHistoricalImportProgress.
+type EvaluationHistoricalImportProgress struct {
+	ByteCount int64 `json:"byte_count"`
+
+	// CheckpointTime RFC 3339 timestamp with an explicit UTC offset.
+	CheckpointTime Timestamp                                    `json:"checkpoint_time"`
+	Exchange       EvaluationHistoricalImportProgressExchange   `json:"exchange"`
+	GapCount       int64                                        `json:"gap_count"`
+	Instrument     EvaluationHistoricalImportProgressInstrument `json:"instrument"`
+	Interval       EvaluationHistoricalImportProgressInterval   `json:"interval"`
+	ReasonCode     *string                                      `json:"reason_code,omitempty"`
+	RowCount       int64                                        `json:"row_count"`
+	State          EvaluationHistoricalImportProgressState      `json:"state"`
+
+	// WindowEnd RFC 3339 timestamp with an explicit UTC offset.
+	WindowEnd Timestamp `json:"window_end"`
+
+	// WindowStart RFC 3339 timestamp with an explicit UTC offset.
+	WindowStart Timestamp `json:"window_start"`
+}
+
+// EvaluationHistoricalImportProgressExchange defines model for EvaluationHistoricalImportProgress.Exchange.
+type EvaluationHistoricalImportProgressExchange string
+
+// EvaluationHistoricalImportProgressInstrument defines model for EvaluationHistoricalImportProgress.Instrument.
+type EvaluationHistoricalImportProgressInstrument string
+
+// EvaluationHistoricalImportProgressInterval defines model for EvaluationHistoricalImportProgress.Interval.
+type EvaluationHistoricalImportProgressInterval string
+
+// EvaluationHistoricalImportProgressState defines model for EvaluationHistoricalImportProgress.State.
+type EvaluationHistoricalImportProgressState string
+
+// EvaluationMatrixMember defines model for EvaluationMatrixMember.
+type EvaluationMatrixMember struct {
+	CapitalMicros int64                          `json:"capital_micros"`
+	Configuration string                         `json:"configuration"`
+	CostStressBps int                            `json:"cost_stress_bps"`
+	Id            string                         `json:"id"`
+	Metrics       *map[string]interface{}        `json:"metrics,omitempty"`
+	Mode          EvaluationMatrixMemberMode     `json:"mode"`
+	ReasonCode    *string                        `json:"reason_code,omitempty"`
+	RepeatOrdinal int                            `json:"repeat_ordinal"`
+	ResultHash    *string                        `json:"result_hash,omitempty"`
+	State         EvaluationMatrixMemberState    `json:"state"`
+	Strategy      EvaluationMatrixMemberStrategy `json:"strategy"`
+	Verdict       *EvaluationMatrixMemberVerdict `json:"verdict,omitempty"`
+}
+
+// EvaluationMatrixMemberMode defines model for EvaluationMatrixMember.Mode.
+type EvaluationMatrixMemberMode string
+
+// EvaluationMatrixMemberState defines model for EvaluationMatrixMember.State.
+type EvaluationMatrixMemberState string
+
+// EvaluationMatrixMemberStrategy defines model for EvaluationMatrixMember.Strategy.
+type EvaluationMatrixMemberStrategy string
+
+// EvaluationMatrixMemberVerdict defines model for EvaluationMatrixMember.Verdict.
+type EvaluationMatrixMemberVerdict string
+
+// EvaluationShadowProgress defines model for EvaluationShadowProgress.
+type EvaluationShadowProgress struct {
+	LastProcessedOrdinal   int64                         `json:"last_processed_ordinal"`
+	MemberCeilingMicros    int64                         `json:"member_ceiling_micros"`
+	Members                []EvaluationMatrixMember      `json:"members"`
+	ProtectedReserveMicros int64                         `json:"protected_reserve_micros"`
+	ReasonCode             *string                       `json:"reason_code,omitempty"`
+	SharedCapitalMicros    int64                         `json:"shared_capital_micros"`
+	StartOrdinal           int64                         `json:"start_ordinal"`
+	State                  EvaluationShadowProgressState `json:"state"`
+	ValidSeconds           int64                         `json:"valid_seconds"`
+}
+
+// EvaluationShadowProgressState defines model for EvaluationShadowProgress.State.
+type EvaluationShadowProgressState string
+
+// EvaluationStageProgress defines model for EvaluationStageProgress.
+type EvaluationStageProgress struct {
+	Attempt int `json:"attempt"`
+
+	// CompletedAt RFC 3339 timestamp with an explicit UTC offset.
+	CompletedAt *Timestamp                   `json:"completed_at,omitempty"`
+	ReasonCode  *string                      `json:"reason_code,omitempty"`
+	Stage       EvaluationStageProgressStage `json:"stage"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt *Timestamp                   `json:"started_at,omitempty"`
+	State     EvaluationStageProgressState `json:"state"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// EvaluationStageProgressStage defines model for EvaluationStageProgress.Stage.
+type EvaluationStageProgressStage string
+
+// EvaluationStageProgressState defines model for EvaluationStageProgress.State.
+type EvaluationStageProgressState string
+
+// EvidenceBundleRequest defines model for EvidenceBundleRequest.
+type EvidenceBundleRequest struct {
+	ExpectedRevision Revision                    `json:"expected_revision"`
+	Format           EvidenceBundleRequestFormat `json:"format"`
+	Reason           string                      `json:"reason"`
+}
+
+// EvidenceBundleRequestFormat defines model for EvidenceBundleRequest.Format.
+type EvidenceBundleRequestFormat string
 
 // EvidenceTimelineEvent defines model for EvidenceTimelineEvent.
 type EvidenceTimelineEvent struct {
@@ -2994,6 +5845,99 @@ type ExchangeSummaryRecorderState string
 // ExchangeSummaryWebsocketState defines model for ExchangeSummary.WebsocketState.
 type ExchangeSummaryWebsocketState string
 
+// ExportArtifact defines model for ExportArtifact.
+type ExportArtifact struct {
+	CommandId   string  `json:"command_id"`
+	Content     *string `json:"content,omitempty"`
+	ContentHash string  `json:"content_hash"`
+	ContentType string  `json:"content_type"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt Timestamp `json:"created_at"`
+	Deleted   bool      `json:"deleted"`
+
+	// ExpiresAt RFC 3339 timestamp with an explicit UTC offset.
+	ExpiresAt        Timestamp            `json:"expires_at"`
+	Format           ExportArtifactFormat `json:"format"`
+	Held             bool                 `json:"held"`
+	Id               string               `json:"id"`
+	JobId            string               `json:"job_id"`
+	RedactionVersion string               `json:"redaction_version"`
+	ResourceId       string               `json:"resource_id"`
+	ResourceType     string               `json:"resource_type"`
+	Revision         Revision             `json:"revision"`
+	SizeBytes        Revision             `json:"size_bytes"`
+}
+
+// ExportArtifactFormat defines model for ExportArtifact.Format.
+type ExportArtifactFormat string
+
+// ExportRequest defines model for ExportRequest.
+type ExportRequest struct {
+	ExpectedRevision Revision                  `json:"expected_revision"`
+	Format           ExportRequestFormat       `json:"format"`
+	Reason           string                    `json:"reason"`
+	ResourceId       string                    `json:"resource_id"`
+	ResourceType     ExportRequestResourceType `json:"resource_type"`
+}
+
+// ExportRequestFormat defines model for ExportRequest.Format.
+type ExportRequestFormat string
+
+// ExportRequestResourceType defines model for ExportRequest.ResourceType.
+type ExportRequestResourceType string
+
+// GuidedDemonstration defines model for GuidedDemonstration.
+type GuidedDemonstration struct {
+	Description      string   `json:"description"`
+	ExpectedOutcomes []string `json:"expected_outcomes"`
+	Id               string   `json:"id"`
+	StrategyId       string   `json:"strategy_id"`
+	StrategyVersion  string   `json:"strategy_version"`
+	Synthetic        bool     `json:"synthetic"`
+	Title            string   `json:"title"`
+}
+
+// GuidedDemonstrationEvent defines model for GuidedDemonstrationEvent.
+type GuidedDemonstrationEvent struct {
+	// Balances Canonical JSON portfolio payload
+	Balances string `json:"balances"`
+
+	// Decision Canonical JSON decision payload
+	Decision string `json:"decision"`
+
+	// ExecutionEvents Canonical JSON simulated-execution payload
+	ExecutionEvents string `json:"execution_events"`
+
+	// Orders Canonical JSON planned-order payload
+	Orders  string `json:"orders"`
+	Ordinal uint64 `json:"ordinal"`
+}
+
+// GuidedDemonstrationPage defines model for GuidedDemonstrationPage.
+type GuidedDemonstrationPage struct {
+	Items []GuidedDemonstration `json:"items"`
+}
+
+// GuidedDemonstrationResult defines model for GuidedDemonstrationResult.
+type GuidedDemonstrationResult struct {
+	Accepted GuidedDemonstrationEvent `json:"accepted"`
+
+	// AdvisoryEvidence Canonical JSON advisory evidence; present only for non-order-capable demonstrations
+	AdvisoryEvidence  *string `json:"advisory_evidence,omitempty"`
+	AdvisoryOnly      bool    `json:"advisory_only"`
+	ConfigurationHash string  `json:"configuration_hash"`
+	Id                string  `json:"id"`
+
+	// Metrics Canonical JSON metric payload; not profitability evidence
+	Metrics         string                   `json:"metrics"`
+	Rejected        GuidedDemonstrationEvent `json:"rejected"`
+	ResultHash      string                   `json:"result_hash"`
+	StrategyId      string                   `json:"strategy_id"`
+	StrategyVersion string                   `json:"strategy_version"`
+	Synthetic       bool                     `json:"synthetic"`
+}
+
 // HealthComponent defines model for HealthComponent.
 type HealthComponent struct {
 	Name       HealthComponentName        `json:"name"`
@@ -3012,34 +5956,78 @@ type HealthComponentStatus string
 
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
-	Phase      HealthResponsePhase  `json:"phase"`
 	ReasonCode *string              `json:"reason_code,omitempty"`
-	Role       string               `json:"role"`
 	Status     HealthResponseStatus `json:"status"`
 }
-
-// HealthResponsePhase defines model for HealthResponse.Phase.
-type HealthResponsePhase string
 
 // HealthResponseStatus defines model for HealthResponse.Status.
 type HealthResponseStatus string
 
+// HighRiskAuthorizationGrant defines model for HighRiskAuthorizationGrant.
+type HighRiskAuthorizationGrant struct {
+	// ExpiresAt RFC 3339 timestamp with an explicit UTC offset.
+	ExpiresAt      Timestamp                         `json:"expires_at"`
+	Purpose        HighRiskAuthorizationGrantPurpose `json:"purpose"`
+	TargetRevision Revision                          `json:"target_revision"`
+	Token          string                            `json:"token"`
+}
+
+// HighRiskAuthorizationGrantPurpose defines model for HighRiskAuthorizationGrant.Purpose.
+type HighRiskAuthorizationGrantPurpose string
+
+// HighRiskAuthorizationRequest defines model for HighRiskAuthorizationRequest.
+type HighRiskAuthorizationRequest struct {
+	ExpectedRevision Revision                            `json:"expected_revision"`
+	Password         string                              `json:"password"`
+	Purpose          HighRiskAuthorizationRequestPurpose `json:"purpose"`
+	Reason           string                              `json:"reason"`
+	Totp             string                              `json:"totp"`
+}
+
+// HighRiskAuthorizationRequestPurpose defines model for HighRiskAuthorizationRequest.Purpose.
+type HighRiskAuthorizationRequestPurpose string
+
+// IncidentCreateRequest defines model for IncidentCreateRequest.
+type IncidentCreateRequest struct {
+	ExpectedRevision Revision                      `json:"expected_revision"`
+	OwnerUserId      string                        `json:"owner_user_id"`
+	Reason           string                        `json:"reason"`
+	ReasonCode       string                        `json:"reason_code"`
+	Severity         IncidentCreateRequestSeverity `json:"severity"`
+}
+
+// IncidentCreateRequestSeverity defines model for IncidentCreateRequest.Severity.
+type IncidentCreateRequestSeverity string
+
 // IncidentDetail defines model for IncidentDetail.
 type IncidentDetail struct {
-	Id string `json:"id"`
+	EvidenceHolds []IncidentEvidenceHold `json:"evidence_holds"`
+	Id            string                 `json:"id"`
 
 	// OpenedAt RFC 3339 timestamp with an explicit UTC offset.
-	OpenedAt     Timestamp `json:"opened_at"`
-	ReasonCode   string    `json:"reason_code"`
-	ReplayWindow struct {
-		DatasetId    string   `json:"dataset_id"`
-		FirstOrdinal Revision `json:"first_ordinal"`
-		LastOrdinal  Revision `json:"last_ordinal"`
+	OpenedAt           Timestamp `json:"opened_at"`
+	OwnerUserId        string    `json:"owner_user_id"`
+	ReasonCode         string    `json:"reason_code"`
+	RelatedActivityIds []string  `json:"related_activity_ids"`
+	RelatedAlertIds    []string  `json:"related_alert_ids"`
+	RemediationNotes   []string  `json:"remediation_notes"`
+	ReplayWindow       struct {
+		DatasetId      string   `json:"dataset_id"`
+		FirstOrdinal   Revision `json:"first_ordinal"`
+		LastOrdinal    Revision `json:"last_ordinal"`
+		SourceIdentity *string  `json:"source_identity,omitempty"`
 	} `json:"replay_window"`
-	Revision Revision               `json:"revision"`
-	Severity IncidentDetailSeverity `json:"severity"`
-	State    IncidentDetailState    `json:"state"`
-	Timeline []TimelineEvent        `json:"timeline"`
+	ResolutionEvidence *string `json:"resolution_evidence,omitempty"`
+
+	// ResolvedAt RFC 3339 timestamp with an explicit UTC offset.
+	ResolvedAt *Timestamp             `json:"resolved_at,omitempty"`
+	Revision   Revision               `json:"revision"`
+	Severity   IncidentDetailSeverity `json:"severity"`
+	State      IncidentDetailState    `json:"state"`
+	Timeline   []TimelineEvent        `json:"timeline"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt Timestamp `json:"updated_at"`
 }
 
 // IncidentDetailSeverity defines model for IncidentDetail.Severity.
@@ -3047,6 +6035,19 @@ type IncidentDetailSeverity string
 
 // IncidentDetailState defines model for IncidentDetail.State.
 type IncidentDetailState string
+
+// IncidentEvidenceHold defines model for IncidentEvidenceHold.
+type IncidentEvidenceHold struct {
+	ArtifactId string `json:"artifact_id"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt Timestamp                    `json:"created_at"`
+	HoldType  IncidentEvidenceHoldHoldType `json:"hold_type"`
+	Id        string                       `json:"id"`
+}
+
+// IncidentEvidenceHoldHoldType defines model for IncidentEvidenceHold.HoldType.
+type IncidentEvidenceHoldHoldType string
 
 // IncidentPage defines model for IncidentPage.
 type IncidentPage struct {
@@ -3061,11 +6062,18 @@ type IncidentSummary struct {
 	Id string `json:"id"`
 
 	// OpenedAt RFC 3339 timestamp with an explicit UTC offset.
-	OpenedAt   Timestamp               `json:"opened_at"`
-	ReasonCode string                  `json:"reason_code"`
+	OpenedAt    Timestamp `json:"opened_at"`
+	OwnerUserId string    `json:"owner_user_id"`
+	ReasonCode  string    `json:"reason_code"`
+
+	// ResolvedAt RFC 3339 timestamp with an explicit UTC offset.
+	ResolvedAt *Timestamp              `json:"resolved_at,omitempty"`
 	Revision   Revision                `json:"revision"`
 	Severity   IncidentSummarySeverity `json:"severity"`
 	State      IncidentSummaryState    `json:"state"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt Timestamp `json:"updated_at"`
 }
 
 // IncidentSummarySeverity defines model for IncidentSummary.Severity.
@@ -3073,6 +6081,34 @@ type IncidentSummarySeverity string
 
 // IncidentSummaryState defines model for IncidentSummary.State.
 type IncidentSummaryState string
+
+// IncidentTransitionRequest defines model for IncidentTransitionRequest.
+type IncidentTransitionRequest struct {
+	ExpectedRevision   Revision                       `json:"expected_revision"`
+	Reason             string                         `json:"reason"`
+	ResolutionEvidence *string                        `json:"resolution_evidence,omitempty"`
+	State              IncidentTransitionRequestState `json:"state"`
+}
+
+// IncidentTransitionRequestState defines model for IncidentTransitionRequest.State.
+type IncidentTransitionRequestState string
+
+// IncidentUpdateRequest defines model for IncidentUpdateRequest.
+type IncidentUpdateRequest struct {
+	Action           IncidentUpdateRequestAction `json:"action"`
+	DatasetId        *string                     `json:"dataset_id,omitempty"`
+	ExpectedRevision Revision                    `json:"expected_revision"`
+	FirstOrdinal     *Revision                   `json:"first_ordinal,omitempty"`
+	LastOrdinal      *Revision                   `json:"last_ordinal,omitempty"`
+	Note             *string                     `json:"note,omitempty"`
+	OwnerUserId      *string                     `json:"owner_user_id,omitempty"`
+	Reason           string                      `json:"reason"`
+	ReferenceId      *string                     `json:"reference_id,omitempty"`
+	SourceIdentity   *string                     `json:"source_identity,omitempty"`
+}
+
+// IncidentUpdateRequestAction defines model for IncidentUpdateRequest.Action.
+type IncidentUpdateRequestAction string
 
 // Instrument defines model for Instrument.
 type Instrument struct {
@@ -3153,19 +6189,24 @@ type InventoryPositionVirtual bool
 
 // JobResource defines model for JobResource.
 type JobResource struct {
+	Checkpoints *[]ReplayCheckpoint `json:"checkpoints,omitempty"`
+
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
-	CreatedAt        Timestamp                 `json:"created_at"`
-	CursorOrdinal    *Revision                 `json:"cursor_ordinal,omitempty"`
-	FailureCode      *string                   `json:"failure_code,omitempty"`
-	Id               string                    `json:"id"`
-	Kind             JobResourceKind           `json:"kind"`
-	ModeLabel        JobResourceModeLabel      `json:"mode_label"`
-	Progress         *NonnegativeDecimal       `json:"progress,omitempty"`
-	RegisteredReport *RegisteredResearchReport `json:"registered_report,omitempty"`
-	ReplayInspection *ReplayEventInspection    `json:"replay_inspection,omitempty"`
-	Result           *JobResult                `json:"result,omitempty"`
-	Revision         Revision                  `json:"revision"`
-	State            JobResourceState          `json:"state"`
+	CreatedAt          Timestamp                 `json:"created_at"`
+	CursorOrdinal      *Revision                 `json:"cursor_ordinal,omitempty"`
+	FailureCode        *string                   `json:"failure_code,omitempty"`
+	Id                 string                    `json:"id"`
+	InputManifest      *LabInputManifest         `json:"input_manifest,omitempty"`
+	Kind               JobResourceKind           `json:"kind"`
+	Lifecycle          *LabLifecycleCapabilities `json:"lifecycle,omitempty"`
+	ModeLabel          JobResourceModeLabel      `json:"mode_label"`
+	Progress           *NonnegativeDecimal       `json:"progress,omitempty"`
+	RegisteredReport   *RegisteredResearchReport `json:"registered_report,omitempty"`
+	ReplayInspection   *ReplayEventInspection    `json:"replay_inspection,omitempty"`
+	ReproductionBundle *ReproductionBundle       `json:"reproduction_bundle,omitempty"`
+	Result             *JobResult                `json:"result,omitempty"`
+	Revision           Revision                  `json:"revision"`
+	State              JobResourceState          `json:"state"`
 
 	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
 	UpdatedAt *Timestamp `json:"updated_at,omitempty"`
@@ -3231,6 +6272,35 @@ type JournalPage struct {
 
 // JournalPageVirtual defines model for JournalPage.Virtual.
 type JournalPageVirtual bool
+
+// LabInputManifest defines model for LabInputManifest.
+type LabInputManifest struct {
+	ConfigurationId      string                          `json:"configuration_id"`
+	DatasetId            string                          `json:"dataset_id"`
+	FirstOrdinal         *Revision                       `json:"first_ordinal,omitempty"`
+	IncidentId           *string                         `json:"incident_id,omitempty"`
+	LastOrdinal          *Revision                       `json:"last_ordinal,omitempty"`
+	ResearchGenerationId string                          `json:"research_generation_id"`
+	RootSeedHash         string                          `json:"root_seed_hash"`
+	Speed                *LabInputManifestSpeed          `json:"speed,omitempty"`
+	StrategyVersion      LabInputManifestStrategyVersion `json:"strategy_version"`
+}
+
+// LabInputManifestSpeed defines model for LabInputManifest.Speed.
+type LabInputManifestSpeed string
+
+// LabInputManifestStrategyVersion defines model for LabInputManifest.StrategyVersion.
+type LabInputManifestStrategyVersion string
+
+// LabLifecycleCapabilities defines model for LabLifecycleCapabilities.
+type LabLifecycleCapabilities struct {
+	Cancel    bool `json:"cancel"`
+	Compare   bool `json:"compare"`
+	Export    bool `json:"export"`
+	Pause     bool `json:"pause"`
+	Reproduce bool `json:"reproduce"`
+	Resume    bool `json:"resume"`
+}
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
@@ -3354,6 +6424,30 @@ type OpportunitySummarySimulationOnly bool
 // OpportunitySummaryStatus defines model for OpportunitySummary.Status.
 type OpportunitySummaryStatus string
 
+// OwnerControlResource defines model for OwnerControlResource.
+type OwnerControlResource struct {
+	Attributes    map[string]interface{} `json:"attributes"`
+	CorrelationId string                 `json:"correlation_id"`
+	Id            string                 `json:"id"`
+	Kind          string                 `json:"kind"`
+	Links         map[string]string      `json:"links"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt *Timestamp          `json:"occurred_at,omitempty"`
+	Reason     *ReasonPresentation `json:"reason,omitempty"`
+	Revision   Revision            `json:"revision"`
+	State      string              `json:"state"`
+}
+
+// OwnerControlResourcePage defines model for OwnerControlResourcePage.
+type OwnerControlResourcePage struct {
+	HasMore          bool                   `json:"has_more"`
+	Items            []OwnerControlResource `json:"items"`
+	NextCursor       *string                `json:"next_cursor,omitempty"`
+	Revision         Revision               `json:"revision"`
+	SnapshotRevision Revision               `json:"snapshot_revision"`
+}
+
 // Page defines model for Page.
 type Page struct {
 	HasMore    bool     `json:"has_more"`
@@ -3418,6 +6512,18 @@ type Position struct {
 	UnrealizedPnl Decimal            `json:"unrealized_pnl"`
 }
 
+// QualificationStartRequest defines model for QualificationStartRequest.
+type QualificationStartRequest struct {
+	AuthorizationToken string   `json:"authorization_token"`
+	ConfigurationHash  string   `json:"configuration_hash"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	ImageDigest        *string  `json:"image_digest,omitempty"`
+	QualificationId    string   `json:"qualification_id"`
+	Reason             string   `json:"reason"`
+	ServerIdentity     *string  `json:"server_identity,omitempty"`
+	SourceSha          string   `json:"source_sha"`
+}
+
 // QualityEvidence defines model for QualityEvidence.
 type QualityEvidence struct {
 	Confidence QualityEvidenceConfidence `json:"confidence"`
@@ -3443,6 +6549,20 @@ type QualityEvidenceFreshness string
 
 // QualityEvidenceTier defines model for QualityEvidence.Tier.
 type QualityEvidenceTier string
+
+// ReasonPresentation defines model for ReasonPresentation.
+type ReasonPresentation struct {
+	Code            string                     `json:"code"`
+	Explanation     string                     `json:"explanation"`
+	Severity        ReasonPresentationSeverity `json:"severity"`
+	SuggestedAction string                     `json:"suggested_action"`
+	Summary         string                     `json:"summary"`
+	Unknown         bool                       `json:"unknown"`
+	Version         Revision                   `json:"version"`
+}
+
+// ReasonPresentationSeverity defines model for ReasonPresentation.Severity.
+type ReasonPresentationSeverity string
 
 // RebalancingDetail defines model for RebalancingDetail.
 type RebalancingDetail struct {
@@ -3555,6 +6675,17 @@ type RegisteredResearchReportConfidenceLabel string
 // RegisteredResearchReportViability defines model for RegisteredResearchReport.Viability.
 type RegisteredResearchReportViability string
 
+// ReplayCheckpoint defines model for ReplayCheckpoint.
+type ReplayCheckpoint struct {
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt              Timestamp `json:"created_at"`
+	DeterministicStateHash *string   `json:"deterministic_state_hash,omitempty"`
+	InputOrdinal           Revision  `json:"input_ordinal"`
+	ModelNamespaceId       *string   `json:"model_namespace_id,omitempty"`
+	Revision               Revision  `json:"revision"`
+	StateHash              string    `json:"state_hash"`
+}
+
 // ReplayEventInspection defines model for ReplayEventInspection.
 type ReplayEventInspection struct {
 	CanonicalBalances        string   `json:"canonical_balances"`
@@ -3658,6 +6789,145 @@ type ReportExportResourceFormat string
 // ReportExportResourceSimulationOnly defines model for ReportExportResource.SimulationOnly.
 type ReportExportResourceSimulationOnly bool
 
+// ReportProvenance defines model for ReportProvenance.
+type ReportProvenance struct {
+	ConfidenceTier  string               `json:"confidence_tier"`
+	Maturity        string               `json:"maturity"`
+	Mode            ReportProvenanceMode `json:"mode"`
+	ModelProvenance map[string]string    `json:"model_provenance"`
+	SourceIdentity  string               `json:"source_identity"`
+	SourceRevision  Revision             `json:"source_revision"`
+	ValuationBasis  string               `json:"valuation_basis"`
+}
+
+// ReportProvenanceMode defines model for ReportProvenance.Mode.
+type ReportProvenanceMode string
+
+// ReportRequest defines model for ReportRequest.
+type ReportRequest struct {
+	ExpectedRevision Revision                `json:"expected_revision"`
+	Reason           string                  `json:"reason"`
+	ReportType       ReportRequestReportType `json:"report_type"`
+}
+
+// ReportRequestReportType defines model for ReportRequest.ReportType.
+type ReportRequestReportType string
+
+// ReportResource defines model for ReportResource.
+type ReportResource struct {
+	ContentHash *string `json:"content_hash,omitempty"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt   Timestamp `json:"created_at"`
+	FailureCode *string   `json:"failure_code,omitempty"`
+
+	// GeneratedAt RFC 3339 timestamp with an explicit UTC offset.
+	GeneratedAt *Timestamp               `json:"generated_at,omitempty"`
+	Id          string                   `json:"id"`
+	JobId       string                   `json:"job_id"`
+	Provenance  ReportProvenance         `json:"provenance"`
+	ReportType  ReportResourceReportType `json:"report_type"`
+	Revision    Revision                 `json:"revision"`
+	ScheduleId  *string                  `json:"schedule_id,omitempty"`
+	State       ReportResourceState      `json:"state"`
+}
+
+// ReportResourceReportType defines model for ReportResource.ReportType.
+type ReportResourceReportType string
+
+// ReportResourceState defines model for ReportResource.State.
+type ReportResourceState string
+
+// ReportSchedule defines model for ReportSchedule.
+type ReportSchedule struct {
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt Timestamp               `json:"created_at"`
+	Frequency ReportScheduleFrequency `json:"frequency"`
+	HourUtc   *int                    `json:"hour_utc,omitempty"`
+	Id        string                  `json:"id"`
+
+	// LastRunAt RFC 3339 timestamp with an explicit UTC offset.
+	LastRunAt *Timestamp `json:"last_run_at,omitempty"`
+	MinuteUtc int        `json:"minute_utc"`
+
+	// NextRunAt RFC 3339 timestamp with an explicit UTC offset.
+	NextRunAt  Timestamp                `json:"next_run_at"`
+	ReportType ReportScheduleReportType `json:"report_type"`
+	Revision   Revision                 `json:"revision"`
+	State      ReportScheduleState      `json:"state"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt  Timestamp `json:"updated_at"`
+	WeekdayUtc *int      `json:"weekday_utc,omitempty"`
+}
+
+// ReportScheduleFrequency defines model for ReportSchedule.Frequency.
+type ReportScheduleFrequency string
+
+// ReportScheduleReportType defines model for ReportSchedule.ReportType.
+type ReportScheduleReportType string
+
+// ReportScheduleState defines model for ReportSchedule.State.
+type ReportScheduleState string
+
+// ReportSchedulePage defines model for ReportSchedulePage.
+type ReportSchedulePage struct {
+	HasMore    bool             `json:"has_more"`
+	Items      []ReportSchedule `json:"items"`
+	NextCursor *string          `json:"next_cursor,omitempty"`
+	Revision   Revision         `json:"revision"`
+}
+
+// ReportScheduleRequest defines model for ReportScheduleRequest.
+type ReportScheduleRequest struct {
+	ExpectedRevision Revision                        `json:"expected_revision"`
+	Frequency        ReportScheduleRequestFrequency  `json:"frequency"`
+	HourUtc          *int                            `json:"hour_utc,omitempty"`
+	MinuteUtc        int                             `json:"minute_utc"`
+	Reason           string                          `json:"reason"`
+	ReportType       ReportScheduleRequestReportType `json:"report_type"`
+	WeekdayUtc       *int                            `json:"weekday_utc,omitempty"`
+}
+
+// ReportScheduleRequestFrequency defines model for ReportScheduleRequest.Frequency.
+type ReportScheduleRequestFrequency string
+
+// ReportScheduleRequestReportType defines model for ReportScheduleRequest.ReportType.
+type ReportScheduleRequestReportType string
+
+// ReportScheduleTransitionRequest defines model for ReportScheduleTransitionRequest.
+type ReportScheduleTransitionRequest struct {
+	ExpectedRevision Revision                             `json:"expected_revision"`
+	Reason           string                               `json:"reason"`
+	State            ReportScheduleTransitionRequestState `json:"state"`
+}
+
+// ReportScheduleTransitionRequestState defines model for ReportScheduleTransitionRequest.State.
+type ReportScheduleTransitionRequestState string
+
+// ReproductionBundle defines model for ReproductionBundle.
+type ReproductionBundle struct {
+	Architecture        string                           `json:"architecture"`
+	CanonicalManifest   string                           `json:"canonical_manifest"`
+	CodeCommit          string                           `json:"code_commit"`
+	ConfidenceTier      ReproductionBundleConfidenceTier `json:"confidence_tier"`
+	ConfigurationHash   string                           `json:"configuration_hash"`
+	DatasetManifestHash string                           `json:"dataset_manifest_hash"`
+	DatasetRevision     Revision                         `json:"dataset_revision"`
+	GoVersion           string                           `json:"go_version"`
+	InputHash           string                           `json:"input_hash"`
+	ManifestHash        string                           `json:"manifest_hash"`
+	ModelNamespaceId    string                           `json:"model_namespace_id"`
+	OperatingSystem     string                           `json:"operating_system"`
+	ResultHash          *string                          `json:"result_hash,omitempty"`
+	RunId               string                           `json:"run_id"`
+	SourceCommit        string                           `json:"source_commit"`
+	StartingBalanceHash string                           `json:"starting_balance_hash"`
+}
+
+// ReproductionBundleConfidenceTier defines model for ReproductionBundle.ConfidenceTier.
+type ReproductionBundleConfidenceTier string
+
 // ResearchCapacityPoint defines model for ResearchCapacityPoint.
 type ResearchCapacityPoint struct {
 	FillRate  NonnegativeDecimal `json:"fill_rate"`
@@ -3690,6 +6960,17 @@ type RiskContributor struct {
 	Usage      NonnegativeDecimal `json:"usage"`
 }
 
+// RiskControlRequest defines model for RiskControlRequest.
+type RiskControlRequest struct {
+	AuthorizationToken *string                 `json:"authorization_token,omitempty"`
+	ExpectedRevision   Revision                `json:"expected_revision"`
+	Reason             string                  `json:"reason"`
+	State              RiskControlRequestState `json:"state"`
+}
+
+// RiskControlRequestState defines model for RiskControlRequest.State.
+type RiskControlRequestState string
+
 // RiskStatus defines model for RiskStatus.
 type RiskStatus struct {
 	Contributors       []RiskContributor `json:"contributors"`
@@ -3706,6 +6987,239 @@ type RiskStatus struct {
 
 // RiskStatusState defines model for RiskStatus.State.
 type RiskStatusState string
+
+// RunAction defines model for RunAction.
+type RunAction string
+
+// RunBlocker defines model for RunBlocker.
+type RunBlocker struct {
+	Code            string `json:"code"`
+	Detail          string `json:"detail"`
+	SuggestedAction string `json:"suggested_action"`
+	Summary         string `json:"summary"`
+}
+
+// RunCatalog defines model for RunCatalog.
+type RunCatalog struct {
+	Blocker *RunBlocker `json:"blocker,omitempty"`
+	Choices []RunChoice `json:"choices"`
+}
+
+// RunChoice defines model for RunChoice.
+type RunChoice struct {
+	Cadence         string               `json:"cadence"`
+	Exchanges       []RunChoiceExchanges `json:"exchanges"`
+	Instrument      string               `json:"instrument"`
+	Mode            RunChoiceMode        `json:"mode"`
+	OrderCapable    bool                 `json:"order_capable"`
+	StrategyId      string               `json:"strategy_id"`
+	StrategyName    string               `json:"strategy_name"`
+	StrategyVersion string               `json:"strategy_version"`
+	Warmup          string               `json:"warmup"`
+}
+
+// RunChoiceExchanges defines model for RunChoice.Exchanges.
+type RunChoiceExchanges string
+
+// RunChoiceMode defines model for RunChoice.Mode.
+type RunChoiceMode string
+
+// RunCreateRequest defines model for RunCreateRequest.
+type RunCreateRequest struct {
+	Exchanges       []RunCreateRequestExchanges `json:"exchanges"`
+	Instrument      string                      `json:"instrument"`
+	Mode            RunCreateRequestMode        `json:"mode"`
+	Preset          RunCreateRequestPreset      `json:"preset"`
+	StrategyId      string                      `json:"strategy_id"`
+	StrategyVersion string                      `json:"strategy_version"`
+}
+
+// RunCreateRequestExchanges defines model for RunCreateRequest.Exchanges.
+type RunCreateRequestExchanges string
+
+// RunCreateRequestMode defines model for RunCreateRequest.Mode.
+type RunCreateRequestMode string
+
+// RunCreateRequestPreset defines model for RunCreateRequest.Preset.
+type RunCreateRequestPreset string
+
+// RunEvidence defines model for RunEvidence.
+type RunEvidence struct {
+	ConfidenceTier      *RunEvidenceConfidenceTier `json:"confidence_tier,omitempty"`
+	ConfigurationHash   *string                    `json:"configuration_hash,omitempty"`
+	DatasetManifestHash *string                    `json:"dataset_manifest_hash,omitempty"`
+	ManifestHash        *string                    `json:"manifest_hash,omitempty"`
+	ModelNamespace      *string                    `json:"model_namespace,omitempty"`
+	SourceCommit        *string                    `json:"source_commit,omitempty"`
+	State               RunEvidenceState           `json:"state"`
+}
+
+// RunEvidenceConfidenceTier defines model for RunEvidence.ConfidenceTier.
+type RunEvidenceConfidenceTier string
+
+// RunEvidenceState defines model for RunEvidence.State.
+type RunEvidenceState string
+
+// RunOutput defines model for RunOutput.
+type RunOutput struct {
+	CanonicalPayload string        `json:"canonical_payload"`
+	ContentHash      string        `json:"content_hash"`
+	Kind             RunOutputKind `json:"kind"`
+	Ordinal          Revision      `json:"ordinal"`
+}
+
+// RunOutputKind defines model for RunOutput.Kind.
+type RunOutputKind string
+
+// RunOutputPage defines model for RunOutputPage.
+type RunOutputPage struct {
+	Items []RunOutput `json:"items"`
+}
+
+// RunPage defines model for RunPage.
+type RunPage struct {
+	Items []RunResource `json:"items"`
+}
+
+// RunPortfolioFee defines model for RunPortfolioFee.
+type RunPortfolioFee struct {
+	Asset      string                  `json:"asset"`
+	Exchange   RunPortfolioFeeExchange `json:"exchange"`
+	Fee        NonnegativeDecimal      `json:"fee"`
+	Instrument string                  `json:"instrument"`
+	Rebate     NonnegativeDecimal      `json:"rebate"`
+}
+
+// RunPortfolioFeeExchange defines model for RunPortfolioFee.Exchange.
+type RunPortfolioFeeExchange string
+
+// RunPortfolioPosition defines model for RunPortfolioPosition.
+type RunPortfolioPosition struct {
+	Exchange    RunPortfolioPositionExchange `json:"exchange"`
+	Instrument  string                       `json:"instrument"`
+	Quantity    NonnegativeDecimal           `json:"quantity"`
+	RealizedPnl Decimal                      `json:"realized_pnl"`
+	TotalCost   NonnegativeDecimal           `json:"total_cost"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt           Timestamp                          `json:"updated_at"`
+	ValuationState      RunPortfolioPositionValuationState `json:"valuation_state"`
+	WeightedAverageCost NonnegativeDecimal                 `json:"weighted_average_cost"`
+}
+
+// RunPortfolioPositionExchange defines model for RunPortfolioPosition.Exchange.
+type RunPortfolioPositionExchange string
+
+// RunPortfolioPositionValuationState defines model for RunPortfolioPosition.ValuationState.
+type RunPortfolioPositionValuationState string
+
+// RunPortfolioProjection defines model for RunPortfolioProjection.
+type RunPortfolioProjection struct {
+	AccountDrawdown  *NonnegativeDecimal         `json:"account_drawdown,omitempty"`
+	CanonicalPayload *string                     `json:"canonical_payload,omitempty"`
+	ContentHash      *string                     `json:"content_hash,omitempty"`
+	Fees             *[]RunPortfolioFee          `json:"fees,omitempty"`
+	Ordinal          *Revision                   `json:"ordinal,omitempty"`
+	Positions        *[]RunPortfolioPosition     `json:"positions,omitempty"`
+	RealizedPnl      *Decimal                    `json:"realized_pnl,omitempty"`
+	Slippage         *NonnegativeDecimal         `json:"slippage,omitempty"`
+	State            RunPortfolioProjectionState `json:"state"`
+	Summary          *string                     `json:"summary,omitempty"`
+	TotalPnl         *Decimal                    `json:"total_pnl,omitempty"`
+	UnrealizedPnl    *Decimal                    `json:"unrealized_pnl,omitempty"`
+	WaitingReason    *string                     `json:"waiting_reason,omitempty"`
+}
+
+// RunPortfolioProjectionState defines model for RunPortfolioProjection.State.
+type RunPortfolioProjectionState string
+
+// RunResource defines model for RunResource.
+type RunResource struct {
+	AvailableActions []RunAction `json:"available_actions"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt    Timestamp               `json:"created_at"`
+	Environment  RunResourceEnvironment  `json:"environment"`
+	Exchanges    *[]RunResourceExchanges `json:"exchanges,omitempty"`
+	FriendlyName string                  `json:"friendly_name"`
+	Id           string                  `json:"id"`
+	Instrument   *string                 `json:"instrument,omitempty"`
+	Mode         RunResourceMode         `json:"mode"`
+
+	// NextEvaluationAt RFC 3339 timestamp with an explicit UTC offset.
+	NextEvaluationAt *Timestamp `json:"next_evaluation_at,omitempty"`
+	OrderCapable     bool       `json:"order_capable"`
+	Revision         Revision   `json:"revision"`
+	State            string     `json:"state"`
+	StrategyId       string     `json:"strategy_id"`
+	StrategyVersion  string     `json:"strategy_version"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt     *Timestamp `json:"updated_at,omitempty"`
+	WaitingReason *string    `json:"waiting_reason,omitempty"`
+}
+
+// RunResourceEnvironment defines model for RunResource.Environment.
+type RunResourceEnvironment string
+
+// RunResourceExchanges defines model for RunResource.Exchanges.
+type RunResourceExchanges string
+
+// RunResourceMode defines model for RunResource.Mode.
+type RunResourceMode string
+
+// RunRiskObservation defines model for RunRiskObservation.
+type RunRiskObservation struct {
+	AccountDrawdown  NonnegativeDecimal         `json:"account_drawdown"`
+	AssetExposure    NonnegativeDecimal         `json:"asset_exposure"`
+	CombinedExposure NonnegativeDecimal         `json:"combined_exposure"`
+	EvidenceHash     string                     `json:"evidence_hash"`
+	Exchange         RunRiskObservationExchange `json:"exchange"`
+	ExchangeExposure NonnegativeDecimal         `json:"exchange_exposure"`
+	HealthBlockers   []string                   `json:"health_blockers"`
+	Instrument       string                     `json:"instrument"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt        Timestamp          `json:"observed_at"`
+	OpenOrders        int                `json:"open_orders"`
+	PolicyVersion     Revision           `json:"policy_version"`
+	QualityScore      int                `json:"quality_score"`
+	Reserve           NonnegativeDecimal `json:"reserve"`
+	ReservedCapital   NonnegativeDecimal `json:"reserved_capital"`
+	Rolling24HourLoss NonnegativeDecimal `json:"rolling_24_hour_loss"`
+	Slippage          NonnegativeDecimal `json:"slippage"`
+	Spread            NonnegativeDecimal `json:"spread"`
+	StrategyLoss      NonnegativeDecimal `json:"strategy_loss"`
+	UtcDayLoss        NonnegativeDecimal `json:"utc_day_loss"`
+}
+
+// RunRiskObservationExchange defines model for RunRiskObservation.Exchange.
+type RunRiskObservationExchange string
+
+// RunRiskProjection defines model for RunRiskProjection.
+type RunRiskProjection struct {
+	Blockers     *[]string                `json:"blockers,omitempty"`
+	Observations *[]RunRiskObservation    `json:"observations,omitempty"`
+	State        RunRiskProjectionState   `json:"state"`
+	Status       *RunRiskProjectionStatus `json:"status,omitempty"`
+	Summary      string                   `json:"summary"`
+}
+
+// RunRiskProjectionState defines model for RunRiskProjection.State.
+type RunRiskProjectionState string
+
+// RunRiskProjectionStatus defines model for RunRiskProjection.Status.
+type RunRiskProjectionStatus string
+
+// RuntimeControlRequest defines model for RuntimeControlRequest.
+type RuntimeControlRequest struct {
+	ExpectedRevision Revision                   `json:"expected_revision"`
+	Reason           string                     `json:"reason"`
+	State            RuntimeControlRequestState `json:"state"`
+}
+
+// RuntimeControlRequestState defines model for RuntimeControlRequest.State.
+type RuntimeControlRequestState string
 
 // SandboxAccount defines model for SandboxAccount.
 type SandboxAccount struct {
@@ -3806,6 +7320,19 @@ type SandboxCapUsageAccountOpenLimit int
 
 // SandboxCapUsageGlobalOpenLimit defines model for SandboxCapUsage.GlobalOpenLimit.
 type SandboxCapUsageGlobalOpenLimit int
+
+// SandboxChaosSummary defines model for SandboxChaosSummary.
+type SandboxChaosSummary struct {
+	Failed int `json:"failed"`
+
+	// LastObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	LastObservedAt Timestamp                 `json:"last_observed_at"`
+	Passed         int                       `json:"passed"`
+	Status         SandboxChaosSummaryStatus `json:"status"`
+}
+
+// SandboxChaosSummaryStatus defines model for SandboxChaosSummary.Status.
+type SandboxChaosSummaryStatus string
 
 // SandboxDifference defines model for SandboxDifference.
 type SandboxDifference struct {
@@ -3917,12 +7444,13 @@ type SandboxOverview struct {
 	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
 	ObservedAt         Timestamp                         `json:"observed_at"`
 	Orders             []SandboxOrder                    `json:"orders"`
-	Qualification      C6QualificationStatus             `json:"qualification"`
+	Qualification      SandboxQualificationStatus        `json:"qualification"`
 	RealTradingEnabled SandboxOverviewRealTradingEnabled `json:"real_trading_enabled"`
 	Reconciliations    []SandboxReconciliation           `json:"reconciliations"`
 	ResetIncidents     []SandboxResetIncident            `json:"reset_incidents"`
 	RiskState          SandboxOverviewRiskState          `json:"risk_state"`
 	Stale              bool                              `json:"stale"`
+	StrategySessions   []SandboxStrategySession          `json:"strategy_sessions"`
 }
 
 // SandboxOverviewEnvironmentLabel defines model for SandboxOverview.EnvironmentLabel.
@@ -3933,6 +7461,44 @@ type SandboxOverviewRealTradingEnabled bool
 
 // SandboxOverviewRiskState defines model for SandboxOverview.RiskState.
 type SandboxOverviewRiskState string
+
+// SandboxQualificationStatus defines model for SandboxQualificationStatus.
+type SandboxQualificationStatus struct {
+	AuditUrl          string              `json:"audit_url"`
+	BuildHash         *string             `json:"build_hash,omitempty"`
+	Chaos             SandboxChaosSummary `json:"chaos"`
+	CommitSha         *string             `json:"commit_sha,omitempty"`
+	ConfigurationHash *string             `json:"configuration_hash,omitempty"`
+
+	// EndedAt RFC 3339 timestamp with an explicit UTC offset.
+	EndedAt                 *Timestamp                                      `json:"ended_at,omitempty"`
+	EvidenceHash            *string                                         `json:"evidence_hash,omitempty"`
+	ExecutableHash          *string                                         `json:"executable_hash,omitempty"`
+	Failures                []string                                        `json:"failures"`
+	FormalSoakPending       bool                                            `json:"formal_soak_pending"`
+	Id                      *string                                         `json:"id,omitempty"`
+	ImageHash               *string                                         `json:"image_hash,omitempty"`
+	Mode                    SandboxQualificationStatusMode                  `json:"mode"`
+	ObservedDurationSeconds int64                                           `json:"observed_duration_seconds"`
+	ProfitabilityEvidence   SandboxQualificationStatusProfitabilityEvidence `json:"profitability_evidence"`
+	Qualified               bool                                            `json:"qualified"`
+	RecoveryIncidents       []SandboxRecoveryIncident                       `json:"recovery_incidents"`
+	RequiredDurationSeconds int64                                           `json:"required_duration_seconds"`
+	Slo                     SandboxSLOSummary                               `json:"slo"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt *Timestamp                      `json:"started_at,omitempty"`
+	State     SandboxQualificationStatusState `json:"state"`
+}
+
+// SandboxQualificationStatusMode defines model for SandboxQualificationStatus.Mode.
+type SandboxQualificationStatusMode string
+
+// SandboxQualificationStatusProfitabilityEvidence defines model for SandboxQualificationStatus.ProfitabilityEvidence.
+type SandboxQualificationStatusProfitabilityEvidence bool
+
+// SandboxQualificationStatusState defines model for SandboxQualificationStatus.State.
+type SandboxQualificationStatusState string
 
 // SandboxReconciliation defines model for SandboxReconciliation.
 type SandboxReconciliation struct {
@@ -3961,6 +7527,40 @@ type SandboxReconciliationPage struct {
 	ResetIncidents []SandboxResetIncident  `json:"reset_incidents"`
 	Revision       Revision                `json:"revision"`
 }
+
+// SandboxRecoveryIncident defines model for SandboxRecoveryIncident.
+type SandboxRecoveryIncident struct {
+	AccountId       string `json:"account_id"`
+	CauseCode       string `json:"cause_code"`
+	CleanCheckCount int    `json:"clean_check_count"`
+
+	// DeadlineAt RFC 3339 timestamp with an explicit UTC offset.
+	DeadlineAt Timestamp `json:"deadline_at"`
+
+	// DetectedAt RFC 3339 timestamp with an explicit UTC offset.
+	DetectedAt     Timestamp                             `json:"detected_at"`
+	Environment    SandboxRecoveryIncidentEnvironment    `json:"environment"`
+	EvidenceHash   string                                `json:"evidence_hash"`
+	Exchange       SandboxRecoveryIncidentExchange       `json:"exchange"`
+	IncidentSource SandboxRecoveryIncidentIncidentSource `json:"incident_source"`
+	ReasonCategory string                                `json:"reason_category"`
+
+	// RecoveryTimestamp RFC 3339 timestamp with an explicit UTC offset.
+	RecoveryTimestamp *Timestamp                   `json:"recovery_timestamp,omitempty"`
+	State             SandboxRecoveryIncidentState `json:"state"`
+}
+
+// SandboxRecoveryIncidentEnvironment defines model for SandboxRecoveryIncident.Environment.
+type SandboxRecoveryIncidentEnvironment string
+
+// SandboxRecoveryIncidentExchange defines model for SandboxRecoveryIncident.Exchange.
+type SandboxRecoveryIncidentExchange string
+
+// SandboxRecoveryIncidentIncidentSource defines model for SandboxRecoveryIncident.IncidentSource.
+type SandboxRecoveryIncidentIncidentSource string
+
+// SandboxRecoveryIncidentState defines model for SandboxRecoveryIncident.State.
+type SandboxRecoveryIncidentState string
 
 // SandboxResetIncident defines model for SandboxResetIncident.
 type SandboxResetIncident struct {
@@ -3995,6 +7595,77 @@ type SandboxResetIncidentAdjustmentsPnlEffect bool
 
 // SandboxResetIncidentState defines model for SandboxResetIncident.State.
 type SandboxResetIncidentState string
+
+// SandboxSLOSummary defines model for SandboxSLOSummary.
+type SandboxSLOSummary struct {
+	CriticalAlertLatencyMs   int64 `json:"critical_alert_latency_ms"`
+	DoublePostedFills        int64 `json:"double_posted_fills"`
+	DuplicateCreates         int64 `json:"duplicate_creates"`
+	LostFills                int64 `json:"lost_fills"`
+	Passing                  bool  `json:"passing"`
+	PositiveMemoryLeakTrend  bool  `json:"positive_memory_leak_trend"`
+	ReconciliationMismatches int64 `json:"reconciliation_mismatches"`
+	Reconnects               int64 `json:"reconnects"`
+	RecoveryDurationMs       int64 `json:"recovery_duration_ms"`
+	ResidentMemoryDeltaBytes int64 `json:"resident_memory_delta_bytes"`
+	Restarts                 int64 `json:"restarts"`
+	Samples                  int64 `json:"samples"`
+	SuspenseItems            int64 `json:"suspense_items"`
+	UnknownOrders            int64 `json:"unknown_orders"`
+}
+
+// SandboxStrategySession defines model for SandboxStrategySession.
+type SandboxStrategySession struct {
+	AuditUrl string `json:"audit_url"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt   Timestamp                         `json:"created_at"`
+	DisplayName string                            `json:"display_name"`
+	Exchanges   []SandboxExchange                 `json:"exchanges"`
+	Id          string                            `json:"id"`
+	Instrument  *SandboxStrategySessionInstrument `json:"instrument,omitempty"`
+	Revision    Revision                          `json:"revision"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt *Timestamp                  `json:"started_at,omitempty"`
+	State     SandboxStrategySessionState `json:"state"`
+
+	// StoppedAt RFC 3339 timestamp with an explicit UTC offset.
+	StoppedAt     *Timestamp `json:"stopped_at,omitempty"`
+	StrategyName  string     `json:"strategy_name"`
+	WaitingReason *string    `json:"waiting_reason,omitempty"`
+}
+
+// SandboxStrategySessionInstrument defines model for SandboxStrategySession.Instrument.
+type SandboxStrategySessionInstrument string
+
+// SandboxStrategySessionState defines model for SandboxStrategySession.State.
+type SandboxStrategySessionState string
+
+// SandboxStrategySessionCreateRequest defines model for SandboxStrategySessionCreateRequest.
+type SandboxStrategySessionCreateRequest struct {
+	Exchanges  []SandboxExchange                             `json:"exchanges"`
+	Instrument SandboxStrategySessionCreateRequestInstrument `json:"instrument"`
+	Preset     SandboxStrategySessionCreateRequestPreset     `json:"preset"`
+	Reason     string                                        `json:"reason"`
+	StrategyId SandboxStrategySessionCreateRequestStrategyId `json:"strategy_id"`
+}
+
+// SandboxStrategySessionCreateRequestInstrument defines model for SandboxStrategySessionCreateRequest.Instrument.
+type SandboxStrategySessionCreateRequestInstrument string
+
+// SandboxStrategySessionCreateRequestPreset defines model for SandboxStrategySessionCreateRequest.Preset.
+type SandboxStrategySessionCreateRequestPreset string
+
+// SandboxStrategySessionCreateRequestStrategyId defines model for SandboxStrategySessionCreateRequest.StrategyId.
+type SandboxStrategySessionCreateRequestStrategyId string
+
+// SandboxStrategySessionStartRequest defines model for SandboxStrategySessionStartRequest.
+type SandboxStrategySessionStartRequest struct {
+	AuthorizationToken string   `json:"authorization_token"`
+	ExpectedRevision   Revision `json:"expected_revision"`
+	Reason             string   `json:"reason"`
+}
 
 // SandboxTestOrderRequest defines model for SandboxTestOrderRequest.
 type SandboxTestOrderRequest struct {
@@ -4039,10 +7710,101 @@ type SessionMe struct {
 
 // SessionUser defines model for SessionUser.
 type SessionUser struct {
-	Email       openapi_types.Email `json:"email"`
-	Id          string              `json:"id"`
-	Permissions []string            `json:"permissions"`
-	Roles       []string            `json:"roles"`
+	Email openapi_types.Email `json:"email"`
+	Id    string              `json:"id"`
+}
+
+// ShadowBalance defines model for ShadowBalance.
+type ShadowBalance struct {
+	Asset     string             `json:"asset"`
+	Available NonnegativeDecimal `json:"available"`
+	Reserved  NonnegativeDecimal `json:"reserved"`
+	Revision  Revision           `json:"revision"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+// ShadowDataHealth defines model for ShadowDataHealth.
+type ShadowDataHealth struct {
+	Exchange string `json:"exchange"`
+	Fresh    bool   `json:"fresh"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt Timestamp             `json:"observed_at"`
+	Reason     string                `json:"reason"`
+	State      ShadowDataHealthState `json:"state"`
+}
+
+// ShadowDataHealthState defines model for ShadowDataHealth.State.
+type ShadowDataHealthState string
+
+// ShadowDecisionSummary defines model for ShadowDecisionSummary.
+type ShadowDecisionSummary struct {
+	Id string `json:"id"`
+
+	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
+	OccurredAt     Timestamp                        `json:"occurred_at"`
+	Outcome        string                           `json:"outcome"`
+	ReasonCode     string                           `json:"reason_code"`
+	RiskOutcome    ShadowDecisionSummaryRiskOutcome `json:"risk_outcome"`
+	RiskReasonCode string                           `json:"risk_reason_code"`
+}
+
+// ShadowDecisionSummaryRiskOutcome defines model for ShadowDecisionSummary.RiskOutcome.
+type ShadowDecisionSummaryRiskOutcome string
+
+// ShadowInputHealth defines model for ShadowInputHealth.
+type ShadowInputHealth struct {
+	AgeMilliseconds Revision                  `json:"age_milliseconds"`
+	BookVersion     Revision                  `json:"book_version"`
+	Exchange        ShadowInputHealthExchange `json:"exchange"`
+	Fresh           bool                      `json:"fresh"`
+	Instrument      string                    `json:"instrument"`
+
+	// ObservedAt RFC 3339 timestamp with an explicit UTC offset.
+	ObservedAt Timestamp              `json:"observed_at"`
+	Reason     string                 `json:"reason"`
+	State      ShadowInputHealthState `json:"state"`
+}
+
+// ShadowInputHealthExchange defines model for ShadowInputHealth.Exchange.
+type ShadowInputHealthExchange string
+
+// ShadowInputHealthState defines model for ShadowInputHealth.State.
+type ShadowInputHealthState string
+
+// ShadowPnlAttribution defines model for ShadowPnlAttribution.
+type ShadowPnlAttribution struct {
+	FeeExpense     Decimal                            `json:"fee_expense"`
+	Latency        Decimal                            `json:"latency"`
+	RealizedPnl    Decimal                            `json:"realized_pnl"`
+	Slippage       Decimal                            `json:"slippage"`
+	Spread         Decimal                            `json:"spread"`
+	ValuationBasis ShadowPnlAttributionValuationBasis `json:"valuation_basis"`
+}
+
+// ShadowPnlAttributionValuationBasis defines model for ShadowPnlAttribution.ValuationBasis.
+type ShadowPnlAttributionValuationBasis string
+
+// ShadowPosition defines model for ShadowPosition.
+type ShadowPosition struct {
+	Instrument  string             `json:"instrument"`
+	Quantity    NonnegativeDecimal `json:"quantity"`
+	RealizedPnl Decimal            `json:"realized_pnl"`
+	Revision    Revision           `json:"revision"`
+
+	// UpdatedAt RFC 3339 timestamp with an explicit UTC offset.
+	UpdatedAt           Timestamp          `json:"updated_at"`
+	WeightedAverageCost NonnegativeDecimal `json:"weighted_average_cost"`
+}
+
+// ShadowSessionPage defines model for ShadowSessionPage.
+type ShadowSessionPage struct {
+	HasMore    bool                   `json:"has_more"`
+	Items      []ShadowSessionSummary `json:"items"`
+	NextCursor *string                `json:"next_cursor,omitempty"`
+	Revision   Revision               `json:"revision"`
 }
 
 // ShadowSessionRequest defines model for ShadowSessionRequest.
@@ -4057,33 +7819,54 @@ type ShadowSessionRequestStrategyVersion string
 
 // ShadowSessionResource defines model for ShadowSessionResource.
 type ShadowSessionResource struct {
-	AcceptedDecisions int    `json:"accepted_decisions"`
-	ConfigurationId   string `json:"configuration_id"`
+	AcceptedDecisions int                                `json:"accepted_decisions"`
+	ActivityState     ShadowSessionResourceActivityState `json:"activity_state"`
+	Balances          *[]ShadowBalance                   `json:"balances,omitempty"`
+	ConfigurationId   string                             `json:"configuration_id"`
 
 	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
-	CreatedAt           Timestamp                           `json:"created_at"`
-	DecisionDatasetId   string                              `json:"decision_dataset_id"`
-	EntriesEnabled      bool                                `json:"entries_enabled"`
-	FailureCode         *string                             `json:"failure_code,omitempty"`
-	Id                  string                              `json:"id"`
-	JournalTransactions int                                 `json:"journal_transactions"`
-	Label               ShadowSessionResourceLabel          `json:"label"`
-	ModelNamespaceId    string                              `json:"model_namespace_id"`
-	Orders              *[]SimulatedOrder                   `json:"orders,omitempty"`
-	PublicOnly          ShadowSessionResourcePublicOnly     `json:"public_only"`
-	RejectedDecisions   int                                 `json:"rejected_decisions"`
-	Revision            Revision                            `json:"revision"`
-	RiskState           *ShadowSessionResourceRiskState     `json:"risk_state,omitempty"`
-	SimulationOnly      ShadowSessionResourceSimulationOnly `json:"simulation_only"`
+	CreatedAt           Timestamp                  `json:"created_at"`
+	DataHealth          *ShadowDataHealth          `json:"data_health,omitempty"`
+	DecisionDatasetId   string                     `json:"decision_dataset_id"`
+	Decisions           *[]ShadowDecisionSummary   `json:"decisions,omitempty"`
+	EntriesEnabled      bool                       `json:"entries_enabled"`
+	ExchangeId          *string                    `json:"exchange_id,omitempty"`
+	FailureCode         *string                    `json:"failure_code,omitempty"`
+	GapModelId          *string                    `json:"gap_model_id,omitempty"`
+	Id                  string                     `json:"id"`
+	InputHealth         []ShadowInputHealth        `json:"input_health"`
+	JournalTransactions int                        `json:"journal_transactions"`
+	Label               ShadowSessionResourceLabel `json:"label"`
+	ModelNamespaceId    string                     `json:"model_namespace_id"`
+
+	// NextEvaluationAt RFC 3339 timestamp with an explicit UTC offset.
+	NextEvaluationAt  *Timestamp                          `json:"next_evaluation_at,omitempty"`
+	Orders            *[]SimulatedOrder                   `json:"orders,omitempty"`
+	PnlAttribution    *ShadowPnlAttribution               `json:"pnl_attribution,omitempty"`
+	PortfolioId       *string                             `json:"portfolio_id,omitempty"`
+	Positions         *[]ShadowPosition                   `json:"positions,omitempty"`
+	PublicOnly        ShadowSessionResourcePublicOnly     `json:"public_only"`
+	RejectedDecisions int                                 `json:"rejected_decisions"`
+	Revision          Revision                            `json:"revision"`
+	RiskState         *ShadowSessionResourceRiskState     `json:"risk_state,omitempty"`
+	RunId             *string                             `json:"run_id,omitempty"`
+	SimulationOnly    ShadowSessionResourceSimulationOnly `json:"simulation_only"`
+	SlippageModelId   *string                             `json:"slippage_model_id,omitempty"`
 
 	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
 	StartedAt *Timestamp                 `json:"started_at,omitempty"`
 	State     ShadowSessionResourceState `json:"state"`
 
 	// StoppedAt RFC 3339 timestamp with an explicit UTC offset.
-	StoppedAt       *Timestamp `json:"stopped_at,omitempty"`
-	StrategyVersion string     `json:"strategy_version"`
+	StoppedAt         *Timestamp `json:"stopped_at,omitempty"`
+	StrategyVersion   string     `json:"strategy_version"`
+	TriggerCondition  string     `json:"trigger_condition"`
+	WaitingReason     string     `json:"waiting_reason"`
+	WaitingReasonCode string     `json:"waiting_reason_code"`
 }
+
+// ShadowSessionResourceActivityState defines model for ShadowSessionResource.ActivityState.
+type ShadowSessionResourceActivityState string
 
 // ShadowSessionResourceLabel defines model for ShadowSessionResource.Label.
 type ShadowSessionResourceLabel string
@@ -4099,6 +7882,36 @@ type ShadowSessionResourceSimulationOnly bool
 
 // ShadowSessionResourceState defines model for ShadowSessionResource.State.
 type ShadowSessionResourceState string
+
+// ShadowSessionSummary defines model for ShadowSessionSummary.
+type ShadowSessionSummary struct {
+	ConfigurationId string `json:"configuration_id"`
+
+	// CreatedAt RFC 3339 timestamp with an explicit UTC offset.
+	CreatedAt      Timestamp                          `json:"created_at"`
+	FailureCode    *string                            `json:"failure_code,omitempty"`
+	Id             string                             `json:"id"`
+	PublicOnly     ShadowSessionSummaryPublicOnly     `json:"public_only"`
+	Revision       Revision                           `json:"revision"`
+	SimulationOnly ShadowSessionSummarySimulationOnly `json:"simulation_only"`
+	State          ShadowSessionSummaryState          `json:"state"`
+
+	// StoppedAt RFC 3339 timestamp with an explicit UTC offset.
+	StoppedAt       *Timestamp                          `json:"stopped_at,omitempty"`
+	StrategyVersion ShadowSessionSummaryStrategyVersion `json:"strategy_version"`
+}
+
+// ShadowSessionSummaryPublicOnly defines model for ShadowSessionSummary.PublicOnly.
+type ShadowSessionSummaryPublicOnly bool
+
+// ShadowSessionSummarySimulationOnly defines model for ShadowSessionSummary.SimulationOnly.
+type ShadowSessionSummarySimulationOnly bool
+
+// ShadowSessionSummaryState defines model for ShadowSessionSummary.State.
+type ShadowSessionSummaryState string
+
+// ShadowSessionSummaryStrategyVersion defines model for ShadowSessionSummary.StrategyVersion.
+type ShadowSessionSummaryStrategyVersion string
 
 // SimulatedOrder defines model for SimulatedOrder.
 type SimulatedOrder struct {
@@ -4118,6 +7931,18 @@ type SimulatedOrderSide string
 
 // SimulatedOrderSimulated defines model for SimulatedOrder.Simulated.
 type SimulatedOrderSimulated bool
+
+// StrategyConfigurationRequest defines model for StrategyConfigurationRequest.
+type StrategyConfigurationRequest struct {
+	AuthorizationToken string                            `json:"authorization_token"`
+	ConfigurationId    string                            `json:"configuration_id"`
+	ExpectedRevision   Revision                          `json:"expected_revision"`
+	Reason             string                            `json:"reason"`
+	State              StrategyConfigurationRequestState `json:"state"`
+}
+
+// StrategyConfigurationRequestState defines model for StrategyConfigurationRequest.State.
+type StrategyConfigurationRequestState string
 
 // StrategyPage defines model for StrategyPage.
 type StrategyPage struct {
@@ -4186,20 +8011,21 @@ type StreamEventStream string
 
 // SystemStatus defines model for SystemStatus.
 type SystemStatus struct {
-	ActiveResourceId   *string                        `json:"active_resource_id,omitempty"`
-	BinanceState       *string                        `json:"binance_state,omitempty"`
-	ClockDriftMs       *string                        `json:"clock_drift_ms,omitempty"`
-	CriticalIncidents  *int                           `json:"critical_incidents,omitempty"`
-	EngineState        *string                        `json:"engine_state,omitempty"`
-	Environment        *string                        `json:"environment,omitempty"`
-	ExecutionMode      *SystemStatusExecutionMode     `json:"execution_mode,omitempty"`
-	LifecycleState     SystemStatusLifecycleState     `json:"lifecycle_state"`
-	Phase              SystemStatusPhase              `json:"phase"`
-	RealTradingEnabled SystemStatusRealTradingEnabled `json:"real_trading_enabled"`
-	Release            SystemStatusRelease            `json:"release"`
-	Revision           *Revision                      `json:"revision,omitempty"`
-	RiskState          *SystemStatusRiskState         `json:"risk_state,omitempty"`
-	Role               string                         `json:"role"`
+	ActiveResourceId      *string                        `json:"active_resource_id,omitempty"`
+	ApplicationVersion    string                         `json:"application_version"`
+	BinanceState          *string                        `json:"binance_state,omitempty"`
+	BuildCommit           string                         `json:"build_commit"`
+	ClockDriftMs          *string                        `json:"clock_drift_ms,omitempty"`
+	ConfigurationIdentity string                         `json:"configuration_identity"`
+	CriticalIncidents     *int                           `json:"critical_incidents,omitempty"`
+	EngineState           *string                        `json:"engine_state,omitempty"`
+	Environment           *string                        `json:"environment,omitempty"`
+	ExecutionMode         *SystemStatusExecutionMode     `json:"execution_mode,omitempty"`
+	LifecycleState        SystemStatusLifecycleState     `json:"lifecycle_state"`
+	ReadinessState        SystemStatusReadinessState     `json:"readiness_state"`
+	RealTradingEnabled    SystemStatusRealTradingEnabled `json:"real_trading_enabled"`
+	Revision              *Revision                      `json:"revision,omitempty"`
+	RiskState             *SystemStatusRiskState         `json:"risk_state,omitempty"`
 
 	// ServerTime RFC 3339 timestamp with an explicit UTC offset.
 	ServerTime         *Timestamp                     `json:"server_time,omitempty"`
@@ -4212,14 +8038,11 @@ type SystemStatusExecutionMode string
 // SystemStatusLifecycleState defines model for SystemStatus.LifecycleState.
 type SystemStatusLifecycleState string
 
-// SystemStatusPhase defines model for SystemStatus.Phase.
-type SystemStatusPhase string
+// SystemStatusReadinessState defines model for SystemStatus.ReadinessState.
+type SystemStatusReadinessState string
 
 // SystemStatusRealTradingEnabled defines model for SystemStatus.RealTradingEnabled.
 type SystemStatusRealTradingEnabled bool
-
-// SystemStatusRelease defines model for SystemStatus.Release.
-type SystemStatusRelease string
 
 // SystemStatusRiskState defines model for SystemStatus.RiskState.
 type SystemStatusRiskState string
@@ -4229,14 +8052,19 @@ type SystemStatusStrategyActivation string
 
 // TimelineEvent defines model for TimelineEvent.
 type TimelineEvent struct {
-	CorrelationId string `json:"correlation_id"`
-	EventType     string `json:"event_type"`
-	Id            string `json:"id"`
+	Actor         *string `json:"actor,omitempty"`
+	CorrelationId string  `json:"correlation_id"`
+	EventHash     *string `json:"event_hash,omitempty"`
+	EventType     string  `json:"event_type"`
+	Id            string  `json:"id"`
 
 	// OccurredAt RFC 3339 timestamp with an explicit UTC offset.
-	OccurredAt Timestamp `json:"occurred_at"`
-	Redacted   bool      `json:"redacted"`
-	SafeDetail *string   `json:"safe_detail,omitempty"`
+	OccurredAt    Timestamp `json:"occurred_at"`
+	Reason        *string   `json:"reason,omitempty"`
+	Redacted      bool      `json:"redacted"`
+	ReferenceId   *string   `json:"reference_id,omitempty"`
+	ReferenceType *string   `json:"reference_type,omitempty"`
+	SafeDetail    *string   `json:"safe_detail,omitempty"`
 }
 
 // Timestamp RFC 3339 timestamp with an explicit UTC offset.
@@ -4316,6 +8144,9 @@ type CSRFToken = string
 // Cursor defines model for Cursor.
 type Cursor = string
 
+// FromTime RFC 3339 timestamp with an explicit UTC offset.
+type FromTime = Timestamp
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
 
@@ -4328,11 +8159,17 @@ type PageSize = int
 // ResourceID defines model for ResourceID.
 type ResourceID = string
 
+// ToTime RFC 3339 timestamp with an explicit UTC offset.
+type ToTime = Timestamp
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
 // Conflict defines model for Conflict.
 type Conflict = Error
+
+// CursorExpired defines model for CursorExpired.
+type CursorExpired = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
@@ -4364,6 +8201,71 @@ type operationalBearerContextKey string
 // sessionCookieContextKey is the context key for sessionCookie security scheme
 type sessionCookieContextKey string
 
+// ListActivityParams defines parameters for ListActivity.
+type ListActivityParams struct {
+	Cursor        *Cursor                 `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize      *PageSize               `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From          *FromTime               `form:"from,omitempty" json:"from,omitempty"`
+	To            *ToTime                 `form:"to,omitempty" json:"to,omitempty"`
+	View          *ListActivityParamsView `form:"view,omitempty" json:"view,omitempty"`
+	Strategy      *string                 `form:"strategy,omitempty" json:"strategy,omitempty"`
+	Instrument    *string                 `form:"instrument,omitempty" json:"instrument,omitempty"`
+	Exchange      *string                 `form:"exchange,omitempty" json:"exchange,omitempty"`
+	Side          *ListActivityParamsSide `form:"side,omitempty" json:"side,omitempty"`
+	Outcome       *string                 `form:"outcome,omitempty" json:"outcome,omitempty"`
+	Reason        *string                 `form:"reason,omitempty" json:"reason,omitempty"`
+	Mode          *ListActivityParamsMode `form:"mode,omitempty" json:"mode,omitempty"`
+	CorrelationId *string                 `form:"correlation_id,omitempty" json:"correlation_id,omitempty"`
+}
+
+// ListActivityParamsView defines parameters for ListActivity.
+type ListActivityParamsView string
+
+// ListActivityParamsSide defines parameters for ListActivity.
+type ListActivityParamsSide string
+
+// ListActivityParamsMode defines parameters for ListActivity.
+type ListActivityParamsMode string
+
+// TestAlertRouteParams defines parameters for TestAlertRoute.
+type TestAlertRouteParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListAlertsParams defines parameters for ListAlerts.
+type ListAlertsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// AcknowledgeAlertParams defines parameters for AcknowledgeAlert.
+type AcknowledgeAlertParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// EscalateAlertParams defines parameters for EscalateAlert.
+type EscalateAlertParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListAssetsParams defines parameters for ListAssets.
+type ListAssetsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
 // ListAuditEventsParams defines parameters for ListAuditEvents.
 type ListAuditEventsParams struct {
 	Cursor        *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4372,8 +8274,51 @@ type ListAuditEventsParams struct {
 	IncludeDetail *bool     `form:"include_detail,omitempty" json:"include_detail,omitempty"`
 }
 
+// CreateHighRiskAuthorizationParams defines parameters for CreateHighRiskAuthorization.
+type CreateHighRiskAuthorizationParams struct {
+	Origin     Origin    `json:"Origin"`
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // CreateBacktestParams defines parameters for CreateBacktest.
 type CreateBacktestParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListConfigurationRevisionsParams defines parameters for ListConfigurationRevisions.
+type ListConfigurationRevisionsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ActivateConfigurationRevisionParams defines parameters for ActivateConfigurationRevision.
+type ActivateConfigurationRevisionParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CreateDataAuditParams defines parameters for CreateDataAudit.
+type CreateDataAuditParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CreateEvaluationCampaignParams defines parameters for CreateEvaluationCampaign.
+type CreateEvaluationCampaignParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CancelEvaluationCampaignParams defines parameters for CancelEvaluationCampaign.
+type CancelEvaluationCampaignParams struct {
 	Origin         Origin         `json:"Origin"`
 	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
@@ -4391,6 +8336,36 @@ type ListBinanceInstrumentsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// CreateExportParams defines parameters for CreateExport.
+type CreateExportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// DeleteExportParams defines parameters for DeleteExport.
+type DeleteExportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// HoldExportParams defines parameters for HoldExport.
+type HoldExportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListFillsParams defines parameters for ListFills.
+type ListFillsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
 // ListIncidentsParams defines parameters for ListIncidents.
 type ListIncidentsParams struct {
 	Cursor   *Cursor                   `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4401,9 +8376,37 @@ type ListIncidentsParams struct {
 // ListIncidentsParamsState defines parameters for ListIncidents.
 type ListIncidentsParamsState string
 
+// CreateIncidentParams defines parameters for CreateIncident.
+type CreateIncidentParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // GetIncidentParams defines parameters for GetIncident.
 type GetIncidentParams struct {
 	IncludeRaw *bool `form:"include_raw,omitempty" json:"include_raw,omitempty"`
+}
+
+// CreateIncidentEvidenceBundleParams defines parameters for CreateIncidentEvidenceBundle.
+type CreateIncidentEvidenceBundleParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// TransitionIncidentParams defines parameters for TransitionIncident.
+type TransitionIncidentParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// UpdateIncidentParams defines parameters for UpdateIncident.
+type UpdateIncidentParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // ListInventoryParams defines parameters for ListInventory.
@@ -4416,6 +8419,25 @@ type ListInventoryParams struct {
 	Portfolio *string   `form:"portfolio,omitempty" json:"portfolio,omitempty"`
 }
 
+// ListLabRunsParams defines parameters for ListLabRuns.
+type ListLabRunsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ControlLabRunParams defines parameters for ControlLabRun.
+type ControlLabRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ControlLabRunParamsAction defines parameters for ControlLabRun.
+type ControlLabRunParamsAction string
+
 // ListOpportunitiesParams defines parameters for ListOpportunities.
 type ListOpportunitiesParams struct {
 	Cursor   *Cursor                      `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4425,6 +8447,15 @@ type ListOpportunitiesParams struct {
 
 // ListOpportunitiesParamsKind defines parameters for ListOpportunities.
 type ListOpportunitiesParamsKind string
+
+// ListOrdersParams defines parameters for ListOrders.
+type ListOrdersParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
 
 // ListPortfoliosParams defines parameters for ListPortfolios.
 type ListPortfoliosParams struct {
@@ -4436,6 +8467,29 @@ type ListPortfoliosParams struct {
 type ListPortfolioJournalParams struct {
 	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListQualificationsParams defines parameters for ListQualifications.
+type ListQualificationsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// StartQualificationParams defines parameters for StartQualification.
+type StartQualificationParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// AbortQualificationParams defines parameters for AbortQualification.
+type AbortQualificationParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // ListRebalancingRecommendationsParams defines parameters for ListRebalancingRecommendations.
@@ -4485,6 +8539,45 @@ type StepReplayParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// ListReportSchedulesParams defines parameters for ListReportSchedules.
+type ListReportSchedulesParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateReportScheduleParams defines parameters for CreateReportSchedule.
+type CreateReportScheduleParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// TransitionReportScheduleParams defines parameters for TransitionReportSchedule.
+type TransitionReportScheduleParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListReportsParams defines parameters for ListReports.
+type ListReportsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// CreateReportParams defines parameters for CreateReport.
+type CreateReportParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // ExportResearchReportParams defines parameters for ExportResearchReport.
 type ExportResearchReportParams struct {
 	Origin         Origin         `json:"Origin"`
@@ -4498,6 +8591,25 @@ type ListChampionChallengerReportsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// ListRiskControlsParams defines parameters for ListRiskControls.
+type ListRiskControlsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From     *FromTime `form:"from,omitempty" json:"from,omitempty"`
+	To       *ToTime   `form:"to,omitempty" json:"to,omitempty"`
+	State    *string   `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ControlRiskScopeParams defines parameters for ControlRiskScope.
+type ControlRiskScopeParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ControlRiskScopeParamsScope defines parameters for ControlRiskScope.
+type ControlRiskScopeParamsScope string
+
 // PauseRiskParams defines parameters for PauseRisk.
 type PauseRiskParams struct {
 	Origin         Origin         `json:"Origin"`
@@ -4507,6 +8619,41 @@ type PauseRiskParams struct {
 
 // ResumeRiskParams defines parameters for ResumeRisk.
 type ResumeRiskParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CreateRunParams defines parameters for CreateRun.
+type CreateRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// PauseRunParams defines parameters for PauseRun.
+type PauseRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ResumeRunParams defines parameters for ResumeRun.
+type ResumeRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StepRunParams defines parameters for StepRun.
+type StepRunParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StopRunParams defines parameters for StopRun.
+type StopRunParams struct {
 	Origin         Origin         `json:"Origin"`
 	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
@@ -4582,6 +8729,27 @@ type CreateSandboxArmParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// CreateSandboxStrategySessionParams defines parameters for CreateSandboxStrategySession.
+type CreateSandboxStrategySessionParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StartSandboxStrategySessionParams defines parameters for StartSandboxStrategySession.
+type StartSandboxStrategySessionParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StopSandboxStrategySessionParams defines parameters for StopSandboxStrategySession.
+type StopSandboxStrategySessionParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // LoginSessionParams defines parameters for LoginSession.
 type LoginSessionParams struct {
 	Origin Origin `json:"Origin"`
@@ -4592,6 +8760,16 @@ type LogoutSessionParams struct {
 	Origin     Origin    `json:"Origin"`
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
+
+// ListShadowSessionsParams defines parameters for ListShadowSessions.
+type ListShadowSessionsParams struct {
+	Cursor   *Cursor                        `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize                      `form:"page_size,omitempty" json:"page_size,omitempty"`
+	State    *ListShadowSessionsParamsState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ListShadowSessionsParamsState defines parameters for ListShadowSessions.
+type ListShadowSessionsParamsState string
 
 // CreateShadowSessionParams defines parameters for CreateShadowSession.
 type CreateShadowSessionParams struct {
@@ -4623,6 +8801,26 @@ type ListTrendDecisionsParams struct {
 // ListTrendDecisionsParamsOutcome defines parameters for ListTrendDecisions.
 type ListTrendDecisionsParamsOutcome string
 
+// ConfigureStrategyParams defines parameters for ConfigureStrategy.
+type ConfigureStrategyParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ControlStrategyRuntimeParams defines parameters for ControlStrategyRuntime.
+type ControlStrategyRuntimeParams struct {
+	Origin         Origin         `json:"Origin"`
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListStrategyVersionsParams defines parameters for ListStrategyVersions.
+type ListStrategyVersionsParams struct {
+	Cursor   *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
 // StreamEventsParams defines parameters for StreamEvents.
 type StreamEventsParams struct {
 	AfterRevision *Revision `form:"after_revision,omitempty" json:"after_revision,omitempty"`
@@ -4630,8 +8828,59 @@ type StreamEventsParams struct {
 	LastEventID   *Revision `json:"Last-Event-ID,omitempty"`
 }
 
+// TestAlertRouteJSONRequestBody defines body for TestAlertRoute for application/json ContentType.
+type TestAlertRouteJSONRequestBody = AlertTestRequest
+
+// AcknowledgeAlertJSONRequestBody defines body for AcknowledgeAlert for application/json ContentType.
+type AcknowledgeAlertJSONRequestBody = RevisionCommandRequest
+
+// EscalateAlertJSONRequestBody defines body for EscalateAlert for application/json ContentType.
+type EscalateAlertJSONRequestBody = RevisionCommandRequest
+
+// CreateHighRiskAuthorizationJSONRequestBody defines body for CreateHighRiskAuthorization for application/json ContentType.
+type CreateHighRiskAuthorizationJSONRequestBody = HighRiskAuthorizationRequest
+
 // CreateBacktestJSONRequestBody defines body for CreateBacktest for application/json ContentType.
 type CreateBacktestJSONRequestBody = OfflineJobRequest
+
+// ActivateConfigurationRevisionJSONRequestBody defines body for ActivateConfigurationRevision for application/json ContentType.
+type ActivateConfigurationRevisionJSONRequestBody = ConfigurationActivationRequest
+
+// CreateEvaluationCampaignJSONRequestBody defines body for CreateEvaluationCampaign for application/json ContentType.
+type CreateEvaluationCampaignJSONRequestBody = EvaluationCampaignCreateRequest
+
+// CancelEvaluationCampaignJSONRequestBody defines body for CancelEvaluationCampaign for application/json ContentType.
+type CancelEvaluationCampaignJSONRequestBody = RevisionCommandRequest
+
+// CreateExportJSONRequestBody defines body for CreateExport for application/json ContentType.
+type CreateExportJSONRequestBody = ExportRequest
+
+// DeleteExportJSONRequestBody defines body for DeleteExport for application/json ContentType.
+type DeleteExportJSONRequestBody = RevisionCommandRequest
+
+// HoldExportJSONRequestBody defines body for HoldExport for application/json ContentType.
+type HoldExportJSONRequestBody = ArtifactHoldRequest
+
+// CreateIncidentJSONRequestBody defines body for CreateIncident for application/json ContentType.
+type CreateIncidentJSONRequestBody = IncidentCreateRequest
+
+// CreateIncidentEvidenceBundleJSONRequestBody defines body for CreateIncidentEvidenceBundle for application/json ContentType.
+type CreateIncidentEvidenceBundleJSONRequestBody = EvidenceBundleRequest
+
+// TransitionIncidentJSONRequestBody defines body for TransitionIncident for application/json ContentType.
+type TransitionIncidentJSONRequestBody = IncidentTransitionRequest
+
+// UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
+type UpdateIncidentJSONRequestBody = IncidentUpdateRequest
+
+// ControlLabRunJSONRequestBody defines body for ControlLabRun for application/json ContentType.
+type ControlLabRunJSONRequestBody = RevisionCommandRequest
+
+// StartQualificationJSONRequestBody defines body for StartQualification for application/json ContentType.
+type StartQualificationJSONRequestBody = QualificationStartRequest
+
+// AbortQualificationJSONRequestBody defines body for AbortQualification for application/json ContentType.
+type AbortQualificationJSONRequestBody = RevisionCommandRequest
 
 // CreateReplayJSONRequestBody defines body for CreateReplay for application/json ContentType.
 type CreateReplayJSONRequestBody = ReplayJobRequest
@@ -4648,14 +8897,41 @@ type ResumeReplayJSONRequestBody = RevisionCommandRequest
 // StepReplayJSONRequestBody defines body for StepReplay for application/json ContentType.
 type StepReplayJSONRequestBody = RevisionCommandRequest
 
+// CreateReportScheduleJSONRequestBody defines body for CreateReportSchedule for application/json ContentType.
+type CreateReportScheduleJSONRequestBody = ReportScheduleRequest
+
+// TransitionReportScheduleJSONRequestBody defines body for TransitionReportSchedule for application/json ContentType.
+type TransitionReportScheduleJSONRequestBody = ReportScheduleTransitionRequest
+
+// CreateReportJSONRequestBody defines body for CreateReport for application/json ContentType.
+type CreateReportJSONRequestBody = ReportRequest
+
 // ExportResearchReportJSONRequestBody defines body for ExportResearchReport for application/json ContentType.
 type ExportResearchReportJSONRequestBody = ReportExportRequest
+
+// ControlRiskScopeJSONRequestBody defines body for ControlRiskScope for application/json ContentType.
+type ControlRiskScopeJSONRequestBody = RiskControlRequest
 
 // PauseRiskJSONRequestBody defines body for PauseRisk for application/json ContentType.
 type PauseRiskJSONRequestBody = RevisionCommandRequest
 
 // ResumeRiskJSONRequestBody defines body for ResumeRisk for application/json ContentType.
 type ResumeRiskJSONRequestBody = RevisionCommandRequest
+
+// CreateRunJSONRequestBody defines body for CreateRun for application/json ContentType.
+type CreateRunJSONRequestBody = RunCreateRequest
+
+// PauseRunJSONRequestBody defines body for PauseRun for application/json ContentType.
+type PauseRunJSONRequestBody = RevisionCommandRequest
+
+// ResumeRunJSONRequestBody defines body for ResumeRun for application/json ContentType.
+type ResumeRunJSONRequestBody = RevisionCommandRequest
+
+// StepRunJSONRequestBody defines body for StepRun for application/json ContentType.
+type StepRunJSONRequestBody = RevisionCommandRequest
+
+// StopRunJSONRequestBody defines body for StopRun for application/json ContentType.
+type StopRunJSONRequestBody = RevisionCommandRequest
 
 // ReconcileSandboxAccountJSONRequestBody defines body for ReconcileSandboxAccount for application/json ContentType.
 type ReconcileSandboxAccountJSONRequestBody = RevisionCommandRequest
@@ -4681,6 +8957,15 @@ type QuerySandboxOrderJSONRequestBody = RevisionCommandRequest
 // CreateSandboxArmJSONRequestBody defines body for CreateSandboxArm for application/json ContentType.
 type CreateSandboxArmJSONRequestBody = SandboxArmRequest
 
+// CreateSandboxStrategySessionJSONRequestBody defines body for CreateSandboxStrategySession for application/json ContentType.
+type CreateSandboxStrategySessionJSONRequestBody = SandboxStrategySessionCreateRequest
+
+// StartSandboxStrategySessionJSONRequestBody defines body for StartSandboxStrategySession for application/json ContentType.
+type StartSandboxStrategySessionJSONRequestBody = SandboxStrategySessionStartRequest
+
+// StopSandboxStrategySessionJSONRequestBody defines body for StopSandboxStrategySession for application/json ContentType.
+type StopSandboxStrategySessionJSONRequestBody = RevisionCommandRequest
+
 // LoginSessionJSONRequestBody defines body for LoginSession for application/json ContentType.
 type LoginSessionJSONRequestBody = LoginRequest
 
@@ -4689,3 +8974,9 @@ type CreateShadowSessionJSONRequestBody = ShadowSessionRequest
 
 // StopShadowSessionJSONRequestBody defines body for StopShadowSession for application/json ContentType.
 type StopShadowSessionJSONRequestBody = RevisionCommandRequest
+
+// ConfigureStrategyJSONRequestBody defines body for ConfigureStrategy for application/json ContentType.
+type ConfigureStrategyJSONRequestBody = StrategyConfigurationRequest
+
+// ControlStrategyRuntimeJSONRequestBody defines body for ControlStrategyRuntime for application/json ContentType.
+type ControlStrategyRuntimeJSONRequestBody = RuntimeControlRequest

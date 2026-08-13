@@ -25,6 +25,15 @@ type Strategy interface {
 	Evaluate(context.Context, replay.Event) (Candidate, error)
 }
 
+// DecisionEvidenceSource exposes the exact accepted strategy decision for a
+// canonical input after Evaluate succeeds. Order-capable consumers use this
+// optional companion contract to retain the decision facts needed for later
+// fill-derived position reconstruction; it does not authorize allocation or
+// submission.
+type DecisionEvidenceSource interface {
+	DecisionEvidence(replay.Event) (json.RawMessage, error)
+}
+
 // Allocator is the consumer-owned exclusive-reservation interface.
 type Allocator interface {
 	Allocate(context.Context, Candidate) (AllocatedIntent, error)

@@ -85,6 +85,39 @@ for (const serviceName of [
   }
 }
 
+for (const serviceName of ["recorder", "backtest-worker"]) {
+  const service = config.services[serviceName];
+  if (
+    service.environment?.APP_CONFIG_FILE !== "/etc/axiom/platform-research.json"
+  ) {
+    throw new Error(
+      `${serviceName} must use the immutable two-exchange research graph`,
+    );
+  }
+  const networks = Object.keys(service.networks ?? {});
+  if (!networks.includes("exchange_egress")) {
+    throw new Error(
+      `${serviceName} cannot reach the reviewed production-public endpoints`,
+    );
+  }
+}
+
+const workerVolumes = config.services["backtest-worker"]?.volumes ?? [];
+const recordingRoot = workerVolumes.find(
+  (volume) => volume.target === "/var/lib/axiom/market-data",
+);
+const historicalRoot = workerVolumes.find(
+  (volume) => volume.target === "/var/lib/axiom/market-data/evaluation-history",
+);
+if (recordingRoot?.read_only !== true) {
+  throw new Error("backtest-worker must not rewrite existing recordings");
+}
+if (!historicalRoot || historicalRoot.read_only === true) {
+  throw new Error(
+    "backtest-worker historical import child mount must be writable",
+  );
+}
+
 for (const [serviceName, ownRequest, otherRequest] of [
   ["binance-sandbox-canary", "binance_canary_request", "bybit_canary_request"],
   ["bybit-sandbox-canary", "bybit_canary_request", "binance_canary_request"],

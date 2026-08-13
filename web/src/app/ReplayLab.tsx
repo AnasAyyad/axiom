@@ -1,45 +1,24 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 
 import { getAPI, newIdempotencyKey, postAPI } from "../api/client";
+import { sessionQuery } from "../api/queries";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { StatePanel } from "../components/StatePanel";
+import { LabRunTools, LabSafetyNote } from "../features/labs/LabRunTools";
 import styles from "./Page.module.css";
 import { ReplayEvidence } from "./ReplayEvidence";
 import { ReplayFaultScheduler } from "./ReplayFaultScheduler";
-import { JobPanel, Lab, RunForm } from "./ResearchLabShared";
-import { emptyRun } from "./researchLabModel";
+import { JobPanel, Lab } from "./ResearchLabShared";
 
 export function ReplayLab() {
   const { id } = useParams();
-  const [search] = useSearchParams();
-  const [form, setForm] = useState({
-    ...emptyRun,
-    dataset: search.get("dataset") ?? "",
-  });
-  const [jobID, setJobID] = useState(id ?? "");
+  const jobID = id ?? "";
   const [ordinalInput, setOrdinalInput] = useState("");
   const [inspectionOrdinal, setInspectionOrdinal] = useState("");
-  const create = useMutation({
-    mutationFn: () =>
-      postAPI<"JobResource">(
-        "/api/v1/replays",
-        {
-          configuration_id: form.configuration,
-          dataset_id: form.dataset,
-          research_generation_id: form.researchGeneration,
-          strategy_version: form.strategy,
-          root_seed_hash: form.seed,
-          speed: "maximum",
-          incident_id: search.get("incident") ?? undefined,
-          first_ordinal: search.get("first") ?? undefined,
-          last_ordinal: search.get("last") ?? undefined,
-        },
-        newIdempotencyKey("replay"),
-      ),
-    onSuccess: (job) => setJobID(job.id),
-  });
+  const session = useQuery(sessionQuery);
+  const ownerSessionReady = session.isSuccess;
   const job = useQuery({
     queryKey: ["replay", jobID, inspectionOrdinal],
     queryFn: () => {
@@ -75,15 +54,22 @@ export function ReplayLab() {
     <Lab
       title="Replay Lab"
       eyebrow="Exact event ordering"
-      description="Reproduce recorded data, pause safely, or advance one deterministic event while retaining immutable identity."
+      description="Inspect an existing recorded-data replay. New work is created from reviewed server choices."
     >
-      <RunForm
-        form={form}
-        setForm={setForm}
-        label="Create replay"
-        pending={create.isPending}
-        submit={() => create.mutate()}
-      />
+      <LabSafetyNote />
+      {jobID === "" && (
+        <section className={styles.card}>
+          <h2>Start a reviewed replay</h2>
+          <p>
+            New replays use a server-approved strategy and qualified inputs. You
+            never need to paste internal configuration, dataset, or model
+            identifiers into the browser.
+          </p>
+          <Link className={styles.action} to="/run-lab">
+            Choose a reviewed run
+          </Link>
+        </section>
+      )}
       {job.data && (
         <>
           <ReplayFaultScheduler jobID={jobID} jobState={job.data.state} />
@@ -97,7 +83,7 @@ export function ReplayLab() {
                     <button
                       type="button"
                       className={styles.actionSecondary}
-                      disabled={control.isPending}
+                      disabled={control.isPending || !ownerSessionReady}
                     >
                       {action}
                     </button>
@@ -140,7 +126,40 @@ export function ReplayLab() {
               />
             )}
           </section>
+          <section className={styles.card}>
+            <h2>Durable replay checkpoints</h2>
+            {job.data.checkpoints?.length ? (
+              <ol className={styles.timeline}>
+                {job.data.checkpoints.map((checkpoint) => (
+                  <li key={checkpoint.revision}>
+                    <button
+                      type="button"
+                      className={styles.rowButton}
+                      onClick={() => {
+                        setOrdinalInput(checkpoint.input_ordinal);
+                        setInspectionOrdinal(checkpoint.input_ordinal);
+                      }}
+                    >
+                      Ordinal {checkpoint.input_ordinal}
+                      <span>checkpoint revision {checkpoint.revision}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <StatePanel
+                state={job.data.state === "RUNNING" ? "loading" : "empty"}
+                detail="No durable checkpoint has been materialized yet."
+              />
+            )}
+          </section>
           <JobPanel job={job.data} />
+          <LabRunTools
+            job={job.data}
+            canControl={ownerSessionReady}
+            canExport={ownerSessionReady}
+            refresh={() => job.refetch()}
+          />
         </>
       )}
     </Lab>

@@ -12,14 +12,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestA4PostgresMigrationJournalAndReservationIntegration(t *testing.T) {
-	dsn := os.Getenv("AXIOM_A4_TEST_DSN")
+func TestDurableStoragePostgresMigrationJournalAndReservationIntegration(t *testing.T) {
+	dsn := os.Getenv("AXIOM_DURABLE_STORAGE_TEST_DSN")
 	if dsn == "" {
-		t.Skip("AXIOM_A4_TEST_DSN is not set")
+		t.Skip("AXIOM_DURABLE_STORAGE_TEST_DSN is not set")
 	}
 	configuration, err := pgxpool.ParseConfig(dsn)
-	if err != nil || !strings.HasSuffix(configuration.ConnConfig.Database, "_a4_test") {
-		t.Fatal("A4 integration requires a dedicated database ending _a4_test")
+	if err != nil || !strings.HasSuffix(configuration.ConnConfig.Database, "_durable_storage_test") {
+		t.Fatal("durable storage integration requires a dedicated database ending _durable_storage_test")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -39,9 +39,9 @@ func TestA4PostgresMigrationJournalAndReservationIntegration(t *testing.T) {
 	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 0 {
 		t.Fatalf("idempotent migration = %d, %v", applied, applyErr)
 	}
-	runtimeRole := testRole("AXIOM_A4_RUNTIME_ROLE", "axiom_runtime")
-	recorderRole := testRole("AXIOM_A4_RECORDER_ROLE", "axiom_recorder")
-	readOnlyRole := testRole("AXIOM_A4_READONLY_ROLE", "axiom_readonly")
+	runtimeRole := testRole("AXIOM_DURABLE_STORAGE_RUNTIME_ROLE", "axiom_runtime")
+	recorderRole := testRole("AXIOM_DURABLE_STORAGE_RECORDER_ROLE", "axiom_recorder")
+	readOnlyRole := testRole("AXIOM_DURABLE_STORAGE_READONLY_ROLE", "axiom_readonly")
 	if err = ApplyRoleGrants(ctx, pool, runtimeRole, recorderRole, readOnlyRole); err != nil {
 		t.Fatalf("role grants failed: %v", err)
 	}
@@ -150,7 +150,7 @@ func assertEmptyTestDatabase(t *testing.T, ctx context.Context, pool *pgxpool.Po
 		t.Fatal(err)
 	}
 	if tables != 0 {
-		t.Fatal("dedicated A4 integration database is not empty")
+		t.Fatal("dedicated durable storage integration database is not empty")
 	}
 }
 
@@ -334,8 +334,8 @@ func tryDatabaseReservation(ctx context.Context, pool *pgxpool.Pool, reservation
 		return errReservationRejected
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO reservations
-      (id,account_id,asset_symbol,quantity,state,fencing_token,revision,created_at,updated_at)
-      VALUES ($1,'account-a','USDT',400,'active',1,1,clock_timestamp(),clock_timestamp())`, reservationID)
+      (id,account_id,asset_symbol,quantity,state,fencing_token,revision,created_at,updated_at,remaining_quantity)
+      VALUES ($1,'account-a','USDT',400,'active',1,1,clock_timestamp(),clock_timestamp(),400)`, reservationID)
 	if err != nil {
 		return err
 	}

@@ -91,7 +91,7 @@ type Store interface {
 	Upsert(context.Context, Alert) (Alert, error)
 	Acknowledge(context.Context, string, string, string, time.Time) (Alert, error)
 	PrepareDelivery(context.Context, Alert, string, time.Time) (string, error)
-	CompleteDelivery(context.Context, string, bool, string, time.Time) error
+	CompleteDelivery(context.Context, string, bool, string, time.Time, time.Time) error
 	DueDeliveries(context.Context, time.Time, int32) ([]PendingDelivery, error)
 }
 
@@ -109,12 +109,14 @@ func (service *Service) RetryDue(ctx context.Context, limit int32) (int, error) 
 		if pending.SinkName != service.sink.Name() {
 			return delivered, fmt.Errorf("alert_delivery_sink_mismatch")
 		}
+		started := service.now()
 		deliveryErr := service.sink.Deliver(ctx, pending.Alert)
+		completed := service.now()
 		reason := ""
 		if deliveryErr != nil {
 			reason = "sink_unavailable"
 		}
-		if err = service.store.CompleteDelivery(ctx, pending.ID, deliveryErr == nil, reason, service.now()); err != nil {
+		if err = service.store.CompleteDelivery(ctx, pending.ID, deliveryErr == nil, reason, started, completed); err != nil {
 			return delivered, fmt.Errorf("alert_delivery_state_failed")
 		}
 		if deliveryErr == nil {
@@ -179,12 +181,14 @@ func (service *Service) Trigger(ctx context.Context, fault Fault) (Alert, error)
 	if err != nil {
 		return stored, fmt.Errorf("alert_delivery_state_failed")
 	}
+	started := service.now()
 	deliveryErr := service.sink.Deliver(ctx, stored)
+	completed := service.now()
 	reason := ""
 	if deliveryErr != nil {
 		reason = "sink_unavailable"
 	}
-	if err := service.store.CompleteDelivery(ctx, deliveryID, deliveryErr == nil, reason, service.now()); err != nil {
+	if err := service.store.CompleteDelivery(ctx, deliveryID, deliveryErr == nil, reason, started, completed); err != nil {
 		return stored, fmt.Errorf("alert_delivery_state_failed")
 	}
 	if deliveryErr != nil {

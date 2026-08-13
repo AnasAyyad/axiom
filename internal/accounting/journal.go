@@ -22,7 +22,7 @@ const (
 // AccountClass keeps economically distinct facts separate.
 type AccountClass string
 
-// Required V1A account classes.
+// Required initial trend account classes.
 const (
 	ExternalEquity         AccountClass = "external_equity"
 	AvailableAsset         AccountClass = "available_asset"
@@ -87,7 +87,7 @@ type Journal interface {
 	Rebuild() ([]Projection, string, error)
 }
 
-// MemoryJournal is the deterministic A4 journal conformance model.
+// MemoryJournal is the deterministic durable storage journal conformance model.
 type MemoryJournal struct {
 	mutex        sync.Mutex
 	transactions []Transaction

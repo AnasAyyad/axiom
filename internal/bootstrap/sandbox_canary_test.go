@@ -36,7 +36,7 @@ func TestSandboxCanaryEvidenceIsAtomicAndNeverOverwritten(t *testing.T) {
 		t.Fatal(err)
 	}
 	evidence := sandboxCanaryQualificationEvidence{
-		SchemaVersion: "axiom.v1c.pr2.canary-evidence.v1",
+		SchemaVersion: "axiom.sandbox_runtime.sandbox_connectivity.canary-evidence.v1",
 		CanaryID:      "execution_plan:canary", Exchange: sandbox.ExchangeBinance,
 		AccountID: "binance-testnet-canary", AccountEpoch: 1,
 		ConfigurationID:            "config_snapshot:canary",
@@ -68,7 +68,7 @@ func TestSandboxCanaryEvidenceIsAtomicAndNeverOverwritten(t *testing.T) {
 	if _, err = writeSandboxCanaryEvidence(directory, &evidence); err == nil {
 		t.Fatal("existing canary evidence was overwritten")
 	}
-	matches, err := filepath.Glob(filepath.Join(directory, ".v1c-canary-*"))
+	matches, err := filepath.Glob(filepath.Join(directory, ".sandbox_runtime-canary-*"))
 	if err != nil || len(matches) != 0 {
 		t.Fatalf("temporary evidence remains: %v error=%v", matches, err)
 	}

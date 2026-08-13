@@ -3,9 +3,11 @@ package binance
 import (
 	"context"
 	"errors"
+	"sort"
 	"time"
 
 	"axiom/internal/domain"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/sandbox"
 )
 
@@ -23,6 +25,8 @@ type SandboxAdapter struct {
 	epoch        uint64
 	lookup       sandbox.SubmissionLookup
 	expectations sandbox.SnapshotExpectationReader
+	marketData   exchangecontracts.MarketDataSource
+	strategyData sandbox.StrategyMarketData
 	rules        map[string]SandboxInstrumentRules
 	rateBudget   *sandboxRateBudget
 }
@@ -57,7 +61,48 @@ func NewSandboxAdapter(
 		}
 		rules[instrument.Symbol()] = loaded
 	}
-	return newSandboxAdapterForTest(client, identity, epoch, lookup, expectations, rules)
+	marketData, err := NewTestnetPublicClient(&domain.SystemClock{})
+	if err != nil {
+		return nil, err
+	}
+	adapter, err := newSandboxAdapterForTestWithMarketData(
+		client, identity, epoch, lookup, expectations, rules, marketData,
+	)
+	if err != nil {
+		return nil, err
+	}
+	adapter.strategyData = marketData
+	return adapter, nil
+}
+
+// StrategyMarketData exposes only the credential-free Testnet public source
+// for a future automatic strategy worker.
+func (adapter *SandboxAdapter) StrategyMarketData() (sandbox.StrategyMarketData, error) {
+	if adapter == nil || adapter.strategyData == nil {
+		return nil, ErrSandboxRequest
+	}
+	return adapter.strategyData, nil
+}
+
+// StrategyInstrumentRules returns a defensive, credential-free copy of the
+// exact Testnet filters loaded during adapter startup. The returned values
+// contain no client, signer, account identity, endpoint, or order capability.
+func (adapter *SandboxAdapter) StrategyInstrumentRules() ([]SandboxInstrumentRules, error) {
+	if adapter == nil || len(adapter.rules) != len(approvedSandboxInstruments()) {
+		return nil, ErrSandboxRequest
+	}
+	result := make([]SandboxInstrumentRules, 0, len(adapter.rules))
+	for _, rule := range adapter.rules {
+		if rule.Instrument.Product != domain.ProductSpot || rule.SourceHash == "" ||
+			rule.ObservedAt.IsZero() || rule.ObservedAt.Location() != time.UTC {
+			return nil, ErrSandboxRequest
+		}
+		result = append(result, rule)
+	}
+	sort.Slice(result, func(left, right int) bool {
+		return result[left].Instrument.Symbol() < result[right].Instrument.Symbol()
+	})
+	return result, nil
 }
 
 func newSandboxAdapterForTest(
@@ -67,6 +112,20 @@ func newSandboxAdapterForTest(
 	lookup sandbox.SubmissionLookup,
 	expectations sandbox.SnapshotExpectationReader,
 	rules map[string]SandboxInstrumentRules,
+) (*SandboxAdapter, error) {
+	return newSandboxAdapterForTestWithMarketData(
+		client, identity, epoch, lookup, expectations, rules, nil,
+	)
+}
+
+func newSandboxAdapterForTestWithMarketData(
+	client *SandboxClient,
+	identity sandbox.AccountIdentity,
+	epoch uint64,
+	lookup sandbox.SubmissionLookup,
+	expectations sandbox.SnapshotExpectationReader,
+	rules map[string]SandboxInstrumentRules,
+	marketData exchangecontracts.MarketDataSource,
 ) (*SandboxAdapter, error) {
 	if client == nil || identity.Validate() != nil || epoch == 0 ||
 		lookup == nil || expectations == nil || len(rules) != 3 {
@@ -85,7 +144,8 @@ func newSandboxAdapterForTest(
 	}
 	return &SandboxAdapter{
 		client: client, identity: identity, epoch: epoch, lookup: lookup,
-		expectations: expectations, rules: rules, rateBudget: rateBudget,
+		expectations: expectations, marketData: marketData, rules: rules,
+		rateBudget: rateBudget,
 	}, nil
 }
 

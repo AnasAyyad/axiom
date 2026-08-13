@@ -1,0 +1,51 @@
+[
+  {
+    "run_id": "CHANGE_ME_RUN_ID",
+    "scenario": "public_collector_disconnect_and_gap_recovery",
+    "state": "failed",
+    "occurred_at": "1970-01-01T00:00:00Z",
+    "evidence_hash": "CHANGE_ME_64_HEX"
+  },
+  {
+    "run_id": "CHANGE_ME_RUN_ID",
+    "scenario": "recorder_kill_during_segment_finalize",
+    "state": "failed",
+    "occurred_at": "1970-01-01T00:00:00Z",
+    "evidence_hash": "CHANGE_ME_64_HEX"
+  },
+  {
+    "run_id": "CHANGE_ME_RUN_ID",
+    "scenario": "shadow_worker_restart_and_checkpoint_recovery",
+    "state": "failed",
+    "occurred_at": "1970-01-01T00:00:00Z",
+    "evidence_hash": "CHANGE_ME_64_HEX"
+  },
+  {
+    "run_id": "CHANGE_ME_RUN_ID",
+    "scenario": "database_restart_and_outbox_recovery",
+    "state": "failed",
+    "occurred_at": "1970-01-01T00:00:00Z",
+    "evidence_hash": "CHANGE_ME_64_HEX"
+  },
+  {
+    "run_id": "CHANGE_ME_RUN_ID",
+    "scenario": "high_disk_watermark_heavy_job_rejection",
+    "state": "failed",
+    "occurred_at": "1970-01-01T00:00:00Z",
+    "evidence_hash": "CHANGE_ME_64_HEX"
+  },
+  {
+    "run_id": "CHANGE_ME_RUN_ID",
+    "scenario": "critical_disk_watermark_safe_pause",
+    "state": "failed",
+    "occurred_at": "1970-01-01T00:00:00Z",
+    "evidence_hash": "CHANGE_ME_64_HEX"
+  },
+  {
+    "run_id": "CHANGE_ME_RUN_ID",
+    "scenario": "encrypted_backup_clean_restore",
+    "state": "failed",
+    "occurred_at": "1970-01-01T00:00:00Z",
+    "evidence_hash": "CHANGE_ME_64_HEX"
+  }
+]

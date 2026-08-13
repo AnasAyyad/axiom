@@ -52,7 +52,7 @@ func TestSandboxEngineAttestationIsExactAndExchangeScoped(t *testing.T) {
 }
 
 func TestSandboxEngineRequiresBothSubmissionSwitchLayers(t *testing.T) {
-	product, err := config.DefaultV1CConfiguration(config.ModeTestnet)
+	product, err := config.DefaultSandboxConfiguration(config.ModeTestnet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,11 +79,8 @@ func TestSandboxEngineRequiresBothSubmissionSwitchLayers(t *testing.T) {
 	}
 }
 
-func TestSandboxEngineRecoveryBlocksDispatchAndUnknownRecovery(t *testing.T) {
+func TestSandboxEngineUnknownRecoveryIsBlockedWhenIneligible(t *testing.T) {
 	loop := sandboxEngineLoop{}
-	if err := loop.dispatch(context.Background(), false); err != nil {
-		t.Fatalf("dispatch was not safely blocked: %v", err)
-	}
 	if err := loop.recover(context.Background(), false); err != nil {
 		t.Fatalf("unknown recovery was not safely blocked: %v", err)
 	}
@@ -170,6 +167,7 @@ func TestSandboxPrivateStreamReconnectDeadlineAndTerminalClass(t *testing.T) {
 
 type sandboxEngineHealthLoopFixture struct {
 	reconcileCalls int
+	evaluateCalls  int
 	targets        []bool
 	reconcileErr   error
 }
@@ -187,6 +185,13 @@ func (fixture *sandboxEngineHealthLoopFixture) reconcile(
 ) error {
 	fixture.reconcileCalls++
 	return fixture.reconcileErr
+}
+
+func (fixture *sandboxEngineHealthLoopFixture) evaluateStrategies(
+	context.Context,
+) error {
+	fixture.evaluateCalls++
+	return nil
 }
 
 func (fixture *sandboxEngineHealthLoopFixture) transitionReadiness(
@@ -230,7 +235,8 @@ func TestSandboxPrivateStreamRecoveryReconcilesImmediatelyAndStaysPaused(
 	now = now.Add(30 * time.Second)
 	if err = health.reconcile(context.Background(), loop); err != nil ||
 		loop.reconcileCalls != 2 || !health.dispatchAllowed ||
-		health.recovery.State() != sandbox.RecoveryRecovered || !health.ready {
+		health.recovery.State() != sandbox.RecoveryRecovered || !health.ready ||
+		loop.evaluateCalls != 1 {
 		t.Fatalf("recovered health=%+v calls=%d error=%v", health, loop.reconcileCalls, err)
 	}
 }

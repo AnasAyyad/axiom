@@ -21,7 +21,7 @@ type PublicStreamSink struct {
 
 var _ exchangecontracts.PublicRecorder = (*PublicStreamSink)(nil)
 
-// BinanceStreamSink is the V1A compatibility name for PublicStreamSink.
+// BinanceStreamSink is the initial trend compatibility name for PublicStreamSink.
 type BinanceStreamSink = PublicStreamSink
 
 // NewPublicStreamSink constructs one session-scoped exchange-neutral public sink.

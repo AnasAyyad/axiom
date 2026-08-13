@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -12,10 +11,10 @@ import (
 )
 
 func newSandboxEngineDispatchers(
-	account postgresstore.V1CEngineAccount,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	owner string,
 	fence uint64,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	adapter sandboxEngineAdapter,
 ) (
 	*sandbox.SandboxDispatcher,
@@ -52,9 +51,9 @@ func newSandboxEngineDispatchers(
 
 func (work *sandboxEngineRoleWork) reconcile(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	adapter sandboxEngineAdapter,
-	account postgresstore.V1CEngineAccount,
+	account postgresstore.SandboxRuntimeEngineAccount,
 ) (sandbox.ReconciliationResult, error) {
 	var result sandbox.ReconciliationResult
 	var err error
@@ -110,32 +109,38 @@ func snapshotIdentity(
 
 func (work *sandboxEngineRoleWork) runSandboxEngineLoop(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
-	account postgresstore.V1CEngineAccount,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
+	account postgresstore.SandboxRuntimeEngineAccount,
 	owner string,
 	fence uint64,
 	adapter sandboxEngineAdapter,
 	source sandbox.PrivateEventSource,
 	dispatcher *sandbox.SandboxDispatcher,
 	recovery *sandbox.UnknownRecoveryHarness,
+	scheduler sandboxStrategyScheduler,
 ) error {
 	loop := sandboxEngineLoop{
 		work: work, store: store, account: account, owner: owner,
 		fence: fence, adapter: adapter, dispatcher: dispatcher,
-		recovery: recovery,
+		recovery: recovery, scheduler: scheduler,
 	}
 	return loop.run(ctx, source)
 }
 
+type sandboxStrategyScheduler interface {
+	Tick(context.Context) (sandbox.StrategySessionScheduleResult, error)
+}
+
 type sandboxEngineLoop struct {
 	work       *sandboxEngineRoleWork
-	store      *postgresstore.V1CDispatcherStore
-	account    postgresstore.V1CEngineAccount
+	store      *postgresstore.SandboxRuntimeDispatcherStore
+	account    postgresstore.SandboxRuntimeEngineAccount
 	owner      string
 	fence      uint64
 	adapter    sandboxEngineAdapter
 	dispatcher *sandbox.SandboxDispatcher
 	recovery   *sandbox.UnknownRecoveryHarness
+	scheduler  sandboxStrategyScheduler
 }
 
 func (loop sandboxEngineLoop) run(
@@ -225,6 +230,11 @@ func (loop sandboxEngineLoop) dispatch(
 	ctx context.Context,
 	eligible bool,
 ) error {
+	if _, err := loop.store.BlockExpiredStrategySessions(
+		ctx, loop.account.AccountID, loop.account.Epoch, time.Now().UTC(),
+	); err != nil {
+		return err
+	}
 	if !eligible {
 		return nil
 	}
@@ -241,75 +251,6 @@ func (loop sandboxEngineLoop) dispatch(
 	return err
 }
 
-func (loop sandboxEngineLoop) recover(
-	ctx context.Context,
-	eligible bool,
-) error {
-	if !eligible {
-		return nil
-	}
-	started := time.Now()
-	recovered, err := loop.recovery.RecoverOnce(ctx, started.UTC(), 2)
-	if recovered == 0 && err == nil {
-		return nil
-	}
-	occurredAt := time.Now().UTC()
-	recordErr := loop.store.RecordEngineRuntimeEvent(
-		ctx,
-		loop.account.AccountID,
-		loop.account.Epoch,
-		loop.work.exchange,
-		loop.fence,
-		"UNKNOWN_RECOVERY",
-		time.Since(started),
-		err == nil,
-		occurredAt,
-	)
-	if recordErr != nil {
-		return recordErr
-	}
-	return err
-}
-
-func (loop sandboxEngineLoop) reconcile(
-	ctx context.Context,
-	eligible bool,
-) error {
-	if !eligible {
-		return nil
-	}
-	started := time.Now()
-	result, err := loop.work.reconcile(
-		ctx, loop.store, loop.adapter, loop.account,
-	)
-	if err == nil && result.State != "clean" {
-		err = fmt.Errorf(
-			"sandbox_engine_reconciliation_state_%s", result.State,
-		)
-	}
-	occurredAt := time.Now().UTC()
-	failureKind, causeCode := sandbox.ClassifyReconciliationFailure(err)
-	recordErr := loop.store.RecordEngineRuntimeReconciliationEvent(
-		ctx,
-		loop.account.AccountID,
-		loop.account.Epoch,
-		loop.work.exchange,
-		loop.fence,
-		time.Since(started),
-		err == nil && result.State == "clean",
-		failureKind,
-		causeCode,
-		occurredAt,
-	)
-	if recordErr != nil {
-		return recordErr
-	}
-	if err != nil {
-		return fmt.Errorf("sandbox_engine_reconciliation_failed: %w", err)
-	}
-	return nil
-}
-
 func (loop sandboxEngineLoop) refreshEligibility(
 	ctx context.Context,
 	current bool,
@@ -317,16 +258,16 @@ func (loop sandboxEngineLoop) refreshEligibility(
 	if !loop.work.sandboxSubmissionEnabled() {
 		return true, nil
 	}
-	snapshot, err := loop.adapter.StartupEligibility(ctx)
+	snapshots, err := loop.adapter.StrategyEligibility(ctx)
 	if ctx.Err() != nil {
 		return current, nil
 	}
-	if err != nil || !snapshot.Eligible {
+	if err != nil || !allSandboxEligibilityEligible(snapshots) {
 		return false, nil
 	}
-	if err = loop.store.RecordEngineObservation(
+	if err = loop.store.RecordEngineObservations(
 		ctx, loop.account.AccountID, loop.account.Epoch,
-		loop.work.exchange, loop.fence, snapshot,
+		loop.work.exchange, loop.fence, snapshots,
 	); err != nil {
 		return false, err
 	}

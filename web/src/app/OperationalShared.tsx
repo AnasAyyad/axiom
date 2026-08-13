@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { HelpPopover } from "../components/HelpPopover";
 import styles from "./Page.module.css";
 
 export function Page({
@@ -20,6 +21,17 @@ export function Page({
           <span className={styles.eyebrow}>{eyebrow}</span>
           <h1>{title}</h1>
           <p>{description}</p>
+        </div>
+        <div className={styles.pageHelp}>
+          <HelpPopover label="About this page">
+            <p>
+              This page shows the owner-facing information described above. It
+              uses the most recently retrieved server-authoritative projection;
+              an empty, stale, or blocked section explains what is missing and
+              the next safe action. Values are operational evidence, not proof
+              of strategy profitability.
+            </p>
+          </HelpPopover>
         </div>
       </header>
       {children}

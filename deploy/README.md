@@ -10,18 +10,21 @@ backup service arrives in A4. V1C C4/C5 add two independent authenticated
 sandbox engines, two closed egress proxies, and inert-by-default one-shot
 canary coordinators. C6 adds the credential-free console/API and a separate
 least-privilege observer command; it does not add a Compose service or another
-credential owner. No service can target a production-private exchange host.
+credential owner. D5 replaces same-stack backup storage with a verified remote
+mount, adds current disk-pressure automation and a separate authenticated
+readiness runner. No service can target a production-private exchange host.
 
 ## 1. Prepare configuration
 
 ```bash
 cp .env.example .env
-mkdir -p .secrets .local/market-data .local/v1c-pr2-canaries
+mkdir -p .secrets .local/market-data/evaluation-history .local/backup-staging .local/sandbox-canaries
 chmod 700 .secrets
 # On Linux, ensure bind-mounted writable paths match APP_UID/APP_GID.
-sudo chown -R 10001:10001 .local/market-data
-sudo chown 10001:70 .local/v1c-pr2-canaries
-chmod 750 .local/v1c-pr2-canaries
+sudo chown -R 10001:70 .local/market-data
+sudo chown -R 10002:70 .local/backup-staging
+sudo chown 10001:70 .local/sandbox-canaries
+chmod 750 .local/sandbox-canaries
 ```
 
 Review every `CHANGE_ME` value in `.env`. Keep public ports bound to `127.0.0.1` unless Caddy or another authenticated TLS proxy is active.
@@ -31,24 +34,32 @@ reporting policy are not deployment-environment overrides. They belong to the
 immutable versioned research configuration selected by `APP_CONFIG_FILE`; a
 deployment cannot replace or augment those values through `.env`.
 
-The A2 image includes the reviewed `deploy/config/platform-shadow.json` at
-`/etc/axiom/platform.json`. The strict loader validates that complete graph
+The image includes the reviewed `deploy/config/platform-shadow.json` at
+`/etc/axiom/platform.json` and `deploy/config/platform-research.json` at
+`/etc/axiom/platform-research.json`. The strict loader validates the selected graph
 before opening the database or a listener. A deployment-specific replacement
 must be mounted explicitly at an absolute path and selected with
 `APP_CONFIG_FILE`; partial environment overlays are rejected.
 
 The V1B recorder and B3-B6 strategy and advisory roles may instead select
-`deploy/config/platform-shadow-v1b.json`. That immutable graph composes the
+`deploy/config/platform-research.json`. That immutable graph composes the
 compiled Binance and Bybit production-public endpoint sets, three approved
 spot instruments per venue, 15m/1h/4h candles, and the complete immutable
 `mean-reversion.v1b.1` 1h/4h and `triangular.v1b.1` exact-depth parameter
 contracts, B5's closed-cycle concurrent cross-exchange contract, and B6's
-reviewed `rebalancing.v1b.1` advisory-only route contract. B4 and B5 remain
+reviewed `inventory-rebalancing@1.0.0` advisory-only route contract. B4 and B5 remain
 simulation-only, while B6 contains no transfer or withdrawal executor. The
 graph contains no secret references and does not enable authenticated exchange
 behavior. Older V1A and V1B.1 through V1B.4 configuration schemas remain
 loadable without reinterpretation. Later V1B roles retain their predecessor
 behavior until their sequential phase is implemented.
+
+The Compose recorder and worker roles select the research graph through
+`EVALUATION_CONFIG_FILE` by default. The worker sees existing market recordings
+read-only and receives a separate writable `EVALUATION_HISTORY_HOST_PATH` child
+mount for official historical candle artifacts. Keep that path beneath the
+same protected market-data filesystem; never point it at PostgreSQL, backup
+staging, or an existing recording directory.
 
 If you created `.env` or initialized PostgreSQL before the Axiom naming update, leave those existing database and role names alone for now. Branding does not require deleting or recreating a local database. Fresh setups copied from the current `.env.example` use the `axiom` names; an existing database can be renamed later only through a planned migration/backup procedure.
 
@@ -67,7 +78,7 @@ Required for PostgreSQL:
 - `.secrets/postgres_readonly_password`
 - `.secrets/postgres_binance_engine_password`
 - `.secrets/postgres_bybit_engine_password`
-- `.secrets/postgres_c6_qualification_password`
+- `.secrets/postgres_sandbox_qualification_password`
 
 The A11 `api` service exposes redacted public liveness/readiness/build data and
 uses the independent health-detail token for authenticated component status.
@@ -156,7 +167,7 @@ openssl rand -base64 32 > .secrets/backup_encryption_key
 openssl rand -base64 48 > .secrets/postgres_readonly_password
 openssl rand -base64 48 > .secrets/postgres_binance_engine_password
 openssl rand -base64 48 > .secrets/postgres_bybit_engine_password
-openssl rand -base64 48 > .secrets/postgres_c6_qualification_password
+openssl rand -base64 48 > .secrets/postgres_sandbox_qualification_password
 openssl rand -base64 48 > .secrets/grafana_admin_password
 openssl rand -base64 48 > .secrets/health_detail_token
 sudo chgrp 70 .secrets/postgres_*_password
@@ -210,18 +221,30 @@ docker compose ps
 ```
 
 The PostgreSQL initialization script creates distinct owner, migrator, runtime,
-recorder, backup, read-only, Binance-engine, Bybit-engine, and C6 qualification
+recorder, backup, read-only, Binance-engine, Bybit-engine, and sandbox-qualification
 roles only on an empty data volume. Later changes belong in migrations.
 Authenticated engines share no database login, and neither engine can append
-or update C6 qualification records.
+or update sandbox-qualification records.
 
 Before upgrading an existing database to migrations `000021` through `000024`, a
 database administrator must provision the separate Binance-engine and
-Bybit-engine login roles, the `axiom_c6_qualification` login role, and their
+Bybit-engine login roles, the `axiom_sandbox_qualification` login role, and their
 password files. Empty-volume initialization does not run again on an existing
 volume, and migration startup fails closed if a required role is absent. Do
-not reuse an existing application or authenticated-engine login for the C6
+not reuse an existing application or authenticated-engine login for the sandbox
 observer.
+
+Before applying migration `000054` to an older volume, a database administrator
+must rename the historical `axiom_c6_qualification` login to
+`axiom_sandbox_qualification`, unless the migrator itself has `CREATEROLE`:
+
+```sql
+ALTER ROLE axiom_c6_qualification RENAME TO axiom_sandbox_qualification;
+```
+
+The migration fails closed if both names exist or if the old login remains and
+the migrator lacks role-administration rights. Do not delete or recreate the
+login because its existing grants and ownership must remain attached.
 
 The `sandbox-foundation` profile starts only the two CONNECT-only proxies:
 
@@ -248,8 +271,8 @@ the complete built-in V1C graph with all four integration/submission switches
 off. The image also contains two complete, reviewed, single-exchange canary
 graphs:
 
-- `/etc/axiom/platform-binance-testnet-v1c.json`
-- `/etc/axiom/platform-bybit-demo-v1c.json`
+- `/etc/axiom/platform-binance-testnet.json`
+- `/etc/axiom/platform-bybit-demo.json`
 
 Selecting one is an explicit order-enablement action. Pass the matching
 `*_SANDBOX_CONFIG_FILE` path to every engine and coordinator command in the
@@ -302,9 +325,9 @@ user-namespaced Docker Desktop/WSL host, provision it from the container
 namespace:
 
 ```bash
-mkdir -p .local/v1c-pr2-canaries
+mkdir -p .local/sandbox-canaries
 docker run --rm --user 0:0 \
-  --volume "$PWD/.local/v1c-pr2-canaries:/evidence:rw" \
+  --volume "$PWD/.local/sandbox-canaries:/evidence:rw" \
   postgres:18.4-alpine \
   sh -c 'chown 10001:70 /evidence && chmod 0750 /evidence'
 ```
@@ -319,7 +342,7 @@ already-terminal, exactly-once canary and remains query/reconciliation-only.
 Prepare Binance without putting any factor or order value on the command line:
 
 ```bash
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   BINANCE_CANARY_REQUEST_SOURCE_FILE=./.secrets/binance_canary_request \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
@@ -347,7 +370,7 @@ read-only query and reconciliation evidence without creating or canceling an
 order:
 
 ```bash
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
   sandbox-canary --exchange binance --phase recover \
@@ -361,7 +384,7 @@ request and cannot submit an exchange mutation.
 
 ```bash
 docker compose --env-file .env restart binance-sandbox-engine
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
   sandbox-canary --exchange binance --phase verify \
@@ -381,7 +404,7 @@ terminal `CANCELED`, `FILLED`, or `REJECTED` state, explicitly revoke its arm
 and stop its session:
 
 ```bash
-BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet-v1c.json \
+BINANCE_SANDBOX_CONFIG_FILE=/etc/axiom/platform-binance-testnet.json \
   docker compose --env-file .env --profile sandbox-canary run --rm \
   binance-sandbox-canary \
   sandbox-canary --exchange binance --phase abort \
@@ -393,13 +416,13 @@ multi-attempt orders. Use the matching Bybit service and exchange value for a
 Bybit canary. Do not clear canary sessions through direct database edits.
 
 Repeat the same sequence with
-`BYBIT_SANDBOX_CONFIG_FILE=/etc/axiom/platform-bybit-demo-v1c.json`,
+`BYBIT_SANDBOX_CONFIG_FILE=/etc/axiom/platform-bybit-demo.json`,
 `bybit-sandbox-canary`, `bybit_canary_request`, `--exchange bybit`, and
 `bybit-sandbox-engine`. Keep the two evidence files independent. A failed,
 missing, or unsealed file is not acceptance evidence. Never infer
 profitability from either sandbox result.
 
-### Manual C6 72-hour qualification
+### Manual sandbox qualification 72-hour run
 
 Do not start this observer until the PR3 implementation commit is clean, all
 non-soak gates pass, both engines are healthy on the exact candidate, and the
@@ -409,14 +432,14 @@ or reconcile an order. The matching engines remain the only
 credential-owning processes.
 
 For an existing database, provision the dedicated
-`POSTGRES_C6_QUALIFICATION_USER` before applying migration `000024`. Its
+`POSTGRES_SANDBOX_QUALIFICATION_USER` before applying migration `000024`. Its
 password file is separate from the API and both engine roles. The migrator
 grants the observer only redacted operational reads, immutable qualification
 appends, and the constrained terminal run transition.
 
 Use a new run ID and a new absent absolute terminal path. Record the exact
 clean commit, build hash, running executable SHA-256, image digest, and
-immutable configuration SHA-256. Set `AXIOM_C6_SOURCE_DIRTY=false`; formal
+immutable configuration SHA-256. Set `AXIOM_SANDBOX_QUALIFICATION_SOURCE_DIRTY=false`; formal
 validation rejects a dirty source, a missing image identity, either missing
 approved account environment, a duration other than 259,200 seconds, or a
 sample interval outside 15 seconds through 5 minutes.
@@ -441,19 +464,19 @@ then record both SHA-256 values before launch:
 
 ```bash
 install -d -m 0750 /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin
-AXIOM_C6_OBSERVER_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-soak \
-  make c6-observer-build
-AXIOM_C6_CHAOS_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-chaos \
-  make c6-chaos-build
-C6_CONTROLLER_IMAGE=axiom-c6-controller:REPLACE_WITH_COMMIT \
-COMMIT=REPLACE_WITH_40_HEX make c6-controller-image
-sha256sum /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-soak \
-  /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/c6-chaos
+AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification \
+  make sandbox-qualification-observer-build
+AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification-chaos \
+  make sandbox-qualification-chaos-build
+SANDBOX_QUALIFICATION_CONTROLLER_IMAGE=axiom-sandbox-qualification-controller:REPLACE_WITH_COMMIT \
+COMMIT=REPLACE_WITH_40_HEX make sandbox-qualification-controller-image
+sha256sum /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification \
+  /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification-chaos
 ```
 
 The base deployment intentionally publishes no PostgreSQL port. Keep it that
 way during qualification. Run the observer as a separate, no-restart container
-on the existing internal `axiom_core` network, with only the C6 database
+on the existing internal `axiom_core` network, with only the qualification database
 password file and evidence directory mounted. Wrap this exact `docker run`
 command in a persistent system supervisor so any exit is terminal:
 
@@ -462,26 +485,27 @@ docker run --name REPLACE_WITH_RUN_ID-observer \
   --no-healthcheck \
   --network axiom_core --read-only --restart=no --user "$(id -u):70" \
   --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
-  --mount type=bind,src=/absolute/retained/bin/c6-soak,dst=/qualification/c6-soak,readonly \
-  --mount type=bind,src="$PWD/.secrets/postgres_c6_qualification_password",dst=/run/secrets/postgres_c6_qualification_password,readonly \
+  --mount type=bind,src=/absolute/retained/bin/sandbox-qualification,dst=/qualification/sandbox-qualification,readonly \
+  --mount type=bind,src="$PWD/.secrets/postgres_sandbox_qualification_password",dst=/run/secrets/postgres_sandbox_qualification_password,readonly \
   --mount type=bind,src=/absolute/retained/evidence,dst=/qualification/evidence \
   --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
-  --env DB_USER=axiom_c6_qualification \
-  --env DB_PASSWORD_FILE=/run/secrets/postgres_c6_qualification_password \
-  --env AXIOM_C6_SOAK_ENABLED=1 --env AXIOM_C6_SOAK_MODE=formal \
-  --env AXIOM_C6_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
-  --env AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
-  --env AXIOM_C6_BUILD_HASH=REPLACE_WITH_64_HEX \
-  --env AXIOM_C6_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
-  --env AXIOM_C6_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
-  --env AXIOM_C6_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
-  --env AXIOM_C6_SOURCE_DIRTY=false \
-  --env AXIOM_C6_EVIDENCE_PATH=/qualification/evidence/c6-terminal.json \
-  --entrypoint /qualification/c6-soak REPLACE_WITH_EXACT_IMAGE
+  --env DB_USER=axiom_sandbox_qualification \
+  --env DB_PASSWORD_FILE=/run/secrets/postgres_sandbox_qualification_password \
+  --env AXIOM_SANDBOX_QUALIFICATION_ENABLED=1 \
+  --env AXIOM_SANDBOX_QUALIFICATION_MODE=formal \
+  --env AXIOM_SANDBOX_QUALIFICATION_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
+  --env AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA=REPLACE_WITH_40_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_BUILD_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_SOURCE_DIRTY=false \
+  --env AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH=/qualification/evidence/sandbox-qualification-terminal.json \
+  --entrypoint /qualification/sandbox-qualification REPLACE_WITH_EXACT_IMAGE
 ```
 
 The approved deterministic chaos controller must append exactly one run-bound
-result for every closed C6 scenario after the run starts. Missing, duplicate,
+result for every closed qualification scenario after the run starts. Missing, duplicate,
 unknown, or failed scenario evidence makes the terminal verdict fail closed.
 After the run row is confirmed `RUNNING`, invoke the retained controller once
 from the same exact clean checkout:
@@ -490,25 +514,26 @@ from the same exact clean checkout:
 docker run --rm --network axiom_core --read-only --user "$(id -u):70" \
   --tmpfs /tmp:rw,exec,nosuid,nodev,size=2g --workdir "$PWD" \
   --mount type=bind,src="$PWD",dst="$PWD",readonly \
-  --mount type=bind,src="$PWD/.secrets/postgres_c6_qualification_password",dst=/run/secrets/postgres_c6_qualification_password,readonly \
+  --mount type=bind,src="$PWD/.secrets/postgres_sandbox_qualification_password",dst=/run/secrets/postgres_sandbox_qualification_password,readonly \
   --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
-  --env DB_USER=axiom_c6_qualification \
-  --env DB_PASSWORD_FILE=/run/secrets/postgres_c6_qualification_password \
-  --env AXIOM_C6_CHAOS_ENABLED=1 --env AXIOM_C6_CHAOS_MODE=formal \
-  --env AXIOM_C6_RUN_ID=REPLACE_WITH_RUN_ID \
-  --env AXIOM_C6_COMMIT_SHA=REPLACE_WITH_40_HEX \
-  --env AXIOM_C6_SOURCE_ROOT="$PWD" \
-  --env AXIOM_C6_CHAOS_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+  --env DB_USER=axiom_sandbox_qualification \
+  --env DB_PASSWORD_FILE=/run/secrets/postgres_sandbox_qualification_password \
+  --env AXIOM_SANDBOX_QUALIFICATION_CHAOS_ENABLED=1 \
+  --env AXIOM_SANDBOX_QUALIFICATION_CHAOS_MODE=formal \
+  --env AXIOM_SANDBOX_QUALIFICATION_RUN_ID=REPLACE_WITH_RUN_ID \
+  --env AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA=REPLACE_WITH_40_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_SOURCE_ROOT="$PWD" \
+  --env AXIOM_SANDBOX_QUALIFICATION_CHAOS_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
   REPLACE_WITH_EXACT_CONTROLLER_IMAGE
 ```
 
 The controller verifies its own hash, the exact clean Git commit, and the
-active run identity. It runs `make c6-chaos-qualify` with a strict child
+active run identity. It runs `make sandbox-chaos-qualify` with a strict child
 environment that contains no database or exchange credentials, hashes the
 transcript, and appends the complete fourteen-scenario result atomically.
 The controller image is built from the exact clean commit, preloads the pinned
 Go module graph, and runs without external egress on `axiom_core`; never use
-a generic toolchain image with the live C6 database secret.
+a generic toolchain image with the live qualification database secret.
 The runner also fails on duplicate create, lost/double-posted fill, unresolved
 unknown, mismatch/suspense, stale account, lease loss, persistence failure,
 unsafe recovery/restart, production target, cap breach, alert latency, or
@@ -516,7 +541,7 @@ memory-leak evidence.
 
 The terminal file is create-once, mode `0440`, and directory/file-synced.
 Never delete or overwrite it. A smoke result always remains non-qualified. A
-passed formal file still requires evidence review and explicit V1C
+passed formal file still requires evidence review and explicit sandbox-runtime
 owner/security acceptance, and always carries
 `profitability_evidence=false`.
 
@@ -537,8 +562,9 @@ APP_IMAGE=axiom:local APP_PULL_POLICY=never \
   docker compose --env-file .env --profile app up -d --wait
 ```
 
-For a server, use an image that CI has built, scanned, signed, and published;
-set `APP_IMAGE` to its immutable digest where possible.
+For a server, use images that CI has built, scanned, signed, and published.
+Formal D5 requires immutable registry digests for every app and infrastructure
+image; mutable tags are rejected by preflight.
 
 The `app` profile starts the API, production-public shadow engine, recorder,
 and credential-free offline worker together, so the console workflows do not
@@ -594,8 +620,8 @@ book or create a reconnect, while journal, rolling-status, recorder-flush,
 capacity, or terminal-evidence failure remains fail-closed.
 
 The B2 service contract additionally requires one dedicated empty B2 root and
-log, exact `AXIOM_B2_SOURCE_COMMIT`, bounded `AXIOM_B2_COLLECTOR_REGION`, and
-`AXIOM_B2_SOAK=1`. It runs `TestB2Continuous72HourPublicSoak` with a 73-hour
+log, exact `AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT`, bounded `AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION`, and
+`AXIOM_COHERENT_MARKET_DATA_SOAK=1`. It runs `TestB2Continuous72HourPublicSoak` with a 73-hour
 timeout and `Restart=no`. This change documents that future contract only: no B2
 unit is installed or started, and the 20-second smoke cannot promote B2.
 
@@ -609,6 +635,7 @@ image:
 
 ```bash
 make backup-image
+test -d "${BACKUP_REMOTE_HOST_PATH}"
 BACKUP_IMAGE=axiom-backup:local BACKUP_PULL_POLICY=never \
   docker compose --profile backup run --rm backup create
 ```
@@ -616,9 +643,12 @@ BACKUP_IMAGE=axiom-backup:local BACKUP_PULL_POLICY=never \
 The one-shot backup service uses the least-privilege backup role, streams
 PostgreSQL custom format directly into framed AES-256-GCM, syncs and atomically
 renames the object, and then writes a checksum manifest. Database and encryption
-secrets remain file-backed and never enter command arguments. The `backup_data`
-volume is independent of `postgres_data`, but a same-host volume is not an
-off-host disaster copy. The authenticated manifest records start/completion UTC,
+secrets remain file-backed and never enter command arguments.
+`BACKUP_REMOTE_HOST_PATH` must already be a writable independently mounted
+remote filesystem managed outside Compose. Inside the container the process
+compares its mount identity with read-only views of PostgreSQL, market data,
+and local staging. Root-filesystem directories and any shared identity are
+rejected. The authenticated manifest records start/completion UTC,
 database and schema identity, `pg_dump` version, WAL boundary, encryption format,
 object size, and checksum. After a successful backup, the job authenticates and
 decrypts the new object through `pg_restore --list`; a structurally invalid
@@ -626,11 +656,14 @@ archive is durably quarantined outside the ready inventory. It then authenticate
 and fully verifies every completed restore point, safely resumes any interrupted
 deletion, and retains the newest 14 generations (or the larger configured
 `BACKUP_RETENTION_GENERATIONS` value). Invalid inventory fails pruning closed.
-Schedule the reviewed command daily and copy encrypted objects plus manifests to
-protected independent off-host storage before release readiness.
+Schedule the reviewed command daily and retain the encrypted objects and
+manifests directly on that protected remote filesystem.
 
 Restore only into a clean isolated PostgreSQL database. Set the absolute
-manifest path as seen inside the backup container and run:
+manifest path as seen inside the backup container. Separately recover the
+declared market-data filesystem copy into
+`BACKUP_RESTORE_MARKET_DATA_HOST_PATH`; this must not be the active recorder
+directory. Then run:
 
 ```bash
 BACKUP_RESTORE_MANIFEST=/backups/<name>.manifest.json \
@@ -644,11 +677,162 @@ It then decrypts a second verified stream into an atomic
 `pg_restore --single-transaction` operation and withholds success unless the
 schema version, per-asset journal balance,
 nonnegative spot ownership, and active/quarantined reservation projection pass.
-Never point this command at the active primary. A successful command is still
-not release evidence until journal/projection, manifest/file, replay-hash, role,
-RPO, and timed-RTO checks pass on the clean instance.
+It also reads the restored ready-segment catalogue, confines every path to the
+separate restored market-data root, verifies every file SHA-256, and seals a
+deterministic inventory hash. Ambiguous, missing, corrupt, duplicate, or
+escaping paths fail closed. `BACKUP_REQUIRE_MARKET_RECOVERY=true` is the
+default and is mandatory for D5; setting it to `false` permits only a
+non-qualifying pre-recording database restore with an empty segment inventory.
+Never point this command at the active primary or active recorder directory.
+Success writes an authenticated, no-replace `restore-*.evidence.json`
+containing the artifact identity, market inventory, and timed clean-restore
+verdict. It is release evidence only when journal/projection, manifest/file,
+replay-hash, role, RPO, and four-hour RTO checks pass on the approved clean
+instance.
 
-## 6. Unavailable production trading
+## 6. Upgrade, rollback, and D5 readiness
+
+For a clean install, render all selected profiles, verify every server image is
+digest-pinned, run migrations once, apply least-privilege grants, and start in
+`READY_PAUSED`. For a supported upgrade, take and validate a remote backup,
+stop new work, drain/finalize recorder and workers, apply forward-only
+migrations, reapply grants, and execute startup recovery before any explicit
+resume. Never roll the schema backward.
+
+If an application-only rollout fails before a migration, restore the prior
+digest. After any migration, prefer a forward-fix. Disaster rollback requires
+an approved clean database restore from the pre-upgrade artifact and explicit
+loss/RPO accounting; never restore over the active database. Preserve failed
+rollout evidence under an incident hold.
+
+Run local D5 logic and evidence smoke with `make operational-readiness-smoke`. The formal
+command is `make operational-readiness-formal` and is intentionally unusable without all exact
+identity and live-evidence inputs. Follow
+[`docs/operations/d5-readiness.md`](../docs/operations/d5-readiness.md). The
+reference server has not been selected by repository configuration, so local
+success cannot pass the formal gate.
+
+## 7. Automated strategy evaluation rollout after C6
+
+This rollout is deliberately deferred. Do not inspect, stop, or replace any C6
+process while its qualification is active. Continue only after the owner has
+explicitly confirmed that C6 finished and its immutable evidence has been
+preserved. Deployment must not create or start an evaluation campaign.
+
+CI publishes private, commit-tagged application and backup images only after a
+successful merged `main` workflow. The workflow records the two registry
+digest references in `published-images.env`, signs both digest subjects, and
+attaches build-provenance and SPDX SBOM attestations. Never deploy the commit
+tag or `latest`; copy only the `name@sha256:...` references from the retained CI
+artifact after checking the merged commit identity and green workflow.
+
+The two GHCR package namespaces are a deployment prerequisite, not something
+CI may silently create. Before the first merged publication, an owner must use
+a device-authorized or interactively entered package-administration credential
+to create `anasayyad/axiom` and `anasayyad/axiom-backup` as **private**
+packages, connect them to `AnasAyyad/axiom`, grant that repository Actions
+admin access, and verify that an unauthenticated pull is denied. Keep that
+credential outside chat, command arguments, logs, the repository, and the
+workflow, then log out after bootstrap.
+
+GitHub does not allow a public container package to be changed back to private.
+If a new namespace was accidentally created public, inventory and preserve its
+evidence, delete that exact package through an authenticated owner session, and
+recreate it privately. Do not delete a package containing unrelated or deployed
+versions. Recovery run `31519921408` proved that this public source repository's
+`GITHUB_TOKEN` recreates an absent package as public; its fail-closed error trap
+deleted both recreated packages. Never use `GITHUB_TOKEN` to bootstrap an
+absent package namespace.
+
+After owner bootstrap, the merged-main workflow uses only `GITHUB_TOKEN` for
+routine publication. Before pushing, it requires authenticated package
+metadata to report `private` for both existing packages and separately refuses
+anonymous access. It probes both published digest subjects again before
+signing or attesting them. The backup runtime image deliberately omits
+`org.opencontainers.image.source`; a one-time bootstrap wrapper may carry that
+label to connect the private package, while signed provenance binds every
+deployable immutable digest to this repository and workflow.
+
+On `axiom-server`, first preserve the prior state. Gracefully stop the recorder
+so its shutdown path can finish the current segment, verify that the final
+manifest is registered and no `.partial` file is being advertised, and retain
+the C6 terminal files and logs unchanged. Run the normal encrypted backup with
+the existing pinned backup image and verify its manifest and restore-list check
+before migrating. Do not delete or recreate the `postgres_data` volume or
+anything under `/srv/axiom-data`.
+
+Authenticate to private GHCR without placing a token in chat, a command
+argument, shell history, Compose, or the repository:
+
+```bash
+read -r -s -p 'GHCR read:packages token: ' AXIOM_GHCR_TOKEN; printf '\n'
+printf '%s' "${AXIOM_GHCR_TOKEN}" | \
+  docker login ghcr.io --username anasayyad --password-stdin
+unset AXIOM_GHCR_TOKEN
+```
+
+Place the two reviewed digest references in the server `.env`. The evaluation
+paths are explicit and the application image supplies the immutable research
+graph:
+
+```dotenv
+APP_IMAGE=ghcr.io/anasayyad/axiom@sha256:REPLACE_WITH_PUBLISHED_DIGEST
+BACKUP_IMAGE=ghcr.io/anasayyad/axiom-backup@sha256:REPLACE_WITH_PUBLISHED_DIGEST
+APP_PULL_POLICY=always
+BACKUP_PULL_POLICY=always
+MARKET_DATA_HOST_PATH=/srv/axiom-data/market-data
+EVALUATION_HISTORY_HOST_PATH=/srv/axiom-data/market-data/evaluation-history
+EVALUATION_CONFIG_FILE=/etc/axiom/platform-research.json
+HOST_BIND_IP=127.0.0.1
+API_HOST_PORT=8080
+```
+
+Create only the new historical-import child when absent and give the existing
+non-root application identity access. Preserve every other recording:
+
+```bash
+sudo install -d -o 10001 -g 70 -m 0750 \
+  /srv/axiom-data/market-data/evaluation-history
+docker compose --env-file .env --profile app --profile observability config \
+  > /tmp/axiom-evaluation-compose.yaml
+docker compose --env-file .env --profile app --profile observability pull
+docker compose --env-file .env --profile app run --rm migrate
+docker compose --env-file .env --profile app --profile observability up -d --wait
+```
+
+Before handing the start button to the owner, verify all of the following and
+retain the outputs with the deployment record:
+
+- every application container runs the expected registry digest and the API
+  build/config identities match the merged commit and research graph;
+- migration `000055` is applied and rerunning the migrator is idempotent;
+- PostgreSQL and the existing owner identity are preserved;
+- the recorder has healthy Binance and Bybit production-public streams for
+  `BTC/USDT`, `ETH/USDT`, and `ETH/BTC`, with no credential files;
+- the worker is polling and the campaign metrics are present without campaign
+  IDs or other high-cardinality labels;
+- the campaign list/detail, event, report, and data-audit endpoints are
+  owner-authenticated and return their structured envelopes;
+- `/strategy-evaluation` renders through the private tunnel, including partial
+  and reconnecting states; and
+- Prometheus targets, Grafana, disk-pressure alerts, and recorder finalization
+  checks are healthy.
+
+Keep the console private:
+
+```bash
+ssh -N -L 18080:127.0.0.1:8080 axiom-server
+```
+
+Open `http://127.0.0.1:18080/strategy-evaluation`. The owner presses **Start
+Full Evaluation** once after reviewing deployment health. A successful deploy
+does not qualify the 72-hour dataset or complete the seven-day shadow run.
+
+See
+[`docs/operations/strategy-evaluation-campaign.md`](../docs/operations/strategy-evaluation-campaign.md)
+for campaign behavior and evidence semantics.
+
+## 8. Unavailable production trading
 
 The `testnet` and `demo` execution modes are reachable only through the two
 closed `sandbox-engine` commands and their compiled endpoint policies. There

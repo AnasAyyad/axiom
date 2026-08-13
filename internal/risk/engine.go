@@ -24,6 +24,17 @@ func NewEngine(audit AuditSink, alerts AlertSink) (*Engine, error) {
 	return &Engine{state: StatePaused, audit: audit, alerts: alerts}, nil
 }
 
+// NewRestoredEngine constructs the in-process evaluator from an already
+// persisted central posture. It performs no transition and therefore cannot
+// turn PAUSED or LOCKED into a less restrictive state during startup. A
+// restored CAUTIOUS engine starts a fresh healthy hysteresis interval.
+func NewRestoredEngine(state State, audit AuditSink, alerts AlertSink) (*Engine, error) {
+	if !validState(state) || audit == nil || alerts == nil {
+		return nil, riskError("risk_engine_configuration_invalid")
+	}
+	return &Engine{state: state, audit: audit, alerts: alerts}, nil
+}
+
 // BeginStartupRecovery enters LOCKED before protected state is restored.
 func (engine *Engine) BeginStartupRecovery(at time.Time) error {
 	engine.mutex.Lock()

@@ -4,12 +4,51 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"sort"
 	"strconv"
 	"time"
 
 	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
+
+// StrategyInstrumentRules loads exact public Spot filters through the fixed
+// compiled market route. The result contains no account, credential, signer,
+// endpoint override, or order capability.
+func (client *PublicClient) StrategyInstrumentRules(
+	ctx context.Context,
+	instruments []domain.Instrument,
+) ([]DemoInstrumentRules, error) {
+	if client == nil || ctx == nil || len(instruments) == 0 || len(instruments) > 3 {
+		return nil, validationError(exchangecontracts.OperationMetadata)
+	}
+	seen := make(map[string]struct{}, len(instruments))
+	result := make([]DemoInstrumentRules, 0, len(instruments))
+	for _, instrument := range instruments {
+		if !approvedInstrument(instrument) {
+			return nil, validationError(exchangecontracts.OperationMetadata)
+		}
+		if _, duplicate := seen[instrument.Symbol()]; duplicate {
+			return nil, validationError(exchangecontracts.OperationMetadata)
+		}
+		seen[instrument.Symbol()] = struct{}{}
+		body, received, err := client.get(ctx, "/v5/market/instruments-info",
+			url.Values{"category": {"spot"}, "symbol": {instrument.Symbol()}},
+			exchangecontracts.OperationMetadata, 1)
+		if err != nil {
+			return nil, err
+		}
+		rules, normalizeErr := normalizeDemoRules(body, instrument, received.UTC)
+		if normalizeErr != nil {
+			return nil, validationError(exchangecontracts.OperationMetadata)
+		}
+		result = append(result, rules)
+	}
+	sort.Slice(result, func(left, right int) bool {
+		return result[left].Instrument.Symbol() < result[right].Instrument.Symbol()
+	})
+	return result, nil
+}
 
 // Snapshot loads a bounded public order-book replacement.
 func (client *PublicClient) Snapshot(
@@ -75,7 +114,7 @@ func (client *PublicClient) snapshot(
 	return snapshot, token, nil
 }
 
-// Instruments loads only the approved B1 universe with monotonic versions.
+// Instruments loads only the approved exchange expansion universe with monotonic versions.
 func (client *PublicClient) Instruments(
 	ctx context.Context,
 	instruments []domain.Instrument,
@@ -127,16 +166,29 @@ func (client *PublicClient) Trades(
 	return NormalizeTrades(body, request.Instrument, received)
 }
 
-// Candles loads bounded UTC public candles for a configured B1 interval.
+// Candles loads bounded UTC public candles for a configured exchange expansion interval.
 func (client *PublicClient) Candles(
 	ctx context.Context,
 	request exchangecontracts.CandleRequest,
 ) ([]exchangecontracts.Candle, error) {
+	page, err := client.CandlePage(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return page.Candles, nil
+}
+
+// CandlePage preserves the official response bytes beside strict normalized
+// rows for the historical evaluation importer.
+func (client *PublicClient) CandlePage(
+	ctx context.Context,
+	request exchangecontracts.CandleRequest,
+) (exchangecontracts.HistoricalCandlePage, error) {
 	nativeInterval, ok := intervalNative(request.Interval)
 	if !approvedInstrument(request.Instrument) || !ok || request.Limit == 0 || request.Limit > 1000 ||
 		request.Start.IsZero() || request.End.IsZero() || request.Start.Location() != time.UTC ||
 		request.End.Location() != time.UTC || request.End.Before(request.Start) {
-		return nil, validationError(exchangecontracts.OperationCandles)
+		return exchangecontracts.HistoricalCandlePage{}, validationError(exchangecontracts.OperationCandles)
 	}
 	query := url.Values{"category": {"spot"}, "end": {strconv.FormatInt(request.End.UnixMilli(), 10)},
 		"interval": {nativeInterval}, "limit": {strconv.FormatUint(uint64(request.Limit), 10)},
@@ -144,9 +196,19 @@ func (client *PublicClient) Candles(
 	body, received, err := client.get(ctx, "/v5/market/kline", query,
 		exchangecontracts.OperationCandles, 1)
 	if err != nil {
-		return nil, err
+		return exchangecontracts.HistoricalCandlePage{}, err
 	}
-	return NormalizeCandleHistory(body, request.Instrument, request.Interval, received)
+	candles, err := NormalizeCandleHistory(body, request.Instrument, request.Interval, received)
+	if err != nil {
+		return exchangecontracts.HistoricalCandlePage{}, err
+	}
+	page := exchangecontracts.HistoricalCandlePage{Exchange: "bybit", Instrument: request.Instrument,
+		Interval: request.Interval, Start: request.Start, End: request.End, ReceivedAt: received,
+		RawPayload: append([]byte(nil), body...), RawPayloadHash: payloadHash(body), Candles: candles}
+	if !page.Valid() {
+		return exchangecontracts.HistoricalCandlePage{}, validationError(exchangecontracts.OperationCandles)
+	}
+	return page, nil
 }
 
 // Ticker loads one complete public best-price observation.

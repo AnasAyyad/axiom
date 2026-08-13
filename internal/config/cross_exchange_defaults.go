@@ -1,6 +1,6 @@
 package config
 
-// CrossExchangeParameterCount is the immutable B5 baseline graph size.
+// CrossExchangeParameterCount is the immutable cross-exchange arbitrage baseline graph size.
 const CrossExchangeParameterCount = 20
 
 func crossExchangeParameter(
@@ -21,7 +21,7 @@ func crossExchangeParameter(
 		ApprovalActor:     "authoritative_specification",
 		ApprovalReference: "AX-V1B-B05-FUN-001/AX-V1B-B05-SAF-001",
 		ApprovedAt:        "2026-07-23T00:00:00Z",
-		ChangeReason:      "initial immutable B5 closed-cycle cross-exchange arbitrage baseline",
+		ChangeReason:      "initial immutable cross-exchange arbitrage closed-cycle cross-exchange arbitrage baseline",
 	}
 }
 
@@ -31,8 +31,8 @@ func defaultCrossExchangeConfiguration() CrossExchangeConfiguration {
 		parameter("cross_exchange.instrument_count", "Exactly BTC-USDT and ETH-USDT are evaluated.", "cross-exchange-universe.v1", "2", "count", "2", "2", true, true, 0, "down", "instrument_metadata"),
 		parameter("cross_exchange.venue_count", "Exactly Binance and Bybit public views are compared.", "cross-exchange-venues.v1", "2", "count", "2", "2", true, true, 0, "down", "market_view_model"),
 		parameter("cross_exchange.direction_count", "Both buy/sell venue orderings are evaluated.", "cross-exchange-directions.v1", "2", "count", "2", "2", true, true, 0, "down", "cycle_model"),
-		parameter("cross_exchange.maximum_book_age", "Each B2 member is at most 250 milliseconds old.", "coherent-book-age.v1", "250", "milliseconds", "0", "250", false, true, 0, "down", "market_view_model"),
-		parameter("cross_exchange.maximum_inter_book_skew", "The B2 member receive skew is at most 250 milliseconds.", "coherent-book-skew.v1", "250", "milliseconds", "0", "250", false, true, 0, "down", "market_view_model"),
+		parameter("cross_exchange.maximum_book_age", "Each coherent market data member is at most 250 milliseconds old.", "coherent-book-age.v1", "250", "milliseconds", "0", "250", false, true, 0, "down", "market_view_model"),
+		parameter("cross_exchange.maximum_inter_book_skew", "The coherent market data member receive skew is at most 250 milliseconds.", "coherent-book-skew.v1", "250", "milliseconds", "0", "250", false, true, 0, "down", "market_view_model"),
 		parameter("cross_exchange.maximum_clock_uncertainty", "Each corrected receive interval has at most 100 milliseconds uncertainty.", "coherent-clock-uncertainty.v1", "100", "milliseconds", "0", "100", false, true, 0, "down", "market_view_model"),
 		parameter("cross_exchange.candidate_lifetime", "Claim and virtual dispatch expire after 250 milliseconds.", "cross-exchange-candidate-lifetime.v1", "250", "milliseconds", "0", "250", false, true, 0, "down", "latency_model"),
 		parameter("cross_exchange.maximum_notional", "One two-leg candidate uses at most 100 USDT.", "cross-exchange-notional-cap.v1", "100", "USDT", "0", "100", false, true, 18, "down", "portfolio_policy"),
@@ -47,10 +47,10 @@ func defaultCrossExchangeConfiguration() CrossExchangeConfiguration {
 		parameter("cross_exchange.concurrent_dispatch_required", "Both virtual legs use the deterministic concurrent scheduler.", "deterministic-concurrent-scheduler.v1", "1", "boolean_integer", "1", "1", true, true, 0, "down", "latency_model"),
 		parameter("cross_exchange.inventory_restoration_required", "Profit includes marginal inventory replacement and restoration.", "inventory-restoration.v1", "1", "boolean_integer", "1", "1", true, true, 0, "down", "inventory_shadow_price"),
 		parameter("cross_exchange.usdt_concentration_penalty_required", "USDT venue concentration is charged separately.", "usdt-concentration.v1", "1", "boolean_integer", "1", "1", true, true, 0, "down", "concentration_model"),
-		parameter("cross_exchange.rebalancing_advisory_only", "B5 emits read-only needs and has no transfer or B6 executor.", "rebalancing-advisory-only.v1", "1", "boolean_integer", "1", "1", true, true, 0, "down", "portfolio_policy"),
+		parameter("cross_exchange.rebalancing_advisory_only", "cross-exchange arbitrage emits read-only needs and has no transfer or inventory rebalancing executor.", "rebalancing-advisory-only.v1", "1", "boolean_integer", "1", "1", true, true, 0, "down", "portfolio_policy"),
 	}
 	return CrossExchangeConfiguration{
-		StrategyVersion: "cross-exchange.v1b.1", SettlementAsset: "USDT",
+		StrategyVersion: "cross-exchange-arbitrage@1.0.0", SettlementAsset: "USDT",
 		Instruments: []string{"BTCUSDT", "ETHUSDT"}, Exchanges: []string{"binance", "bybit"},
 		Directions:   []string{"buy_binance_sell_bybit", "buy_bybit_sell_binance"},
 		DispatchMode: "concurrent", PricingModel: "cross-exchange-closed-cycle.v1",

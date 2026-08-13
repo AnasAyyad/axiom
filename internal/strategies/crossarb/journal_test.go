@@ -10,7 +10,7 @@ import (
 	"axiom/internal/execution"
 )
 
-func TestJournalSeparatesEveryB5PnLAndCostCategory(t *testing.T) {
+func TestJournalSeparatesEveryCrossExchangeArbitragePnLAndCostCategory(t *testing.T) {
 	candidate, timeline := simulationFixture(t)
 	timeline.directives = arrivalStates(execution.OrderFilled, execution.OrderFilled)
 	result, err := Simulate(candidate, timeline, testLatency(), RecoveryPolicy{})
@@ -18,8 +18,8 @@ func TestJournalSeparatesEveryB5PnLAndCostCategory(t *testing.T) {
 		t.Fatal(err)
 	}
 	memory := accounting.NewMemoryJournal()
-	runID, _ := domain.NewRunID("run-b5")
-	portfolioID, _ := domain.NewPortfolioID("portfolio-b5")
+	runID, _ := domain.NewRunID("run-cross_exchange_arbitrage")
+	portfolioID, _ := domain.NewPortfolioID("portfolio-cross_exchange_arbitrage")
 	journal, err := NewCrossExchangeJournal(memory, JournalContext{
 		RunID: runID, PortfolioID: portfolioID, Owner: "crossarb",
 		ConfigurationHash: candidate.ConfigurationHash,
@@ -64,8 +64,8 @@ func TestJournalRejectsMissingIndependentAttribution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runID, _ := domain.NewRunID("run-b5")
-	portfolioID, _ := domain.NewPortfolioID("portfolio-b5")
+	runID, _ := domain.NewRunID("run-cross_exchange_arbitrage")
+	portfolioID, _ := domain.NewPortfolioID("portfolio-cross_exchange_arbitrage")
 	journal, err := NewCrossExchangeJournal(accounting.NewMemoryJournal(), JournalContext{
 		RunID: runID, PortfolioID: portfolioID, Owner: "crossarb",
 		ConfigurationHash: candidate.ConfigurationHash,

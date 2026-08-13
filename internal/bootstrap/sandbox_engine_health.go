@@ -22,6 +22,7 @@ type sandboxEngineHealth struct {
 type sandboxEngineHealthLoop interface {
 	refreshEligibility(context.Context, bool) (bool, error)
 	reconcile(context.Context, bool) error
+	evaluateStrategies(context.Context) error
 	transitionReadiness(context.Context, bool, bool) (bool, error)
 }
 
@@ -29,10 +30,6 @@ func newSandboxEngineHealth() sandboxEngineHealth {
 	return newSandboxEngineHealthWithClock(func() time.Time {
 		return time.Now().UTC()
 	})
-}
-
-func newSandboxEngineHealthAt(at time.Time) sandboxEngineHealth {
-	return newSandboxEngineHealthWithClock(func() time.Time { return at })
 }
 
 func newSandboxEngineHealthWithClock(now func() time.Time) sandboxEngineHealth {
@@ -138,35 +135,63 @@ func (health *sandboxEngineHealth) reconcile(
 	if !health.exchangeEligible || !health.privateHealthy {
 		return nil
 	}
-	if health.recovery == nil {
-		recovery, recoveryErr := sandbox.NewReconciliationRecovery(health.nowUTC())
-		if recoveryErr != nil {
-			return recoveryErr
-		}
-		health.recovery = recovery
+	if err := health.ensureRecovery(); err != nil {
+		return err
 	}
 	err := loop.reconcile(ctx, true)
 	if ctx.Err() != nil {
 		return nil
 	}
 	if err != nil {
-		kind, cause := sandbox.ClassifyRecoveryFailure(err)
-		transition, recoveryErr := health.recovery.ObserveIncident(
-			health.nowUTC(), sandbox.RecoverySourceReconciliation, kind, cause,
-		)
-		health.reconciliationHealthy = false
-		health.dispatchAllowed = false
-		if transitionErr := health.transition(ctx, loop); transitionErr != nil {
-			return transitionErr
-		}
-		if recoveryErr != nil {
-			return recoveryErr
-		}
-		if transition.State != sandbox.RecoveryActive {
-			return fmt.Errorf("sandbox_reconciliation_recovery_state_%s", transition.State)
-		}
+		return health.observeReconciliationFailure(ctx, loop, err)
+	}
+	if err = health.observeCleanReconciliation(ctx, loop); err != nil {
+		return err
+	}
+	if !health.reconciliationHealthy {
+		return health.transition(ctx, loop)
+	}
+	return health.evaluateReconciledStrategies(ctx, loop)
+}
+
+func (health *sandboxEngineHealth) ensureRecovery() error {
+	if health.recovery != nil {
 		return nil
 	}
+	recovery, err := sandbox.NewReconciliationRecovery(health.nowUTC())
+	if err == nil {
+		health.recovery = recovery
+	}
+	return err
+}
+
+func (health *sandboxEngineHealth) observeReconciliationFailure(
+	ctx context.Context,
+	loop sandboxEngineHealthLoop,
+	reconciliationErr error,
+) error {
+	kind, cause := sandbox.ClassifyRecoveryFailure(reconciliationErr)
+	transition, recoveryErr := health.recovery.ObserveIncident(
+		health.nowUTC(), sandbox.RecoverySourceReconciliation, kind, cause,
+	)
+	health.reconciliationHealthy = false
+	health.dispatchAllowed = false
+	if err := health.transition(ctx, loop); err != nil {
+		return err
+	}
+	if recoveryErr != nil {
+		return recoveryErr
+	}
+	if transition.State != sandbox.RecoveryActive {
+		return fmt.Errorf("sandbox_reconciliation_recovery_state_%s", transition.State)
+	}
+	return nil
+}
+
+func (health *sandboxEngineHealth) observeCleanReconciliation(
+	ctx context.Context,
+	loop sandboxEngineHealthLoop,
+) error {
 	if health.recovery.Active() {
 		transition, recoveryErr := health.recovery.ObserveClean(
 			health.nowUTC(), sandbox.ReconciliationRecoveryHealth{
@@ -190,6 +215,31 @@ func (health *sandboxEngineHealth) reconcile(
 	} else {
 		health.reconciliationHealthy = true
 		health.dispatchAllowed = true
+	}
+	return nil
+}
+
+func (health *sandboxEngineHealth) evaluateReconciledStrategies(
+	ctx context.Context,
+	loop sandboxEngineHealthLoop,
+) error {
+	// Automatic evaluations require account/reconciliation evidence from this
+	// cycle and a synchronously refreshed public eligibility snapshot. During
+	// bounded recovery this point is reachable only after the second clean
+	// reconciliation has restored READY_PAUSED eligibility.
+	eligible, refreshErr := loop.refreshEligibility(ctx, health.exchangeEligible)
+	if refreshErr != nil {
+		return refreshErr
+	}
+	health.exchangeEligible = eligible
+	if !eligible {
+		health.reconciliationHealthy = false
+		health.dispatchAllowed = false
+		return health.transition(ctx, loop)
+	}
+	if err := loop.evaluateStrategies(ctx); err != nil {
+		health.reconciliationHealthy = false
+		health.dispatchAllowed = false
 	}
 	return health.transition(ctx, loop)
 }

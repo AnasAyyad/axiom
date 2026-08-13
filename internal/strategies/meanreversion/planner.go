@@ -14,7 +14,7 @@ type CandidateSource interface {
 	Candidate(domain.DecisionID) (Candidate, bool)
 }
 
-// Planner converts only a central-risk-approved B3 candidate into one leg.
+// Planner converts only a central-risk-approved strategy candidate into one leg.
 type Planner struct {
 	mode      string
 	namespace string
@@ -23,11 +23,22 @@ type Planner struct {
 
 // NewPlanner constructs the shared execution-planner adapter.
 func NewPlanner(mode, namespace string, source CandidateSource) (*Planner, error) {
-	if (mode != "backtest" && mode != "replay" && mode != "paper" && mode != "shadow") ||
-		namespace == "" || source == nil {
+	if !supportedPlannerMode(mode) || namespace == "" || source == nil {
 		return nil, strategyError(ReasonInvalidConfiguration)
 	}
 	return &Planner{mode: mode, namespace: namespace, source: source}, nil
+}
+
+// supportedPlannerMode is deliberately closed. Testnet and Demo affect only
+// deterministic plan identities; neither mode gives this planner any adapter
+// or submission authority.
+func supportedPlannerMode(mode string) bool {
+	switch mode {
+	case "backtest", "replay", "paper", "shadow", "testnet", "demo":
+		return true
+	default:
+		return false
+	}
 }
 
 // Plan preserves strategy quantity/price and adds deterministic identities.

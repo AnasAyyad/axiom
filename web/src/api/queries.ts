@@ -9,6 +9,142 @@ export const sessionQuery = queryOptions({
   staleTime: 30_000,
 });
 
+export const runCatalogQuery = queryOptions({
+  queryKey: ["run-catalog"],
+  queryFn: () => getAPI<"RunCatalog">("/api/v1/run-catalog"),
+  staleTime: 30_000,
+});
+
+export const guidedDemonstrationsQuery = queryOptions({
+  queryKey: ["guided-demonstrations"],
+  queryFn: () => getAPI<"GuidedDemonstrationPage">("/api/v1/demonstrations"),
+  staleTime: 30_000,
+});
+
+export function guidedDemonstrationQuery(id: string) {
+  return queryOptions({
+    queryKey: ["guided-demonstration", id],
+    queryFn: () =>
+      getAPI<"GuidedDemonstrationResult">(
+        `/api/v1/demonstrations/${encodeURIComponent(id)}`,
+      ),
+    enabled: id !== "",
+    staleTime: Infinity,
+  });
+}
+
+export const runsQuery = queryOptions({
+  queryKey: ["runs"],
+  queryFn: () => getAPI<"RunPage">("/api/v1/runs"),
+  refetchInterval: 5_000,
+});
+
+export function runQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id],
+    queryFn: () =>
+      getAPI<"RunResource">(`/api/v1/runs/${encodeURIComponent(id)}`),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runOutputsQuery(
+  id: string,
+  view: "timeline" | "decisions" | "orders" | "fills",
+) {
+  return queryOptions({
+    queryKey: ["run", id, view],
+    queryFn: () =>
+      getAPI<"RunOutputPage">(`/api/v1/runs/${encodeURIComponent(id)}/${view}`),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runPortfolioProjectionQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "portfolio"],
+    queryFn: () =>
+      getAPI<"RunPortfolioProjection">(
+        `/api/v1/runs/${encodeURIComponent(id)}/portfolio`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runRiskProjectionQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "risk"],
+    queryFn: () =>
+      getAPI<"RunRiskProjection">(
+        `/api/v1/runs/${encodeURIComponent(id)}/risk`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function runEvidenceQuery(id: string) {
+  return queryOptions({
+    queryKey: ["run", id, "evidence"],
+    queryFn: () =>
+      getAPI<"RunEvidence">(`/api/v1/runs/${encodeURIComponent(id)}/evidence`),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export const dataCatalogueQuery = queryOptions({
+  queryKey: ["data-catalogue"],
+  queryFn: () => getAPI<"DataCataloguePage">("/api/v1/data-catalogue"),
+  staleTime: 30_000,
+});
+
+export const evaluationCampaignsQuery = queryOptions({
+  queryKey: ["evaluation-campaigns"],
+  queryFn: () =>
+    getAPI<"EvaluationCampaignPage">("/api/v1/evaluation-campaigns"),
+  refetchInterval: 5_000,
+});
+
+export function evaluationCampaignQuery(id: string) {
+  return queryOptions({
+    queryKey: ["evaluation-campaign", id],
+    queryFn: () =>
+      getAPI<"EvaluationCampaign">(
+        `/api/v1/evaluation-campaigns/${encodeURIComponent(id)}`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function evaluationCampaignEventsQuery(id: string) {
+  return queryOptions({
+    queryKey: ["evaluation-campaign", id, "events"],
+    queryFn: () =>
+      getAPI<"EvaluationCampaignEventPage">(
+        `/api/v1/evaluation-campaigns/${encodeURIComponent(id)}/events`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
+export function evaluationCampaignReportQuery(id: string) {
+  return queryOptions({
+    queryKey: ["evaluation-campaign", id, "report"],
+    queryFn: () =>
+      getAPI<"EvaluationCampaignReport">(
+        `/api/v1/evaluation-campaigns/${encodeURIComponent(id)}/report`,
+      ),
+    enabled: id !== "",
+    refetchInterval: 5_000,
+  });
+}
+
 export const systemQuery = queryOptions({
   queryKey: ["system"],
   queryFn: () => getAPI<"SystemStatus">("/api/v1/system/status"),
@@ -61,96 +197,38 @@ export const auditQuery = queryOptions({
   queryFn: () => getAPI<"AuditEventPage">("/api/v1/audit-events?page_size=50"),
 });
 
-export const exchangesQuery = queryOptions({
-  queryKey: ["exchanges"],
-  queryFn: () => getAPI<"ExchangePage">("/api/v1/exchanges?page_size=50"),
+export const auditVerificationQuery = queryOptions({
+  queryKey: ["audit", "verification"],
+  queryFn: () => getAPI<"AuditVerification">("/api/v1/audit-verification"),
 });
 
-export function opportunitiesQuery(kind = "") {
-  const filter = kind === "" ? "" : `&kind=${encodeURIComponent(kind)}`;
+export const reportSchedulesQuery = queryOptions({
+  queryKey: ["report-schedules"],
+  queryFn: () =>
+    getAPI<"ReportSchedulePage">("/api/v1/report-schedules?page_size=50"),
+});
+
+export function reportDetailQuery(id: string) {
   return queryOptions({
-    queryKey: ["opportunities", kind],
+    queryKey: ["report", id],
     queryFn: () =>
-      getAPI<"OpportunityPage">(`/api/v1/opportunities?page_size=50${filter}`),
+      getAPI<"ReportResource">(`/api/v1/reports/${encodeURIComponent(id)}`),
+    enabled: id !== "",
   });
 }
 
-export const strategiesQuery = queryOptions({
-  queryKey: ["strategies"],
-  queryFn: () => getAPI<"StrategyPage">("/api/v1/strategies?page_size=50"),
+export const alertRoutesQuery = queryOptions({
+  queryKey: ["alert-routes"],
+  queryFn: () => getAPI<"AlertRoutePage">("/api/v1/alert-routes"),
 });
 
-export function inventoryQuery(filters: {
-  exchange: string;
-  asset: string;
-  strategy: string;
-  portfolio: string;
-}) {
-  const parameters = new URLSearchParams({ page_size: "50" });
-  for (const [key, value] of Object.entries(filters)) {
-    if (value !== "") parameters.set(key, value);
-  }
+export function alertDetailQuery(id: string) {
   return queryOptions({
-    queryKey: ["inventory", filters],
+    queryKey: ["alert", id],
     queryFn: () =>
-      getAPI<"InventoryPage">(`/api/v1/inventory?${parameters.toString()}`),
+      getAPI<"AlertDetail">(`/api/v1/alerts/${encodeURIComponent(id)}`),
+    enabled: id !== "",
   });
 }
 
-export const rebalancingQuery = queryOptions({
-  queryKey: ["rebalancing"],
-  queryFn: () =>
-    getAPI<"RebalancingPage">(
-      "/api/v1/rebalancing/recommendations?page_size=50",
-    ),
-});
-
-export const championChallengerQuery = queryOptions({
-  queryKey: ["champion-challenger"],
-  queryFn: () =>
-    getAPI<"ChampionChallengerPage">(
-      "/api/v1/research/champion-challenger?page_size=50",
-    ),
-});
-
-export const sandboxOverviewQuery = queryOptions({
-  queryKey: ["sandbox", "overview"],
-  queryFn: () => getAPI<"SandboxOverview">("/api/v1/sandbox/overview"),
-  refetchInterval: 5_000,
-});
-
-export const sandboxOrdersQuery = queryOptions({
-  queryKey: ["sandbox", "orders"],
-  queryFn: () =>
-    getAPI<"SandboxOrderPage">("/api/v1/sandbox/orders?page_size=100"),
-  refetchInterval: 5_000,
-});
-
-export const sandboxReconciliationsQuery = queryOptions({
-  queryKey: ["sandbox", "reconciliations"],
-  queryFn: () =>
-    getAPI<"SandboxReconciliationPage">(
-      "/api/v1/sandbox/reconciliations?page_size=100",
-    ),
-  refetchInterval: 5_000,
-});
-
-export const c6QualificationQuery = queryOptions({
-  queryKey: ["sandbox", "qualification"],
-  queryFn: () =>
-    getAPI<"C6QualificationStatus">("/api/v1/sandbox/qualification"),
-  refetchInterval: 5_000,
-});
-
-export function auditQueryForType(eventType: string, includeDetail = false) {
-  const eventFilter =
-    eventType === "" ? "" : `&event_type=${encodeURIComponent(eventType)}`;
-  const detailFilter = includeDetail ? "&include_detail=true" : "";
-  return queryOptions({
-    queryKey: ["audit", eventType, includeDetail],
-    queryFn: () =>
-      getAPI<"AuditEventPage">(
-        `/api/v1/audit-events?page_size=50${eventFilter}${detailFilter}`,
-      ),
-  });
-}
+export * from "./queriesConsole";

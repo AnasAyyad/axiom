@@ -1,21 +1,29 @@
 import { z } from "zod";
 
-import { b8ResponseSchemas } from "./b8Validation";
-import { c6ResponseSchemas } from "./c6Validation";
+import { multiExchangeConsoleResponseSchemas } from "./multiExchangeConsoleValidation";
+import { sandboxQualificationResponseSchemas } from "./sandboxQualificationValidation";
+import { ownerControlResponseSchemas } from "./ownerControlValidation";
+import { operationalEvidenceResponseSchemas } from "./operationalEvidenceValidation";
 import { legacyResponseSchemas } from "./legacyValidation";
 import { revision, timestamp } from "./validationShared";
+import { evaluationResponseSchemas } from "./evaluationValidation";
 
 const errorSchema = z.object({
   code: z.string(),
   correlation_id: z.string(),
   message: z.string(),
+  summary: z.string().min(1).optional(),
+  detail: z.string().min(1).optional(),
+  impact: z.string().min(1).optional(),
+  suggested_action: z.string().min(1).optional(),
+  current_state: z.string().min(1).optional(),
+  required_state: z.string().min(1).optional(),
+  blocking_prerequisites: z.array(z.string().min(1)).optional(),
 });
 const sessionUser = z
   .object({
     id: z.string().min(1),
     email: z.email(),
-    roles: z.array(z.string()),
-    permissions: z.array(z.string()),
   })
   .loose();
 const sessionResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
@@ -43,8 +51,11 @@ const sessionResponseSchemas: ReadonlyArray<readonly [RegExp, z.ZodType]> = [
 ];
 const responseSchemas = [
   ...sessionResponseSchemas,
-  ...c6ResponseSchemas,
-  ...b8ResponseSchemas,
+  ...evaluationResponseSchemas,
+  ...ownerControlResponseSchemas,
+  ...operationalEvidenceResponseSchemas,
+  ...sandboxQualificationResponseSchemas,
+  ...multiExchangeConsoleResponseSchemas,
   ...legacyResponseSchemas,
 ];
 const streamEventSchema = z

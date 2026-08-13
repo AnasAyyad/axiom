@@ -15,11 +15,11 @@ import (
 	"axiom/internal/simulation"
 )
 
-func TestV1ATrendInitializationIsExactOwnedAndBalanced(t *testing.T) {
+func TestTrendFoundationTrendInitializationIsExactOwnedAndBalanced(t *testing.T) {
 	portfolio, journal := initializedPortfolio(t)
 	snapshot := portfolio.Snapshot()
-	if snapshot.Ownership.Strategy != V1AStrategy || snapshot.Ownership.Exchange != V1AExchange ||
-		snapshot.Numeraire != V1ANumeraire || snapshot.Balances["USDT"].Available.String() != "500" ||
+	if snapshot.Ownership.Strategy != TrendStrategy || snapshot.Ownership.Exchange != TrendExchange ||
+		snapshot.Numeraire != TrendNumeraire || snapshot.Balances["USDT"].Available.String() != "500" ||
 		snapshot.Balances["BTC"].Available.String() != "0" || snapshot.Balances["ETH"].Available.String() != "0" {
 		t.Fatalf("initial snapshot = %#v", snapshot)
 	}
@@ -29,15 +29,43 @@ func TestV1ATrendInitializationIsExactOwnedAndBalanced(t *testing.T) {
 	}
 }
 
-func TestB3MeanReversionOwnershipRejectsCrossStrategyAndAveragingDownAcrossRestart(t *testing.T) {
-	runID, _ := domain.NewRunID("run-b3")
+func TestAccountBalancePortfolioRepresentsOnlyExplicitFreeBalances(t *testing.T) {
+	portfolioID, _ := domain.NewPortfolioID("sandbox-strategy-session")
+	accountID, _ := domain.NewVirtualAccountID("sandbox-binance-account")
+	usdt, _ := domain.ParseBalance("23.5")
+	btc, _ := domain.ParseBalance("0.01")
+	portfolio, err := NewAccountBalancePortfolio(Ownership{PortfolioID: portfolioID, AccountID: accountID,
+		Strategy: TrendStrategy, Exchange: "binance"}, "USDT", []AccountBalance{
+		{Asset: "USDT", Available: usdt}, {Asset: "BTC", Available: btc},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := portfolio.Snapshot()
+	if snapshot.Ownership.Exchange != "binance" || snapshot.Numeraire != "USDT" ||
+		snapshot.Balances["USDT"].Available.String() != "23.5" ||
+		snapshot.Balances["USDT"].Reserved.String() != "0" ||
+		snapshot.Balances["BTC"].Available.String() != "0.01" {
+		t.Fatalf("account balance snapshot = %#v", snapshot)
+	}
+	duplicate := []AccountBalance{{Asset: "USDT", Available: usdt}, {Asset: "USDT", Available: usdt}}
+	if _, err = NewAccountBalancePortfolio(snapshot.Ownership, "USDT", duplicate); err == nil {
+		t.Fatal("duplicate account balance was accepted")
+	}
+	if _, err = NewAccountBalancePortfolio(snapshot.Ownership, "USDT", []AccountBalance{{Asset: "BTC", Available: btc}}); err == nil {
+		t.Fatal("missing numeraire balance was accepted")
+	}
+}
+
+func TestMeanReversionMeanReversionOwnershipRejectsCrossStrategyAndAveragingDownAcrossRestart(t *testing.T) {
+	runID, _ := domain.NewRunID("run-mean_reversion")
 	portfolioID, _ := domain.NewPortfolioID("mean-reversion-one")
 	accountID, _ := domain.NewVirtualAccountID("mean-reversion-binance")
 	journal := accounting.NewMemoryJournal()
 	capital, _ := domain.ParseBalance("500")
 	owned, err := InitializeMeanReversion(runID, portfolioID, accountID, strings.Repeat("b", 64), capital,
 		journal, domain.EventTime{UTC: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC), Sequence: 1})
-	if err != nil || owned.Snapshot().Ownership.Strategy != V1BMeanReversionStrategy {
+	if err != nil || owned.Snapshot().Ownership.Strategy != MultiStrategyResearchMeanReversionStrategy {
 		t.Fatalf("mean-reversion ownership = %#v, %v", owned.Snapshot().Ownership, err)
 	}
 	pool := NewLiquidityPool()
@@ -51,21 +79,57 @@ func TestB3MeanReversionOwnershipRejectsCrossStrategyAndAveragingDownAcrossResta
 		t.Fatal("Trend candidate entered mean-reversion portfolio")
 	}
 	entry := buyCandidate(t, 71)
-	entry.Strategy = V1BMeanReversionStrategy
+	entry.Strategy = MultiStrategyResearchMeanReversionStrategy
 	allocation := mustAllocate(t, allocator, entry)
-	if err = allocator.Settle(allocation, fillFact(t, "b3-entry", "1", "100", "0.1")); err != nil {
+	if err = allocator.Settle(allocation, fillFact(t, "mean_reversion-entry", "1", "100", "0.1")); err != nil {
 		t.Fatal(err)
 	}
 	second := buyCandidate(t, 72)
-	second.Strategy = V1BMeanReversionStrategy
+	second.Strategy = MultiStrategyResearchMeanReversionStrategy
 	if _, err = allocator.Allocate([]Candidate{second}); err == nil {
 		t.Fatal("averaging down allocated despite owned position")
 	}
 	protected := owned.ProtectedState()
 	restored, err := Restore(protected)
 	if err != nil || restored.ProtectedState().CanonicalHash() != protected.CanonicalHash() ||
-		restored.Snapshot().Ownership.Strategy != V1BMeanReversionStrategy {
-		t.Fatalf("B3 restart state mismatch: %v", err)
+		restored.Snapshot().Ownership.Strategy != MultiStrategyResearchMeanReversionStrategy {
+		t.Fatalf("mean reversion restart state mismatch: %v", err)
+	}
+}
+
+func TestTriangularArbitrageTriangularOwnershipStartsOnlyInSettlementAndRestoresExactVenue(t *testing.T) {
+	runID, _ := domain.NewRunID("run-triangular_arbitrage")
+	portfolioID, _ := domain.NewPortfolioID("triangular-one")
+	accountID, _ := domain.NewVirtualAccountID("triangular-bybit")
+	journal := accounting.NewMemoryJournal()
+	capital, _ := domain.ParseBalance("500")
+	owned, err := InitializeTriangular(runID, portfolioID, accountID, strings.Repeat("c", 64), capital,
+		"bybit", journal, domain.EventTime{UTC: time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC), Sequence: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := owned.Snapshot()
+	if snapshot.Ownership.Strategy != TriangularStrategyOwner || snapshot.Ownership.Exchange != "bybit" ||
+		snapshot.Balances["USDT"].Available.String() != "500" ||
+		snapshot.Balances["BTC"].Available.String() != "0" ||
+		snapshot.Balances["ETH"].Available.String() != "0" {
+		t.Fatalf("triangular ownership = %#v", snapshot)
+	}
+	transactions := journal.Transactions()
+	if len(transactions) != 1 || transactions[0].Type != "portfolio_initialization" ||
+		transactions[0].Lines[0].Account.Owner != TriangularStrategyOwner {
+		t.Fatalf("triangular initialization journal = %#v", transactions)
+	}
+	protected := owned.ProtectedState()
+	restored, err := Restore(protected)
+	if err != nil || restored.ProtectedState().CanonicalHash() != protected.CanonicalHash() ||
+		restored.Snapshot().Ownership != snapshot.Ownership {
+		t.Fatalf("triangular restart mismatch: %v", err)
+	}
+	if _, err = InitializeTriangular(runID, portfolioID, accountID, strings.Repeat("c", 64), capital,
+		"production", accounting.NewMemoryJournal(),
+		domain.EventTime{UTC: time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC), Sequence: 1}); err == nil {
+		t.Fatal("unsupported triangular venue accepted")
 	}
 }
 
@@ -116,6 +180,75 @@ func TestAllocatorRejectsUnownedSellAndReserveViolation(t *testing.T) {
 	buy.Notional, _ = domain.ParseMoney("150.01")
 	if _, err := allocator.Allocate([]Candidate{buy}); err == nil {
 		t.Fatal("trade budget violation was allocated")
+	}
+}
+
+func TestAllocatorHonorsRuntimeOwnedAllocationLimits(t *testing.T) {
+	portfolio, _ := initializedPortfolio(t)
+	pool := NewLiquidityPool()
+	quantity, _ := domain.ParseQuantity("2")
+	if err := pool.Open("combined-book", quantity); err != nil {
+		t.Fatal(err)
+	}
+	zero, _ := domain.ParseBalance("0")
+	ten, _ := domain.ParseBalance("10")
+	allocator, err := NewAllocatorWithLimits(portfolio, NewAssetRegistry(), pool, AllocationLimits{
+		MinimumReserve: zero, MaximumReserved: ten, MaximumOrderAmount: ten,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	withinCap := buyCandidate(t, 901)
+	withinCap.Notional, _ = domain.ParseMoney("10")
+	if _, err = allocator.Allocate([]Candidate{withinCap}); err != nil {
+		t.Fatalf("10-unit candidate rejected: %v", err)
+	}
+	overCap := buyCandidate(t, 902)
+	overCap.Notional, _ = domain.ParseMoney("10.00000001")
+	if _, err = allocator.Allocate([]Candidate{overCap}); err == nil {
+		t.Fatal("candidate above the runtime-owned order cap was allocated")
+	}
+	overTen, _ := domain.ParseBalance("10.00000001")
+	invalid := AllocationLimits{MinimumReserve: zero, MaximumReserved: ten, MaximumOrderAmount: overTen}
+	if _, err = NewAllocatorWithLimits(portfolio, NewAssetRegistry(), pool, invalid); err == nil {
+		t.Fatal("limits below their own maximum order amount were accepted")
+	}
+}
+
+func TestAllocatorZeroEntryCapacityStillPermitsOwnedRiskReducingSell(t *testing.T) {
+	portfolio, _ := initializedPortfolio(t)
+	registry := NewAssetRegistry()
+	entryPool := NewLiquidityPool()
+	quantity, _ := domain.ParseQuantity("2")
+	if err := entryPool.Open("combined-book", quantity); err != nil {
+		t.Fatal(err)
+	}
+	entryAllocator, err := NewAllocator(portfolio, registry, entryPool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := mustAllocate(t, entryAllocator, buyCandidate(t, 904))
+	if err = entryAllocator.Settle(entry, fillFact(t, "zero-cap-owned-fill", "1", "100", "0")); err != nil {
+		t.Fatal(err)
+	}
+	pool := NewLiquidityPool()
+	if err := pool.Open("combined-book", quantity); err != nil {
+		t.Fatal(err)
+	}
+	zero, _ := domain.ParseBalance("0")
+	allocator, err := NewAllocatorWithLimits(portfolio, registry, pool, AllocationLimits{
+		MinimumReserve: zero, MaximumReserved: zero, MaximumOrderAmount: zero,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = allocator.Allocate([]Candidate{buyCandidate(t, 903)}); err == nil {
+		t.Fatal("buy allocated with zero entry capacity")
+	}
+	sell := buyCandidate(t, 905)
+	sell.Side = domain.SideSell
+	if _, err = allocator.Allocate([]Candidate{sell}); err != nil {
+		t.Fatalf("owned risk-reducing sell rejected at zero entry capacity: %v", err)
 	}
 }
 
@@ -367,7 +500,7 @@ func initializedPortfolio(t *testing.T) (*Portfolio, *accounting.MemoryJournal) 
 	portfolioID, _ := domain.NewPortfolioID("trend-one")
 	accountID, _ := domain.NewVirtualAccountID("trend-binance")
 	journal := accounting.NewMemoryJournal()
-	portfolio, err := InitializeV1ATrend(runID, portfolioID, accountID, strings.Repeat("a", 64), journal,
+	portfolio, err := InitializeDefaultTrend(runID, portfolioID, accountID, strings.Repeat("a", 64), journal,
 		domain.EventTime{UTC: time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC), Sequence: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -383,7 +516,7 @@ func buyCandidate(t *testing.T, index int) Candidate {
 	score, _ := domain.ParsePnL("1")
 	funds, _ := domain.NewReservationID("funds-" + decimal(index))
 	liquidity, _ := domain.NewReservationID("liquidity-" + decimal(index))
-	return Candidate{ID: "candidate-" + decimal(index), Strategy: V1AStrategy,
+	return Candidate{ID: "candidate-" + decimal(index), Strategy: TrendStrategy,
 		Instrument: instrument, Side: domain.SideBuy,
 		Quantity: quantity, Notional: notional, Score: score, ScoreComponents: []ScoreComponent{{Name: "worst_case", Value: score}},
 		BaseEligibility: 1, QuoteEligibility: 1, LiquidityDomain: "combined-book",

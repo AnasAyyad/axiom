@@ -163,5 +163,5 @@ func (dispatcher *SandboxDispatcher) recordCancelResult(
 	return dispatcher.kill.Hit(ctx, KillAfterAcknowledgement)
 }
 
-// ErrInjectedCrash is the deterministic C3 kill-point outcome.
+// ErrInjectedCrash is the deterministic dispatcher recovery kill-point outcome.
 var ErrInjectedCrash = errors.New("sandbox_injected_crash")

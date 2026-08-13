@@ -15,6 +15,184 @@ import (
 	"axiom/internal/sandbox"
 )
 
+func TestBybitAutomaticMeanReversionDispatchUsesOnlyFencedDemoSpotIOC(t *testing.T) {
+	now := time.UnixMilli(1_700_000_001_000).UTC()
+	fixture := newBybitEmulatorFixture(t, now, sandboxemulator.Config{
+		Exchange: sandbox.ExchangeBybit, APIKey: "test-key", APISecret: "test-secret",
+	}, "cfg-automatic-mean-reversion")
+	strategyID, err := domain.NewStrategyID(sandbox.StrategyMeanReversion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	submission := fixture.submission
+	submission.StrategyID = strategyID
+	submission.Style = sandbox.OrderStyleLimitIOC
+	lookup := fixture.adapter.lookup.(*demoLookup)
+	lookup.submissions[submission.ClientOrderID] = submission
+	repository := &bybitAutomaticDispatchRepository{submission: submission,
+		worker: "automatic-mean-reversion-worker", fence: 9}
+	dispatcher, err := sandbox.NewSandboxDispatcher(submission.AccountID, submission.AccountEpoch,
+		repository.worker, repository.fence, repository, fixture.adapter, sandbox.NoKillPoint{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	count, err := dispatcher.DispatchOnce(context.Background(), now, 1)
+	if err != nil || count != 1 || !repository.submitting || repository.event.OrderEvent == nil ||
+		repository.event.OrderEvent.State != execution.OrderAcknowledged || fixture.emulator.NativeOrderCount() != 1 {
+		t.Fatalf("dispatch=%d submitting=%t event=%#v native=%d error=%v", count,
+			repository.submitting, repository.event, fixture.emulator.NativeOrderCount(), err)
+	}
+	assertBybitNoDuplicateDispatch(t, dispatcher, fixture.emulator, now)
+	assertBybitAutomaticCreateFrame(t, fixture.emulator.PrivateFrames())
+	expiredAt := submission.ApprovedAt.Add(sandbox.ArmLifetime + time.Second)
+	if err = dispatcher.Cancel(context.Background(), submission.ClientOrderID, expiredAt); err != nil ||
+		!repository.cancelling || repository.cancelEvent.OrderEvent == nil ||
+		repository.cancelEvent.OrderEvent.State != execution.OrderCancelPending {
+		t.Fatalf("post-expiry cancellation event=%#v cancelling=%t error=%v",
+			repository.cancelEvent, repository.cancelling, err)
+	}
+	queried, queryErr := fixture.adapter.Query(context.Background(), submission.AccountID,
+		submission.AccountEpoch, submission.ClientOrderID)
+	if queryErr != nil || len(queried) != 1 || queried[0].OrderEvent == nil ||
+		queried[0].OrderEvent.State != execution.OrderCanceled {
+		t.Fatalf("post-expiry authoritative cancellation=%#v error=%v", queried, queryErr)
+	}
+	frames := fixture.emulator.PrivateFrames()
+	if len(frames) != 2 || !strings.Contains(string(frames[1]), `"timeInForce":"IOC"`) ||
+		!strings.Contains(string(frames[1]), `"category":"spot"`) {
+		t.Fatalf("post-expiry cancellation lost Spot IOC order identity: %s", frames)
+	}
+	assertBybitAutomaticCreateCapture(t, fixture.emulator.Captures())
+}
+
+func assertBybitNoDuplicateDispatch(t *testing.T, dispatcher *sandbox.SandboxDispatcher,
+	emulator *sandboxemulator.Emulator, now time.Time,
+) {
+	t.Helper()
+	count, err := dispatcher.DispatchOnce(context.Background(), now.Add(time.Millisecond), 1)
+	if err != nil || count != 0 || emulator.NativeOrderCount() != 1 {
+		t.Fatalf("duplicate dispatch=%d native=%d error=%v", count, emulator.NativeOrderCount(), err)
+	}
+}
+
+func assertBybitAutomaticCreateFrame(t *testing.T, frames [][]byte) {
+	t.Helper()
+	if len(frames) != 1 || !strings.Contains(string(frames[0]), `"timeInForce":"IOC"`) ||
+		!strings.Contains(string(frames[0]), `"category":"spot"`) ||
+		!strings.Contains(string(frames[0]), `"isLeverage":"0"`) {
+		t.Fatalf("automatic order was not unleveraged Spot IOC: %s", frames)
+	}
+}
+
+func assertBybitAutomaticCreateCapture(t *testing.T, captures []sandboxemulator.Capture) {
+	t.Helper()
+	var create sandboxemulator.Capture
+	for _, capture := range captures {
+		if capture.Method == "POST" && capture.Path == "/v5/order/create" {
+			create = capture
+		}
+	}
+	if create.Host != "api-demo.bybit.com" || create.Exchange != sandbox.ExchangeBybit ||
+		create.RequestHash == "" || strings.Contains(strings.ToLower(strings.Join(create.FieldNames, ",")), "signature") {
+		t.Fatalf("redacted Demo create capture=%#v", create)
+	}
+}
+
+type bybitAutomaticDispatchRepository struct {
+	submission  sandbox.Submission
+	worker      string
+	fence       uint64
+	claimed     bool
+	submitting  bool
+	cancelling  bool
+	event       sandbox.PrivateEvent
+	cancelEvent sandbox.PrivateEvent
+}
+
+func (*bybitAutomaticDispatchRepository) ApprovePlan(context.Context, sandbox.ApprovedSandboxPlan,
+	sandbox.SubmissionLimits, sandbox.KillPoint) error {
+	return errors.New("automatic_test_plan_already_approved")
+}
+
+func (repository *bybitAutomaticDispatchRepository) ClaimOutbox(
+	_ context.Context,
+	account sandbox.AccountID,
+	epoch uint64,
+	worker string,
+	fence uint64,
+	now time.Time,
+	_ time.Duration,
+	limit int,
+	_ sandbox.KillPoint,
+) ([]sandbox.SubmissionOutbox, error) {
+	if account != repository.submission.AccountID || epoch != repository.submission.AccountEpoch ||
+		worker != repository.worker || fence != repository.fence || now.Location() != time.UTC || limit != 1 {
+		return nil, errors.New("automatic_test_claim_rejected")
+	}
+	if repository.claimed {
+		return nil, nil
+	}
+	repository.claimed = true
+	return []sandbox.SubmissionOutbox{{ID: "automatic-mean-reversion-outbox", Submission: repository.submission,
+		State: sandbox.OutboxClaimed, ClaimOwner: worker, FencingToken: fence, UpdatedAt: now}}, nil
+}
+
+func (repository *bybitAutomaticDispatchRepository) MarkSubmitting(
+	_ context.Context, outboxID string, fence uint64, _ time.Time, _ sandbox.KillPoint,
+) error {
+	if outboxID != "automatic-mean-reversion-outbox" || fence != repository.fence {
+		return errors.New("automatic_test_submit_fence_rejected")
+	}
+	repository.submitting = true
+	return nil
+}
+
+func (*bybitAutomaticDispatchRepository) MarkUnknown(context.Context, string, uint64, time.Time,
+	sandbox.KillPoint) error {
+	return errors.New("automatic_test_unexpected_unknown")
+}
+
+func (repository *bybitAutomaticDispatchRepository) MarkCancelPending(
+	_ context.Context,
+	account sandbox.AccountID,
+	epoch uint64,
+	clientOrderID string,
+	worker string,
+	fence uint64,
+	now time.Time,
+	_ sandbox.KillPoint,
+) (string, error) {
+	if account != repository.submission.AccountID || epoch != repository.submission.AccountEpoch ||
+		clientOrderID != repository.submission.ClientOrderID || worker != repository.worker ||
+		fence != repository.fence || now.Before(repository.submission.ApprovedAt.Add(sandbox.ArmLifetime)) {
+		return "", errors.New("automatic_test_cancel_fence_rejected")
+	}
+	repository.cancelling = true
+	return "automatic-mean-reversion-cancel", nil
+}
+
+func (*bybitAutomaticDispatchRepository) MarkCancelUnknown(context.Context, string, uint64, time.Time,
+	sandbox.KillPoint) error {
+	return errors.New("automatic_test_unexpected_cancel_unknown")
+}
+
+func (repository *bybitAutomaticDispatchRepository) AppendPrivateEvent(
+	_ context.Context, outboxID string, fence uint64, event sandbox.PrivateEvent, _ sandbox.KillPoint,
+) error {
+	if outboxID == "automatic-mean-reversion-cancel" {
+		if fence != repository.fence || !repository.cancelling {
+			return errors.New("automatic_test_cancel_ack_fence_rejected")
+		}
+		repository.cancelEvent = event
+		return nil
+	}
+	if outboxID != "automatic-mean-reversion-outbox" || fence != repository.fence || !repository.submitting {
+		return errors.New("automatic_test_ack_fence_rejected")
+	}
+	repository.event = event
+	return nil
+}
+
 type demoLookup struct {
 	submissions map[string]sandbox.Submission
 	active      []sandbox.Submission

@@ -10,8 +10,11 @@ interface StatePanelProps {
     | "locked"
     | "reconnecting"
     | "forbidden"
+    | "validation"
+    | "partial"
+    | "blocked"
     | "error";
-  readonly detail?: string;
+  readonly detail?: string | undefined;
 }
 
 /** StatePanel makes non-happy operational states explicit and screen-reader visible. */
@@ -24,13 +27,40 @@ export function StatePanel({ state, detail }: StatePanelProps) {
     paused: "Operations are paused",
     locked: "Safety lock is active",
     reconnecting: "Reconnecting to live updates…",
-    forbidden: "You do not have permission to view this evidence",
+    forbidden: "This evidence is not available for the current owner session",
+    validation: "Review the highlighted values",
+    partial: "Some authoritative data is unavailable",
+    blocked: "A prerequisite is blocking this workflow",
     error: "Authoritative state is unavailable",
   };
+  const marks: Record<StatePanelProps["state"], string> = {
+    loading: "···",
+    empty: "—",
+    degraded: "!",
+    stale: "!",
+    paused: "Ⅱ",
+    locked: "×",
+    reconnecting: "↻",
+    forbidden: "×",
+    validation: "!",
+    partial: "!",
+    blocked: "!",
+    error: "×",
+  };
   return (
-    <section className={styles.statePanel} role="status" aria-live="polite">
-      <strong>{labels[state]}</strong>
-      {detail && <span>{detail}</span>}
+    <section
+      className={styles.statePanel}
+      data-state={state}
+      role={state === "error" || state === "forbidden" ? "alert" : "status"}
+      aria-live="polite"
+    >
+      <span className={styles.stateMark} aria-hidden="true">
+        {marks[state]}
+      </span>
+      <span className={styles.stateCopy}>
+        <strong>{labels[state]}</strong>
+        {detail && <span>{detail}</span>}
+      </span>
     </section>
   );
 }

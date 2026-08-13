@@ -20,8 +20,8 @@ import (
 )
 
 func TestProductionPublicBybitSurface(t *testing.T) {
-	if os.Getenv("AXIOM_B1_LIVE_PUBLIC") != "1" {
-		t.Skip("AXIOM_B1_LIVE_PUBLIC=1 is required")
+	if os.Getenv("AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC") != "1" {
+		t.Skip("AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC=1 is required")
 	}
 	client, err := NewPublicClient("bybit-public-v1", &domain.SystemClock{})
 	if err != nil {
@@ -51,8 +51,8 @@ func TestProductionPublicBybitSurface(t *testing.T) {
 }
 
 func TestProductionPublicBybitWebSocketRecording(t *testing.T) {
-	if os.Getenv("AXIOM_B1_LIVE_PUBLIC") != "1" {
-		t.Skip("AXIOM_B1_LIVE_PUBLIC=1 is required")
+	if os.Getenv("AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC") != "1" {
+		t.Skip("AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC=1 is required")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -133,13 +133,13 @@ func awaitLiveHeartbeat(
 }
 
 func TestProductionPublicBybitRecorderManifest(t *testing.T) {
-	if os.Getenv("AXIOM_B1_LIVE_PUBLIC") != "1" {
-		t.Skip("AXIOM_B1_LIVE_PUBLIC=1 is required")
+	if os.Getenv("AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC") != "1" {
+		t.Skip("AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC=1 is required")
 	}
 	harness := newBybitLiveRecorderHarness(t)
 	manifest := recordBybitDepthManifest(t, harness)
 	assertBybitRecorderManifest(t, harness, manifest)
-	t.Logf("B1_MANIFEST root=%s hash=%s raw=%d canonical=%d", harness.root, manifest.Hash,
+	t.Logf("EXCHANGE_EXPANSION_MANIFEST root=%s hash=%s raw=%d canonical=%d", harness.root, manifest.Hash,
 		manifest.RawRecordCount, manifest.CanonicalCount)
 }
 
@@ -152,11 +152,11 @@ type bybitLiveRecorderHarness struct {
 
 func newBybitLiveRecorderHarness(t *testing.T) *bybitLiveRecorderHarness {
 	t.Helper()
-	evidenceRoot := os.Getenv("AXIOM_B1_LIVE_EVIDENCE_ROOT")
+	evidenceRoot := os.Getenv("AXIOM_EXCHANGE_EXPANSION_LIVE_EVIDENCE_ROOT")
 	if evidenceRoot == "" {
 		evidenceRoot = t.TempDir()
 	}
-	session := fmt.Sprintf("b1-live-%d", time.Now().UTC().UnixNano())
+	session := fmt.Sprintf("exchange_expansion-live-%d", time.Now().UTC().UnixNano())
 	harness := &bybitLiveRecorderHarness{root: filepath.Join(evidenceRoot, session),
 		committed: make([]segments.Manifest, 0, 2)}
 	if err := os.MkdirAll(harness.root, 0o700); err != nil {

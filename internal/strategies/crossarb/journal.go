@@ -7,7 +7,7 @@ import (
 	"axiom/internal/domain"
 )
 
-// JournalContext fixes durable ownership and causation for B5 facts.
+// JournalContext fixes durable ownership and causation for cross-exchange arbitrage facts.
 type JournalContext struct {
 	RunID             domain.RunID
 	PortfolioID       domain.PortfolioID
@@ -20,24 +20,28 @@ type JournalContext struct {
 // AttributionValue keeps a signed economic direction with non-negative exact
 // posting magnitude.
 type AttributionValue struct {
-	Amount domain.Balance
-	Gain   bool
+	Amount domain.Balance `json:"amount"`
+	Gain   bool           `json:"gain"`
 }
 
 // PortfolioAttribution preserves execution, both base inventories,
 // stablecoin valuation, explicit costs, restoration, and combined P&L.
 type PortfolioAttribution struct {
-	ExecutionPnL        AttributionValue
-	BTCInventoryPnL     AttributionValue
-	ETHInventoryPnL     AttributionValue
-	StablecoinValuation AttributionValue
-	Fees                domain.Balance
-	Spread              domain.Balance
-	Slippage            domain.Balance
-	Latency             domain.Balance
-	Recovery            domain.Balance
-	Rebalancing         domain.Balance
-	CombinedPnL         AttributionValue
+	ExecutionPnL        AttributionValue `json:"execution_pnl"`
+	BTCInventoryPnL     AttributionValue `json:"btc_inventory_pnl"`
+	ETHInventoryPnL     AttributionValue `json:"eth_inventory_pnl"`
+	StablecoinValuation AttributionValue `json:"stablecoin_valuation"`
+	Fees                domain.Balance   `json:"fees"`
+	Spread              domain.Balance   `json:"spread"`
+	Slippage            domain.Balance   `json:"slippage"`
+	Latency             domain.Balance   `json:"latency"`
+	Recovery            domain.Balance   `json:"recovery"`
+	Rebalancing         domain.Balance   `json:"rebalancing"`
+	CombinedPnL         AttributionValue `json:"combined_pnl"`
+	// ZeroCategories distinguishes an observed exact zero from an omitted
+	// attribution. Journal lines remain positive-only while canonical evidence
+	// still proves every required category.
+	ZeroCategories []string `json:"zero_categories,omitempty"`
 }
 
 // CrossExchangeJournal emits exact independently balanced commodity facts.
@@ -46,7 +50,7 @@ type CrossExchangeJournal struct {
 	context JournalContext
 }
 
-// NewCrossExchangeJournal constructs the B5 accounting boundary.
+// NewCrossExchangeJournal constructs the cross-exchange arbitrage accounting boundary.
 func NewCrossExchangeJournal(
 	journal accounting.Journal,
 	context JournalContext,
@@ -71,7 +75,18 @@ func (journal *CrossExchangeJournal) Transactions(
 	}
 	postings := attributionPostings(attribution)
 	transactions := make([]accounting.Transaction, 0, len(postings))
+	zeroCategories, err := validatedZeroCategories(attribution, postings)
+	if err != nil {
+		return nil, err
+	}
 	for index, posting := range postings {
+		zero, _ := domain.ParseBalance("0")
+		if posting.quantity.Compare(zero) == 0 {
+			if !zeroCategories[posting.name] {
+				return nil, strategyError("journal_attribution_incomplete")
+			}
+			continue
+		}
 		transaction, err := journal.transaction(candidate, posting,
 			journal.context.FirstOrdinal+uint64(index))
 		if err != nil || accounting.ValidateTransaction(transaction) != nil {
@@ -79,10 +94,35 @@ func (journal *CrossExchangeJournal) Transactions(
 		}
 		transactions = append(transactions, transaction)
 	}
-	if len(transactions) < 11 {
+	if len(transactions) == 0 {
 		return nil, strategyError("journal_attribution_incomplete")
 	}
 	return transactions, nil
+}
+
+func validatedZeroCategories(attribution PortfolioAttribution, postings []journalPosting) (map[string]bool, error) {
+	result := make(map[string]bool, len(attribution.ZeroCategories))
+	for _, category := range attribution.ZeroCategories {
+		if category == "" || result[category] {
+			return nil, strategyError("journal_attribution_incomplete")
+		}
+		result[category] = true
+	}
+	zero, _ := domain.ParseBalance("0")
+	for _, posting := range postings {
+		if result[posting.name] != (posting.quantity.Compare(zero) == 0) {
+			return nil, strategyError("journal_attribution_incomplete")
+		}
+		delete(result, posting.name)
+	}
+	if len(result) != 0 {
+		return nil, strategyError("journal_attribution_incomplete")
+	}
+	result = make(map[string]bool, len(attribution.ZeroCategories))
+	for _, category := range attribution.ZeroCategories {
+		result[category] = true
+	}
+	return result, nil
 }
 
 // Post appends only after the full set validates.
@@ -168,17 +208,17 @@ func (journal *CrossExchangeJournal) transaction(
 		suffix = suffix[:16]
 	}
 	transactionID, err := domain.NewJournalTransactionID(
-		fmt.Sprintf("b5-%s-%s-%d", suffix, posting.name, ordinal),
+		fmt.Sprintf("cross_exchange_arbitrage-%s-%s-%d", suffix, posting.name, ordinal),
 	)
 	if err != nil {
 		return accounting.Transaction{}, err
 	}
-	eventID, err := domain.NewEventID(fmt.Sprintf("b5-event-%s-%d", suffix, ordinal))
+	eventID, err := domain.NewEventID(fmt.Sprintf("cross_exchange_arbitrage-event-%s-%d", suffix, ordinal))
 	if err != nil {
 		return accounting.Transaction{}, err
 	}
 	return accounting.Transaction{
-		ID: transactionID, Type: "b5_" + posting.name,
+		ID: transactionID, Type: "cross_exchange_arbitrage_" + posting.name,
 		RunID: journal.context.RunID, PortfolioID: journal.context.PortfolioID,
 		ConfigurationHash: journal.context.ConfigurationHash, CausationID: eventID,
 		RecordedAt: journal.context.RecordedAt, IngestOrdinal: ordinal,

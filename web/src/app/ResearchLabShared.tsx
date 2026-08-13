@@ -1,88 +1,15 @@
-import { lazy, Suspense, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 
 import type { APIModel } from "../api/client";
 import { MetricCard } from "../components/MetricCard";
 import { StatePanel } from "../components/StatePanel";
 import styles from "./Page.module.css";
 import { RegisteredResearchReport } from "./RegisteredResearchReport";
-import { emptyRun } from "./researchLabModel";
 const EvidenceChart = lazy(() =>
   import("../components/EvidenceChart").then((module) => ({
     default: module.EvidenceChart,
   })),
 );
-
-export function RunForm({
-  form,
-  setForm,
-  label,
-  pending,
-  submit,
-}: {
-  readonly form: typeof emptyRun;
-  readonly setForm: (value: typeof emptyRun) => void;
-  readonly label: string;
-  readonly pending: boolean;
-  readonly submit: () => void;
-}) {
-  function handle(event: FormEvent) {
-    event.preventDefault();
-    submit();
-  }
-  return (
-    <form className={`${styles.card} ${styles.form}`} onSubmit={handle}>
-      <Field
-        label="Configuration ID"
-        value={form.configuration}
-        set={(configuration) => setForm({ ...form, configuration })}
-      />
-      <Field
-        label="Dataset ID"
-        value={form.dataset}
-        set={(dataset) => setForm({ ...form, dataset })}
-      />
-      <Field
-        label="Research generation ID"
-        value={form.researchGeneration}
-        set={(researchGeneration) => setForm({ ...form, researchGeneration })}
-      />
-      <Field
-        label="Strategy version"
-        value={form.strategy}
-        set={(strategy) => setForm({ ...form, strategy })}
-      />
-      <Field
-        label="Root seed hash"
-        value={form.seed}
-        set={(seed) => setForm({ ...form, seed })}
-      />
-      <button type="submit" disabled={pending}>
-        {pending ? "Persisting…" : label}
-      </button>
-    </form>
-  );
-}
-
-export function Field({
-  label,
-  value,
-  set,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly set: (value: string) => void;
-}) {
-  return (
-    <label>
-      {label}
-      <input
-        required
-        value={value}
-        onChange={(event) => set(event.target.value)}
-      />
-    </label>
-  );
-}
 
 export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
   return (
@@ -97,6 +24,30 @@ export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
         <MetricCard label="Progress" value={job.progress ?? "—"} />
         <MetricCard label="Revision" value={job.revision} />
       </div>
+      <section className={styles.card}>
+        <h2>Run progress and identity</h2>
+        <progress
+          aria-label="Durable run progress"
+          aria-valuetext={job.progress ?? job.state}
+          max={1}
+          value={job.state === "SUCCEEDED" ? 1 : undefined}
+        />
+        {job.input_manifest ? (
+          <dl className={styles.facts}>
+            {Object.entries(job.input_manifest).map(([name, value]) => (
+              <div key={name}>
+                <dt>{name.replaceAll("_", " ")}</dt>
+                <dd>{String(value)}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <StatePanel
+            state="partial"
+            detail="This historical run has no projected input manifest. Its result remains visible, but comparison is incomplete."
+          />
+        )}
+      </section>
       {job.result && (
         <section className={styles.card}>
           <h2>Authoritative result</h2>
@@ -160,6 +111,10 @@ export function JobPanel({ job }: { readonly job: APIModel<"JobResource"> }) {
             </>
           )}
           <p role="note">{job.result.disclaimer}</p>
+          <p role="note" className={styles.notice}>
+            Platform correctness and strategy viability are separate evidence
+            dimensions. This result does not prove profitability.
+          </p>
         </section>
       )}
       {job.registered_report && (

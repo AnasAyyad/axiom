@@ -1,0 +1,189 @@
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    135deg,
+    var(--color-surface),
+    var(--color-surface-subtle)
+  );
+  box-shadow: var(--shadow-card);
+}
+.hero h2 {
+  margin: 0.2rem 0;
+  font-family: var(--font-display);
+}
+.hero p {
+  max-width: 58rem;
+  margin: 0.35rem 0;
+  color: var(--color-text-muted);
+}
+.safety {
+  color: var(--color-good) !important;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.history {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.history a {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.history a[aria-current="page"] {
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
+}
+.identifier {
+  max-width: 44rem;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font:
+    0.78rem ui-monospace,
+    monospace;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+.metrics article {
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.metrics span {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.metrics strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+}
+.supporting {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.progress {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 2fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+.progress progress {
+  width: 100%;
+  height: 0.65rem;
+  accent-color: var(--color-accent);
+}
+.progress small {
+  min-width: 2.5rem;
+  text-align: right;
+}
+.stages {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(9rem, 1fr));
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding: 0 0 0.5rem;
+  list-style: none;
+}
+.stages li {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  min-height: 8rem;
+  padding: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-top: 0.25rem solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.stages li[data-state="COMPLETED"] {
+  border-top-color: var(--color-good);
+}
+.stages li[data-state="RUNNING"] {
+  border-top-color: var(--color-accent);
+}
+.stages li[data-state="PAUSED_RECOVERABLE"],
+.stages li[data-state="BLOCKED"] {
+  border-top-color: var(--color-warning);
+}
+.stages small {
+  color: var(--color-text-muted);
+}
+.progressGrid,
+.feedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1rem;
+}
+.feedGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+.events {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+.events li {
+  padding: 0.85rem 1rem;
+  border-left: 0.2rem solid var(--color-accent);
+  background: var(--color-surface);
+}
+.events div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.events p {
+  margin: 0.3rem 0;
+  color: var(--color-text-muted);
+}
+.events time,
+.events small {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+@media (max-width: 48rem) {
+  .hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .progress {
+    grid-template-columns: 1fr auto;
+  }
+  .progress progress {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .events div {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+}

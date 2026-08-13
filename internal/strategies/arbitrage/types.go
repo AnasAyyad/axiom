@@ -24,7 +24,7 @@ type FeeSchedule struct {
 	ThirdAssetPriceInQuote domain.Price
 }
 
-// InstrumentRules extends shared instrument metadata with B4/B5 exact maximum
+// InstrumentRules extends shared instrument metadata with triangular arbitrage/cross-exchange arbitrage exact maximum
 // quantity and immutable fee facts.
 type InstrumentRules struct {
 	Exchange        string

@@ -4,37 +4,47 @@ IFS=$'\n\t'
 
 image="${1:-axiom:local}"
 GO="${GO:-go}"
-project="axiom-a5-smoke-${$}"
+project="axiom-observability-smoke-${$}"
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/axiom-compose-smoke.XXXXXX")"
 secret_dir="${temp_dir}/secrets"
 market_dir="${temp_dir}/market-data"
-mkdir -p "${secret_dir}" "${market_dir}"
+evaluation_history_dir="${market_dir}/evaluation-history"
+mkdir -p "${secret_dir}" "${market_dir}" "${evaluation_history_dir}"
 chmod 0770 "${market_dir}"
 
 compose() {
+  # Keep recorder startup independent of a hosted runner's Bybit geography.
+  # The worker still loads the complete two-exchange research graph, whose
+  # behavior is exercised with accelerated fixtures. Live two-exchange recorder
+  # verification remains an explicit gated server-deployment check.
   COMPOSE_PROJECT_NAME="${project}" \
     APP_IMAGE="${image}" \
     APP_PULL_POLICY=never \
     SECRETS_DIR="${secret_dir}" \
     MARKET_DATA_HOST_PATH="${market_dir}" \
+    EVALUATION_HISTORY_HOST_PATH="${evaluation_history_dir}" \
     RECORDER_FLUSH_INTERVAL=2s \
     HOST_BIND_IP=127.0.0.1 \
     API_HOST_PORT=0 \
     GRAFANA_HOST_PORT=0 \
     docker compose --env-file .env.example \
+      -f docker-compose.yml -f tests/integration/compose-smoke-app.override.yml \
       --profile app --profile record --profile workers --profile observability "$@"
 }
 
 cleanup() {
-	status=$?
-	if [[ ${status} -ne 0 ]]; then
-		compose ps --all >&2 || true
-		compose logs --no-color --tail 200 engine-shadow >&2 || true
-		compose logs --no-color --tail 40 postgres migrate api recorder backtest-worker prometheus grafana >&2 || true
-	fi
+  status=$?
+  if [[ ${status} -ne 0 ]]; then
+    compose ps --all >&2 || true
+    compose logs --no-color --tail 200 engine-shadow >&2 || true
+    compose logs --no-color --tail 40 postgres migrate api recorder backtest-worker prometheus grafana >&2 || true
+  fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  docker run --rm --user 0:0 --entrypoint /bin/chown \
+    --mount "type=bind,src=${temp_dir},dst=/smoke" \
+    postgres:18.4-alpine -R "$(id -u):$(id -g)" /smoke >/dev/null 2>&1 || true
   rm -rf -- "${temp_dir}"
-	return "${status}"
+  return "${status}"
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -50,7 +60,7 @@ readonly -a secret_names=(
   postgres_readonly_password
   postgres_binance_engine_password
   postgres_bybit_engine_password
-  postgres_c6_qualification_password
+  postgres_sandbox_qualification_password
   grafana_admin_password
   health_detail_token
   csrf_key
@@ -79,7 +89,7 @@ docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   /secrets/postgres_readonly_password \
   /secrets/postgres_binance_engine_password \
   /secrets/postgres_bybit_engine_password \
-  /secrets/postgres_c6_qualification_password \
+  /secrets/postgres_sandbox_qualification_password \
   /secrets/health_detail_token >/dev/null
 docker run --rm --user 0:0 --entrypoint /bin/chgrp \
   --mount "type=bind,src=${secret_dir},dst=/secrets" \
@@ -97,7 +107,8 @@ printf 'header = "Authorization: Bearer %s"\n' "$(<"${secret_dir}/health_detail_
 chmod 0600 "${temp_dir}/health-curl.conf"
 docker run --rm --user 0:0 --entrypoint /bin/chown \
   --mount "type=bind,src=${market_dir},dst=/market-data" \
-  postgres:18.4-alpine "10001:$(id -g)" /market-data >/dev/null
+  postgres:18.4-alpine "10001:$(id -g)" \
+  /market-data /market-data/evaluation-history >/dev/null
 
 compose up --detach --wait --wait-timeout 180
 
@@ -190,7 +201,7 @@ for _ in $(seq 1 30); do
     rg --quiet '"database"[[:space:]]*:[[:space:]]*"ok"' <<<"${grafana_health}" && \
     grafana_search="$(curl --fail --silent --user "admin:$(<"${secret_dir}/grafana_admin_password")" \
       "http://${grafana_address}/api/search?query=Axiom")" && \
-    rg --fixed-strings --quiet 'Axiom Operations and V1C C6' <<<"${grafana_search}"; then
+  rg --fixed-strings --quiet 'Axiom Operations and Sandbox Qualification' <<<"${grafana_search}"; then
     grafana_ready=true
     break
   fi

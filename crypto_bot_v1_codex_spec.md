@@ -2414,7 +2414,7 @@ Rules:
 Show:
 
 - environment and execution mode
-- explicit `REAL TRADING DISABLED`
+- explicit `REAL-MONEY TRADING IS NOT AVAILABLE`
 - current shadow/test session
 - overall engine status
 - exchange connection indicators
@@ -3578,11 +3578,41 @@ immutable evidence.
 
 V1D completes the full API, React console, labs, reporting, incident response, data lifecycle, security, and single-server operational maturity described throughout this document.
 
+The current product model is exactly one authenticated owner, not a multi-role
+tenant. Delivery-phase headings in this specification remain only for release
+traceability; current runtime names, APIs, configuration, UI, monitoring, and
+operator commands use semantic responsibility names. Historical evidence and
+already-applied migrations retain their immutable original identities.
+
 ### Phase D1: Complete versioned API and live updates
 
 Owner: API engineering.
 
 Deliver every Section 24 resource, generated OpenAPI/types, pagination/filtering, idempotency, revisions, resume cursors, quotas, exports, and administrative authorization.
+
+The D1 control plane uses the following normative contracts:
+
+- exactly one active owner account exists; no Researcher, Operator, Auditor,
+  Viewer, role-assignment API, user-management page, role, or permission is
+  present in current session or runtime projections
+- every collection has bounded cursor pagination, deterministic ordering, explicit time-range filters where time applies, and stable resource-specific filters
+- every mutation requires an idempotency key, an expected entity revision, and a human reason; it returns a durable command identity and lifecycle state
+- strategy configuration (`enabled` or `disabled`) is versioned separately from runtime state (`running`, `paused`, or `blocked`)
+- a strategy cannot enable or resume unless configuration, persistence, market-data, reconciliation, inventory, exchange-health, and risk prerequisites pass
+- high-risk configuration, qualification, and unlock actions require the owner
+  to reauthenticate with password and TOTP, confirm the exact expected
+  revision, and supply a reason
+- the activity read model is immutable and idempotently linked to authoritative decisions, risk evaluations, orders, fills, reconciliation, jobs, incidents, alerts, and audit evidence; existing rows receive a deterministic backfill
+- the versioned reason catalogue provides a stable code, plain summary, explanation, suggested action, severity, and correlation identity; unknown codes render a safe generic explanation
+- exports use durable jobs and support TXT, CSV, JSON, and JSONL; artifacts are redacted, hash-sealed, audited, retained for seven days, and deleted automatically unless an incident or reproducibility hold applies
+- live updates add semantic run, decision, order, fill, portfolio, risk,
+  reconciliation, job, incident, alert, and export events to the existing
+  resumable stream; an expired cursor returns an explicit fresh-snapshot
+  requirement
+
+No D1 read, command, activity, or export contract may expose a credential,
+request signature, authorization header, arbitrary log file, or private exchange
+payload. D1 adds no production-private exchange client or order capability.
 
 Acceptance: API contract, recovery, authorization, compatibility, load, and secret-leak tests pass.
 
@@ -3592,6 +3622,33 @@ Owner: frontend engineering.
 
 Deliver the complete Section 25 navigation and operational pages except the specialized labs completed in D3, using accessible responsive components and explicit confidence/state labels.
 
+The D2 console uses the following normative interaction contract:
+
+- navigation is grouped into `Overview`, `Explore`, `Run`, `Monitor`,
+  `Portfolio & Risk`, and `System`; every normal product action is available to
+  the authenticated owner without role or permission filtering
+- a persistent safety header shows environment, execution mode, exchange health, engine state, risk state, data freshness, live-update state, and `REAL-MONEY TRADING IS NOT AVAILABLE` on every authenticated route
+- pages lead with plain-language status, reason, impact, and recommended action; correlation IDs, revisions, source identities, and redacted technical evidence remain available through progressive disclosure
+- activity is split into linked `Decisions & Orders` and restricted `System Events` views with stable time, strategy, instrument, exchange, side, outcome, reason, mode, and correlation filters
+- the Strategy Center keeps versioned configured state separate from runtime
+  state and displays every fail-closed blocking prerequisite
+- Readiness lists approved qualifications and drills, preflight state, progress,
+  evidence identity, abort state, and terminal verdict; the owner may start or
+  stop an approved workflow only through its existing high-risk boundary
+- New Run launches only server-catalogued demonstration, backtest, replay,
+  shadow, sandbox, qualification, or operational-drill workflows; it cannot
+  execute arbitrary shell commands or unit-test names
+- every page provides explicit loading, empty, stale, reconnecting,
+  partial-data, blocked, validation-error, and server-error presentation where
+  the state can occur
+- desktop, tablet, and mobile layouts preserve keyboard reachability, visible focus, screen-reader names, and bounded overflow; UTC and local-time controls remain available
+- all downloads use server-created redacted, hash-sealed, audited artifacts; the browser never exposes arbitrary logs, private exchange payloads, request headers, signatures, or credentials
+
+D2 does not add a production-private exchange route, production order control,
+short sale, unowned-asset sale, or any other prohibited V1 capability. Demo,
+testnet, shadow, replay, and historical results remain explicitly non-profitability
+evidence.
+
 Acceptance: WCAG 2.2 AA critical workflows, browser matrix, responsive layout, stale/error/loading/reconnect states, and end-to-end workflows pass.
 
 ### Phase D3: Complete Backtest, Replay, and Shadow Labs
@@ -3599,6 +3656,37 @@ Acceptance: WCAG 2.2 AA critical workflows, browser matrix, responsive layout, s
 Owner: frontend and research platform.
 
 Deliver run creation/lifecycle, progress, comparison, parameter diffs, reproducibility bundles, replay controls/faults, shadow comparison, and export.
+
+D3 uses guided, version-controlled presets over the immutable configuration,
+dataset, strategy, model, and seed identities that the execution engine already
+enforces. An advanced view may explain instruments, date windows, fees,
+latency, fills, and risk assumptions, but it must not imply that unsupported
+free-form browser values are executed. Every run keeps its original input
+manifest, source/build identity, dataset/configuration hashes, result identity,
+confidence, sample limits, and maturity visible when those facts exist.
+
+Backtest and replay pages provide durable history, reopen, exact-revision
+pause/resume/cancel where the state machine supports it, deterministic
+reproduction, two-run parameter/result comparison, and audited TXT, CSV, JSON,
+or JSONL export. Replay additionally provides original, accelerated, and
+maximum speed presets, pause/resume/single-step, ordinal navigation,
+checkpoints, incident windows, and only the approved deterministic fault
+catalogue. A cursor or event that has not been durably materialized is never
+invented by the UI.
+
+Shadow pages list durable public-data, simulation-only sessions and expose
+current decisions, simulated orders/fills, virtual balances and positions,
+ledger-backed P&L attribution, risk actions, public-data health, immutable
+model assumptions, and side-by-side session comparison. They cannot reach a
+production-private exchange endpoint or sell inventory that the isolated
+virtual portfolio does not own.
+
+Reproduction bundles contain safe manifests, hashes, parameters, dataset and
+result references, and exact application/build identity. They exclude secrets,
+request signatures, authorization headers, unrestricted private payloads, and
+arbitrary logs. Historical, replay, shadow, demo, and testnet results report
+strategy viability separately from platform readiness and never claim or prove
+profitability.
 
 Acceptance: runs can be created, paused/canceled where supported, monitored, reproduced, compared, opened, and exported without losing immutable identity.
 
@@ -3608,6 +3696,28 @@ Owner: reporting, security, and SRE.
 
 Deliver scheduled/on-demand reports, incident lifecycle, tamper-evident audit review, alert routing, acknowledgement, replay links, and evidence bundles.
 
+Report schedules use an explicit UTC cadence and create durable, deduplicated
+jobs for strategy results, decisions/orders, portfolios, inventory/P&L, risk,
+exchange/data health, lab runs, sandbox qualifications, and platform readiness.
+Every completed report preserves its mode, confidence tier, valuation basis,
+model provenance, maturity, immutable source identity and revision, generation
+time, report revision, and content hash. Reports and their exports continue to
+separate strategy viability from platform readiness and never claim
+profitability.
+
+Incidents preserve owner, severity, an immutable hash-linked timeline, related
+alerts and activity, exact replay inputs when available, remediation notes,
+resolution evidence, and active evidence holds. Resolving an incident requires
+documented resolution evidence; it does not release or delete held evidence.
+Incident and reproduction holds are validated against their referenced source
+and block both manual and retention deletion.
+
+Alert review exposes sanitized routes, acknowledgements, escalations, delivery
+attempts, retry state, and test-delivery outcomes. Alert payloads remain a
+closed, secret-free schema. Authentication, control, export, configuration,
+qualification, incident, alert, and evidence-access events are visible through
+tamper-evident audit review with an explicit verification verdict.
+
 Acceptance: incidents link to complete replay inputs when available, alerts meet delivery SLOs, and reports preserve confidence/valuation/model provenance.
 
 ### Phase D5: Operational hardening and data lifecycle
@@ -3615,6 +3725,42 @@ Acceptance: incidents link to complete replay inputs when available, alerts meet
 Owner: SRE and storage.
 
 Deliver hardened image/digest deployment, edge TLS, backup/off-host retention/restore drills, schema upgrades, raw-data lifecycle, disk-pressure automation, load/race/chaos tests, runbooks, rollback/forward-fix procedures, and seven-day readiness soak.
+
+D5 uses a current revisioned storage-pressure state plus immutable observations.
+The initial high free-space watermark remains 10 GiB. Until a measured server
+capacity plan raises it, the initial critical free-space watermark is 5 GiB.
+Missing, bootstrap-only, conflicting, stale beyond two minutes, or unobservable
+pressure state fails closed. High pressure rejects new lab, report, export, and
+not-yet-running shadow work while recording
+and already-running safe work may continue. Critical pressure disables new
+shadow entries, stops collectors, and finalizes or quarantines recorder work
+before the recorder becomes unready; database journal and audit writes are not
+disabled. Historical pressure events remain immutable and do not themselves
+keep the current state permanently blocked.
+
+Generated artifacts expire after seven days only when no active incident or
+reproducibility hold exists. Expiry removes content but preserves metadata and
+immutable access/audit evidence. Raw-segment deletion continues to require the
+30-day floor, verified backup, and explicit proof that no locked test,
+incident, active replay, reproducibility bundle, owner/legal hold, or pending
+deletion references the segment.
+
+Database backups are encrypted and authenticated and retain at least 14 daily
+restore points. The backup and restore processes must prove that the remote
+destination is a non-root mounted filesystem different from PostgreSQL,
+market data, and local staging. A successful clean restore records a
+no-replace authenticated verdict and must complete within four hours. A
+Compose-managed Docker volume is not accepted as remote backup evidence.
+
+The formal D5 readiness runner is default-off and begins its exact seven-day
+clock only after fail-closed preflight passes. The run is bound to exact source
+SHA, pinned image digests, configuration hash, server identity, dataset
+identity, test-manifest hash, and version-controlled fault schedule. It writes
+fsynced hash-chained samples and a no-replace Ed25519-authenticated terminal
+verdict. A failed run is terminal: it cannot reset its clock, weaken thresholds,
+hide a waiver, or be converted into a pass. Smoke evidence is always marked
+non-qualifying. B2 market-data and C6 sandbox verdicts remain independent and
+are not replaced by D5.
 
 Acceptance: numeric SLOs, resource bounds, RPO/RTO, disaster restore, graceful lifecycle, and incident rollback criteria pass on the recorded reference server.
 

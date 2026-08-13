@@ -31,8 +31,22 @@ func TestBaselineEntryUsesExactRegimeThresholdsAndPostLatencyPrice(t *testing.T)
 	}
 }
 
+func TestCurrentSandboxRuntimeConfigurationSchemaIsAcceptedWhenHashRemainsExact(t *testing.T) {
+	evaluator, _ := evaluatorFixture(t)
+	input := baselineInput(t)
+	input.Evidence.ConfigurationVersion = config.SchemaVersionSandboxRuntime
+	decision, err := evaluator.Evaluate(input)
+	if err != nil || decision.Action != ActionEntry || decision.Candidate == nil {
+		t.Fatalf("decision=%#v error=%v", decision, err)
+	}
+	input.Evidence.ConfigurationVersion = ""
+	if _, err = evaluator.Evaluate(input); err == nil {
+		t.Fatal("empty configuration version accepted")
+	}
+}
+
 func TestConfigurationRequiresCompleteApprovedMetadataAndATRStopUsesActualFill(t *testing.T) {
-	source := config.DefaultV1BConfiguration().MeanReversion
+	source := config.DefaultMultiStrategyConfiguration().MeanReversion
 	source.Parameters[0].ApprovalActor = ""
 	if _, err := NewConfiguration(source); err == nil {
 		t.Fatal("incomplete parameter approval metadata accepted")
@@ -153,6 +167,30 @@ func TestExactlyThreeCooldownCandlesAndNoAveragingDecision(t *testing.T) {
 	}
 }
 
+func TestAdapterRetainsCanonicalNoSignalDecisionEvidence(t *testing.T) {
+	evaluator, _ := evaluatorFixture(t)
+	input := baselineInput(t)
+	input.MarketDataQualityPass = false
+	payload, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := replay.Event{Ordinal: input.Ordinal, LogicalTime: input.LogicalTime, Canonical: payload}
+	adapter, err := NewAdapter(evaluator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = adapter.Evaluate(context.Background(), event); errorCode(err) != ReasonMarketQuality {
+		t.Fatalf("no-signal adapter error = %v", err)
+	}
+	evidence, evidenceErr := adapter.DecisionEvidence(event)
+	var decision Decision
+	if evidenceErr != nil || json.Unmarshal(evidence, &decision) != nil ||
+		decision.Candidate != nil || decision.ReasonCode != ReasonMarketQuality {
+		t.Fatalf("no-signal evidence=%s error=%v", evidence, evidenceErr)
+	}
+}
+
 func TestDualTimeframeAdmissionFinalityGapRegressionConflictDuplicateAndAlignment(t *testing.T) {
 	_, configuration := evaluatorFixture(t)
 	baseline := baselineInput(t)
@@ -266,6 +304,31 @@ func TestSizingFeesGapSlippageReserveFiltersRoundingAndPostLatencyBoundaries(t *
 	}
 }
 
+func TestEntryNotionalLimitIncludesAllocatorFeeReservation(t *testing.T) {
+	evaluator, _ := evaluatorFixture(t)
+	input := baselineInput(t)
+	limit, err := domain.ParseMoney("10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.Sizing.NotionalLimits = []domain.Money{limit}
+	input.Sizing.InstrumentMetadata.MinimumNotional, err = domain.ParseNotional("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := evaluator.Evaluate(input)
+	if err != nil || decision.Candidate == nil || decision.Action != ActionEntry {
+		t.Fatalf("capped decision = %#v, %v", decision, err)
+	}
+	notional, err := domain.ParseMoney(decision.Candidate.Notional.String())
+	fee, feeErr := domain.CalculateFee(decision.Candidate.Notional, input.Sizing.EntryFeeRate, 18)
+	gross, grossErr := notional.AddFee(fee)
+	if err != nil || feeErr != nil || grossErr != nil || gross.Compare(limit) > 0 {
+		t.Fatalf("gross reservation=%s notional=%s fee=%s limit=%s errors=%v/%v/%v",
+			gross, decision.Candidate.Notional, fee, limit, err, feeErr, grossErr)
+	}
+}
+
 func TestTenIdenticalHashesConcurrentEvaluationAndModeIndependentAdapterDecisions(t *testing.T) {
 	evaluator, _ := evaluatorFixture(t)
 	input := baselineInput(t)
@@ -306,12 +369,18 @@ func TestTenIdenticalHashesConcurrentEvaluationAndModeIndependentAdapterDecision
 		} else if !bytes.Equal(modePayload, candidate.Payload) {
 			t.Fatalf("%s decision payload differs", mode)
 		}
+		evidence, evidenceErr := adapter.DecisionEvidence(event)
+		var accepted Decision
+		if evidenceErr != nil || json.Unmarshal(evidence, &accepted) != nil ||
+			accepted.Ordinal != event.Ordinal || accepted.Candidate == nil {
+			t.Fatalf("%s decision evidence=%s error=%v", mode, evidence, evidenceErr)
+		}
 	}
 }
 
 func evaluatorFixture(t *testing.T) (*Evaluator, Configuration) {
 	t.Helper()
-	configuration, err := NewConfiguration(config.DefaultV1BConfiguration().MeanReversion)
+	configuration, err := NewConfiguration(config.DefaultMultiStrategyConfiguration().MeanReversion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +397,7 @@ func baselineInput(t *testing.T) Input {
 	signalEnd := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
 	primary, higher := baselineCandles(t, instrument, signalEnd)
 	spread, _ := domain.ParsePercent("0.0005")
-	configuration, _ := NewConfiguration(config.DefaultV1BConfiguration().MeanReversion)
+	configuration, _ := NewConfiguration(config.DefaultMultiStrategyConfiguration().MeanReversion)
 	return Input{Ordinal: 1, LogicalTime: 100, Now: signalEnd.Add(3100 * time.Millisecond),
 		Instrument: instrument, PrimaryCandles: primary, HigherCandles: higher,
 		MarketHealthy: true, MarketDataQualityPass: true, Spread: spread, BookAge: 10 * time.Millisecond,
@@ -383,15 +452,15 @@ func baselineEvidence(configuration Configuration) InputEvidence {
 	return InputEvidence{PrimaryCandleViewID: "primary-view", PrimaryCandleViewRevision: 1,
 		HigherCandleViewID: "higher-view", HigherCandleViewRevision: 1, MarketViewID: "market-view",
 		MarketViewRevision: 1, CoherentViewID: strings.Repeat("a", 64),
-		CoherentVersionVectorHash: strings.Repeat("a", 64), InstrumentMetadataID: "metadata-b3",
-		AssetEligibilityVersion: 1, ConfigurationSnapshotID: "configuration-b3",
-		ConfigurationVersion: "axiom.config.v1b.2", ConfigurationHash: configuration.Hash,
+		CoherentVersionVectorHash: strings.Repeat("a", 64), InstrumentMetadataID: "metadata-mean_reversion",
+		AssetEligibilityVersion: 1, ConfigurationSnapshotID: "configuration-mean_reversion",
+		ConfigurationVersion: "axiom.configuration@1.2.0", ConfigurationHash: configuration.Hash,
 		StrategyVersion: configuration.Version, StrategyHash: strings.Repeat("b", 64),
-		PortfolioRevision: 1, PositionRevision: 1, RiskPolicyID: "risk-b3", RiskPolicyVersion: 1,
+		PortfolioRevision: 1, PositionRevision: 1, RiskPolicyID: "risk-mean_reversion", RiskPolicyVersion: 1,
 		RiskPolicyHash: strings.Repeat("c", 64), FeeModelID: "fixed-bps-v1",
 		LatencyModelID: "fixed-zero-v1", FillModelID: "fill-v1", SlippageModelID: "slippage-v1",
-		GapModelID: "gap-v1", CorrelationModelID: "correlation-v1", CorrelationID: "correlation-b3",
-		CausationID: "causation-b3"}
+		GapModelID: "gap-v1", CorrelationModelID: "correlation-v1", CorrelationID: "correlation-mean_reversion",
+		CausationID: "causation-mean_reversion"}
 }
 
 func strategyCandle(t *testing.T, instrument domain.Instrument, interval string, openTime time.Time,

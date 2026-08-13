@@ -9,7 +9,7 @@ import (
 )
 
 // ValidateCoherentBooks proves that executable depth is exactly the complete
-// two-member B2 as-of vector, not merely a similarly named later snapshot.
+// two-member coherent market data as-of vector, not merely a similarly named later snapshot.
 func ValidateCoherentBooks(
 	view runtimecore.CoherentView,
 	markets []Market,

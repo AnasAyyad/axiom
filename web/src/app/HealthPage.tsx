@@ -43,10 +43,10 @@ export function HealthPage() {
   return (
     <main className={styles.page}>
       <div className={styles.lockBanner} role="status" aria-live="polite">
-        REAL TRADING DISABLED
+        REAL-MONEY TRADING IS NOT AVAILABLE
       </div>
       <header className={styles.header}>
-        <p className={styles.eyebrow}>Axiom V1A · Phase A1</p>
+        <p className={styles.eyebrow}>Axiom application status</p>
         <h1>System health</h1>
         <p>Public-data research and simulation skeleton</p>
       </header>
@@ -77,10 +77,6 @@ function HealthSnapshot({ snapshot }: { readonly snapshot: Snapshot }) {
           {snapshot.readiness.status}
         </p>
         <dl>
-          <div>
-            <dt>Role</dt>
-            <dd>{snapshot.readiness.role}</dd>
-          </div>
           <div>
             <dt>Lifecycle</dt>
             <dd>{snapshot.system.lifecycle_state}</dd>

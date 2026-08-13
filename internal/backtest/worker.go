@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"axiom/internal/config"
+	"axiom/internal/domain"
 	"axiom/internal/replay"
 )
 
@@ -14,11 +15,25 @@ type JobClaim struct {
 	ID            string
 	Manifest      RunManifest
 	Configuration config.Configuration
+	// ExchangeID is populated only by a production-public shadow composition.
+	// Offline jobs derive venue identity from their immutable event evidence.
+	ExchangeID    string
 	Source        replay.Source
 	TimingMode    replay.TimingMode
 	Acceleration  uint64
 	ResumeOrdinal uint64
 	SingleStep    bool
+	CostStressBPS int32
+	// EvaluationInputKind is populated only for a server-owned evaluation
+	// campaign. It selects the deterministic public-evidence adapter and never
+	// authorizes an exchange transport or private account projection.
+	EvaluationInputKind string
+	// EvaluationMetadata is immutable public instrument-filter evidence keyed
+	// by exchange and canonical symbol (for example binance:BTCUSDT).
+	EvaluationMetadata        map[string]domain.InstrumentMetadata
+	EvaluationMetadataID      map[string]string
+	EvaluationConfigurationID string
+	EvaluationDatasetID       string
 }
 
 // JobControl is the current authoritative replay control posture.

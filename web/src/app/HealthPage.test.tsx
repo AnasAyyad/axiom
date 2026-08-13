@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HealthPage } from "./HealthPage";
 
 const responses: Record<string, unknown> = {
-  "/health/ready": { status: "ready", role: "api", phase: "A1" },
+  "/health/ready": { status: "ready" },
   "/api/v1/system/build": {
     version: "0.1.0",
     commit: "test",
@@ -14,9 +14,10 @@ const responses: Record<string, unknown> = {
     dirty: false,
   },
   "/api/v1/system/status": {
-    release: "V1A",
-    phase: "A1",
-    role: "api",
+    application_version: "test",
+    build_commit: "test-commit",
+    configuration_identity: "test-configuration",
+    readiness_state: "ready",
     lifecycle_state: "READY_PAUSED",
     strategy_activation: "unavailable",
     real_trading_enabled: false,
@@ -41,7 +42,9 @@ describe("HealthPage", () => {
     );
 
     const view = render(<HealthPage />);
-    expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
+    expect(
+      screen.getByText("REAL-MONEY TRADING IS NOT AVAILABLE"),
+    ).toBeInTheDocument();
     await screen.findByText("READY_PAUSED");
     const result = await axe.run(view.container);
     expect(result.violations).toHaveLength(0);

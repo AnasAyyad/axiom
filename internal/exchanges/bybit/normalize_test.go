@@ -10,7 +10,7 @@ import (
 	"axiom/internal/marketdata"
 )
 
-func TestB1BybitPublicNormalizationContract(t *testing.T) {
+func TestExchangeExpansionBybitPublicNormalizationContract(t *testing.T) {
 	clock, err := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestB1BybitPublicNormalizationContract(t *testing.T) {
 			return normalizeErr
 		}},
 		{name: "ticker", run: func() error {
-			_, normalizeErr := NormalizeTicker([]byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","list":[{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}]},"retExtInfo":{},"time":1784592000000}`), instrument, received)
+			_, normalizeErr := NormalizeTicker([]byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","list":[{"symbol":"BTCUSDT","biownerControlPrice":"100","biownerControlSize":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}]},"retExtInfo":{},"time":1784592000000}`), instrument, received)
 			return normalizeErr
 		}},
 		{name: "candles", run: func() error {
@@ -47,7 +47,24 @@ func TestB1BybitPublicNormalizationContract(t *testing.T) {
 	}
 }
 
-func TestB1BybitSnapshotDeltaDeleteAndUpdateIDOneReplacement(t *testing.T) {
+func TestExchangeExpansionBybitPublicInstrumentNormalizationRetainsMaximumQuantity(t *testing.T) {
+	payload := []byte(`{
+	  "retCode":0,"retMsg":"OK","result":{"category":"spot","nextPageCursor":null,"list":[{
+	    "symbolId":1,"symbol":"BTCUSDT","baseCoin":"BTC","quoteCoin":"USDT",
+	    "innovation":"0","status":"Trading","marginTrading":"none","stTag":"0",
+	    "lotSizeFilter":{"basePrecision":"0.000001","quotePrecision":"0.0000001",
+	      "maxOrderQty":"230","minOrderQty":"0.000001","minOrderAmt":"5",
+	      "maxOrderAmt":"8000000","maxLimitOrderQty":"230","maxMarketOrderQty":"120",
+	      "postOnlyMaxLimitOrderSize":"1150"},
+	    "priceFilter":{"tickSize":"0.1"},"riskParameters":{},"symbolType":"","xstockMultiplier":""
+	  }]},"retExtInfo":{},"time":1700000000000}`)
+	records, err := NormalizeInstruments(payload, time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC), 1)
+	if err != nil || len(records) != 1 || records[0].MaximumQuantity.String() != "230" {
+		t.Fatalf("public instrument rules=%#v error=%v", records, err)
+	}
+}
+
+func TestExchangeExpansionBybitSnapshotDeltaDeleteAndUpdateIDOneReplacement(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
 	received := clock.Now()
 	tickerState := make(map[string]tickerPayload)
@@ -89,7 +106,7 @@ func TestB1BybitSnapshotDeltaDeleteAndUpdateIDOneReplacement(t *testing.T) {
 	}
 }
 
-func TestB1BybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
+func TestExchangeExpansionBybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
 	state := make(map[string]tickerPayload)
 	_, event, err := normalizeStream([]byte(`{"success":true,"ret_msg":"subscribe","conn_id":"public-1","req_id":"","op":"subscribe"}`), clock.Now(), state)
@@ -110,7 +127,7 @@ func TestB1BybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
 	if !errors.As(err, &failure) || failure.Cause != "heartbeat_response_invalid" {
 		t.Fatalf("heartbeat failure = %#v, %v", failure, err)
 	}
-	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"snapshot","ts":1784592000000,"cs":1,"data":{"symbol":"BTCUSDT","bid1Price":"100","bid1Size":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}}`), clock.Now(), state)
+	_, event, err = normalizeStream([]byte(`{"topic":"tickers.BTCUSDT","type":"snapshot","ts":1784592000000,"cs":1,"data":{"symbol":"BTCUSDT","biownerControlPrice":"100","biownerControlSize":"2","ask1Price":"101","ask1Size":"3","lastPrice":"100.5"}}`), clock.Now(), state)
 	if err != nil || event.Ticker == nil {
 		t.Fatalf("ticker snapshot = %#v, %v", event, err)
 	}
@@ -127,7 +144,7 @@ func TestB1BybitLifecycleTickerMergeAndUnknownFieldsFailClosed(t *testing.T) {
 	}
 }
 
-func TestB1BybitTradeBatchPreservesEveryDocumentedTradeAndSequence(t *testing.T) {
+func TestExchangeExpansionBybitTradeBatchPreservesEveryDocumentedTradeAndSequence(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
 	payload := []byte(`{"topic":"publicTrade.BTCUSDT","type":"snapshot","ts":1784592000000,"data":[{"T":1784592000000,"s":"BTCUSDT","S":"Buy","v":"0.1","p":"100","L":"PlusTick","i":"trade-1","BT":false,"RPI":true,"seq":10},{"T":1784592000001,"s":"BTCUSDT","S":"Sell","v":"0.2","p":"101","L":"MinusTick","i":"trade-2","BT":true,"RPI":false,"seq":11}]}`)
 	_, event, err := normalizeStream(payload, clock.Now(), make(map[string]tickerPayload))
@@ -141,7 +158,7 @@ func TestB1BybitTradeBatchPreservesEveryDocumentedTradeAndSequence(t *testing.T)
 	}
 }
 
-func TestB1BybitTradeDecoderRetainsBoundedFailureCause(t *testing.T) {
+func TestExchangeExpansionBybitTradeDecoderRetainsBoundedFailureCause(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
 	for _, test := range []struct {
 		name    string
@@ -161,7 +178,7 @@ func TestB1BybitTradeDecoderRetainsBoundedFailureCause(t *testing.T) {
 	}
 }
 
-func TestB1BybitRecentTradesAcceptsDocumentedClassificationFlags(t *testing.T) {
+func TestExchangeExpansionBybitRecentTradesAcceptsDocumentedClassificationFlags(t *testing.T) {
 	clock, _ := domain.NewReplayClock(time.Date(2026, 7, 21, 0, 0, 1, 0, time.UTC))
 	instrument := approvedInstruments()[0]
 	payload := []byte(`{"retCode":0,"retMsg":"OK","result":{"category":"spot","list":[{"execId":"trade-1","symbol":"BTCUSDT","price":"100","size":"0.1","side":"Buy","time":"1784592000000","isBlockTrade":true,"isRPITrade":false},{"execId":"trade-2","symbol":"BTCUSDT","price":"101","size":"0.2","side":"Sell","time":"1784592000001","isBlockTrade":false,"isRPITrade":true}]},"retExtInfo":{},"time":1784592000000}`)
@@ -185,7 +202,7 @@ func testObservation(
 		PublishedOffsetNanos: ordinal}
 }
 
-func TestB1BybitCapabilitiesRemainCredentialFree(t *testing.T) {
+func TestExchangeExpansionBybitCapabilitiesRemainCredentialFree(t *testing.T) {
 	descriptor, err := Capabilities(time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC))
 	if err != nil || descriptor.Exchange != "bybit" || descriptor.AccountMode != exchangecontracts.AccountModePublicOnly {
 		t.Fatalf("descriptor = %#v, %v", descriptor, err)

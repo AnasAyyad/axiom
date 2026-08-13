@@ -30,7 +30,7 @@ func (failure *Error) Error() string { return "market_data:" + failure.Code }
 
 func marketError(code string) error { return &Error{Code: code} }
 
-// Observation preserves the distinct A7 time and ordering facts.
+// Observation preserves the distinct public-data qualification time and ordering facts.
 type Observation struct {
 	ExchangeTime         time.Time        `json:"exchange_time,omitempty"`
 	ReceivedAt           domain.EventTime `json:"received_at"`

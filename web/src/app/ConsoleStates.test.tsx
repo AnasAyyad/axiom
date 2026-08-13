@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import axe from "axe-core";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCSRFToken } from "../api/client";
@@ -18,6 +18,8 @@ const states = [
   "locked",
   "reconnecting",
   "forbidden",
+  "validation",
+  "partial",
   "error",
 ] as const;
 
@@ -28,7 +30,7 @@ afterEach(() => {
   FakeEventSource.instances = [];
 });
 
-describe("A11 console states", () => {
+describe("owner console console states", () => {
   it("announces every required non-happy state accessibly", async () => {
     const view = render(
       <main>
@@ -48,14 +50,22 @@ describe("A11 console states", () => {
       screen.getByText("Reconnecting to live updates…"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("You do not have permission to view this evidence"),
+      screen.getByText(
+        "This evidence is not available for the current owner session",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Review the highlighted values"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Some authoritative data is unavailable"),
     ).toBeInTheDocument();
     const result = await axe.run(view.container);
     expect(result.violations).toHaveLength(0);
   });
 
   it("keeps the execution lock visible on the authenticated shell", async () => {
-    vi.stubGlobal("fetch", vi.fn(a11FetchFixture));
+    vi.stubGlobal("fetch", vi.fn(ownerConsoleFetchFixture));
     vi.stubGlobal("EventSource", FakeEventSource);
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -65,10 +75,8 @@ describe("A11 console states", () => {
         <MemoryRouter>
           <AppShell
             user={{
-              id: "user-a11",
+              id: "user-owner_console",
               email: "owner@example.test",
-              roles: ["owner"],
-              permissions: ["operations.read"],
             }}
           >
             <h1>Evidence workspace</h1>
@@ -76,16 +84,18 @@ describe("A11 console states", () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
+    expect(
+      screen.getByText("REAL-MONEY TRADING IS NOT AVAILABLE"),
+    ).toBeInTheDocument();
     expect(screen.getByText("SHADOW · VIRTUAL")).toBeInTheDocument();
-    expect(screen.getByText("production_public · shadow")).toBeInTheDocument();
+    expect(screen.getByText("production_public")).toBeInTheDocument();
     await screen.findByText("PAUSED");
     const result = await axe.run(view.container);
     expect(result.violations).toHaveLength(0);
   });
 
   it("recovers an expired hidden EventSource cursor from the REST snapshot revision", async () => {
-    vi.stubGlobal("fetch", vi.fn(a11FetchFixture));
+    vi.stubGlobal("fetch", vi.fn(ownerConsoleFetchFixture));
     vi.stubGlobal("EventSource", FakeEventSource);
     sessionStorage.setItem("axiom_stream_revision", "999");
     const client = new QueryClient({
@@ -96,10 +106,8 @@ describe("A11 console states", () => {
         <MemoryRouter>
           <AppShell
             user={{
-              id: "user-a11",
+              id: "user-owner_console",
               email: "owner@example.test",
-              roles: ["owner"],
-              permissions: ["operations.read"],
             }}
           >
             <h1>Evidence workspace</h1>
@@ -122,7 +130,7 @@ describe("A11 console states", () => {
   });
 
   it("reports browser offline state and reconnects from an authoritative snapshot", async () => {
-    vi.stubGlobal("fetch", vi.fn(a11FetchFixture));
+    vi.stubGlobal("fetch", vi.fn(ownerConsoleFetchFixture));
     vi.stubGlobal("EventSource", FakeEventSource);
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -132,10 +140,8 @@ describe("A11 console states", () => {
         <MemoryRouter>
           <AppShell
             user={{
-              id: "user-a11",
+              id: "user-owner_console",
               email: "owner@example.test",
-              roles: ["owner"],
-              permissions: ["operations.read"],
             }}
           >
             <h1>Evidence workspace</h1>
@@ -173,7 +179,9 @@ describe("A11 console states", () => {
       "autocomplete",
       "current-password",
     );
-    expect(screen.getByText("REAL TRADING DISABLED")).toBeInTheDocument();
+    expect(
+      screen.getByText("REAL-MONEY TRADING IS NOT AVAILABLE"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/No exchange credentials are accepted/),
     ).toBeInTheDocument();
@@ -182,15 +190,16 @@ describe("A11 console states", () => {
   });
 });
 
-function a11FetchFixture(input: RequestInfo | URL) {
+function ownerConsoleFetchFixture(input: RequestInfo | URL) {
   const path = String(input);
   const body = path.includes("system/status")
     ? {
-        release: "V1A",
-        phase: "A11",
-        role: "api",
+        application_version: "test",
+        build_commit: "test-commit",
+        configuration_identity: "test-configuration",
+        readiness_state: "ready",
         lifecycle_state: "READY_PAUSED",
-        strategy_activation: "trend.v1a.1",
+        strategy_activation: "trend-following@1.0.0",
         real_trading_enabled: false,
         execution_mode: "shadow",
         environment: "production_public",

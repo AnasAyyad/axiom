@@ -25,7 +25,7 @@ func TestCrossExchangeEvaluatorP99Within25Milliseconds(t *testing.T) {
 	}
 	sort.Slice(samples, func(left, right int) bool { return samples[left] < samples[right] })
 	p99 := samples[(len(samples)*99+99)/100-1]
-	t.Logf("B5 evaluator p99=%s samples=%d", p99, len(samples))
+	t.Logf("cross-exchange arbitrage evaluator p99=%s samples=%d", p99, len(samples))
 	if p99 > 25*time.Millisecond {
 		t.Fatalf("p99 %s exceeds 25ms", p99)
 	}

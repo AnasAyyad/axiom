@@ -7,9 +7,9 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-const capabilityVersion = "bybit-public-v1b-1"
+const capabilityVersion = "bybit-public-data@1.0.0"
 
-// Capabilities returns the explicit credential-free Bybit B1 descriptor.
+// Capabilities returns the explicit credential-free Bybit exchange expansion descriptor.
 func Capabilities(observedAt time.Time) (exchangecontracts.Descriptor, error) {
 	capabilities := []exchangecontracts.Capability{
 		bybitSupported(exchangecontracts.FeaturePublicMarketData),

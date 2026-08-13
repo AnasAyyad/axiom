@@ -14,20 +14,22 @@ import (
 	runtimecore "axiom/internal/runtime"
 )
 
-// Adapter maps the pure Trend decision contract to the shared A8 strategy boundary.
+// Adapter maps the pure Trend decision contract to the shared strategy execution strategy boundary.
 type Adapter struct {
 	evaluator  *Evaluator
 	mutex      sync.Mutex
 	seen       map[string]struct{}
 	candidates map[string]Candidate
+	decisions  map[uint64]Decision
 }
 
-// NewAdapter constructs an idempotent mode-independent A8 strategy adapter.
+// NewAdapter constructs an idempotent mode-independent strategy execution strategy adapter.
 func NewAdapter(evaluator *Evaluator) (*Adapter, error) {
 	if evaluator == nil {
 		return nil, trendError(ReasonInvalidConfiguration)
 	}
-	return &Adapter{evaluator: evaluator, seen: make(map[string]struct{}), candidates: make(map[string]Candidate)}, nil
+	return &Adapter{evaluator: evaluator, seen: make(map[string]struct{}),
+		candidates: make(map[string]Candidate), decisions: make(map[uint64]Decision)}, nil
 }
 
 // Evaluate decodes immutable canonical input and returns only accepted changes.
@@ -46,24 +48,49 @@ func (adapter *Adapter) Evaluate(ctx context.Context, event replay.Event) (backt
 	if err != nil {
 		return backtest.Candidate{}, err
 	}
+	adapter.mutex.Lock()
+	adapter.decisions[event.Ordinal] = decision
 	if decision.Candidate == nil {
+		adapter.mutex.Unlock()
 		return backtest.Candidate{}, trendError(decision.ReasonCode)
 	}
-	adapter.mutex.Lock()
-	defer adapter.mutex.Unlock()
 	decisionKey := decision.ID.String()
 	if _, duplicate := adapter.seen[decisionKey]; duplicate {
+		adapter.mutex.Unlock()
 		return backtest.Candidate{}, trendError(ReasonDuplicateDecision)
 	}
 	adapter.seen[decisionKey] = struct{}{}
 	adapter.candidates[decisionKey] = *decision.Candidate
+	adapter.decisions[event.Ordinal] = decision
 	payload, err := adapter.portfolioCandidate(input, decision)
 	if err != nil {
 		delete(adapter.seen, decisionKey)
 		delete(adapter.candidates, decisionKey)
+		adapter.mutex.Unlock()
 		return backtest.Candidate{}, err
 	}
+	adapter.mutex.Unlock()
 	return backtest.Candidate{Ordinal: event.Ordinal, Payload: payload}, nil
+}
+
+// DecisionEvidence returns the exact complete decision associated with a
+// canonical input. It is separate from Candidate because a no-action outcome,
+// exit cooldown, and position-protection facts are not order fields.
+func (adapter *Adapter) DecisionEvidence(event replay.Event) (json.RawMessage, error) {
+	if adapter == nil || event.Ordinal == 0 {
+		return nil, trendError(ReasonCandleOrder)
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	decision, exists := adapter.decisions[event.Ordinal]
+	if !exists || decision.Ordinal != event.Ordinal {
+		return nil, trendError(ReasonDuplicateDecision)
+	}
+	payload, err := json.Marshal(decision)
+	if err != nil {
+		return nil, trendError(ReasonInvalidConfiguration)
+	}
+	return payload, nil
 }
 
 // Candidate returns a defensive copy of the exact accepted desired change.
@@ -100,7 +127,7 @@ func (adapter *Adapter) portfolioCandidateValue(input Input, decision Decision) 
 			return portfolio.Candidate{}, trendError(ReasonInvalidSizing)
 		}
 	}
-	payload := portfolio.Candidate{ID: decision.ID.Value(), Strategy: portfolio.V1AStrategy,
+	payload := portfolio.Candidate{ID: decision.ID.Value(), Strategy: portfolio.TrendStrategy,
 		Instrument: candidate.Instrument, Side: candidate.Side,
 		Quantity: candidate.Quantity, Notional: reserved, Score: score,
 		ScoreComponents: []portfolio.ScoreComponent{{Name: "trend_stressed_edge", Value: score}},
@@ -127,3 +154,4 @@ func moneyFromNotional(value domain.Notional) domain.Money {
 }
 
 var _ backtest.Strategy = (*Adapter)(nil)
+var _ backtest.DecisionEvidenceSource = (*Adapter)(nil)

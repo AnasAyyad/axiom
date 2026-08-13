@@ -27,4 +27,4 @@ for command in docker rg sha256sum; do
   fi
 done
 docker compose version >/dev/null
-printf 'A1 toolchain preflight passed\n'
+printf 'Toolchain preflight passed\n'

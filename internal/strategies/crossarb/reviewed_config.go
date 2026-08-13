@@ -9,7 +9,7 @@ import (
 )
 
 // ConfigurationFromReviewed maps the fully validated immutable config graph
-// into the hot-path B5 value object.
+// into the hot-path cross-exchange arbitrage value object.
 func ConfigurationFromReviewed(reviewed config.CrossExchangeConfiguration) (Configuration, error) {
 	if err := config.ValidateCrossExchangeConfiguration(reviewed); err != nil {
 		return Configuration{}, strategyError("reviewed_configuration_invalid")

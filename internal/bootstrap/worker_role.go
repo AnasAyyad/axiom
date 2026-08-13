@@ -11,6 +11,19 @@ type offlineWorker interface {
 	RunOne(context.Context) (bool, error)
 }
 
+type orderedOfflineWorkers []offlineWorker
+
+// RunOne gives each durable worker one ordered opportunity to make progress.
+func (workers orderedOfflineWorkers) RunOne(ctx context.Context) (bool, error) {
+	for _, worker := range workers {
+		worked, err := worker.RunOne(ctx)
+		if err != nil || worked {
+			return worked, err
+		}
+	}
+	return false, nil
+}
+
 type workerRoleWork struct {
 	worker   offlineWorker
 	interval time.Duration

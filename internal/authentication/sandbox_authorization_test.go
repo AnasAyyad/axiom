@@ -57,7 +57,7 @@ func (store *sandboxAuthorizationTestStore) ConsumeSandboxAuthorization(
 	return ConsumedAuthorization{
 		ID: write.ID, UserID: write.UserID, SessionID: write.SessionID,
 		Purpose: write.Purpose, SourceHash: write.SourceHash,
-		ReasonHash: write.ReasonHash, ConsumedAt: now,
+		ReasonHash: write.ReasonHash, TargetRevision: write.TargetRevision, ConsumedAt: now,
 	}, nil
 }
 
@@ -129,6 +129,30 @@ func TestPasswordTOTPGrantIsPurposeSessionBoundAndOneUse(t *testing.T) {
 	}
 }
 
+func TestOwnerControlHighRiskGrantRequiresAndPreservesExactRevision(t *testing.T) {
+	service, principal, code := sandboxAuthorizationFixture(t)
+	reason := "activate exact configuration revision"
+	grant, err := service.ReauthenticateForRevision(
+		context.Background(), principal, "owner-password", code,
+		PurposeConfigurationActivation, 7, "127.0.0.1", reason,
+	)
+	if err != nil {
+		t.Fatalf("revision-bound reauthentication failed: %v", err)
+	}
+	consumed, err := service.Consume(
+		context.Background(), principal, grant.Token, PurposeConfigurationActivation,
+	)
+	if err != nil || consumed.TargetRevision == nil || *consumed.TargetRevision != 7 {
+		t.Fatalf("consumed target revision = %v error=%v", consumed.TargetRevision, err)
+	}
+	if _, err = service.ReauthenticateForRevision(
+		context.Background(), principal, "owner-password", code,
+		PurposeSandboxArm, 7, "127.0.0.1", reason,
+	); !errors.Is(err, ErrReauthorizationFailed) {
+		t.Fatalf("non-revision purpose accepted a target revision: %v", err)
+	}
+}
+
 func TestRevokeAllRequiresConsumedDedicatedAuthorization(t *testing.T) {
 	service, principal, code := sandboxAuthorizationFixture(t)
 	store := service.store.(*sandboxAuthorizationTestStore)
@@ -182,9 +206,7 @@ func sandboxAuthorizationFixture(
 	hash := currentTestHash(t)
 	store.users["owner@example.com"] = User{
 		ID: "owner-1", Email: "owner@example.com", NormalizedEmail: "owner@example.com",
-		PasswordHash: hash, Status: "active", Roles: []string{"owner"},
-		Permissions:  []string{PermissionSandboxRead, PermissionSandboxArm, PermissionSandboxCancel, PermissionSandboxAdmin},
-		RoleRevision: 1,
+		PasswordHash: hash, Status: "active",
 	}
 	seed := []byte("12345678901234567890")
 	seedFile := filepath.Join(t.TempDir(), "totp")
@@ -197,7 +219,7 @@ func sandboxAuthorizationFixture(
 	}
 	principal := Principal{
 		UserID: "owner-1", Email: "owner@example.com", SessionID: "session-1",
-		Permissions: store.users["owner@example.com"].Permissions, SessionRevision: 1,
+		SessionRevision: 1,
 	}
 	now := clock.Now().UTC
 	clock.mutex.Lock()

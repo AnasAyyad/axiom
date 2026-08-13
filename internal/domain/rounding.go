@@ -92,6 +92,38 @@ func CalculateMoney(price Price, quantity Balance, scale uint8) (Money, error) {
 	return Money{result}, err
 }
 
+// ScaleBalanceCeiling multiplies an owned balance by a fraction and rounds
+// toward positive infinity. It is intended for minimum reserve requirements,
+// where rounding down would silently weaken the reviewed safety floor.
+func ScaleBalanceCeiling(balance Balance, fraction Percent, scale uint8) (Balance, error) {
+	one, _ := parseDecimal("1", "balance_fraction_one", false)
+	if fraction.decimal.Sign() < 0 || fraction.decimalValue.compare(one) > 0 {
+		return Balance{}, domainError(CodeArithmetic, "balance_fraction_range")
+	}
+	product, err := multiplyDecimal("balance_fraction", balance.decimalValue, fraction.decimalValue)
+	if err != nil {
+		return Balance{}, err
+	}
+	result, err := quantizeDecimal("balance_fraction", product, scale, apd.RoundCeiling)
+	return Balance{result}, err
+}
+
+// ScaleBalanceFloor multiplies an owned balance by a fraction and rounds down.
+// It is intended for executable sizing caps where rounding up could make a
+// downstream order exceed its reviewed maximum notional.
+func ScaleBalanceFloor(balance Balance, fraction Percent, scale uint8) (Balance, error) {
+	one, _ := parseDecimal("1", "balance_fraction_one", false)
+	if fraction.decimal.Sign() < 0 || fraction.decimalValue.compare(one) > 0 {
+		return Balance{}, domainError(CodeArithmetic, "balance_fraction_range")
+	}
+	product, err := multiplyDecimal("balance_fraction", balance.decimalValue, fraction.decimalValue)
+	if err != nil {
+		return Balance{}, err
+	}
+	result, err := quantizeDecimal("balance_fraction", product, scale, apd.RoundFloor)
+	return Balance{result}, err
+}
+
 // CalculateAveragePrice divides total cost by owned quantity and rounds half-even.
 func CalculateAveragePrice(cost Money, quantity Balance, scale uint8) (Price, error) {
 	if quantity.decimal.Sign() <= 0 {
@@ -106,6 +138,27 @@ func CalculateAveragePrice(cost Money, quantity Balance, scale uint8) (Price, er
 	}
 	result, err := quantizeDecimal("average_price_quantize", reducedValue(&quotient), scale, apd.RoundHalfEven)
 	return Price{result}, err
+}
+
+// CalculateRelativeSpread returns (ask-bid)/bid using exact decimal arithmetic
+// and upward rounding. Bid is deliberately the denominator: it makes the
+// reported spread at least as conservative as an ask-denominated fraction.
+func CalculateRelativeSpread(bid, ask Price, scale uint8) (Percent, error) {
+	if bid.decimal.Sign() <= 0 || ask.decimal.Sign() <= 0 || ask.Compare(bid) < 0 {
+		return Percent{}, domainError(CodeArithmetic, "relative_spread_invalid")
+	}
+	context := exactContext
+	context.Traps = apd.DefaultTraps
+	context.Rounding = apd.RoundCeiling
+	var difference, quotient apd.Decimal
+	if _, err := context.Sub(&difference, &ask.decimal, &bid.decimal); err != nil {
+		return Percent{}, domainError(CodeArithmetic, "relative_spread_subtract")
+	}
+	if _, err := context.Quo(&quotient, &difference, &bid.decimal); err != nil {
+		return Percent{}, domainError(CodeArithmetic, "relative_spread_divide")
+	}
+	result, err := quantizeDecimal("relative_spread_quantize", reducedValue(&quotient), scale, apd.RoundCeiling)
+	return Percent{result}, err
 }
 
 // CalculatePercent divides exact money values and rounds half-even at scale.
@@ -124,6 +177,24 @@ func CalculatePercent(numerator, denominator Money, scale uint8) (Percent, error
 	return Percent{result}, err
 }
 
+// CalculateConservativePercent divides exact non-negative money values and
+// rounds toward positive infinity. Risk utilization uses this variant so a
+// fractional exposure or loss is never understated at the persisted scale.
+func CalculateConservativePercent(numerator, denominator Money, scale uint8) (Percent, error) {
+	if denominator.decimal.Sign() <= 0 {
+		return Percent{}, domainError(CodeArithmetic, "conservative_percent_zero_denominator")
+	}
+	context := exactContext
+	context.Traps = apd.DefaultTraps
+	context.Rounding = apd.RoundCeiling
+	var quotient apd.Decimal
+	if _, err := context.Quo(&quotient, &numerator.decimal, &denominator.decimal); err != nil {
+		return Percent{}, domainError(CodeArithmetic, "conservative_percent_divide")
+	}
+	result, err := quantizeDecimal("conservative_percent_quantize", reducedValue(&quotient), scale, apd.RoundCeiling)
+	return Percent{result}, err
+}
+
 // CalculateVWAP divides exact total notional by filled base quantity and
 // rounds half-even at the explicitly selected output scale.
 func CalculateVWAP(notional Notional, quantity Quantity, scale uint8) (Price, error) {
@@ -138,6 +209,26 @@ func CalculateVWAP(notional Notional, quantity Quantity, scale uint8) (Price, er
 		return Price{}, domainError(CodeArithmetic, "vwap_divide")
 	}
 	result, err := quantizeDecimal("vwap_quantize", reducedValue(&quotient), scale, apd.RoundHalfEven)
+	return Price{result}, err
+}
+
+// CalculateReciprocalPriceFloor returns 1/value rounded down at the selected
+// scale. It is used for conservative third-asset fee marks: a smaller quoted
+// mark produces an equal or larger fee quantity and therefore cannot
+// understate the settlement-asset fee buffer.
+func CalculateReciprocalPriceFloor(value Price, scale uint8) (Price, error) {
+	if value.decimal.Sign() <= 0 {
+		return Price{}, domainError(CodeArithmetic, "reciprocal_price_zero")
+	}
+	one, _ := parseDecimal("1", "reciprocal_price_one", false)
+	context := exactContext
+	context.Traps = apd.DefaultTraps
+	context.Rounding = apd.RoundFloor
+	var quotient apd.Decimal
+	if _, err := context.Quo(&quotient, &one.decimal, &value.decimal); err != nil {
+		return Price{}, domainError(CodeArithmetic, "reciprocal_price_divide")
+	}
+	result, err := quantizeDecimal("reciprocal_price_quantize", reducedValue(&quotient), scale, apd.RoundFloor)
 	return Price{result}, err
 }
 

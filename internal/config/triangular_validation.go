@@ -7,8 +7,8 @@ import (
 )
 
 func validateTriangular(schema string, strategy TriangularConfiguration) error {
-	if schema != SchemaVersionV1BB4 && schema != SchemaVersionV1BB5 &&
-		schema != SchemaVersionV1BB6 && schema != SchemaVersionV1C {
+	if schema != SchemaVersionTriangularArbitrage && schema != SchemaVersionCrossExchangeArbitrage &&
+		schema != SchemaVersionInventoryRebalancing && schema != SchemaVersionSandboxRuntime {
 		if strategy.StrategyVersion != "" || strategy.SettlementAsset != "" ||
 			len(strategy.Cycles) != 0 || strategy.DispatchMode != "" ||
 			strategy.PricingModel != "" || strategy.ClaimModel != "" ||
@@ -48,9 +48,9 @@ func validateTriangular(schema string, strategy TriangularConfiguration) error {
 	return nil
 }
 
-// ValidateTriangularConfiguration validates one standalone B4 graph.
+// ValidateTriangularConfiguration validates one standalone triangular arbitrage graph.
 func ValidateTriangularConfiguration(strategy TriangularConfiguration) error {
-	return validateTriangular(SchemaVersionV1BB4, strategy)
+	return validateTriangular(SchemaVersionTriangularArbitrage, strategy)
 }
 
 func sameTriangularParameterContract(parameter, contract StrategyParameter) bool {

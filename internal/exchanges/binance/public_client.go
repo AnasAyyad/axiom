@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -18,7 +19,7 @@ const (
 	maximumTimeUncertainty = 500 * time.Millisecond
 )
 
-// PublicClient is the credential-free production-public Binance Spot client.
+// PublicClient is the credential-free Binance Spot market-data client.
 type PublicClient struct {
 	clock            domain.Clock
 	httpClient       *http.Client
@@ -42,10 +43,37 @@ var (
 	_ exchangecontracts.CapabilitySource  = (*PublicClient)(nil)
 )
 
+// RestoreStreamGeneration advances a brand-new client's generation fence
+// before subscriptions resume a durable recorder session.
+func (client *PublicClient) RestoreStreamGeneration(last uint64) error {
+	if client == nil || !client.streamGeneration.CompareAndSwap(0, last) {
+		return policyError(exchangecontracts.OperationStream)
+	}
+	return nil
+}
+
 // NewPublicClient accepts only the compiled endpoint-set identifier and has no
 // credential, signer, header, route, or arbitrary-origin input.
 func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, error) {
 	return NewPublicClientWithMonotonic(endpointSet, clock, exchangecontracts.NewProcessMonotonicSource())
+}
+
+// NewTestnetPublicClient constructs the credential-free Binance Spot Testnet
+// market-data client. It has no access to private account or order routes.
+func NewTestnetPublicClient(clock domain.Clock) (*PublicClient, error) {
+	return NewTestnetPublicClientWithMonotonic(
+		clock,
+		exchangecontracts.NewProcessMonotonicSource(),
+	)
+}
+
+// NewTestnetPublicClientWithMonotonic binds the Testnet public client to a
+// caller-owned monotonic ordering source.
+func NewTestnetPublicClientWithMonotonic(
+	clock domain.Clock,
+	monotonic exchangecontracts.MonotonicSource,
+) (*PublicClient, error) {
+	return newPublicClientWithReserve(testnetPublicEndpointSet, clock, monotonic, 100)
 }
 
 // NewRecorderPublicClientWithMonotonic reserves enough request weight for three
@@ -73,14 +101,18 @@ func newPublicClientWithReserve(
 	monotonic exchangecontracts.MonotonicSource,
 	recoveryReserve uint64,
 ) (*PublicClient, error) {
-	if endpointSet != publicEndpointSet || clock == nil || monotonic == nil {
+	if clock == nil || monotonic == nil {
 		return nil, policyError(exchangecontracts.OperationCapability)
 	}
-	origin, err := url.Parse(publicRESTOrigin)
+	endpoints, err := publicEndpoints(endpointSet)
+	if err != nil {
+		return nil, err
+	}
+	origin, err := url.Parse(endpoints.restOrigin)
 	if err != nil {
 		return nil, policyError(exchangecontracts.OperationCapability)
 	}
-	websocketOrigin, err := url.Parse(publicWSOrigin)
+	websocketOrigin, err := url.Parse(endpoints.wsOrigin)
 	if err != nil {
 		return nil, policyError(exchangecontracts.OperationStream)
 	}
@@ -99,9 +131,13 @@ func newPublicClientWithReserve(
 	if err != nil {
 		return nil, err
 	}
-	return &PublicClient{clock: clock, httpClient: newPublicHTTPClient(), restOrigin: origin, wsOrigin: websocketOrigin,
-		validateREST: validateRESTTarget, monotonic: monotonic,
-		validateWS: validateWebSocketTarget, connector: newSecureWebsocketConnector(),
+	return &PublicClient{clock: clock, httpClient: newPublicHTTPClientFor(endpoints.host), restOrigin: origin, wsOrigin: websocketOrigin,
+		validateREST: func(method string, target *url.URL, headers http.Header) (publicRoute, error) {
+			return validateRESTTargetForHost(endpoints.host, method, target, headers)
+		}, monotonic: monotonic,
+		validateWS: func(target *url.URL) (publicRoute, error) {
+			return validateWebSocketTargetForHost(strings.TrimPrefix(endpoints.wsOrigin, "wss://"), target)
+		}, connector: newSecureWebsocketConnector(),
 		budget: budget, timeSync: synchronizer, descriptor: descriptor}, nil
 }
 

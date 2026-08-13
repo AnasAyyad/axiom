@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestReviewedQueriesCoverA4RepositoryBoundaries(t *testing.T) {
-	files := []string{"queries/accounting.sql", "queries/catalog.sql", "queries/coordination.sql", "queries/a8_execution.sql", "queries/a9_portfolio_risk.sql", "queries/b8_console.sql"}
+func TestReviewedQueriesCoverDurableStorageRepositoryBoundaries(t *testing.T) {
+	files := []string{"queries/accounting.sql", "queries/catalog.sql", "queries/coordination.sql", "queries/strategy_execution_execution.sql", "queries/portfolio_risk_portfolio_risk.sql", "queries/multi_exchange_console_console.sql"}
 	var source strings.Builder
 	for _, file := range files {
 		contents, err := os.ReadFile(file)
@@ -22,19 +22,19 @@ func TestReviewedQueriesCoverA4RepositoryBoundaries(t *testing.T) {
 		"InsertRun", "TransitionRun", "LatestRunCheckpoint", "InsertAuditEvent", "ConsumeInbox", "InsertOutbox",
 		"AdvanceConsumerCursor", "ClaimNextJob", "RenewJobClaim", "CompleteJob", "AcquireLease", "RenewLease",
 		"InsertRunManifest", "InsertCanonicalOutput", "ReduceCanonicalOrder", "InsertCanonicalFill",
-		"InsertFillJournalPosting", "InsertA8Checkpoint", "UpdateVirtualBalanceProjection",
+		"InsertFillJournalPosting", "InsertStrategyExecutionCheckpoint", "UpdateVirtualBalanceProjection",
 		"UpsertPositionProjection", "UpsertProjectionRevision", "SettleReservationFill",
-		"InsertPortfolioOwnership", "InsertA9AccountSnapshot", "InsertAllocationCandidate",
+		"InsertPortfolioOwnership", "InsertPortfolioRiskAccountSnapshot", "InsertAllocationCandidate",
 		"InsertAllocationScoreComponent", "ReserveLiquidityDomain", "InsertLiquidityReservation",
 		"CloseAllocationCandidate", "SettleAllocationCandidateFill", "CloseLiquidityReservation",
 		"SettleLiquidityReservationFill", "ReleaseLiquidityDomain", "UpdateLiquidityDomainProjection",
 		"InsertRiskPolicy", "InsertRiskPolicyLimits", "InsertRiskStateEvent",
-		"InsertA9RiskEvaluation", "InsertRiskEvaluationPolicy", "InsertCircuitBreakerEvent",
-		"InsertA9ReconciliationCase", "InsertReconciliationDifference", "QuarantineScope",
+		"InsertPortfolioRiskRiskEvaluation", "InsertRiskEvaluationPolicy", "InsertCircuitBreakerEvent",
+		"InsertPortfolioRiskReconciliationCase", "InsertReconciliationDifference", "QuarantineScope",
 		"InsertStartupRecoveryAttempt", "InsertStartupRecoveryEvidence", "CompleteStartupRecoveryAttempt",
-		"InsertB8ReplayFaultScheduleState", "GetB8ReplayFaultScheduleState",
-		"InsertB8ReplayFaultSchedule", "AdvanceB8ReplayFaultScheduleState",
-		"ListB8ReplayFaultSchedules", "InsertB8ReportExport",
+		"InsertMultiExchangeConsoleReplayFaultScheduleState", "GetMultiExchangeConsoleReplayFaultScheduleState",
+		"InsertMultiExchangeConsoleReplayFaultSchedule", "AdvanceMultiExchangeConsoleReplayFaultScheduleState",
+		"ListMultiExchangeConsoleReplayFaultSchedules", "InsertMultiExchangeConsoleReportExport",
 	} {
 		if !strings.Contains(source.String(), "-- name: "+query+" ") {
 			t.Fatalf("reviewed query missing: %s", query)

@@ -12,12 +12,12 @@ import (
 func TestClaimCandidateAcquiresEveryResourceAtomicallyAndPreventsReuse(t *testing.T) {
 	candidate := candidateFor(t, profitableInput(t, false), CycleUSDTBTCETHUSDT, "10")
 	set := NewCandidateClaimFixture(t, candidate, "portfolio-a")
-	firstID, _ := domain.NewReservationID("b4-claim-first")
+	firstID, _ := domain.NewReservationID("triangular_arbitrage-claim-first")
 	group, err := ClaimCandidate(set, candidate, "portfolio-a", firstID, runtimecore.FencingToken(7), 1_010)
 	if err != nil || group.State != portfolio.ClaimActive || len(group.Items) != len(candidate.Claims) {
 		t.Fatalf("complete claim was not acquired: %#v %v", group, err)
 	}
-	secondID, _ := domain.NewReservationID("b4-claim-second")
+	secondID, _ := domain.NewReservationID("triangular_arbitrage-claim-second")
 	if _, err = ClaimCandidate(set, candidate, "portfolio-a", secondID, runtimecore.FencingToken(7), 1_010); err == nil {
 		t.Fatal("displayed liquidity or funds were reused")
 	}
@@ -44,7 +44,7 @@ func TestClaimCandidateFailureLeavesNoPartialHoldAndContentionHasOneWinner(t *te
 			t.Fatal(err)
 		}
 	}
-	id, _ := domain.NewReservationID("b4-partial-rejected")
+	id, _ := domain.NewReservationID("triangular_arbitrage-partial-rejected")
 	if _, err := ClaimCandidate(reduced, candidate, "portfolio-a", id, 1, 1_010); err == nil {
 		t.Fatal("missing final resource did not reject the group")
 	}
@@ -60,7 +60,7 @@ func TestClaimCandidateFailureLeavesNoPartialHoldAndContentionHasOneWinner(t *te
 		wait.Add(1)
 		go func(index int) {
 			defer wait.Done()
-			claimID, _ := domain.NewReservationID("b4-contention-" + uintString(uint64(index+1)))
+			claimID, _ := domain.NewReservationID("triangular_arbitrage-contention-" + uintString(uint64(index+1)))
 			_, claimErr := ClaimCandidate(set, candidate, "portfolio-a", claimID, 9, 1_010)
 			results <- claimErr
 		}(index)
@@ -81,7 +81,7 @@ func TestClaimCandidateFailureLeavesNoPartialHoldAndContentionHasOneWinner(t *te
 func TestClaimCandidateRejectsExpiredCandidateBeforeOwnership(t *testing.T) {
 	candidate := candidateFor(t, profitableInput(t, false), CycleUSDTBTCETHUSDT, "10")
 	set := NewCandidateClaimFixture(t, candidate, "portfolio-a")
-	id, _ := domain.NewReservationID("b4-expired-claim")
+	id, _ := domain.NewReservationID("triangular_arbitrage-expired-claim")
 	if _, err := ClaimCandidate(set, candidate, "portfolio-a", id, 1, candidate.ExpiresOffsetNanos+1); err == nil {
 		t.Fatal("expired candidate was claimed")
 	}

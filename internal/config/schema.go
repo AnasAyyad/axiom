@@ -4,19 +4,19 @@ import "axiom/internal/domain"
 
 // Configuration schema identifiers remain immutable and explicitly accepted.
 const (
-	SchemaVersion      = "axiom.config.v1a.2"
-	SchemaVersionV1B   = "axiom.config.v1b.1"
-	SchemaVersionV1BB3 = "axiom.config.v1b.2"
-	SchemaVersionV1BB4 = "axiom.config.v1b.3"
-	SchemaVersionV1BB5 = "axiom.config.v1b.4"
-	SchemaVersionV1BB6 = "axiom.config.v1b.5"
-	SchemaVersionV1C   = "axiom.config.v1c.1"
+	SchemaVersion                       = "axiom.configuration@1.0.0"
+	SchemaVersionMultiStrategyResearch  = "axiom.configuration@1.1.0"
+	SchemaVersionMeanReversion          = "axiom.configuration@1.2.0"
+	SchemaVersionTriangularArbitrage    = "axiom.configuration@1.3.0"
+	SchemaVersionCrossExchangeArbitrage = "axiom.configuration@1.4.0"
+	SchemaVersionInventoryRebalancing   = "axiom.configuration@1.5.0"
+	SchemaVersionSandboxRuntime         = "axiom.configuration@2.0.0"
 )
 
-// Environment identifies an allowed V1A deployment class.
+// Environment identifies an allowed initial trend deployment class.
 type Environment string
 
-// Allowed V1A deployment environments.
+// Allowed initial trend deployment environments.
 const (
 	EnvironmentLocal   Environment = "local"
 	EnvironmentTest    Environment = "test"
@@ -24,7 +24,7 @@ const (
 	EnvironmentSandbox Environment = "sandbox"
 )
 
-// Configuration is the complete versioned V1A product configuration graph.
+// Configuration is the complete versioned initial trend product configuration graph.
 type Configuration struct {
 	SchemaVersion string                     `json:"schema_version"`
 	Revision      uint64                     `json:"revision"`
@@ -80,7 +80,7 @@ type Instrument struct {
 	Product string `json:"product"`
 }
 
-// RiskConfiguration holds explicit decimal-string V1A risk limits.
+// RiskConfiguration holds explicit decimal-string initial trend risk limits.
 type RiskConfiguration struct {
 	MaximumAssetAllocation FinancialValue `json:"maximum_asset_allocation"`
 	MaximumOrderNotional   FinancialValue `json:"maximum_order_notional"`
@@ -105,7 +105,7 @@ type FinancialValue struct {
 	Rounding         string `json:"rounding"`
 }
 
-// ModelConfiguration identifies approved deterministic V1A model versions.
+// ModelConfiguration identifies approved deterministic initial trend model versions.
 type ModelConfiguration struct {
 	Fee     string `json:"fee"`
 	Latency string `json:"latency"`
@@ -118,8 +118,8 @@ type TrendConfiguration struct {
 	Parameters      []StrategyParameter `json:"parameters"`
 }
 
-// MeanReversionConfiguration identifies the immutable B3 baseline graph.
-// It is absent from the original V1A and V1B.1 schemas so their hashes and
+// MeanReversionConfiguration identifies the immutable mean reversion baseline graph.
+// It is absent from the original initial trend and multi-strategy research.1 schemas so their hashes and
 // interpretation remain unchanged.
 type MeanReversionConfiguration struct {
 	StrategyVersion  string              `json:"strategy_version"`
@@ -128,7 +128,7 @@ type MeanReversionConfiguration struct {
 	Parameters       []StrategyParameter `json:"parameters"`
 }
 
-// TriangularConfiguration identifies the immutable B4 exact-cycle graph. It is
+// TriangularConfiguration identifies the immutable triangular arbitrage exact-cycle graph. It is
 // absent from earlier schemas so their hashes and interpretation remain stable.
 type TriangularConfiguration struct {
 	StrategyVersion string              `json:"strategy_version"`
@@ -140,7 +140,7 @@ type TriangularConfiguration struct {
 	Parameters      []StrategyParameter `json:"parameters"`
 }
 
-// CrossExchangeConfiguration identifies the immutable B5 two-venue,
+// CrossExchangeConfiguration identifies the immutable cross-exchange arbitrage two-venue,
 // inventory-restored, concurrent simulation graph. Earlier schema meanings
 // remain unchanged because this graph must be absent from them.
 type CrossExchangeConfiguration struct {
@@ -156,7 +156,7 @@ type CrossExchangeConfiguration struct {
 	Parameters      []StrategyParameter `json:"parameters"`
 }
 
-// RebalancingConfiguration identifies the immutable B6 advisory optimizer and
+// RebalancingConfiguration identifies the immutable inventory rebalancing advisory optimizer and
 // reviewed fact contract. Earlier schemas keep this graph absent so their
 // interpretation and canonical hashes do not change.
 type RebalancingConfiguration struct {
@@ -170,7 +170,7 @@ type RebalancingConfiguration struct {
 	Parameters            []StrategyParameter `json:"parameters"`
 }
 
-// SandboxConfiguration is the complete C1-C6 default-off authenticated
+// SandboxConfiguration is the complete default-off authenticated sandbox
 // sandbox policy. It contains no credential values, endpoints, or proxy URLs.
 type SandboxConfiguration struct {
 	IntegrationsEnabled       bool                           `json:"integrations_enabled"`

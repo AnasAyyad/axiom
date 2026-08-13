@@ -3,9 +3,11 @@ package bybit
 import (
 	"context"
 	"errors"
+	"sort"
 	"time"
 
 	"axiom/internal/domain"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/execution"
 	"axiom/internal/sandbox"
 )
@@ -24,6 +26,8 @@ type SandboxAdapter struct {
 	epoch        uint64
 	lookup       sandbox.SubmissionLookup
 	expectations sandbox.SnapshotExpectationReader
+	marketData   exchangecontracts.MarketDataSource
+	strategyData sandbox.StrategyMarketData
 	rules        map[string]DemoInstrumentRules
 	rateBudget   *demoRateBudget
 }
@@ -58,14 +62,53 @@ func NewSandboxAdapter(
 		}
 		rules[instrument.Symbol()] = loaded
 	}
-	return newSandboxAdapterForTest(
+	marketData, err := NewPublicClient(publicEndpointSet, &domain.SystemClock{})
+	if err != nil {
+		return nil, err
+	}
+	adapter, err := newSandboxAdapterForTestWithMarketData(
 		client,
 		identity,
 		epoch,
 		lookup,
 		expectations,
 		rules,
+		marketData,
 	)
+	if err != nil {
+		return nil, err
+	}
+	adapter.strategyData = marketData
+	return adapter, nil
+}
+
+// StrategyMarketData exposes only credential-free Bybit public data to a
+// future Demo strategy worker.
+func (adapter *SandboxAdapter) StrategyMarketData() (sandbox.StrategyMarketData, error) {
+	if adapter == nil || adapter.strategyData == nil {
+		return nil, ErrDemoRequest
+	}
+	return adapter.strategyData, nil
+}
+
+// StrategyInstrumentRules returns a defensive, credential-free copy of the
+// exact Demo filters loaded during adapter startup. It exposes no client,
+// account identity, endpoint override, signer, or order capability.
+func (adapter *SandboxAdapter) StrategyInstrumentRules() ([]DemoInstrumentRules, error) {
+	if adapter == nil || len(adapter.rules) != len(approvedInstruments()) {
+		return nil, ErrDemoRequest
+	}
+	result := make([]DemoInstrumentRules, 0, len(adapter.rules))
+	for _, rule := range adapter.rules {
+		if rule.validate() != nil {
+			return nil, ErrDemoRequest
+		}
+		result = append(result, rule)
+	}
+	sort.Slice(result, func(left, right int) bool {
+		return result[left].Instrument.Symbol() < result[right].Instrument.Symbol()
+	})
+	return result, nil
 }
 
 func newSandboxAdapterForTest(
@@ -75,6 +118,20 @@ func newSandboxAdapterForTest(
 	lookup sandbox.SubmissionLookup,
 	expectations sandbox.SnapshotExpectationReader,
 	rules map[string]DemoInstrumentRules,
+) (*SandboxAdapter, error) {
+	return newSandboxAdapterForTestWithMarketData(
+		client, identity, epoch, lookup, expectations, rules, nil,
+	)
+}
+
+func newSandboxAdapterForTestWithMarketData(
+	client *SandboxClient,
+	identity sandbox.AccountIdentity,
+	epoch uint64,
+	lookup sandbox.SubmissionLookup,
+	expectations sandbox.SnapshotExpectationReader,
+	rules map[string]DemoInstrumentRules,
+	marketData exchangecontracts.MarketDataSource,
 ) (*SandboxAdapter, error) {
 	if client == nil || identity.Validate() != nil || epoch == 0 ||
 		lookup == nil || expectations == nil || len(rules) != 3 {
@@ -92,7 +149,8 @@ func newSandboxAdapterForTest(
 	}
 	return &SandboxAdapter{
 		client: client, identity: identity, epoch: epoch, lookup: lookup,
-		expectations: expectations, rules: rules, rateBudget: budget,
+		expectations: expectations, marketData: marketData, rules: rules,
+		rateBudget: budget,
 	}, nil
 }
 
@@ -167,185 +225,4 @@ func (adapter *SandboxAdapter) Submit(
 		return sandbox.PrivateEvent{}, ErrDemoAmbiguous
 	}
 	return event, nil
-}
-
-func (adapter *SandboxAdapter) checkDemoSubmission(
-	ctx context.Context,
-	submission sandbox.Submission,
-) (string, error) {
-	if err := adapter.rateBudget.acquire(
-		adapter.client.now().UTC(),
-		10,
-		demoRequestEntry,
-	); err != nil {
-		return "rate_budget", nil
-	}
-	rules, exists := adapter.rules[submission.Instrument.Symbol()]
-	if !exists {
-		return "instrument_filter", nil
-	}
-	owned, err := adapter.availableBalance(ctx, submission.Instrument.Base)
-	if err != nil {
-		// A failed preflight account read occurs before create construction and
-		// cannot be an ambiguous submission. Reduce it as a deterministic local
-		// rejection so recovery never queries a provider order that cannot
-		// exist.
-		return "account_unavailable", nil
-	}
-	if rules.validateSubmission(submission, owned) != nil {
-		return "instrument_filter", nil
-	}
-	return "", nil
-}
-
-// Query resolves one deterministic client order ID from authoritative Demo
-// order and execution history.
-func (adapter *SandboxAdapter) Query(
-	ctx context.Context,
-	account sandbox.AccountID,
-	epoch uint64,
-	clientOrderID string,
-) ([]sandbox.PrivateEvent, error) {
-	submission, found, err := adapter.resolveSubmission(
-		ctx,
-		account,
-		epoch,
-		clientOrderID,
-	)
-	if err != nil || !found {
-		return nil, err
-	}
-	if err = adapter.rateBudget.acquire(
-		adapter.client.now().UTC(),
-		4,
-		demoRequestReconcile,
-	); err != nil {
-		return nil, err
-	}
-	body, err := adapter.client.query(ctx, submission)
-	if errors.Is(err, ErrDemoOrderNotFound) {
-		return adapter.normalizeDemoHistoryQuery(ctx, submission)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return adapter.normalizeDemoQuery(ctx, submission, body)
-}
-
-func (adapter *SandboxAdapter) normalizeDemoQuery(
-	ctx context.Context,
-	submission sandbox.Submission,
-	body []byte,
-) ([]sandbox.PrivateEvent, error) {
-	result, err := decodeDemoResult[orderListResult](body)
-	if err != nil || !bindDemoOrderCategories(&result) ||
-		len(result.List) > 1 {
-		return nil, ErrDemoPayload
-	}
-	if len(result.List) == 0 {
-		return adapter.normalizeDemoHistoryQuery(ctx, submission)
-	}
-	return adapter.normalizeDemoQueryOrder(
-		ctx, submission, result.List[0], body,
-	)
-}
-
-func (adapter *SandboxAdapter) normalizeDemoHistoryQuery(
-	ctx context.Context,
-	submission sandbox.Submission,
-) ([]sandbox.PrivateEvent, error) {
-	order, body, err := adapter.exactOrderHistory(ctx, submission)
-	if err != nil {
-		return nil, err
-	}
-	return adapter.normalizeDemoQueryOrder(ctx, submission, order, body)
-}
-
-func (adapter *SandboxAdapter) normalizeDemoQueryOrder(
-	ctx context.Context,
-	submission sandbox.Submission,
-	order demoOrderPayload,
-	body []byte,
-) ([]sandbox.PrivateEvent, error) {
-	executions, err := adapter.completeExecutionHistory(
-		ctx,
-		submission.Instrument.Symbol(),
-		order.OrderID,
-		submission.ClientOrderID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	event, err := normalizeDemoOrder(
-		order,
-		executions,
-		submission,
-		adapter.client.now().UTC(),
-		body,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return []sandbox.PrivateEvent{event}, nil
-}
-
-// Cancel requests cancellation without depending on entry enablement.
-func (adapter *SandboxAdapter) Cancel(
-	ctx context.Context,
-	account sandbox.AccountID,
-	epoch uint64,
-	clientOrderID string,
-) (sandbox.PrivateEvent, error) {
-	submission, found, err := adapter.resolveSubmission(
-		ctx,
-		account,
-		epoch,
-		clientOrderID,
-	)
-	if err != nil || !found {
-		return sandbox.PrivateEvent{}, err
-	}
-	if err = adapter.rateBudget.acquire(
-		adapter.client.now().UTC(),
-		2,
-		demoRequestCancel,
-	); err != nil {
-		return sandbox.PrivateEvent{}, err
-	}
-	body, err := adapter.client.cancel(ctx, submission)
-	if err != nil {
-		return sandbox.PrivateEvent{}, err
-	}
-	return normalizeDemoAcknowledgement(
-		body,
-		submission,
-		execution.OrderCancelPending,
-		adapter.client.now().UTC(),
-	)
-}
-
-func rejectedDemoEvent(
-	submission sandbox.Submission,
-	receivedAt time.Time,
-	reason string,
-) sandbox.PrivateEvent {
-	zero, _ := domain.ParseQuantity("0")
-	nativeHash := canonicalDemoHash([]string{
-		"bybit", submission.ClientOrderID, submission.RequestHash, reason,
-	})
-	orderEvent := execution.OrderEvent{
-		ID:      "bybit-rejected-" + submission.ClientOrderID + "-" + nativeHash[:12],
-		OrderID: submission.OrderID, ClientOrderID: submission.ClientOrderID,
-		State: execution.OrderRejected, ExchangeStatus: "REJECTED",
-		CumulativeQuantity: zero, OccurredAt: receivedAt,
-		Ordinal: uint64(receivedAt.UnixMilli()),
-	}
-	return sandbox.PrivateEvent{
-		Identity:  "bybit-rejected-" + submission.ClientOrderID + "-" + nativeHash[:12],
-		AccountID: submission.AccountID, AccountEpoch: submission.AccountEpoch,
-		Kind: sandbox.PrivateOrderEvent, OrderID: submission.OrderID,
-		ClientOrderID:   submission.ClientOrderID,
-		NativeOrderHash: nativeHash, OrderEvent: &orderEvent,
-		OccurredAt: receivedAt, ReceivedAt: receivedAt,
-	}
 }

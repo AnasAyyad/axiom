@@ -12,7 +12,6 @@ import (
 	"axiom/internal/alerting"
 	"axiom/internal/api"
 	"axiom/internal/api/console"
-	"axiom/internal/api/generated"
 	"axiom/internal/api/health"
 	"axiom/internal/buildinfo"
 	"axiom/internal/config"
@@ -40,7 +39,7 @@ func runHTTPRole(ctx context.Context, runtimeConfig config.Runtime, product conf
 	if err != nil {
 		return err
 	}
-	work, err := workForRole(ctx, pool, runtimeConfig, product, role)
+	work, err := workForRole(ctx, pool, runtimeConfig, product, role, services.metrics)
 	if err != nil {
 		return err
 	}
@@ -82,14 +81,15 @@ func workForRole(
 	runtimeConfig config.Runtime,
 	product config.Configuration,
 	role string,
+	metrics *observability.Metrics,
 ) (roleWork, error) {
 	switch role {
 	case "recorder":
 		return newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
 	case "worker":
-		return newA11WorkerRoleWork(pool, runtimeConfig)
+		return newOwnerConsoleWorkerRoleWork(pool, runtimeConfig, product, metrics)
 	case "engine-shadow":
-		return newA11LiveShadowRoleWork(pool, runtimeConfig)
+		return newOwnerConsoleLiveShadowRoleWork(pool, runtimeConfig)
 	case "engine-binance-sandbox":
 		return newSandboxEngineRoleWork(
 			ctx,
@@ -182,9 +182,8 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	}
 	var consoleOptions *console.Options
 	if role == "api" {
-		setup := setupA11Console(ctx, pool, runtimeConfig)
+		setup := setupOwnerConsole(ctx, pool, runtimeConfig)
 		options.Dependency = setup.dependency
-		options.Phase = generated.HealthResponsePhaseA11
 		consoleOptions = setup.options
 	}
 	metrics, err := observability.NewMetrics(role, metricCatalog(product))
@@ -197,6 +196,9 @@ func newRoleServices(ctx context.Context, pool *pgxpool.Pool, runtimeConfig conf
 	}
 	sink, err := newAlertSink(runtimeConfig.AlertWebhook)
 	if err != nil {
+		return roleServices{}, err
+	}
+	if err = alertStore.SetWebhookRouteEnabled(ctx, sink != nil, time.Now().UTC()); err != nil && pool.Ping(ctx) == nil {
 		return roleServices{}, err
 	}
 	gate := runtimecore.NewSafetyGate()
@@ -283,7 +285,7 @@ func metricCatalog(product config.Configuration) observability.MetricCatalog {
 		Exchanges: []string{"binance", "bybit"}, Instruments: instruments,
 		Strategies: []string{
 			"trend", "mean-reversion", "triangular",
-			"cross-exchange-arbitrage", "sandbox-canary",
+			"cross-exchange-arbitrage", "inventory-rebalancing", "sandbox-canary",
 		},
 		Modes: []string{
 			"backtest", "replay", "paper", "shadow", "testnet", "demo",

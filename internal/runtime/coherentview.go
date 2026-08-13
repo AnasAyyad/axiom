@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const initialB2CoherentPolicyVersion = "axiom.coherent-view-policy.v1"
+const initialCoherentMarketDataCoherentPolicyVersion = "axiom.coherent-view-policy.v1"
 
 // CoherentPolicy is an immutable versioned cross-market eligibility policy.
 type CoherentPolicy struct {
@@ -18,9 +18,9 @@ type CoherentPolicy struct {
 	MaximumClockUncertainty time.Duration `json:"maximum_clock_uncertainty_nanos"`
 }
 
-// InitialB2CoherentPolicy returns the exact initial B2 limits.
-func InitialB2CoherentPolicy() CoherentPolicy {
-	return CoherentPolicy{Version: initialB2CoherentPolicyVersion, MaximumBookAge: 250 * time.Millisecond,
+// InitialCoherentMarketDataCoherentPolicy returns the exact initial coherent market data limits.
+func InitialCoherentMarketDataCoherentPolicy() CoherentPolicy {
+	return CoherentPolicy{Version: initialCoherentMarketDataCoherentPolicyVersion, MaximumBookAge: 250 * time.Millisecond,
 		MaximumInterBookSkew: 250 * time.Millisecond, MaximumClockUncertainty: 100 * time.Millisecond}
 }
 

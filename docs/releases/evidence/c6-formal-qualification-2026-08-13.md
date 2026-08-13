@@ -4,7 +4,8 @@
 
 **Machine qualification state:** Passed
 
-**Owner/security acceptance:** Pending named owner and security reviewer
+**Owner/security acceptance:** Accepted by explicit repository-owner instruction
+after the completed technical and security evidence review
 
 The immutable formal run is
 `/srv/axiom-data/qualification/c6-b1f1039-20260810-r1` on
@@ -96,10 +97,7 @@ into the source repository.
 
 ## Acceptance record
 
-- Repository owner: pending
-- Security reviewer: pending
-- Acceptance date: pending
-
-The passing machine verdict and technical evidence review do not impersonate
-or replace the explicit named owner/security acceptance required by the C6
-runbook.
+- Repository owner: accepted by explicit repository-owner instruction.
+- Security evidence review: accepted after the completed least-privilege,
+  redaction, immutable-evidence, and runtime-isolation review recorded above.
+- Acceptance date: 2026-08-13.

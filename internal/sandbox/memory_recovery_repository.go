@@ -128,6 +128,8 @@ func (repository *memoryDispatcherRepository) ResolveReconciledTerminal(
 	}
 	record.State = OutboxTerminal
 	record.UpdatedAt = now
+	repository.outbox[outboxID] = record
+	repository.advanceMemorySequentialPlan(record, order, now)
 	repository.updateMemoryPlanState(
 		record.Submission.PlanID.String(),
 		outboxID,

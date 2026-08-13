@@ -16,7 +16,7 @@ import (
 	"axiom/internal/marketdata"
 )
 
-func TestB1InstrumentCollectorAppliesSnapshotsMonotonicDeltasAndPublicEvents(t *testing.T) {
+func TestExchangeExpansionInstrumentCollectorAppliesSnapshotsMonotonicDeltasAndPublicEvents(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	source := &bybitCollectorSource{clock: clock, generations: [][]exchangecontracts.StreamEvent{{
@@ -40,7 +40,8 @@ func TestB1InstrumentCollectorAppliesSnapshotsMonotonicDeltasAndPublicEvents(t *
 	waitForBybitCollector(t, func() bool {
 		stats := collector.Stats()
 		view, viewErr := collector.Views().Book(collectorExchange, instrument)
-		return viewErr == nil && view.Sequence() == 1 && view.Health() == marketdata.HealthHealthy &&
+		return collector.HealthSnapshot().Eligible && viewErr == nil && view.Sequence() == 1 &&
+			view.Health() == marketdata.HealthHealthy &&
 			stats.Snapshots == 2 && stats.Resets == 1 && stats.DepthUpdates == 1 && stats.Trades == 1 &&
 			stats.Tickers == 1 && stats.Candles == 1 && stats.Heartbeats == 1
 	})
@@ -80,7 +81,7 @@ func assertHealthyBybitCancellation(
 	}
 }
 
-func TestB1InstrumentCollectorRecordsConservativeGapAndReconnects(t *testing.T) {
+func TestExchangeExpansionInstrumentCollectorRecordsConservativeGapAndReconnects(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	source := &bybitCollectorSource{clock: clock, generations: [][]exchangecontracts.StreamEvent{
@@ -116,7 +117,7 @@ func TestB1InstrumentCollectorRecordsConservativeGapAndReconnects(t *testing.T) 
 	}
 }
 
-func TestB1LifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.T) {
+func TestExchangeExpansionLifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	source := &bybitCollectorSource{clock: clock, generations: [][]exchangecontracts.StreamEvent{{
@@ -143,7 +144,7 @@ func TestB1LifecycleEvidenceSinkFailureTerminatesCollectorFailClosed(t *testing.
 	}
 }
 
-func TestB1InstrumentCollectorReceiverQueueIsBounded(t *testing.T) {
+func TestExchangeExpansionInstrumentCollectorReceiverQueueIsBounded(t *testing.T) {
 	clock := &domain.SystemClock{}
 	instrument := approvedInstruments()[0]
 	events := make([]exchangecontracts.StreamEvent, 1001)

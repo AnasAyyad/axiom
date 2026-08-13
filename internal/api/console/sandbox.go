@@ -8,6 +8,11 @@ import (
 )
 
 func (handler *handler) registerSandbox(mux *http.ServeMux) {
+	handler.registerSandboxReads(mux)
+	handler.registerSandboxCommands(mux)
+}
+
+func (handler *handler) registerSandboxReads(mux *http.ServeMux) {
 	mux.HandleFunc(
 		"GET /api/v1/sandbox/overview",
 		handler.authorized(handler.sandboxOverview, authentication.PermissionSandboxRead),
@@ -22,8 +27,11 @@ func (handler *handler) registerSandbox(mux *http.ServeMux) {
 	)
 	mux.HandleFunc(
 		"GET /api/v1/sandbox/qualification",
-		handler.authorized(handler.c6Qualification, authentication.PermissionSandboxRead),
+		handler.authorized(handler.sandboxQualification, authentication.PermissionSandboxRead),
 	)
+}
+
+func (handler *handler) registerSandboxCommands(mux *http.ServeMux) {
 	mux.HandleFunc(
 		"POST /api/v1/sandbox/authorizations",
 		handler.authorizedMutation(handler.createSandboxAuthorization, ""),
@@ -31,6 +39,18 @@ func (handler *handler) registerSandbox(mux *http.ServeMux) {
 	mux.HandleFunc(
 		"POST /api/v1/sandbox/sessions/{id}/arms",
 		handler.authorizedMutation(handler.createSandboxArm, authentication.PermissionSandboxArm),
+	)
+	mux.HandleFunc(
+		"POST /api/v1/sandbox/strategy-sessions",
+		handler.authorizedMutation(handler.createSandboxStrategySession, authentication.PermissionSandboxArm),
+	)
+	mux.HandleFunc(
+		"POST /api/v1/sandbox/strategy-sessions/{id}/start",
+		handler.authorizedMutation(handler.startSandboxStrategySession, authentication.PermissionSandboxArm),
+	)
+	mux.HandleFunc(
+		"POST /api/v1/sandbox/strategy-sessions/{id}/stop",
+		handler.authorizedMutation(handler.stopSandboxStrategySession, authentication.PermissionSandboxArm),
 	)
 	mux.HandleFunc(
 		"POST /api/v1/sandbox/arms/{id}/revoke",
@@ -157,7 +177,7 @@ func validSandboxExchangeFilter(value string) bool {
 	return value == "" || value == "binance" || value == "bybit"
 }
 
-func (handler *handler) c6Qualification(
+func (handler *handler) sandboxQualification(
 	writer http.ResponseWriter,
 	request *http.Request,
 	_ authentication.Principal,
@@ -165,6 +185,6 @@ func (handler *handler) c6Qualification(
 	if handler.sandboxReadUnavailable(writer, request) {
 		return
 	}
-	value, err := handler.options.SandboxRead.C6Qualification(request.Context())
+	value, err := handler.options.SandboxRead.SandboxQualification(request.Context())
 	handler.writeRead(writer, request, value, err)
 }

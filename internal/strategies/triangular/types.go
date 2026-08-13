@@ -9,7 +9,7 @@ import (
 // Cycle identifies one of the two exhaustive approved paths.
 type Cycle string
 
-// Approved B4 cycle orderings.
+// Approved triangular arbitrage cycle orderings.
 const (
 	CycleUSDTBTCETHUSDT Cycle = "USDT-BTC-ETH-USDT"
 	CycleUSDTETHBTCUSDT Cycle = "USDT-ETH-BTC-USDT"

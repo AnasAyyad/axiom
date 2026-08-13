@@ -13,7 +13,8 @@ import (
 
 // Bounded read-only recovery is deliberately narrower than generic sandbox
 // recovery. It is usable only for one typed reconciliation or private-stream
-// outage per account in one C6 run; every other failure remains terminal.
+// outage per account in one qualification run; every other failure remains
+// terminal.
 const (
 	ReconciliationRecoveryWindow   = 72 * time.Hour
 	ReconciliationRecoveryDeadline = 2 * time.Minute
@@ -24,35 +25,54 @@ const (
 // RecoveryState is the redacted state shown to qualification and operations.
 type RecoveryState string
 
-const (
-	RecoveryNotRequired   RecoveryState = "not_required"
-	RecoveryActive        RecoveryState = "active"
-	RecoveryRecovered     RecoveryState = "recovered"
-	RecoveryExpired       RecoveryState = "expired"
-	RecoveryRepeated      RecoveryState = "repeated"
-	RecoveryUnrecoverable RecoveryState = "unrecoverable"
-)
+// RecoveryNotRequired means the account has not consumed its allowance.
+const RecoveryNotRequired RecoveryState = "not_required"
+
+// RecoveryActive means the account is inside its bounded deadline.
+const RecoveryActive RecoveryState = "active"
+
+// RecoveryRecovered means both clean checks completed safely.
+const RecoveryRecovered RecoveryState = "recovered"
+
+// RecoveryExpired means the bounded deadline elapsed.
+const RecoveryExpired RecoveryState = "expired"
+
+// RecoveryRepeated means the account encountered a second incident.
+const RecoveryRepeated RecoveryState = "repeated"
+
+// RecoveryUnrecoverable means an immediate-terminal condition occurred.
+const RecoveryUnrecoverable RecoveryState = "unrecoverable"
 
 // RecoveryIncidentSource is the closed, redacted boundary where an incident
 // was detected. It never contains an endpoint, topic, or exchange payload.
 type RecoveryIncidentSource string
 
-const (
-	RecoverySourceReconciliation RecoveryIncidentSource = "reconciliation"
-	RecoverySourcePrivateStream  RecoveryIncidentSource = "private_stream"
-)
+// RecoverySourceReconciliation identifies an authoritative check failure.
+const RecoverySourceReconciliation RecoveryIncidentSource = "reconciliation"
+
+// RecoverySourcePrivateStream identifies private transport interruption.
+const RecoverySourcePrivateStream RecoveryIncidentSource = "private_stream"
 
 // RecoveryEventKind is the immutable lifecycle event vocabulary.
 type RecoveryEventKind string
 
-const (
-	RecoveryDetected           RecoveryEventKind = "detected"
-	RecoveryFirstClean         RecoveryEventKind = "first_clean_check"
-	RecoveryRecoveredEvent     RecoveryEventKind = "recovered"
-	RecoveryExpiredEvent       RecoveryEventKind = "expired"
-	RecoveryRepeatedEvent      RecoveryEventKind = "repeated"
-	RecoveryUnrecoverableEvent RecoveryEventKind = "unrecoverable"
-)
+// RecoveryDetected records the one permitted incident.
+const RecoveryDetected RecoveryEventKind = "detected"
+
+// RecoveryFirstClean records the first complete clean check.
+const RecoveryFirstClean RecoveryEventKind = "first_clean_check"
+
+// RecoveryRecoveredEvent records the second clean check and recovery.
+const RecoveryRecoveredEvent RecoveryEventKind = "recovered"
+
+// RecoveryExpiredEvent records deadline expiry.
+const RecoveryExpiredEvent RecoveryEventKind = "expired"
+
+// RecoveryRepeatedEvent records a second incident for the account.
+const RecoveryRepeatedEvent RecoveryEventKind = "repeated"
+
+// RecoveryUnrecoverableEvent records an immediate-terminal incident.
+const RecoveryUnrecoverableEvent RecoveryEventKind = "unrecoverable"
 
 // ReconciliationRecoveryHealth is the complete safety proof required for a
 // clean check. Recovery never treats a reconciliation result alone as safe.
@@ -86,7 +106,7 @@ type RecoveryTransition struct {
 	EvidenceHash    string
 }
 
-// ErrReconciliationRecoveryTerminal marks a failure that must terminate C6.
+// ErrReconciliationRecoveryTerminal marks a terminal qualification failure.
 var ErrReconciliationRecoveryTerminal = errors.New("reconciliation_recovery_terminal")
 
 var recoveryCausePattern = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
@@ -306,7 +326,7 @@ func recoveryEvidenceHash(
 }
 
 // PermittedRecoveryKind reports whether a typed failure may consume the one
-// bounded C6 recovery allowance.
+// bounded qualification recovery allowance.
 func PermittedRecoveryKind(kind exchangecontracts.ErrorKind) bool {
 	return kind == exchangecontracts.ErrorTransient || kind == exchangecontracts.ErrorMaintenance
 }

@@ -1,28 +1,46 @@
 package postgres
 
 import (
-	"context"
-	"fmt"
 	"regexp"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 var runtimeReadInsertTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "asset_screening_versions", "assets", "audit_events",
-	"api_entity_revisions", "authentication_failures", "authorization_permissions",
-	"v1c_high_risk_audit_events", "v1c_sandbox_authorizations", "v1c_session_control_events",
-	"v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
-	"v1c_submission_plans", "v1c_plan_eligibility", "v1c_plan_entry_safety",
-	"v1c_sandbox_reservations", "v1c_submission_outbox",
-	"v1c_daily_cap_counters", "v1c_engine_commands", "v1c_canary_evidence",
+	"api_entity_revisions", "authentication_failures", "owner_accounts",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaign_commands", "evaluation_data_audits", "evaluation_historical_imports",
+	"evaluation_recorder_requests",
+	"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results", "evaluation_data_audit_findings",
+	"evaluation_historical_import_segments", "evaluation_campaign_datasets", "evaluation_campaign_dataset_members",
+	"evaluation_campaign_metadata", "evaluation_campaign_candidate_locks", "evaluation_campaign_recording_segments",
+	"evaluation_recorder_observations", "evaluation_recorder_instrument_observations",
+	"evaluation_shadow_sessions", "evaluation_shadow_member_checkpoints", "evaluation_shadow_decisions",
+	"sandbox_runtime_high_risk_audit_events", "sandbox_runtime_sandbox_authorizations", "sandbox_runtime_session_control_events",
+	"sandbox_runtime_totp_replay_state", "sandbox_runtime_sandbox_sessions", "sandbox_runtime_sandbox_session_accounts", "sandbox_runtime_sandbox_arms",
+	"sandbox_strategy_sessions", "sandbox_strategy_session_accounts",
+	"sandbox_strategy_session_evaluations", "sandbox_strategy_decisions",
+	"sandbox_runtime_submission_plans", "sandbox_runtime_plan_eligibility", "sandbox_runtime_plan_entry_safety",
+	"sandbox_runtime_plan_account_snapshots", "sandbox_runtime_strategy_plan_decisions",
+	"sandbox_runtime_sandbox_reservations", "sandbox_runtime_submission_outbox",
+	"sandbox_runtime_daily_cap_counters", "sandbox_runtime_engine_commands", "sandbox_runtime_canary_evidence",
+	"sandbox_runtime_engine_market_observations",
+	"owner_console_export_artifacts", "owner_console_artifact_holds", "owner_console_artifact_access_events",
+	"owner_console_qualification_runs",
+	"owner_console_incident_events", "owner_console_incident_replay_inputs", "owner_console_incident_alert_links",
+	"owner_console_incident_activity_links", "owner_console_incident_resolution_evidence",
+	"owner_console_report_schedules", "owner_console_reports", "owner_console_alert_delivery_attempts",
+	"owner_console_alert_escalations", "owner_console_alert_route_tests",
 	"allocation_candidates", "allocation_reservations", "allocation_score_components",
-	"authorization_roles", "command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
+	"command_requests", "configuration_activations", "configuration_versions", "consumer_cursors",
 	"data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions",
 	"cross_market_view_headers", "cross_market_view_members", "dataset_exchange_coverage", "dataset_tier_a_members", "mean_reversion_decisions",
+	"shadow_strategy_decision_evidence",
+	"shadow_multileg_execution_evidence",
+	"shadow_cross_exchange_inventory_initializations",
+	"shadow_session_market_scopes",
+	"shadow_session_activity_observations", "shadow_session_input_health_observations",
 	"triangular_candidates", "triangular_candidate_legs", "triangular_simulation_outcomes",
 	"triangular_opportunity_lifetimes", "triangular_journal_links",
 	"cross_exchange_candidates", "cross_exchange_candidate_members",
@@ -31,8 +49,8 @@ var runtimeReadInsertTables = []string{
 	"cross_exchange_rebalancing_needs", "cross_exchange_journal_links",
 	"rebalancing_fact_sets", "rebalancing_route_facts", "rebalancing_recommendations",
 	"rebalancing_recommendation_steps", "rebalancing_checklist_steps",
-	"b7_experiment_preregistrations", "b7_validation_suites", "b7_champion_challenger_reports",
-	"b8_replay_fault_schedule_states", "b8_replay_fault_schedules", "b8_report_exports",
+	"research_promotion_experiment_preregistrations", "research_promotion_validation_suites", "research_promotion_champion_challenger_reports",
+	"multi_exchange_console_replay_fault_schedule_states", "multi_exchange_console_replay_fault_schedules", "multi_exchange_console_report_exports",
 	"exchange_capabilities", "exchanges", "execution_lease_epochs", "execution_leases", "execution_plan_legs",
 	"execution_plans", "experiment_registrations", "fills", "inbox_events", "incidents", "instrument_metadata_versions",
 	"instruments", "jobs", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
@@ -40,7 +58,7 @@ var runtimeReadInsertTables = []string{
 	"projection_revisions", "quarantined_scopes", "reconciliation_cases", "reconciliation_differences", "reconciliation_suspense", "recovery_attempts", "reservations",
 	"public_clock_samples", "public_connection_events",
 	"risk_evaluation_policies", "risk_evaluations", "risk_policies", "risk_policy_limits", "risk_state_events", "run_checkpoints", "run_results", "runs", "sessions", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters",
-	"experiment_final_test_consumptions", "research_generations", "research_reports", "role_permissions", "run_canonical_outputs", "run_manifests", "shadow_sessions", "strategy_portfolios", "strategy_versions", "stream_connections", "trend_decisions", "user_roles", "users", "virtual_accounts", "virtual_balances",
+	"experiment_final_test_consumptions", "research_generations", "research_reports", "run_canonical_outputs", "run_manifests", "shadow_sessions", "strategy_portfolios", "strategy_versions", "stream_connections", "trend_decisions", "users", "virtual_accounts", "virtual_balances",
 }
 
 var runtimeUpdateTables = []string{
@@ -48,116 +66,175 @@ var runtimeUpdateTables = []string{
 	"execution_leases", "incidents", "jobs", "market_data_segments", "model_versions", "orders", "outbox_events",
 	"liquidity_domains", "liquidity_reservations", "positions", "projection_revisions", "quarantined_scopes", "reconciliation_cases", "reservations", "runs", "sessions", "startup_recovery_attempts",
 	"api_entity_revisions", "shadow_sessions", "stream_connections", "users", "virtual_balances",
-	"b8_replay_fault_schedule_states",
-	"v1c_sandbox_authorizations", "v1c_totp_replay_state", "v1c_sandbox_sessions", "v1c_sandbox_arms",
-	"v1c_exchange_accounts", "v1c_daily_cap_counters", "v1c_engine_commands",
+	"multi_exchange_console_replay_fault_schedule_states",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaign_commands", "evaluation_data_audits", "evaluation_historical_imports",
+	"evaluation_recorder_requests", "evaluation_shadow_sessions", "evaluation_shadow_member_checkpoints",
+	"sandbox_runtime_sandbox_authorizations", "sandbox_runtime_totp_replay_state", "sandbox_runtime_sandbox_sessions", "sandbox_runtime_sandbox_arms",
+	"sandbox_strategy_sessions",
+	"sandbox_runtime_exchange_accounts", "sandbox_runtime_daily_cap_counters", "sandbox_runtime_engine_commands",
+	"owner_console_strategy_controls", "owner_console_risk_controls", "owner_console_export_artifacts",
+	"owner_console_artifact_holds", "owner_console_qualification_runs", "owner_console_report_schedules",
+	"owner_console_reports", "owner_console_alert_routes", "owner_console_alert_route_tests",
 }
 
-var runtimeDeleteTables = []string{"execution_leases", "sessions", "user_roles"}
+var runtimeDeleteTables = []string{"execution_leases", "sessions"}
 
 var runtimeReadTables = []string{
-	"schema_migrations", "b4_claim_resources", "b4_claim_groups", "b4_claim_items",
-	"b5_claim_resources", "b5_claim_groups", "b5_claim_items",
+	"schema_migrations", "triangular_arbitrage_claim_resources", "triangular_arbitrage_claim_groups", "triangular_arbitrage_claim_items",
+	"cross_exchange_arbitrage_claim_resources", "cross_exchange_arbitrage_claim_groups", "cross_exchange_arbitrage_claim_items",
 	"strategy_maturity_states", "strategy_maturity_commands", "strategy_maturity_events",
-	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
-	"v1c_authenticated_request_evidence",
-	"v1c_account_snapshots", "v1c_private_inbox", "v1c_exchange_fills",
-	"v1c_exchange_metadata", "v1c_reconciliation_differences",
-	"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
-	"v1c_risk_unlocks", "v1c_account_leases", "v1c_engine_startup_evidence",
-	"v1c_engine_observations",
-	"v1c_engine_runtime_events", "v1c_c6_order_observations",
-	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
-	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
-	"v1c_c6_chaos_events", "v1c_c6_recovery_events",
+	"sandbox_runtime_exchange_accounts", "sandbox_runtime_account_epochs", "sandbox_runtime_credential_generations",
+	"sandbox_runtime_authenticated_request_evidence",
+	"sandbox_runtime_account_snapshots", "sandbox_runtime_private_inbox", "sandbox_runtime_exchange_fills",
+	"sandbox_runtime_plan_account_snapshots",
+	"sandbox_runtime_strategy_plan_decisions",
+	"sandbox_runtime_exchange_metadata", "sandbox_runtime_reconciliation_differences",
+	"sandbox_runtime_reconciliations", "sandbox_runtime_reset_incidents", "sandbox_runtime_external_adjustments",
+	"sandbox_runtime_risk_unlocks", "sandbox_runtime_account_leases", "sandbox_runtime_engine_startup_evidence",
+	"sandbox_runtime_engine_observations", "sandbox_runtime_engine_market_observations",
+	"sandbox_runtime_engine_runtime_events", "sandbox_qualification_order_observations",
+	"sandbox_strategy_sessions", "sandbox_strategy_session_accounts",
+	"sandbox_strategy_session_evaluations", "sandbox_strategy_decisions",
+	"sandbox_strategy_risk_observations",
+	"sandbox_strategy_risk_valuations",
+	"sandbox_accounting_transactions", "sandbox_accounting_entries",
+	"sandbox_accounting_positions", "sandbox_accounting_position_fees",
+	"sandbox_qualification_runs", "sandbox_qualification_accounts",
+	"sandbox_qualification_samples", "sandbox_qualification_failures",
+	"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
+	"owner_console_reason_catalogue", "owner_console_activity_projection", "owner_console_activity_explanations",
+	"owner_console_strategy_controls", "owner_console_risk_controls", "owner_console_qualification_catalogue",
+	"owner_console_alert_routes", "owner_console_audit_chain", "owner_console_storage_pressure_state",
 }
 
 var recorderReadTables = []string{
 	"assets", "configuration_versions", "exchanges", "instruments", "instrument_metadata_versions",
+	"evaluation_campaigns", "evaluation_recorder_requests",
 }
 
 var recorderWriteTables = []string{
 	"alert_deliveries", "alerts", "data_quality_events", "dataset_gaps", "dataset_manifests", "dataset_segments", "market_data_segments",
+	"owner_console_storage_pressure_state",
 }
 
-var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events"}
+var recorderAppendTables = []string{"audit_events", "dataset_exchange_coverage", "dataset_tier_a_members", "instrument_metadata_versions", "public_clock_samples", "public_connection_events", "owner_console_storage_pressure_events",
+	"evaluation_campaign_recording_segments", "evaluation_recorder_observations", "evaluation_recorder_instrument_observations"}
 
-var v1cEngineReadWriteTables = []string{
-	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
-	"v1c_credential_rotations",
-	"v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
-	"v1c_authenticated_request_evidence",
-	"v1c_account_snapshots", "v1c_daily_cap_counters", "v1c_submission_plans",
-	"v1c_plan_eligibility", "v1c_plan_entry_safety", "v1c_sandbox_reservations",
-	"v1c_submission_outbox", "v1c_private_inbox",
-	"v1c_exchange_fills", "v1c_exchange_metadata", "v1c_reconciliation_differences",
-	"v1c_reconciliations", "v1c_reset_incidents", "v1c_external_adjustments",
-	"v1c_risk_unlocks", "v1c_account_leases",
-	"v1c_engine_startup_evidence",
-	"v1c_engine_commands", "v1c_engine_observations",
+// Shared alert services run in every process role. They may append immutable
+// delivery evidence and update only the bounded route state used for delivery
+// tests and validated webhook availability.
+var processAlertAppendTables = []string{"owner_console_alert_delivery_attempts"}
+
+var processAlertUpdateTables = []string{"owner_console_alert_routes", "owner_console_alert_route_tests"}
+
+var sandboxRuntimeEngineReadWriteTables = []string{
+	"sandbox_runtime_exchange_accounts", "sandbox_runtime_account_epochs", "sandbox_runtime_credential_generations",
+	"sandbox_runtime_credential_rotations",
+	"sandbox_runtime_sandbox_sessions", "sandbox_runtime_sandbox_session_accounts", "sandbox_runtime_sandbox_arms",
+	"sandbox_runtime_authenticated_request_evidence",
+	"sandbox_runtime_account_snapshots", "sandbox_runtime_daily_cap_counters", "sandbox_runtime_submission_plans",
+	"sandbox_runtime_plan_eligibility", "sandbox_runtime_plan_entry_safety", "sandbox_runtime_plan_account_snapshots", "sandbox_runtime_strategy_plan_decisions", "sandbox_runtime_sandbox_reservations",
+	"sandbox_runtime_submission_outbox", "sandbox_runtime_private_inbox",
+	"sandbox_runtime_exchange_fills", "sandbox_runtime_exchange_metadata", "sandbox_runtime_reconciliation_differences",
+	"sandbox_runtime_reconciliations", "sandbox_runtime_reset_incidents", "sandbox_runtime_external_adjustments",
+	"sandbox_runtime_risk_unlocks", "sandbox_runtime_account_leases",
+	"sandbox_runtime_engine_startup_evidence",
+	"sandbox_runtime_engine_commands", "sandbox_runtime_engine_observations", "sandbox_runtime_engine_market_observations",
+	"sandbox_accounting_positions", "sandbox_accounting_position_fees",
 }
 
-var v1cEngineReadOnlyTables = []string{
-	"sessions", "users",
+var sandboxRuntimeEngineReadOnlyTables = []string{
+	"sessions", "users", "configuration_versions", "asset_screening_versions",
+	"risk_policies", "risk_policy_limits", "owner_console_storage_pressure_state",
+	"sandbox_strategy_sessions", "sandbox_strategy_session_accounts",
 }
 
-var v1cEngineAlertReadWriteTables = []string{
+var sandboxRuntimeEngineRiskStateAppendTables = []string{"risk_state_events"}
+
+var sandboxRuntimeEngineRiskStateUpdateTables = []string{"api_entity_revisions"}
+
+var sandboxRuntimeEngineAlertReadWriteTables = []string{
 	"alert_deliveries", "alerts",
 }
 
-var v1cEngineAlertAppendTables = []string{
+var sandboxRuntimeEngineAlertAppendTables = []string{
 	"audit_events",
 }
 
-var v1cEngineRuntimeAppendTables = []string{
-	"v1c_engine_runtime_events",
+var sandboxRuntimeEngineRuntimeAppendTables = []string{
+	"sandbox_runtime_engine_runtime_events",
+	"sandbox_strategy_session_evaluations", "sandbox_strategy_decisions",
+	"sandbox_strategy_risk_observations",
+	"sandbox_strategy_risk_valuations",
+	"sandbox_accounting_transactions", "sandbox_accounting_entries",
 }
 
-var c6QualificationReadTables = []string{
-	"alerts", "incidents", "v1c_authenticated_request_evidence",
-	"v1c_daily_cap_counters", "v1c_engine_observations",
-	"v1c_engine_runtime_events", "v1c_c6_order_observations",
-	"v1c_exchange_accounts", "v1c_account_leases",
-	"v1c_reconciliation_differences",
-	"v1c_c6_recovery_events",
+var sandboxQualificationReadTables = []string{
+	"alerts", "incidents", "sandbox_runtime_authenticated_request_evidence",
+	"sandbox_runtime_daily_cap_counters", "sandbox_runtime_engine_observations", "sandbox_runtime_engine_market_observations",
+	"sandbox_runtime_engine_runtime_events", "sandbox_qualification_order_observations",
+	"sandbox_runtime_exchange_accounts", "sandbox_runtime_account_leases",
+	"sandbox_runtime_reconciliation_differences",
+	"sandbox_qualification_recovery_events",
 }
 
-var c6QualificationAppendTables = []string{
-	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
-	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
-	"v1c_c6_chaos_events", "v1c_c6_recovery_events",
+var sandboxQualificationAppendTables = []string{
+	"sandbox_qualification_runs", "sandbox_qualification_accounts",
+	"sandbox_qualification_samples", "sandbox_qualification_failures",
+	"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
 }
 
 var readOnlyTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "allocation_candidates", "allocation_reservations", "allocation_score_components", "asset_screening_versions", "assets", "audit_events",
 	"configuration_activations", "configuration_versions", "consumer_cursors", "data_quality_events",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results", "evaluation_data_audits",
+	"evaluation_data_audit_findings", "evaluation_historical_imports", "evaluation_historical_import_segments",
+	"evaluation_recorder_requests", "evaluation_campaign_datasets", "evaluation_campaign_dataset_members",
+	"evaluation_campaign_metadata", "evaluation_campaign_candidate_locks", "evaluation_campaign_recording_segments", "evaluation_recorder_observations",
+	"evaluation_recorder_instrument_observations", "evaluation_shadow_sessions",
+	"evaluation_shadow_member_checkpoints", "evaluation_shadow_decisions",
 	"dataset_gaps", "dataset_manifests", "dataset_segments", "decision_inputs", "decisions", "exchange_capabilities",
 	"cross_market_view_headers", "cross_market_view_members", "dataset_exchange_coverage", "dataset_tier_a_members", "mean_reversion_decisions",
+	"shadow_strategy_decision_evidence",
+	"shadow_multileg_execution_evidence",
+	"shadow_cross_exchange_inventory_initializations",
+	"shadow_session_market_scopes",
+	"shadow_session_activity_observations", "shadow_session_input_health_observations",
 	"triangular_candidates", "triangular_candidate_legs", "triangular_simulation_outcomes",
 	"triangular_opportunity_lifetimes", "triangular_journal_links",
-	"b4_claim_resources", "b4_claim_groups", "b4_claim_items",
+	"triangular_arbitrage_claim_resources", "triangular_arbitrage_claim_groups", "triangular_arbitrage_claim_items",
 	"cross_exchange_candidates", "cross_exchange_candidate_members",
 	"cross_exchange_candidate_legs", "cross_exchange_inventory_snapshots",
 	"cross_exchange_simulation_outcomes", "cross_exchange_simulation_legs",
 	"cross_exchange_rebalancing_needs", "cross_exchange_journal_links",
-	"b5_claim_resources", "b5_claim_groups", "b5_claim_items",
+	"cross_exchange_arbitrage_claim_resources", "cross_exchange_arbitrage_claim_groups", "cross_exchange_arbitrage_claim_items",
 	"rebalancing_fact_sets", "rebalancing_route_facts", "rebalancing_recommendations",
 	"rebalancing_recommendation_steps", "rebalancing_checklist_steps",
-	"b7_experiment_preregistrations", "b7_validation_suites", "b7_champion_challenger_reports",
-	"b8_replay_fault_schedule_states", "b8_replay_fault_schedules", "b8_report_exports",
+	"research_promotion_experiment_preregistrations", "research_promotion_validation_suites", "research_promotion_champion_challenger_reports",
+	"multi_exchange_console_replay_fault_schedule_states", "multi_exchange_console_replay_fault_schedules", "multi_exchange_console_report_exports",
 	"strategy_maturity_states", "strategy_maturity_commands", "strategy_maturity_events",
-	"v1c_exchange_accounts", "v1c_account_epochs", "v1c_credential_generations",
-	"v1c_sandbox_sessions", "v1c_sandbox_session_accounts", "v1c_sandbox_arms",
-	"v1c_submission_plans", "v1c_plan_entry_safety",
-	"v1c_sandbox_reservations", "v1c_submission_outbox", "v1c_private_inbox",
-	"v1c_exchange_fills", "v1c_reconciliations",
-	"v1c_reconciliation_differences", "v1c_reset_incidents",
-	"v1c_external_adjustments", "v1c_engine_startup_evidence",
-	"v1c_engine_commands", "v1c_engine_observations",
-	"v1c_engine_runtime_events", "v1c_c6_order_observations",
-	"v1c_c6_qualification_runs", "v1c_c6_qualification_accounts",
-	"v1c_c6_qualification_samples", "v1c_c6_qualification_failures",
-	"v1c_c6_chaos_events", "v1c_c6_recovery_events",
+	"sandbox_runtime_exchange_accounts", "sandbox_runtime_account_epochs", "sandbox_runtime_credential_generations",
+	"sandbox_runtime_sandbox_sessions", "sandbox_runtime_sandbox_session_accounts", "sandbox_runtime_sandbox_arms",
+	"sandbox_strategy_sessions", "sandbox_strategy_session_accounts",
+	"sandbox_strategy_session_evaluations", "sandbox_strategy_decisions",
+	"sandbox_strategy_risk_observations",
+	"sandbox_strategy_risk_valuations",
+	"sandbox_accounting_transactions", "sandbox_accounting_entries",
+	"sandbox_accounting_positions", "sandbox_accounting_position_fees",
+	"sandbox_runtime_submission_plans", "sandbox_runtime_plan_entry_safety",
+	"sandbox_runtime_plan_account_snapshots",
+	"sandbox_runtime_strategy_plan_decisions",
+	"sandbox_runtime_sandbox_reservations", "sandbox_runtime_submission_outbox", "sandbox_runtime_private_inbox",
+	"sandbox_runtime_exchange_fills", "sandbox_runtime_reconciliations",
+	"sandbox_runtime_reconciliation_differences", "sandbox_runtime_reset_incidents",
+	"sandbox_runtime_external_adjustments", "sandbox_runtime_engine_startup_evidence",
+	"sandbox_runtime_engine_commands", "sandbox_runtime_engine_observations", "sandbox_runtime_engine_market_observations",
+	"sandbox_runtime_engine_runtime_events", "sandbox_qualification_order_observations",
+	"sandbox_qualification_runs", "sandbox_qualification_accounts",
+	"sandbox_qualification_samples", "sandbox_qualification_failures",
+	"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
 	"circuit_breaker_events", "exchanges", "execution_plan_legs", "execution_plans", "fill_journal_postings", "fills", "incidents", "instrument_metadata_versions",
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
 	"public_clock_samples", "public_connection_events",
@@ -165,172 +242,13 @@ var readOnlyTables = []string{
 	"projection_revisions", "quarantined_scopes", "reconciliation_cases", "reconciliation_differences", "reconciliation_suspense", "reservations", "risk_evaluation_policies", "risk_evaluations", "risk_policies", "risk_policy_limits", "risk_state_events",
 	"experiment_final_test_consumptions", "research_generations", "research_reports", "run_canonical_outputs", "run_checkpoints", "run_manifests", "run_results", "runs", "shadow_sessions", "startup_recovery_attempts", "startup_recovery_evidence", "strategy_definitions", "strategy_parameters", "strategy_portfolios",
 	"strategy_versions", "trend_decisions", "virtual_accounts", "virtual_balances",
-}
-
-// ApplyV1CEngineRoleGrants keeps authenticated engines on distinct database
-// principals and restricts both to V1C execution plus the bounded operational
-// alert records emitted by every process role.
-func ApplyV1CEngineRoleGrants(
-	ctx context.Context,
-	pool *pgxpool.Pool,
-	binanceRole, bybitRole string,
-) error {
-	if pool == nil || !validDistinctRoles([]string{binanceRole, bybitRole}) {
-		return fmt.Errorf("v1c_database_role_invalid")
-	}
-	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("v1c_role_grant_transaction_unavailable")
-	}
-	defer func() { _ = tx.Rollback(context.Background()) }()
-	available, err := existingPublicTables(ctx, tx)
-	if err != nil {
-		return err
-	}
-	tables := filterTableGrants([]tableGrant{
-		{
-			privileges: "SELECT, INSERT, UPDATE",
-			tables: append(
-				append([]string(nil), v1cEngineReadWriteTables...),
-				v1cEngineAlertReadWriteTables...,
-			),
-		},
-		{
-			privileges: "SELECT, INSERT",
-			tables: append(
-				append([]string(nil), v1cEngineAlertAppendTables...),
-				v1cEngineRuntimeAppendTables...,
-			),
-		},
-		{
-			privileges: "SELECT",
-			tables:     v1cEngineReadOnlyTables,
-		},
-	}, available)
-	for _, role := range []string{binanceRole, bybitRole} {
-		if err = applyTableGrants(ctx, tx, role, tables); err != nil {
-			return err
-		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("v1c_role_grant_commit_failed")
-	}
-	return nil
-}
-
-// ApplyC6QualificationRoleGrants restricts the manual soak observer to
-// redacted operational reads and append-only qualification evidence.
-func ApplyC6QualificationRoleGrants(
-	ctx context.Context,
-	pool *pgxpool.Pool,
-	roleName string,
-) error {
-	if pool == nil || !roleNamePattern.MatchString(roleName) {
-		return fmt.Errorf("c6_qualification_role_invalid")
-	}
-	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("c6_qualification_role_transaction_unavailable")
-	}
-	defer func() { _ = tx.Rollback(context.Background()) }()
-	available, err := existingPublicTables(ctx, tx)
-	if err != nil {
-		return err
-	}
-	grants := filterTableGrants([]tableGrant{
-		{privileges: "SELECT", tables: c6QualificationReadTables},
-		{
-			privileges: "SELECT, INSERT",
-			tables:     c6QualificationAppendTables,
-		},
-		{
-			privileges: "UPDATE",
-			tables:     []string{"v1c_c6_qualification_runs"},
-		},
-	}, available)
-	if err = applyTableGrants(ctx, tx, roleName, grants); err != nil {
-		return err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("c6_qualification_role_commit_failed")
-	}
-	return nil
-}
-
-// ApplyRoleGrants applies the closed runtime, recorder, and reporting matrices.
-func ApplyRoleGrants(ctx context.Context, pool *pgxpool.Pool, runtimeRole, recorderRole, readOnlyRole string) error {
-	roles := []string{runtimeRole, recorderRole, readOnlyRole}
-	if pool == nil || !validDistinctRoles(roles) {
-		return fmt.Errorf("database_role_invalid")
-	}
-	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("role_grant_transaction_unavailable")
-	}
-	defer func() { _ = tx.Rollback(context.Background()) }()
-	availableTables, err := existingPublicTables(ctx, tx)
-	if err != nil {
-		return err
-	}
-	grants := roleTableGrants(runtimeRole, recorderRole, readOnlyRole)
-	for _, role := range roles {
-		filtered := filterTableGrants(grants[role], availableTables)
-		if err = applyTableGrants(ctx, tx, role, filtered); err != nil {
-			return err
-		}
-	}
-	if err = applyStrategyFunctionGrants(ctx, tx, runtimeRole); err != nil {
-		return err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("role_grant_commit_failed")
-	}
-	return nil
-}
-
-func roleTableGrants(runtimeRole, recorderRole, readOnlyRole string) map[string][]tableGrant {
-	return map[string][]tableGrant{
-		runtimeRole: {
-			{privileges: "SELECT", tables: runtimeReadTables},
-			{privileges: "SELECT, INSERT", tables: runtimeReadInsertTables},
-			{privileges: "UPDATE", tables: runtimeUpdateTables},
-			{privileges: "DELETE", tables: runtimeDeleteTables},
-		},
-		recorderRole: {
-			{privileges: "SELECT", tables: recorderReadTables},
-			{privileges: "SELECT, INSERT, UPDATE", tables: recorderWriteTables},
-			{privileges: "SELECT, INSERT", tables: recorderAppendTables},
-		},
-		readOnlyRole: {{privileges: "SELECT", tables: readOnlyTables}},
-	}
-}
-
-func applyStrategyFunctionGrants(ctx context.Context, tx pgx.Tx, runtimeRole string) error {
-	role := pgx.Identifier{runtimeRole}.Sanitize()
-	functions := []string{
-		"public.register_b4_claim_resource(text,text,text,text,text,financial_amount,timestamptz)",
-		"public.claim_b4_resources(text,text,text,bigint,text,text,text[],numeric[],timestamptz)",
-		"public.settle_b4_claim_group(text,bigint,bigint,text[],numeric[],boolean,timestamptz)",
-		"public.close_b4_claim_group(text,bigint,bigint,text,timestamptz)",
-		"public.register_b5_claim_resource(text,text,text,text,text,financial_amount,timestamptz)",
-		"public.claim_b5_resources(text,text,bigint,text,text,text[],numeric[],timestamptz)",
-		"public.settle_b5_claim_group(text,bigint,bigint,text[],numeric[],boolean,timestamptz)",
-		"public.close_b5_claim_group(text,bigint,bigint,text,timestamptz)",
-		"public.apply_b7_maturity_promotion(text,text,text,sha256_hex,text,bigint,text,text,text,sha256_hex,text,timestamptz)",
-	}
-	for _, function := range functions {
-		var exists bool
-		if err := tx.QueryRow(ctx,
-			"SELECT pg_catalog.to_regprocedure($1) IS NOT NULL", function,
-		).Scan(&exists); err != nil {
-			return fmt.Errorf("role_function_lookup_failed")
-		}
-		if !exists {
-			continue
-		}
-		if _, err := tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+function+" TO "+role); err != nil {
-			return fmt.Errorf("role_function_grant_failed")
-		}
-	}
-	return nil
+	"owner_console_reason_catalogue", "owner_console_activity_projection", "owner_console_activity_explanations",
+	"owner_console_strategy_controls", "owner_console_risk_controls", "owner_console_export_artifacts",
+	"owner_console_artifact_holds", "owner_console_artifact_access_events", "owner_console_qualification_catalogue",
+	"owner_console_qualification_runs", "owner_console_role_change_events",
+	"owner_console_incident_events", "owner_console_incident_replay_inputs", "owner_console_incident_alert_links",
+	"owner_console_incident_activity_links", "owner_console_incident_resolution_evidence",
+	"owner_console_report_schedules", "owner_console_reports", "owner_console_alert_routes",
+	"owner_console_alert_delivery_attempts", "owner_console_alert_escalations", "owner_console_alert_route_tests",
+	"owner_console_audit_chain", "owner_console_storage_pressure_state", "owner_console_storage_pressure_events",
 }

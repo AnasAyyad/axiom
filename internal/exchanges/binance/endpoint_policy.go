@@ -16,10 +16,36 @@ import (
 )
 
 const (
-	publicEndpointSet = "market-data-only-v1"
-	publicRESTOrigin  = "https://data-api.binance.vision"
-	publicWSOrigin    = "wss://data-stream.binance.vision"
+	publicEndpointSet        = "market-data-only-v1"
+	testnetPublicEndpointSet = "testnet-market-data-only-v1"
+	publicRESTOrigin         = "https://data-api.binance.vision"
+	publicWSOrigin           = "wss://data-stream.binance.vision"
+	testnetPublicRESTOrigin  = "https://testnet.binance.vision"
+	testnetPublicWSOrigin    = "wss://stream.testnet.binance.vision"
 )
+
+type publicEndpointSetDefinition struct {
+	restOrigin string
+	wsOrigin   string
+	host       string
+}
+
+func publicEndpoints(endpointSet string) (publicEndpointSetDefinition, error) {
+	switch endpointSet {
+	case publicEndpointSet:
+		return publicEndpointSetDefinition{
+			restOrigin: publicRESTOrigin, wsOrigin: publicWSOrigin,
+			host: "data-api.binance.vision",
+		}, nil
+	case testnetPublicEndpointSet:
+		return publicEndpointSetDefinition{
+			restOrigin: testnetPublicRESTOrigin, wsOrigin: testnetPublicWSOrigin,
+			host: "testnet.binance.vision",
+		}, nil
+	default:
+		return publicEndpointSetDefinition{}, policyError(exchangecontracts.OperationCapability)
+	}
+}
 
 type publicRoute string
 
@@ -43,8 +69,12 @@ var publicRESTPaths = map[string]publicRoute{
 var deniedHeaders = []string{"Authorization", "Cookie", "X-Mbx-" + "Apikey"}
 
 func validateRESTTarget(method string, target *url.URL, headers http.Header) (publicRoute, error) {
+	return validateRESTTargetForHost("data-api.binance.vision", method, target, headers)
+}
+
+func validateRESTTargetForHost(host, method string, target *url.URL, headers http.Header) (publicRoute, error) {
 	if method != http.MethodGet || target == nil || target.Scheme != "https" ||
-		target.Hostname() != "data-api.binance.vision" || (target.Port() != "" && target.Port() != "443") ||
+		target.Hostname() != host || (target.Port() != "" && target.Port() != "443") ||
 		target.User != nil || target.Fragment != "" || target.RawPath != "" || target.Path != target.EscapedPath() {
 		return "", policyError(exchangecontracts.OperationCapability)
 	}
@@ -111,7 +141,11 @@ func validCandleQuery(query url.Values) bool {
 }
 
 func validateWebSocketTarget(target *url.URL) (publicRoute, error) {
-	if target == nil || target.Scheme != "wss" || target.Hostname() != "data-stream.binance.vision" ||
+	return validateWebSocketTargetForHost("data-stream.binance.vision", target)
+}
+
+func validateWebSocketTargetForHost(host string, target *url.URL) (publicRoute, error) {
+	if target == nil || target.Scheme != "wss" || target.Hostname() != host ||
 		(target.Port() != "" && target.Port() != "443") || target.User != nil || target.Fragment != "" ||
 		target.RawPath != "" || target.Path != target.EscapedPath() {
 		return "", policyError(exchangecontracts.OperationStream)
@@ -330,8 +364,8 @@ func addressFamily(ip net.IP) string {
 	return "ipv6"
 }
 
-func newPublicHTTPClient() *http.Client {
-	dialer := &publicDialer{host: "data-api.binance.vision", resolver: net.DefaultResolver,
+func newPublicHTTPClientFor(host string) *http.Client {
+	dialer := &publicDialer{host: host, resolver: net.DefaultResolver,
 		dialer: net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}}
 	transport := &http.Transport{Proxy: nil, DialContext: dialer.DialContext,
 		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}, TLSHandshakeTimeout: 5 * time.Second,

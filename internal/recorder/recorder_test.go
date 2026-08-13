@@ -16,10 +16,10 @@ import (
 	"axiom/internal/storage/segments"
 )
 
-func TestB1PublicStreamSinkPersistsBybitRawCanonicalAndManifestIdentity(t *testing.T) {
+func TestExchangeExpansionPublicStreamSinkPersistsBybitRawCanonicalAndManifestIdentity(t *testing.T) {
 	root := t.TempDir()
 	committed := make([]segments.Manifest, 0, 2)
-	recorder, err := New(root, "bybit-public-b1", "session-b1-bybit", "bybit",
+	recorder, err := New(root, "bybit-public-exchange_expansion", "session-exchange_expansion-bybit", "bybit",
 		&runtimecore.IngestOrdinals{}, func(manifest segments.Manifest) error {
 			committed = append(committed, manifest)
 			return nil
@@ -69,7 +69,7 @@ func TestB1PublicStreamSinkPersistsBybitRawCanonicalAndManifestIdentity(t *testi
 func TestRecorderLinksWireCanonicalAndValidatesManifestChain(t *testing.T) {
 	root := t.TempDir()
 	committed := make([]segments.Manifest, 0)
-	recorder, err := New(root, "dataset-a7", "session-a7", "binance", &runtimecore.IngestOrdinals{},
+	recorder, err := New(root, "dataset-public-data", "session-public-data", "binance", &runtimecore.IngestOrdinals{},
 		func(manifest segments.Manifest) error {
 			committed = append(committed, manifest)
 			return nil
@@ -130,7 +130,7 @@ func TestDecisionInputUsesRawBeforeCanonicalDatasetBoundary(t *testing.T) {
 
 func verifyFirstManifest(t *testing.T, root string, recorder *Recorder, manifest DatasetManifest) {
 	t.Helper()
-	path := filepath.Join(root, "session-a7-000001.dataset.json")
+	path := filepath.Join(root, "session-public-data-000001.dataset.json")
 	stored, err := ReadManifest(path)
 	if err != nil || stored.Hash != manifest.Hash {
 		t.Fatalf("stored manifest = %#v, %v", stored, err)
@@ -226,7 +226,7 @@ func TestRecorderPeriodicFlushKeepsInFlightSuffix(t *testing.T) {
 }
 
 func TestRecorderFlushRetainsInjectedFilesystemCause(t *testing.T) {
-	recorder, err := New(t.TempDir(), "dataset-a7", "session-a7", "binance",
+	recorder, err := New(t.TempDir(), "dataset-public-data", "session-public-data", "binance",
 		&runtimecore.IngestOrdinals{}, func(segments.Manifest) error { return nil },
 		func(stage segments.Stage) error {
 			if stage == segments.StageCreated {
@@ -437,7 +437,7 @@ func TestDatasetValidationDetectsSegmentMutation(t *testing.T) {
 
 func testRecorder(t *testing.T) (*Recorder, error) {
 	t.Helper()
-	return New(t.TempDir(), "dataset-a7", "session-a7", "binance", &runtimecore.IngestOrdinals{},
+	return New(t.TempDir(), "dataset-public-data", "session-public-data", "binance", &runtimecore.IngestOrdinals{},
 		func(segments.Manifest) error { return nil }, nil)
 }
 
@@ -458,7 +458,7 @@ func rawInput(t *testing.T, sequence uint64, payload []byte) RawInput {
 	t.Helper()
 	now := time.Unix(1_700_000_000+int64(sequence), 0).UTC()
 	return RawInput{Exchange: "binance", EventType: EventDepth, Instrument: recorderInstrument(t),
-		SessionID: "session-a7", ConnectionID: "connection-1", ConnectionGeneration: 1,
+		SessionID: "session-public-data", ConnectionID: "connection-1", ConnectionGeneration: 1,
 		MonotonicOffsetNanos: sequence, RecordedLogicalTime: sequence, SourceSequence: eventID(sequence),
 		ExchangeTime: &now, ReceivedAt: now, Payload: append([]byte(nil), payload...)}
 }

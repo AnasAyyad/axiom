@@ -9,12 +9,12 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-// Evaluator owns immutable B3 rules and performs no external side effect.
+// Evaluator owns immutable mean reversion rules and performs no external side effect.
 type Evaluator struct{ configuration Configuration }
 
 // NewEvaluator constructs one pure deterministic evaluator.
 func NewEvaluator(configuration Configuration) (*Evaluator, error) {
-	if configuration.Version != "mean-reversion.v1b.1" || configuration.Hash == "" ||
+	if configuration.Version != "mean-reversion@1.0.0" || configuration.Hash == "" ||
 		configuration.PrimaryTimeframe != "1h" || configuration.HigherTimeframe != "4h" ||
 		configuration.ZScorePeriod < 2 || configuration.ADXPeriod < 2 || configuration.EMARegimePeriod < 2 ||
 		configuration.EMADeclineLookback < 1 || configuration.ATRPeriod < 1 || configuration.MaximumPositions != 1 {

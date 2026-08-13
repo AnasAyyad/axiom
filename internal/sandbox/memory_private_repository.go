@@ -3,7 +3,9 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
+	"time"
 
+	"axiom/internal/domain"
 	"axiom/internal/execution"
 )
 
@@ -98,8 +100,129 @@ func (repository *memoryDispatcherRepository) reduceMemoryOrderEvent(
 	} else if requiresTerminalReconciliation(reduction.Order.State) {
 		record.State = OutboxUnknown
 	}
+	repository.outbox[id] = record
+	if record.State == OutboxTerminal {
+		repository.advanceMemorySequentialPlan(record, reduction.Order, event.ReceivedAt)
+	}
 	repository.updateMemoryPlanState(record.Submission.PlanID.String(), id, record)
 	return repository.commitMemoryReduction(ctx, event.Identity, id, record, kill)
+}
+
+func (repository *memoryDispatcherRepository) advanceMemorySequentialPlan(
+	completed SubmissionOutbox,
+	order execution.Order,
+	now time.Time,
+) {
+	plan, exists := repository.plans[completed.Submission.PlanID.String()]
+	policy, err := ValidatePlanSaga(plan)
+	if !exists || err != nil || policy != execution.DispatchSequential ||
+		len(plan.Submissions) == 1 {
+		return
+	}
+	if order.State == execution.OrderFilled {
+		nextIndex := completed.LegIndex + 1
+		for id, record := range repository.outbox {
+			if record.Submission.PlanID.String() != plan.ID ||
+				record.LegIndex != nextIndex || record.State != OutboxWaiting ||
+				record.DependsOn == nil || *record.DependsOn != completed.LegIndex {
+				continue
+			}
+			executionActive := plan.ExecutionExpiresAt == nil || now.Before(*plan.ExecutionExpiresAt)
+			output, outputErr := FilledSubmissionOutput(completed.Submission, order)
+			reservationID, reservation, reservationOK := repository.memoryWaitingReservation(record)
+			required, requiredErr := domain.ParseBalance(reservation.Quantity)
+			if !plan.Arm.Active(now) || !executionActive || outputErr != nil ||
+				!reservationOK || requiredErr != nil ||
+				reservation.Asset != string(output.Asset) ||
+				required.Compare(output.Quantity) > 0 {
+				repository.quarantineMemoryWaitingReservations(plan.ID)
+				return
+			}
+			reservation.State = ReservationActive
+			repository.reservations[reservationID] = reservation
+			record.State, record.UpdatedAt = OutboxPending, now
+			repository.outbox[id] = record
+			return
+		}
+		return
+	}
+	if order.State != execution.OrderCanceled && order.State != execution.OrderRejected &&
+		order.State != execution.OrderExpired {
+		return
+	}
+	repository.expireMemoryDependentLegs(plan.ID, completed.LegIndex, now)
+}
+
+func (repository *memoryDispatcherRepository) memoryWaitingReservation(
+	record SubmissionOutbox,
+) (string, DurableReservation, bool) {
+	for id, reservation := range repository.reservations {
+		if reservation.OrderID == record.Submission.OrderID.String() &&
+			reservation.State == ReservationWaiting && reservation.ReleasedAt == nil {
+			return id, reservation, true
+		}
+	}
+	return "", DurableReservation{}, false
+}
+
+func (repository *memoryDispatcherRepository) expireMemoryDependentLegs(
+	planID string,
+	completedIndex uint32,
+	now time.Time,
+) {
+	for id, record := range repository.outbox {
+		if record.Submission.PlanID.String() != planID ||
+			record.LegIndex <= completedIndex || record.State != OutboxWaiting {
+			continue
+		}
+		reducer := repository.reducers[record.Submission.OrderID.String()]
+		_, err := reducer.Reduce(orderEvent(
+			record.Submission, execution.OrderExpired,
+			"dependency_not_filled", 6, now,
+		))
+		if err != nil {
+			record.State, record.UpdatedAt = OutboxWaiting, now
+			repository.outbox[id] = record
+			continue
+		}
+		record.State, record.UpdatedAt = OutboxTerminal, now
+		repository.outbox[id] = record
+		repository.releaseMemoryWaitingReservation(record, now, "dependency_not_filled")
+	}
+}
+
+func (repository *memoryDispatcherRepository) releaseMemoryWaitingReservation(
+	record SubmissionOutbox,
+	now time.Time,
+	reason string,
+) {
+	for id, reservation := range repository.reservations {
+		if reservation.OrderID != record.Submission.OrderID.String() ||
+			reservation.State != ReservationWaiting || reservation.ReleasedAt != nil {
+			continue
+		}
+		releasedAt := now
+		reservation.State, reservation.ReleasedAt = ReservationReleased, &releasedAt
+		reservation.ReleaseReason = reason
+		repository.reservations[id] = reservation
+	}
+}
+
+func (repository *memoryDispatcherRepository) quarantineMemoryWaitingReservations(planID string) {
+	for id, record := range repository.outbox {
+		if record.Submission.PlanID.String() != planID || record.State != OutboxWaiting {
+			continue
+		}
+		for reservationID, reservation := range repository.reservations {
+			if reservation.OrderID == record.Submission.OrderID.String() &&
+				(reservation.State == ReservationWaiting ||
+					reservation.State == ReservationActive) && reservation.ReleasedAt == nil {
+				reservation.State = ReservationQuarantined
+				repository.reservations[reservationID] = reservation
+			}
+		}
+		repository.outbox[id] = record
+	}
 }
 
 func (repository *memoryDispatcherRepository) applyMemoryTerminal(
@@ -120,7 +243,8 @@ func (repository *memoryDispatcherRepository) applyMemoryTerminal(
 		return err
 	}
 	for reservationID, reservation := range repository.reservations {
-		if reservation.OrderID == event.OrderID.String() && reservation.ReleasedAt == nil {
+		if reservation.OrderID == event.OrderID.String() &&
+			reservation.State == ReservationActive && reservation.ReleasedAt == nil {
 			released := event.ReceivedAt
 			reservation.ReleasedAt, reservation.ReleaseReason = &released, string(reduction.Order.State)
 			reservation.State = ReservationReleased
@@ -137,7 +261,32 @@ func (repository *memoryDispatcherRepository) updateMemoryPlanState(
 	planID, replacedID string,
 	replacement SubmissionOutbox,
 ) {
-	terminal, filled, recovery, legs := 0, 0, false, 0
+	progress := repository.memoryPlanProgress(planID, replacedID, replacement)
+	progress.recovery = progress.recovery || repository.hasQuarantinedPlanReservation(planID)
+	plan := repository.plans[planID]
+	waitingAfterExpiredArm := progress.filled > 0 && progress.waiting > 0 && !plan.Arm.Active(replacement.UpdatedAt)
+	switch {
+	case progress.recovery || waitingAfterExpiredArm ||
+		(progress.terminal == progress.legs && progress.filled > 0 && progress.filled < progress.legs):
+		repository.planStates[planID] = "RECOVERY_REQUIRED"
+	case progress.terminal == progress.legs && progress.filled == progress.legs:
+		repository.planStates[planID] = "COMPLETED"
+	case progress.terminal == progress.legs:
+		repository.planStates[planID] = "FAILED"
+	default:
+		repository.planStates[planID] = "ACTIVE"
+	}
+}
+
+type memoryPlanProgress struct {
+	terminal, filled, waiting, legs int
+	recovery                        bool
+}
+
+func (repository *memoryDispatcherRepository) memoryPlanProgress(planID, replacedID string,
+	replacement SubmissionOutbox,
+) memoryPlanProgress {
+	var progress memoryPlanProgress
 	for id, record := range repository.outbox {
 		if id == replacedID {
 			record = replacement
@@ -145,30 +294,39 @@ func (repository *memoryDispatcherRepository) updateMemoryPlanState(
 		if record.Submission.PlanID.String() != planID {
 			continue
 		}
-		legs++
+		progress.legs++
 		order := repository.reducers[record.Submission.OrderID.String()].Snapshot()
+		if record.State == OutboxWaiting {
+			progress.waiting++
+		}
 		if record.State == OutboxUnknown ||
 			order.State == execution.OrderUnknown ||
-			order.State == execution.OrderRecoveryRequired {
-			recovery = true
+			order.State == execution.OrderRecoveryRequired ||
+			order.State == execution.OrderPartiallyFilled {
+			progress.recovery = true
 		}
 		if record.State == OutboxTerminal {
-			terminal++
+			progress.terminal++
 			if order.State == execution.OrderFilled {
-				filled++
+				progress.filled++
 			}
 		}
 	}
-	switch {
-	case recovery || (terminal == legs && filled > 0 && filled < legs):
-		repository.planStates[planID] = "RECOVERY_REQUIRED"
-	case terminal == legs && filled == legs:
-		repository.planStates[planID] = "COMPLETED"
-	case terminal == legs:
-		repository.planStates[planID] = "FAILED"
-	default:
-		repository.planStates[planID] = "ACTIVE"
+	return progress
+}
+
+func (repository *memoryDispatcherRepository) hasQuarantinedPlanReservation(planID string) bool {
+	for _, reservation := range repository.reservations {
+		if reservation.State != ReservationQuarantined {
+			continue
+		}
+		for _, submission := range repository.plans[planID].Submissions {
+			if reservation.OrderID == submission.OrderID.String() {
+				return true
+			}
+		}
 	}
+	return false
 }
 
 func (repository *memoryDispatcherRepository) commitMemoryReduction(

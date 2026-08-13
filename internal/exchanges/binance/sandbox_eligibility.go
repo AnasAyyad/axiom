@@ -2,7 +2,6 @@ package binance
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	"axiom/internal/domain"
@@ -14,84 +13,66 @@ import (
 func (adapter *SandboxAdapter) StartupEligibility(
 	ctx context.Context,
 ) (exchangecontracts.CollectorHealthSnapshot, error) {
-	if adapter == nil || adapter.client == nil {
-		return exchangecontracts.CollectorHealthSnapshot{},
+	items, err := adapter.StrategyEligibility(ctx)
+	if err != nil || len(items) == 0 {
+		return exchangecontracts.CollectorHealthSnapshot{}, ErrSandboxRequest
+	}
+	return items[0], nil
+}
+
+// StrategyEligibility returns one credential-free public-market readiness
+// snapshot per supported sandbox instrument.  Each snapshot is persisted
+// separately so a BTC check can never authorize an ETH session.
+func (adapter *SandboxAdapter) StrategyEligibility(
+	ctx context.Context,
+) ([]exchangecontracts.CollectorHealthSnapshot, error) {
+	if adapter == nil || adapter.client == nil || adapter.marketData == nil {
+		return nil,
 			ErrSandboxRequest
 	}
 	if err := adapter.client.ensureClock(ctx); err != nil {
-		return exchangecontracts.CollectorHealthSnapshot{}, err
-	}
-	for _, instrument := range approvedSandboxInstruments() {
-		if err := adapter.client.validateStartupBook(ctx, instrument); err != nil {
-			return exchangecontracts.CollectorHealthSnapshot{}, err
-		}
+		return nil, err
 	}
 	now := adapter.client.now().UTC()
 	clock := adapter.client.clock.Health()
-	result := exchangecontracts.CollectorHealthSnapshot{
-		ObservedAt:       now,
-		Exchange:         "binance",
-		Instrument:       approvedSandboxInstruments()[0].Symbol(),
-		BookHealth:       "healthy",
-		BookHealthy:      true,
-		BookFresh:        true,
-		BookEligible:     true,
-		ClockEligible:    clock.Eligible,
-		ClockObservedAt:  clock.ObservedAt,
-		ClockOffset:      clock.Offset,
-		ClockUncertainty: clock.Uncertainty,
-		Eligible:         clock.Eligible,
+	if !clock.Eligible || now.Location() != time.UTC {
+		return nil, ErrSandboxRequest
 	}
-	if !result.Eligible || result.ObservedAt.Location() != time.UTC {
-		return exchangecontracts.CollectorHealthSnapshot{},
-			ErrSandboxRequest
+	items := make([]exchangecontracts.CollectorHealthSnapshot, 0, len(approvedSandboxInstruments()))
+	for _, instrument := range approvedSandboxInstruments() {
+		snapshot, err := adapter.marketData.Snapshot(ctx, exchangecontracts.SnapshotRequest{
+			Instrument: instrument, Depth: 100,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if !validStartupSnapshot(snapshot, instrument) {
+			return nil, ErrSandboxRequest
+		}
+		items = append(items, exchangecontracts.CollectorHealthSnapshot{
+			ObservedAt: now, Exchange: "binance", Instrument: instrument.Symbol(),
+			BookHealth: "healthy", BookHealthy: true, BookFresh: true,
+			BookEligible: true, ClockEligible: true, ClockObservedAt: clock.ObservedAt,
+			ClockOffset: clock.Offset, ClockUncertainty: clock.Uncertainty, Eligible: true,
+		})
 	}
-	return result, nil
+	return items, nil
 }
 
-func (client *SandboxClient) validateStartupBook(
-	ctx context.Context,
+func validStartupSnapshot(
+	snapshot exchangecontracts.BookSnapshot,
 	instrument domain.Instrument,
-) error {
-	body, err := client.executeUnsigned(
-		ctx,
-		"/api/v3/depth",
-		url.Values{
-			"limit":  {"5"},
-			"symbol": {instrument.Symbol()},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	var native struct {
-		LastUpdateID uint64     `json:"lastUpdateId"`
-		Bids         [][]string `json:"bids"`
-		Asks         [][]string `json:"asks"`
-	}
-	if strictDecode(body, &native) != nil ||
-		native.LastUpdateID == 0 ||
-		!validTopOfBook(native.Bids, native.Asks) {
-		return ErrSandboxRequest
-	}
-	return nil
-}
-
-func validTopOfBook(bids, asks [][]string) bool {
-	if len(bids) == 0 || len(asks) == 0 ||
-		len(bids[0]) != 2 || len(asks[0]) != 2 {
+) bool {
+	if snapshot.Exchange != "binance" || snapshot.Instrument != instrument ||
+		snapshot.LastSequence == 0 || snapshot.ReceivedAt.Validate() != nil || len(snapshot.Bids) == 0 ||
+		len(snapshot.Asks) == 0 {
 		return false
 	}
-	bid, bidErr := domain.ParsePrice(bids[0][0])
-	ask, askErr := domain.ParsePrice(asks[0][0])
-	bidQty, bidQtyErr := domain.ParseQuantity(bids[0][1])
-	askQty, askQtyErr := domain.ParseQuantity(asks[0][1])
+	bid, ask := snapshot.Bids[0], snapshot.Asks[0]
 	zeroPrice, _ := domain.ParsePrice("0")
 	zeroQty, _ := domain.ParseQuantity("0")
-	return bidErr == nil && askErr == nil &&
-		bidQtyErr == nil && askQtyErr == nil &&
-		bid.Compare(zeroPrice) > 0 &&
-		ask.Compare(bid) > 0 &&
-		bidQty.Compare(zeroQty) > 0 &&
-		askQty.Compare(zeroQty) > 0
+	return bid.Price.Compare(zeroPrice) > 0 &&
+		ask.Price.Compare(bid.Price) > 0 &&
+		bid.Quantity.Compare(zeroQty) > 0 &&
+		ask.Quantity.Compare(zeroQty) > 0
 }

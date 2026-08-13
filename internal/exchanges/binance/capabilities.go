@@ -7,9 +7,9 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-const capabilityVersion = "binance-public-v1a-1"
+const capabilityVersion = "binance-public-data@1.0.0"
 
-// Capabilities returns the explicit credential-free Binance V1A descriptor.
+// Capabilities returns the explicit credential-free Binance initial trend descriptor.
 func Capabilities(observedAt time.Time) (exchangecontracts.Descriptor, error) {
 	capabilities := []exchangecontracts.Capability{
 		supported(exchangecontracts.FeaturePublicMarketData),

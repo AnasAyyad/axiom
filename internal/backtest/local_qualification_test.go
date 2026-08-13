@@ -11,13 +11,13 @@ import (
 	"time"
 )
 
-const a7SourceCommit = "a641cd46694a1975bacdd1597f6bdf1cfed753f6"
+const publicDataQualificationSourceCommit = "a641cd46694a1975bacdd1597f6bdf1cfed753f6"
 
-func TestA8IgnoredLocalDatasetQualification(t *testing.T) {
-	firstRoot := os.Getenv("AXIOM_A8_DATASET_43_ROOT")
-	secondRoot := os.Getenv("AXIOM_A8_DATASET_R2_ROOT")
+func TestStrategyExecutionIgnoredLocalDatasetQualification(t *testing.T) {
+	firstRoot := os.Getenv("AXIOM_STRATEGY_EXECUTION_DATASET_43_ROOT")
+	secondRoot := os.Getenv("AXIOM_STRATEGY_EXECUTION_DATASET_R2_ROOT")
 	if firstRoot == "" || secondRoot == "" {
-		t.Skip("A8 local recording roots are not configured")
+		t.Skip("strategy execution local recording roots are not configured")
 	}
 	firstManifest := selectedManifest(t, firstRoot, 43)
 	secondManifest := selectedManifest(t, secondRoot, 62)
@@ -71,7 +71,7 @@ func qualifyDegradedDataset(t *testing.T, root, manifest string) {
 
 func openLocalReader(t *testing.T, root, manifest string) *DatasetReader {
 	t.Helper()
-	reader, err := OpenDataset(root, manifest, DatasetCompatibility{SourceCommit: a7SourceCommit,
+	reader, err := OpenDataset(root, manifest, DatasetCompatibility{SourceCommit: publicDataQualificationSourceCommit,
 		ParserVersion: "binance-public-parser.v1", NormalizationVersion: "binance-public-normalizer.v1",
 		MinimumRecordsPerPair: 1_000, MaximumLowDensityPairs: 0})
 	if err != nil {

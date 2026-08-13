@@ -278,7 +278,7 @@ func restorationFromCandidate(candidate Candidate) RestorationEconomics {
 }
 
 func candidateRecoveryMaximum(candidate Candidate) uint32 {
-	if candidate.ConfigurationVersion == "cross-exchange.v1b.1" {
+	if candidate.ConfigurationVersion == "cross-exchange-arbitrage@1.0.0" {
 		return 1
 	}
 	return 0

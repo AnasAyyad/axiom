@@ -1,33 +1,19 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useParams } from "react-router";
 
-import { getAPI, newIdempotencyKey, postAPI } from "../api/client";
-import { StatePanel } from "../components/StatePanel";
-import { JobPanel, Lab, RunForm } from "./ResearchLabShared";
-import { emptyRun } from "./researchLabModel";
+import { getAPI } from "../api/client";
+import { sessionQuery } from "../api/queries";
+import { LabRunTools, LabSafetyNote } from "../features/labs/LabRunTools";
+import styles from "./Page.module.css";
+import { JobPanel, Lab } from "./ResearchLabShared";
 
 export { ReplayLab } from "./ReplayLab";
 
 export function BacktestLab() {
   const { id } = useParams();
-  const [form, setForm] = useState(emptyRun);
-  const [jobID, setJobID] = useState(id ?? "");
-  const create = useMutation({
-    mutationFn: () =>
-      postAPI<"JobResource">(
-        "/api/v1/backtests",
-        {
-          configuration_id: form.configuration,
-          dataset_id: form.dataset,
-          research_generation_id: form.researchGeneration,
-          strategy_version: form.strategy,
-          root_seed_hash: form.seed,
-        },
-        newIdempotencyKey("backtest"),
-      ),
-    onSuccess: (job) => setJobID(job.id),
-  });
+  const jobID = id ?? "";
+  const session = useQuery(sessionQuery);
+  const ownerSessionReady = session.isSuccess;
   const job = useQuery({
     queryKey: ["backtest", jobID],
     queryFn: () => getAPI<"JobResource">(`/api/v1/backtests/${jobID}`),
@@ -43,22 +29,33 @@ export function BacktestLab() {
     <Lab
       title="Backtest Lab"
       eyebrow="Deterministic offline research"
-      description="Create a durable Trend backtest from immutable configuration, dataset, strategy, and seed identities."
+      description="Inspect existing deterministic research jobs. New work is created from reviewed server choices."
     >
-      <RunForm
-        form={form}
-        setForm={setForm}
-        label="Launch backtest"
-        pending={create.isPending}
-        submit={() => create.mutate()}
-      />
-      {create.isError && (
-        <StatePanel
-          state="error"
-          detail="The server rejected the run definition or quota."
-        />
+      <LabSafetyNote />
+      {jobID === "" && (
+        <section className={styles.card}>
+          <h2>Start a reviewed backtest</h2>
+          <p>
+            New backtests use the server-approved strategy, venue, instrument,
+            and qualified-input selection. You never need to paste an internal
+            configuration, dataset, or model identifier.
+          </p>
+          <Link className={styles.action} to="/run-lab">
+            Choose a reviewed run
+          </Link>
+        </section>
       )}
-      {job.data && <JobPanel job={job.data} />}
+      {job.data && (
+        <>
+          <JobPanel job={job.data} />
+          <LabRunTools
+            job={job.data}
+            canControl={ownerSessionReady}
+            canExport={ownerSessionReady}
+            refresh={() => job.refetch()}
+          />
+        </>
+      )}
     </Lab>
   );
 }

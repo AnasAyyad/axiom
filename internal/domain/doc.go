@@ -1,2 +1,2 @@
-// Package domain defines Axiom's canonical, deterministic V1A domain values.
+// Package domain defines Axiom's canonical, deterministic initial trend domain values.
 package domain

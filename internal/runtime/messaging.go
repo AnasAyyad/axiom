@@ -55,7 +55,7 @@ type storedResult struct {
 	outbox      []OutboxRecord
 }
 
-// CoordinationSnapshot is restartable conformance state for A3 fault tests.
+// CoordinationSnapshot is restartable conformance state for runtime recovery fault tests.
 type CoordinationSnapshot struct {
 	commands map[string]storedResult
 	inbox    map[string]storedResult
@@ -63,7 +63,7 @@ type CoordinationSnapshot struct {
 	revision uint64
 }
 
-// MemoryCoordinationRepository is the deterministic A3 durable-contract model.
+// MemoryCoordinationRepository is the deterministic runtime recovery durable-contract model.
 type MemoryCoordinationRepository struct {
 	mutex     sync.Mutex
 	commands  map[string]storedResult

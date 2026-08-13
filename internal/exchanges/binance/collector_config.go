@@ -25,7 +25,7 @@ type CollectorConfig struct {
 	LifecycleEvidence exchangecontracts.LifecycleEvidenceSink
 }
 
-// DefaultCollectorConfig returns conservative A7 production-public defaults.
+// DefaultCollectorConfig returns conservative public-data qualification production-public defaults.
 func DefaultCollectorConfig(instrument domain.Instrument) CollectorConfig {
 	return CollectorConfig{Instrument: instrument, SnapshotDepth: 5000, BookDepth: 1000,
 		QueueCapacity: 8192, CandleCapacity: 512, CandleIntervals: []string{"4h"}, MaximumBookAge: 5 * time.Second,

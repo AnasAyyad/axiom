@@ -249,7 +249,7 @@ func TestBybitInitialHealthIsDiagnosedWithoutCreatingResyncSample(t *testing.T) 
 	}
 }
 
-func TestB1ReconnectHonorsRetryAfterWhenItExceedsBackoff(t *testing.T) {
+func TestExchangeExpansionReconnectHonorsRetryAfterWhenItExceedsBackoff(t *testing.T) {
 	collector, _ := newLifecycleTestCollector(t)
 	state := lifecycleState{}
 	_, delay, err := collector.advanceLifecycle(&state, generationOutcome{

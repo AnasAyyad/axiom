@@ -15,10 +15,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestA7RecorderRolePublicIntegration(t *testing.T) {
-	dsn := os.Getenv("AXIOM_A7_RECORDER_ROLE_DSN")
+func TestPublicDataQualificationRecorderRolePublicIntegration(t *testing.T) {
+	dsn := os.Getenv("AXIOM_PUBLIC_DATA_RECORDER_ROLE_DSN")
 	if dsn == "" {
-		t.Skip("AXIOM_A7_RECORDER_ROLE_DSN is required")
+		t.Skip("AXIOM_PUBLIC_DATA_RECORDER_ROLE_DSN is required")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
@@ -30,8 +30,9 @@ func TestA7RecorderRolePublicIntegration(t *testing.T) {
 	if _, err = postgresstore.ApplyMigrations(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
-	runtimeConfig := config.Runtime{InstanceID: "a7-role-integration", Recorder: config.RecorderRuntime{
-		Root: t.TempDir(), FlushInterval: 5 * time.Second, QueueCapacity: 8192, BookDepth: 1000}}
+	runtimeConfig := config.Runtime{InstanceID: "public-data-role-integration", Recorder: config.RecorderRuntime{
+		Root: t.TempDir(), FlushInterval: 5 * time.Second, PressureInterval: 15 * time.Second,
+		HighFreeBytes: 10 << 30, CriticalFreeBytes: 5 << 30, QueueCapacity: 8192, BookDepth: 1000}}
 	clock := &domain.SystemClock{}
 	work, err := newRecorderRoleWork(ctx, pool, runtimeConfig, config.DefaultConfiguration(), clock)
 	if err != nil {

@@ -12,7 +12,7 @@ import (
 	runtimecore "axiom/internal/runtime"
 )
 
-func TestB4DeclaredProfileEvaluatorClaimsAndRiskP99AtMost25Milliseconds(t *testing.T) {
+func TestTriangularArbitrageDeclaredProfileEvaluatorClaimsAndRiskP99AtMost25Milliseconds(t *testing.T) {
 	if raceInstrumentation {
 		t.Skip("latency qualification is invalid under race instrumentation")
 	}
@@ -20,7 +20,7 @@ func TestB4DeclaredProfileEvaluatorClaimsAndRiskP99AtMost25Milliseconds(t *testi
 	candidate := candidateFor(t, input, CycleUSDTBTCETHUSDT, "10")
 	set := NewCandidateClaimFixture(t, candidate, "portfolio-a")
 	now := time.Date(2026, 7, 23, 10, 0, 0, 0, time.UTC)
-	engine, err := newB4PerformanceRiskEngine(now)
+	engine, err := newTriangularArbitragePerformanceRiskEngine(now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestB4DeclaredProfileEvaluatorClaimsAndRiskP99AtMost25Milliseconds(t *testi
 		Policies:     []risk.Policy{triangularRiskPolicy(risk.StateNormal)},
 		Observations: triangularHealthyRiskObservations(), EvaluatedAt: now.Add(time.Second),
 	}
-	durations := measureB4DeclaredProfile(t, input, candidate, set, engine, riskInput)
+	durations := measureTriangularArbitrageDeclaredProfile(t, input, candidate, set, engine, riskInput)
 	sort.Slice(durations, func(left, right int) bool { return durations[left] < durations[right] })
 	p99 := durations[(len(durations)*99+99)/100-1]
 	t.Logf(
@@ -36,11 +36,11 @@ func TestB4DeclaredProfileEvaluatorClaimsAndRiskP99AtMost25Milliseconds(t *testi
 		runtime.Version(), runtime.GOOS, runtime.GOARCH, runtime.NumCPU(), len(durations), p99,
 	)
 	if p99 > 25*time.Millisecond {
-		t.Fatalf("B4 evaluator + atomic claims + central risk p99 %s exceeds 25ms", p99)
+		t.Fatalf("triangular arbitrage evaluator + atomic claims + central risk p99 %s exceeds 25ms", p99)
 	}
 }
 
-func measureB4DeclaredProfile(
+func measureTriangularArbitrageDeclaredProfile(
 	t *testing.T,
 	input EvaluationInput,
 	candidate Candidate,
@@ -59,7 +59,7 @@ func measureB4DeclaredProfile(
 		if _, riskErr := ApproveCandidate(engine, candidate, riskInput, 1_010); riskErr != nil {
 			t.Fatal(riskErr)
 		}
-		reservationID, _ := domain.NewReservationID("b4-p99-" + uintString(uint64(index+1)))
+		reservationID, _ := domain.NewReservationID("triangular_arbitrage-p99-" + uintString(uint64(index+1)))
 		group, claimErr := ClaimCandidate(
 			set, candidate, "portfolio-a", reservationID,
 			runtimecore.FencingToken(1), 1_010,

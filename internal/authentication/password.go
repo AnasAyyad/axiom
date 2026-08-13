@@ -60,7 +60,7 @@ func (PasswordHasher) Verify(password, encoded string) (bool, bool, error) {
 	return valid, valid && !isCurrentProfile(profile), nil
 }
 
-// ValidateBootstrapHash requires the exact initial A11 profile without reading a plaintext password.
+// ValidateBootstrapHash requires the exact initial owner console profile without reading a plaintext password.
 func (PasswordHasher) ValidateBootstrapHash(encoded string) error {
 	profile, err := parsePasswordProfile(encoded)
 	if err != nil || !isCurrentProfile(profile) {

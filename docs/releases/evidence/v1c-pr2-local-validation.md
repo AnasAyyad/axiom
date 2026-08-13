@@ -74,7 +74,7 @@ evidence.
   changes passed C1-C5 and fresh clean/upgrade PostgreSQL gates, and the final
   mechanical split passed affected suites plus the complete `make verify`
 - `scripts/check-file-policy.sh`
-- `scripts/check-v1c-security-boundary.sh`
+- `scripts/check-sandbox-security-boundary.sh`
 - `scripts/check-compose.sh`, including all 1,024 active profile combinations
 - `git diff --check`
 - `govulncheck` against official `golang/vulndb` commit

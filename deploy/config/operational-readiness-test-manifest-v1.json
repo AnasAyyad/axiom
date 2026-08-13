@@ -1,0 +1,33 @@
+{
+  "schema_version": "axiom.operational_readiness.test-manifest.v1",
+  "duration_seconds": 604800,
+  "sample_interval_seconds": 60,
+  "clock_offset_threshold_ms": 100,
+  "fault_schedule_sha256": "2020af06307600fdac4b88bc1ceb3c35e220985dc9ce33d088d8ab77e4fd6c63",
+  "declared_load": [
+    "collectors_and_recording",
+    "coherent_sampling",
+    "strategies_allocator_risk_accounting",
+    "shadow_and_virtual_execution",
+    "api_sse_and_ui",
+    "lab_jobs",
+    "reports_exports_and_alerts",
+    "encrypted_backup_and_clean_restore",
+    "resource_limits"
+  ],
+  "zero_tolerance": [
+    "stale_decision",
+    "uninvalidated_gap",
+    "duplicate_order",
+    "lost_fill",
+    "double_posted_fill",
+    "unbalanced_journal",
+    "replay_mismatch",
+    "production_private_submission",
+    "prohibited_capability"
+  ],
+  "independent_verdicts_not_replaced": [
+    "coherent market-data qualification",
+    "sandbox order and reconciliation qualification"
+  ]
+}

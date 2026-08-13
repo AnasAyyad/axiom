@@ -32,6 +32,26 @@ const command = z
     created_at: timestamp,
   })
   .loose();
+const shadowInputHealth = z
+  .object({
+    exchange: z.enum(["binance", "bybit"]),
+    instrument: z.string().min(3).max(32),
+    state: z.enum([
+      "CONNECTING",
+      "SYNCING",
+      "HEALTHY",
+      "STALE",
+      "PAUSED",
+      "DISCONNECTED",
+      "UNAVAILABLE",
+    ]),
+    reason: z.string().min(1).max(500),
+    fresh: z.boolean(),
+    book_version: revision,
+    age_milliseconds: revision,
+    observed_at: timestamp,
+  })
+  .strict();
 const shadow = z
   .object({
     id: z.string().min(1),
@@ -48,6 +68,83 @@ const shadow = z
     simulation_only: z.literal(true),
     entries_enabled: z.boolean(),
     revision,
+    configuration_id: z.string(),
+    strategy_version: z.string(),
+    decision_dataset_id: z.string(),
+    model_namespace_id: z.string(),
+    accepted_decisions: z.number().int().nonnegative(),
+    rejected_decisions: z.number().int().nonnegative(),
+    journal_transactions: z.number().int().nonnegative(),
+    activity_state: z.enum([
+      "preparing",
+      "warming_up",
+      "waiting",
+      "evaluating",
+      "running",
+      "paused",
+      "blocked",
+      "stopped",
+    ]),
+    waiting_reason_code: z.string().regex(/^[a-z0-9_]{1,96}$/),
+    waiting_reason: z.string().min(1).max(500),
+    next_evaluation_at: timestamp.optional(),
+    trigger_condition: z.string().min(1).max(500),
+    input_health: z.array(shadowInputHealth).max(16),
+    created_at: timestamp,
+    decisions: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            outcome: z.string().min(1),
+            reason_code: z.string().min(1),
+            risk_outcome: z.enum([
+              "approved",
+              "rejected",
+              "paused",
+              "locked",
+              "not_evaluated",
+            ]),
+            risk_reason_code: z.string().min(1),
+            occurred_at: timestamp,
+          })
+          .strict(),
+      )
+      .optional(),
+    balances: z.array(z.object({ asset: z.string() }).loose()).optional(),
+    positions: z.array(z.object({ instrument: z.string() }).loose()).optional(),
+    pnl_attribution: z
+      .object({
+        realized_pnl: decimal,
+        fee_expense: decimal,
+        spread: decimal,
+        slippage: decimal,
+        latency: decimal,
+        valuation_basis: z.literal("sealed_ledger_functional_value"),
+      })
+      .strict()
+      .optional(),
+    data_health: z
+      .object({
+        exchange: z.string().min(1),
+        state: z.string().min(1),
+        reason: z.string().min(1),
+        observed_at: timestamp,
+        fresh: z.boolean(),
+      })
+      .strict()
+      .optional(),
+  })
+  .loose();
+const shadowSummary = z
+  .object({
+    id: z.string().min(1),
+    state: z.string().min(1),
+    revision,
+    configuration_id: z.string().min(1),
+    strategy_version: z.literal("trend-following@1.0.0"),
+    public_only: z.literal(true),
+    simulation_only: z.literal(true),
     created_at: timestamp,
   })
   .loose();
@@ -191,7 +288,7 @@ export const legacyResponseSchemas: ReadonlyArray<
     /^GET \/api\/v1\/strategies\/trend$/,
     z
       .object({
-        version: z.literal("trend.v1a.1"),
+        version: z.literal("trend-following@1.0.0"),
         timeframe: z.literal("4h"),
         health: z.string(),
         evidence_maturity: z.string(),
@@ -215,6 +312,7 @@ export const legacyResponseSchemas: ReadonlyArray<
   [/^GET \/api\/v1\/(backtests|replays)\//, jobSchema],
   [/^POST \/api\/v1\/(backtests|replays)$/, jobSchema],
   [/^GET \/api\/v1\/shadow-sessions\//, shadow],
+  [/^GET \/api\/v1\/shadow-sessions(?:\?.*)?$/, page(shadowSummary)],
   [/^POST \/api\/v1\/shadow-sessions$/, shadow],
   [
     /^GET \/api\/v1\/incidents\?/,

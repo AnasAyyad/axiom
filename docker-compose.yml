@@ -113,7 +113,7 @@ services:
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
-      POSTGRES_C6_QUALIFICATION_USER: ${POSTGRES_C6_QUALIFICATION_USER:-axiom_c6_qualification}
+      POSTGRES_SANDBOX_QUALIFICATION_USER: ${POSTGRES_SANDBOX_QUALIFICATION_USER:-axiom_sandbox_qualification}
       TZ: UTC
     secrets:
       - postgres_owner_password
@@ -124,7 +124,7 @@ services:
       - postgres_readonly_password
       - postgres_binance_engine_password
       - postgres_bybit_engine_password
-      - postgres_c6_qualification_password
+      - postgres_sandbox_qualification_password
     volumes:
       # PostgreSQL official images 18+ use versioned PGDATA below this parent.
       - postgres_data:/var/lib/postgresql
@@ -162,7 +162,7 @@ services:
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
-      POSTGRES_C6_QUALIFICATION_USER: ${POSTGRES_C6_QUALIFICATION_USER:-axiom_c6_qualification}
+      POSTGRES_SANDBOX_QUALIFICATION_USER: ${POSTGRES_SANDBOX_QUALIFICATION_USER:-axiom_sandbox_qualification}
     secrets:
       - postgres_migrator_password
     depends_on:
@@ -260,6 +260,7 @@ services:
     command: ["recorder"]
     environment:
       <<: *runtime-environment
+      APP_CONFIG_FILE: ${EVALUATION_CONFIG_FILE:-/etc/axiom/platform-research.json}
       DB_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
       DB_PASSWORD_FILE: /run/secrets/postgres_recorder_password
       EXECUTION_MODE: shadow
@@ -278,7 +279,8 @@ services:
       RECORDER_FSYNC_ON_FINALIZE: ${RECORDER_FSYNC_ON_FINALIZE:-true}
       RECORDER_RETENTION_DAYS: ${RECORDER_RETENTION_DAYS:-30}
       RECORDER_MIN_FREE_BYTES: ${RECORDER_MIN_FREE_BYTES:-10737418240}
-      RECORDER_DISK_PRESSURE_ACTION: ${RECORDER_DISK_PRESSURE_ACTION:-pause_new_decisions}
+      RECORDER_CRITICAL_FREE_BYTES: ${RECORDER_CRITICAL_FREE_BYTES:-5368709120}
+      RECORDER_PRESSURE_SAMPLE_INTERVAL: ${RECORDER_PRESSURE_SAMPLE_INTERVAL:-15s}
       MARKET_EVENT_QUEUE_CAPACITY: ${MARKET_EVENT_QUEUE_CAPACITY:-16384}
       PERSISTENCE_QUEUE_CAPACITY: ${PERSISTENCE_QUEUE_CAPACITY:-8192}
       ORDER_BOOK_RETAINED_DEPTH: ${ORDER_BOOK_RETAINED_DEPTH:-1000}
@@ -317,6 +319,7 @@ services:
     command: ["worker"]
     environment:
       <<: *runtime-environment
+      APP_CONFIG_FILE: ${EVALUATION_CONFIG_FILE:-/etc/axiom/platform-research.json}
     secrets:
       - postgres_runtime_password
       - health_detail_token
@@ -325,12 +328,16 @@ services:
         source: ${MARKET_DATA_HOST_PATH:-./.local/market-data}
         target: /var/lib/axiom/market-data
         read_only: true
+      - type: bind
+        source: ${EVALUATION_HISTORY_HOST_PATH:-./.local/market-data/evaluation-history}
+        target: /var/lib/axiom/market-data/evaluation-history
     depends_on:
       migrate:
         condition: service_completed_successfully
     networks:
       - core
       - metrics
+      - exchange_egress
     healthcheck:
       test:
         [
@@ -367,11 +374,28 @@ services:
       BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/backup_encryption_key
       BACKUP_DESTINATION: /backups
       BACKUP_RETENTION_GENERATIONS: ${BACKUP_RETENTION_GENERATIONS:-14}
+      BACKUP_DATABASE_FILESYSTEM: /verify/postgres
+      BACKUP_MARKET_DATA_FILESYSTEM: /verify/market-data
+      BACKUP_LOCAL_FILESYSTEM: /verify/local-backup
     secrets:
       - postgres_backup_password
       - backup_encryption_key
     volumes:
-      - backup_data:/backups
+      - type: bind
+        source: ${BACKUP_REMOTE_HOST_PATH:-./.local/unqualified-remote-backups}
+        target: /backups
+      - type: volume
+        source: postgres_data
+        target: /verify/postgres
+        read_only: true
+      - type: bind
+        source: ${MARKET_DATA_HOST_PATH:-./.local/market-data}
+        target: /verify/market-data
+        read_only: true
+      - type: bind
+        source: ${BACKUP_LOCAL_STAGING_HOST_PATH:-./.local/backup-staging}
+        target: /verify/local-backup
+        read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m,mode=0700,uid=10002,gid=70
     depends_on:
@@ -405,11 +429,29 @@ services:
       BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/backup_encryption_key
       BACKUP_DESTINATION: /backups
       BACKUP_RESTORE_MANIFEST: ${BACKUP_RESTORE_MANIFEST:-}
+      BACKUP_REQUIRE_MARKET_RECOVERY: ${BACKUP_REQUIRE_MARKET_RECOVERY:-true}
+      BACKUP_DATABASE_FILESYSTEM: /verify/postgres
+      BACKUP_MARKET_DATA_FILESYSTEM: /verify/market-data
+      BACKUP_LOCAL_FILESYSTEM: /verify/local-backup
     secrets:
       - postgres_migrator_password
       - backup_encryption_key
     volumes:
-      - backup_data:/backups
+      - type: bind
+        source: ${BACKUP_REMOTE_HOST_PATH:-./.local/unqualified-remote-backups}
+        target: /backups
+      - type: volume
+        source: postgres_data
+        target: /verify/postgres
+        read_only: true
+      - type: bind
+        source: ${BACKUP_RESTORE_MARKET_DATA_HOST_PATH:-./.local/unqualified-restored-market-data}
+        target: /verify/market-data
+        read_only: true
+      - type: bind
+        source: ${BACKUP_LOCAL_STAGING_HOST_PATH:-./.local/backup-staging}
+        target: /verify/local-backup
+        read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m,mode=0700,uid=10002,gid=70
     depends_on:
@@ -558,7 +600,7 @@ services:
       - totp_seed
       - binance_canary_request
     volumes:
-      - ${V1C_CANARY_EVIDENCE_ROOT:-./.local/v1c-pr2-canaries}:/var/lib/axiom/canary-evidence
+      - ${SANDBOX_RUNTIME_CANARY_EVIDENCE_ROOT:-./.local/sandbox_runtime-sandbox_connectivity-canaries}:/var/lib/axiom/canary-evidence
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -585,7 +627,7 @@ services:
       - totp_seed
       - bybit_canary_request
     volumes:
-      - ${V1C_CANARY_EVIDENCE_ROOT:-./.local/v1c-pr2-canaries}:/var/lib/axiom/canary-evidence
+      - ${SANDBOX_RUNTIME_CANARY_EVIDENCE_ROOT:-./.local/sandbox_runtime-sandbox_connectivity-canaries}:/var/lib/axiom/canary-evidence
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -704,7 +746,6 @@ volumes:
   grafana_data:
   caddy_data:
   caddy_config:
-  backup_data:
 
 secrets:
   postgres_owner_password:
@@ -737,8 +778,8 @@ secrets:
     file: ${SECRETS_DIR:-./.secrets}/postgres_binance_engine_password
   postgres_bybit_engine_password:
     file: ${SECRETS_DIR:-./.secrets}/postgres_bybit_engine_password
-  postgres_c6_qualification_password:
-    file: ${SECRETS_DIR:-./.secrets}/postgres_c6_qualification_password
+  postgres_sandbox_qualification_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_sandbox_qualification_password
   binance_testnet_api_key:
     file: ${SECRETS_DIR:-./.secrets}/binance_testnet_api_key
   binance_testnet_api_secret:

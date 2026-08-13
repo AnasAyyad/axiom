@@ -10,7 +10,7 @@ import (
 	"axiom/internal/security"
 )
 
-// Sandbox authorization timing and permission constants are fixed V1C policy.
+// Sandbox authorization timing and permission constants are fixed sandbox runtime policy.
 const (
 	// SandboxReauthorizationLifetime is the exact lifetime of one high-risk grant.
 	SandboxReauthorizationLifetime = 2 * time.Minute
@@ -42,6 +42,16 @@ const (
 	PurposeCredentialRotate AuthorizationPurpose = "credential_rotation"
 	// PurposeRevokeAllSessions authorizes global session revocation.
 	PurposeRevokeAllSessions AuthorizationPurpose = "revoke_all_sessions"
+	// PurposeStrategyConfiguration authorizes one versioned strategy configuration change.
+	PurposeStrategyConfiguration AuthorizationPurpose = "strategy_configuration"
+	// PurposeRiskControl authorizes one policy-loosening risk control change.
+	PurposeRiskControl AuthorizationPurpose = "risk_control"
+	// PurposeQualificationStart authorizes one approved formal qualification start.
+	PurposeQualificationStart AuthorizationPurpose = "qualification_start"
+	// PurposeConfigurationActivation authorizes one configuration activation.
+	PurposeConfigurationActivation AuthorizationPurpose = "configuration_activation"
+	// PurposeArtifactHold authorizes one evidence hold.
+	PurposeArtifactHold AuthorizationPurpose = "artifact_hold"
 )
 
 // High-risk authorization errors are deliberately generic to callers.
@@ -61,6 +71,7 @@ type NewSandboxAuthorization struct {
 	SessionRevision                  int64
 	CreatedAt, ExpiresAt             time.Time
 	SourceHash, ReasonHash           string
+	TargetRevision                   *int64
 	Audit                            HighRiskAudit
 }
 
@@ -72,6 +83,7 @@ type HighRiskAudit struct {
 	Outcome, SourceHash        string
 	ReasonHash                 string
 	Revision                   int64
+	TargetRevision             *int64
 	BeforeHash, AfterHash      string
 	PreviousHash, EventHash    string
 	OccurredAt                 time.Time
@@ -91,6 +103,7 @@ type ConsumedAuthorization struct {
 	SourceHash            string
 	ReasonHash            string
 	ConsumedAt            time.Time
+	TargetRevision        *int64
 }
 
 // AuthorizationBindingHash returns the canonical redacted binding used for
@@ -150,6 +163,9 @@ func (service *SandboxAuthorizationService) Reauthenticate(
 	purpose AuthorizationPurpose,
 	source, reason string,
 ) (AuthorizationGrant, error) {
+	if isRevisionBoundPurpose(purpose) {
+		return AuthorizationGrant{}, ErrReauthorizationFailed
+	}
 	now := service.clock.Now().UTC
 	issued := false
 	defer func() {
@@ -161,11 +177,45 @@ func (service *SandboxAuthorizationService) Reauthenticate(
 	if err != nil {
 		return AuthorizationGrant{}, err
 	}
-	write, token, err := newSandboxAuthorizationWrite(principal, purpose, source, reason, counter, now)
+	write, token, err := newSandboxAuthorizationWrite(principal, purpose, source, reason, counter, nil, now)
 	if err != nil {
 		return AuthorizationGrant{}, ErrReauthorizationFailed
 	}
 	if err = service.store.CreateSandboxAuthorization(ctx, write); err != nil {
+		return AuthorizationGrant{}, ErrReauthorizationFailed
+	}
+	issued = true
+	return AuthorizationGrant{Token: token, Purpose: purpose, ExpiresAt: write.ExpiresAt}, nil
+}
+
+// ReauthenticateForRevision issues a grant bound to one positive target
+// revision. owner control high-risk commands must consume and match that exact revision.
+func (service *SandboxAuthorizationService) ReauthenticateForRevision(
+	ctx context.Context,
+	principal Principal,
+	password, code string,
+	purpose AuthorizationPurpose,
+	targetRevision int64,
+	source, reason string,
+) (AuthorizationGrant, error) {
+	if targetRevision <= 0 || !isRevisionBoundPurpose(purpose) {
+		return AuthorizationGrant{}, ErrReauthorizationFailed
+	}
+	now := service.clock.Now().UTC
+	issued := false
+	defer func() {
+		if !issued {
+			service.recordRejectedAttempt(ctx, principal, purpose, source, reason, now)
+		}
+	}()
+	counter, err := service.verifyReauthentication(ctx, principal, password, code, purpose, reason, now)
+	if err != nil {
+		return AuthorizationGrant{}, err
+	}
+	write, token, err := newSandboxAuthorizationWrite(
+		principal, purpose, source, reason, counter, &targetRevision, now,
+	)
+	if err != nil || service.store.CreateSandboxAuthorization(ctx, write) != nil {
 		return AuthorizationGrant{}, ErrReauthorizationFailed
 	}
 	issued = true
@@ -204,6 +254,7 @@ func newSandboxAuthorizationWrite(
 	purpose AuthorizationPurpose,
 	source, reason string,
 	counter int64,
+	targetRevision *int64,
 	now time.Time,
 ) (NewSandboxAuthorization, string, error) {
 	id, err := newIdentifier("sandbox-auth")
@@ -224,7 +275,8 @@ func newSandboxAuthorizationWrite(
 	audit := HighRiskAudit{
 		ID: auditID, ActorUserID: principal.UserID, SessionID: principal.SessionID,
 		Purpose: purpose, Outcome: "authorization_issued", SourceHash: sourceHash,
-		ReasonHash: reasonHash, Revision: principal.SessionRevision, OccurredAt: now,
+		ReasonHash: reasonHash, Revision: principal.SessionRevision,
+		TargetRevision: targetRevision, OccurredAt: now,
 		EventHash: stableHash(auditID, principal.UserID, principal.SessionID, string(purpose),
 			"authorization_issued", sourceHash, reasonHash, now.Format(time.RFC3339Nano)),
 	}
@@ -232,7 +284,8 @@ func newSandboxAuthorizationWrite(
 		ID: id, TokenHash: tokenHash(token), UserID: principal.UserID, SessionID: principal.SessionID,
 		Purpose: purpose, TOTPCounter: counter, SessionRevision: principal.SessionRevision,
 		CreatedAt: now, ExpiresAt: expires,
-		SourceHash: sourceHash, ReasonHash: reasonHash, Audit: audit,
+		SourceHash: sourceHash, ReasonHash: reasonHash,
+		TargetRevision: targetRevision, Audit: audit,
 	}, token, nil
 }
 
@@ -285,45 +338,4 @@ func (service *SandboxAuthorizationService) RevokeAll(
 		return 0, ErrAuthorizationInvalid
 	}
 	return count, nil
-}
-
-func validPurpose(purpose AuthorizationPurpose) bool {
-	switch purpose {
-	case PurposeSandboxArm, PurposeRiskUnlock, PurposeCredentialRotate, PurposeRevokeAllSessions:
-		return true
-	default:
-		return false
-	}
-}
-
-func permissionForPurpose(purpose AuthorizationPurpose) string {
-	if purpose == PurposeSandboxArm {
-		return PermissionSandboxArm
-	}
-	return PermissionSandboxAdmin
-}
-
-func (service *SandboxAuthorizationService) recordRejectedAttempt(
-	ctx context.Context,
-	principal Principal,
-	purpose AuthorizationPurpose,
-	source, reason string,
-	now time.Time,
-) {
-	if principal.UserID == "" || principal.SessionID == "" || principal.SessionRevision <= 0 ||
-		!validPurpose(purpose) {
-		return
-	}
-	id, err := newIdentifier("audit")
-	if err != nil {
-		return
-	}
-	sourceHash, reasonHash := stableHash(strings.TrimSpace(source)), stableHash(strings.TrimSpace(reason))
-	_ = service.store.AppendHighRiskAudit(ctx, HighRiskAudit{
-		ID: id, ActorUserID: principal.UserID, SessionID: principal.SessionID,
-		Purpose: purpose, Outcome: "authorization_rejected", SourceHash: sourceHash,
-		ReasonHash: reasonHash, Revision: principal.SessionRevision, OccurredAt: now,
-		EventHash: stableHash(id, principal.UserID, principal.SessionID, string(purpose),
-			"authorization_rejected", sourceHash, reasonHash, now.Format(time.RFC3339Nano)),
-	})
 }

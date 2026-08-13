@@ -32,7 +32,7 @@ func TestCandidateClaimsAreAtomicFencedRestartSafeAndExclusive(t *testing.T) {
 		wait.Add(1)
 		go func(index int) {
 			defer wait.Done()
-			id, _ := domain.NewReservationID("b5-claim-" + string(rune('a'+index)))
+			id, _ := domain.NewReservationID("cross_exchange_arbitrage-claim-" + string(rune('a'+index)))
 			group, claimErr := ClaimCandidate(set, candidate, id, runtimecore.FencingToken(index+1), 200)
 			if claimErr == nil {
 				success <- group

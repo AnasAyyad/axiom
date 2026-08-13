@@ -54,9 +54,25 @@ var (
 	_ exchangecontracts.CapabilitySource  = (*PublicClient)(nil)
 )
 
+// RestoreStreamGeneration advances a brand-new client's generation fence
+// before subscriptions resume a durable recorder session.
+func (client *PublicClient) RestoreStreamGeneration(last uint64) error {
+	if client == nil || !client.streamGeneration.CompareAndSwap(0, last) {
+		return policyError(exchangecontracts.OperationStream)
+	}
+	return nil
+}
+
 // NewPublicClient accepts only the compiled Bybit public endpoint-set identifier.
 func NewPublicClient(endpointSet string, clock domain.Clock) (*PublicClient, error) {
 	return NewPublicClientWithMonotonic(endpointSet, clock, exchangecontracts.NewProcessMonotonicSource())
+}
+
+// NewMarketPublicClient constructs the fixed, credential-free production
+// Spot market source used by Demo strategy coordination. No endpoint, header,
+// signer, key, or authenticated route is caller-configurable.
+func NewMarketPublicClient(clock domain.Clock) (*PublicClient, error) {
+	return NewPublicClient(publicEndpointSet, clock)
 }
 
 // NewPublicClientWithMonotonic binds Bybit to a caller-owned cross-exchange ordering epoch.

@@ -44,7 +44,7 @@ type leaseSlot struct {
 	lastToken FencingToken
 }
 
-// MemoryLeaseRepository is the deterministic A3 conformance repository.
+// MemoryLeaseRepository is the deterministic runtime recovery conformance repository.
 type MemoryLeaseRepository struct {
 	mutex     sync.Mutex
 	available bool

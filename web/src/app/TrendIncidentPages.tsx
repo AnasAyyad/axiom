@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 
 import { getAPI } from "../api/client";
 import {
@@ -151,12 +151,6 @@ export function IncidentDetailPage() {
     detail.replay_window.dataset_id !== "" &&
     detail.replay_window.first_ordinal !== "" &&
     detail.replay_window.last_ordinal !== "";
-  const replay = new URLSearchParams({
-    incident: detail.id,
-    dataset: detail.replay_window.dataset_id,
-    first: detail.replay_window.first_ordinal,
-    last: detail.replay_window.last_ordinal,
-  });
   return (
     <Page
       title={`Incident ${detail.id}`}
@@ -182,8 +176,8 @@ export function IncidentDetailPage() {
         />
       </div>
       {replayAvailable ? (
-        <Link className={styles.action} to={`/replays?${replay.toString()}`}>
-          Prepare incident replay
+        <Link className={styles.action} to="/run-lab">
+          Choose a reviewed replay
         </Link>
       ) : (
         <StatePanel
@@ -206,7 +200,7 @@ export function IncidentDetailPage() {
         {includeRaw && rawIncident.isError && (
           <StatePanel
             state="forbidden"
-            detail="The current role cannot inspect raw evidence identities."
+            detail="The current owner session cannot inspect raw evidence identities."
           />
         )}
       </section>

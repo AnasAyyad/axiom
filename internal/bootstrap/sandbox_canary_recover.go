@@ -21,7 +21,7 @@ type sandboxCanaryRecovery struct {
 // it has no create path and receives no exchange credentials.
 func recoverSandboxCanaryPrepare(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	configurationID string,
 	exchange sandbox.Exchange,
 	canaryID string,
@@ -47,7 +47,7 @@ func recoverSandboxCanaryPrepare(
 
 func finishRecoveredSandboxCanary(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	canaryID string,
 	recovery sandboxCanaryRecovery,
@@ -85,7 +85,7 @@ func finishRecoveredSandboxCanary(
 
 func loadSandboxCanaryRecovery(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	configurationID string,
 	exchange sandbox.Exchange,
 	canaryID string,
@@ -129,7 +129,7 @@ func loadSandboxCanaryRecovery(
 
 func recoverSandboxCanaryQuery(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	recovery sandboxCanaryRecovery,
 ) error {
 	if recovery.stages[sandbox.CanaryQuerySucceeded] {
@@ -147,7 +147,7 @@ func recoverSandboxCanaryQuery(
 
 func recoverSandboxCanaryTerminal(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	recovery sandboxCanaryRecovery,
 ) error {
 	if recovery.stages[sandbox.CanaryCancelOrFillConfirmed] {
@@ -169,7 +169,7 @@ func recoverSandboxCanaryTerminal(
 
 func recoverSandboxCanaryReconciliation(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	recovery sandboxCanaryRecovery,
 ) error {
 	if recovery.stages[sandbox.CanaryReconciled] {
@@ -197,7 +197,7 @@ func recoverSandboxCanaryReconciliation(
 
 func completeSandboxCanaryRecovery(
 	ctx context.Context,
-	store *postgresstore.V1CDispatcherStore,
+	store *postgresstore.SandboxRuntimeDispatcherStore,
 	exchange sandbox.Exchange,
 	canaryID string,
 	recovery sandboxCanaryRecovery,

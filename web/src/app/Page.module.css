@@ -9,6 +9,13 @@
   justify-content: space-between;
   gap: 1rem;
 }
+
+.pageHelp {
+  max-width: 42rem;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
 .header h1 {
   margin: 0;
   font: 700 clamp(2rem, 5vw, 3.4rem) / 1 var(--font-display);
@@ -51,6 +58,12 @@
 .card h3 {
   margin: 0 0 0.75rem;
   font: 650 0.95rem var(--font-display);
+}
+.card progress {
+  width: 100%;
+  height: 0.65rem;
+  margin-bottom: 1rem;
+  accent-color: var(--color-accent);
 }
 .cardGrid {
   display: grid;
@@ -343,6 +356,16 @@
   .header {
     align-items: start;
     flex-direction: column;
+  }
+  .cardHeading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .tabs {
+    width: 100%;
+  }
+  .tabs button {
+    flex: 1;
   }
   .evidenceGrid,
   .filterBar {

@@ -91,14 +91,17 @@ export function SandboxResetGrid({
 export function SandboxQualificationPanel({
   qualification,
 }: {
-  readonly qualification: APIModel<"C6QualificationStatus">;
+  readonly qualification: APIModel<"SandboxQualificationStatus">;
 }) {
   return (
-    <section className={styles.card} aria-labelledby="c6-qualification-heading">
+    <section
+      className={styles.card}
+      aria-labelledby="sandbox-qualification-heading"
+    >
       <header>
         <div>
-          <span>C6 chaos and soak</span>
-          <h2 id="c6-qualification-heading">{qualification.state}</h2>
+          <span>Sandbox chaos and soak</span>
+          <h2 id="sandbox-qualification-heading">{qualification.state}</h2>
         </div>
         <strong data-state={qualification.qualified ? "good" : "warn"}>
           {qualification.qualified ? "FORMALLY QUALIFIED" : "NOT QUALIFIED"}
@@ -159,7 +162,7 @@ export function SandboxQualificationPanel({
           value={qualification.failures.join(", ") || "none"}
         />
       </dl>
-      <div aria-label="C6 bounded recovery incidents">
+      <div aria-label="Sandbox qualification bounded recovery incidents">
         <h3>Bounded read-only recovery</h3>
         {qualification.recovery_incidents.length === 0 ? (
           <p>No permitted recovery incident observed.</p>
@@ -168,9 +171,9 @@ export function SandboxQualificationPanel({
             <p key={`${incident.account_id}-${incident.detected_at}`}>
               {incident.account_id} · {incident.exchange} /{" "}
               {incident.environment} · {incident.incident_source} ·{" "}
-              {incident.state} ·{" "}
-              {incident.reason_category} / {incident.cause_code} · clean checks{" "}
-              {incident.clean_check_count} · deadline {incident.deadline_at}
+              {incident.state} · {incident.reason_category} /{" "}
+              {incident.cause_code} · clean checks {incident.clean_check_count}{" "}
+              · deadline {incident.deadline_at}
               {incident.recovery_timestamp
                 ? ` · recovered ${incident.recovery_timestamp}`
                 : ""}

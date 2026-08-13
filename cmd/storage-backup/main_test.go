@@ -149,4 +149,23 @@ func TestRestoreVerificationQueriesCoverCleanTargetAndAccountingTruth(t *testing
 			t.Fatalf("restore-integrity query omits %s", required)
 		}
 	}
+	for _, required := range []string{"market_data_segments", "state='ready'", "checksum::text", "order by id"} {
+		if !strings.Contains(strings.ToLower(restoredMarketSegmentsQuery), required) {
+			t.Fatalf("market recovery query omits %s", required)
+		}
+	}
+}
+
+func TestMarketRecoveryBooleanIsExact(t *testing.T) {
+	for value, expected := range map[string]bool{"true": true, "false": false} {
+		actual, err := strictBoolean(value)
+		if err != nil || actual != expected {
+			t.Fatalf("strictBoolean(%q)=%t,%v", value, actual, err)
+		}
+	}
+	for _, value := range []string{"1", "TRUE", "yes", ""} {
+		if _, err := strictBoolean(value); err == nil {
+			t.Fatalf("non-canonical boolean accepted: %q", value)
+		}
+	}
 }

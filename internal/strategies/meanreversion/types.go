@@ -10,7 +10,7 @@ import (
 	exchangecontracts "axiom/internal/exchanges/contracts"
 )
 
-// Stable B3 mean-reversion reason codes.
+// Stable mean reversion mean-reversion reason codes.
 const (
 	ReasonEntryAccepted        = "mean_reversion.entry.accepted"
 	ReasonExitATRStop          = "mean_reversion.exit.atr_stop"
@@ -115,7 +115,7 @@ type SizingState struct {
 	FencingToken         uint64                    `json:"fencing_token"`
 }
 
-// Input is one immutable dual-timeframe B3 evaluation request.
+// Input is one immutable dual-timeframe mean reversion evaluation request.
 type Input struct {
 	Ordinal               uint64                     `json:"ordinal"`
 	LogicalTime           uint64                     `json:"logical_time"`
@@ -133,7 +133,7 @@ type Input struct {
 	Evidence              InputEvidence              `json:"evidence"`
 }
 
-// Explanation is the complete stable B3 decision explanation.
+// Explanation is the complete stable mean reversion decision explanation.
 type Explanation struct {
 	ReasonCode         string            `json:"reason_code"`
 	Evidence           InputEvidence     `json:"evidence"`

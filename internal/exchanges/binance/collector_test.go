@@ -29,8 +29,8 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	go func() { done <- collector.Run(ctx) }()
 	waitFor(t, func() bool {
 		view, viewErr := collector.Views().Book(collectorExchange, instrument)
-		return viewErr == nil && view.Health() == marketdata.HealthHealthy && view.Sequence() == 101 &&
-			collector.Stats().DepthUpdates == 1
+		return collector.HealthSnapshot().Eligible && viewErr == nil &&
+			view.Health() == marketdata.HealthHealthy && view.Sequence() == 101 && collector.Stats().DepthUpdates == 1
 	})
 	view, _ := collector.Views().Book(collectorExchange, instrument)
 	bids := view.Bids()

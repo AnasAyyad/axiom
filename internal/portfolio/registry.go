@@ -24,13 +24,35 @@ type MemoryAssetRegistry struct {
 	items map[domain.AssetSymbol]AssetEligibility
 }
 
-// NewAssetRegistry constructs the required approved V1A registry at version one.
+// NewAssetRegistry constructs the required approved initial trend registry at version one.
 func NewAssetRegistry() *MemoryAssetRegistry {
 	items := make(map[domain.AssetSymbol]AssetEligibility)
 	for _, asset := range domain.DefaultAssets() {
 		items[asset.Symbol] = AssetEligibility{Asset: asset.Symbol, Status: asset.Status, Version: 1}
 	}
 	return &MemoryAssetRegistry{items: items}
+}
+
+// NewSnapshotAssetRegistry constructs an immutable decision-time registry
+// from already-authoritative eligibility facts. Unlike Set, it does not invent
+// intermediate revisions to reach a version supplied by a durable snapshot.
+// It is intended for a one-evaluation projection only; every later durable
+// plan boundary must still recheck current asset eligibility.
+func NewSnapshotAssetRegistry(items []AssetEligibility) (*MemoryAssetRegistry, error) {
+	if len(items) == 0 {
+		return nil, portfolioError("asset_registry_snapshot_invalid")
+	}
+	registry := &MemoryAssetRegistry{items: make(map[domain.AssetSymbol]AssetEligibility, len(items))}
+	for _, item := range items {
+		if item.Asset == "" || item.Status != domain.AssetApproved || item.Version == 0 {
+			return nil, portfolioError("asset_registry_snapshot_invalid")
+		}
+		if _, exists := registry.items[item.Asset]; exists {
+			return nil, portfolioError("asset_registry_snapshot_invalid")
+		}
+		registry.items[item.Asset] = item
+	}
+	return registry, nil
 }
 
 // Current returns the exact current asset fact.

@@ -12,7 +12,7 @@ import (
 const maximumCoherentClockAge = 30 * time.Second
 
 // CoherentInput converts one healthy immutable book and bounded clock sample
-// into the complete evidence required by the B2 coherent-view authority.
+// into the complete evidence required by the coherent market data coherent-view authority.
 func CoherentInput(
 	view BookView,
 	clock exchangecontracts.ClockHealth,

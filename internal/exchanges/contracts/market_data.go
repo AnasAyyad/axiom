@@ -2,6 +2,8 @@ package exchangecontracts
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"axiom/internal/domain"
@@ -10,7 +12,7 @@ import (
 // Operation identifies a narrow exchange-boundary action for policy and errors.
 type Operation string
 
-// Public operations are callable in V1A. The remaining values exist only for
+// Public operations are callable in initial trend. The remaining values exist only for
 // capability and retry classification and expose no transport methods.
 const (
 	OperationCapability Operation = "capability"
@@ -116,11 +118,12 @@ type Candle struct {
 
 // InstrumentRecord combines canonical metadata with preserved native facts.
 type InstrumentRecord struct {
-	Exchange       ExchangeID                `json:"exchange"`
-	NativeSymbol   string                    `json:"native_symbol"`
-	NativeStatus   string                    `json:"native_status"`
-	Metadata       domain.InstrumentMetadata `json:"metadata"`
-	RawPayloadHash string                    `json:"raw_payload_hash"`
+	Exchange        ExchangeID                `json:"exchange"`
+	NativeSymbol    string                    `json:"native_symbol"`
+	NativeStatus    string                    `json:"native_status"`
+	Metadata        domain.InstrumentMetadata `json:"metadata"`
+	MaximumQuantity domain.Quantity           `json:"maximum_quantity"`
+	RawPayloadHash  string                    `json:"raw_payload_hash"`
 }
 
 // SnapshotRequest asks for one bounded public order-book snapshot.
@@ -143,6 +146,44 @@ type CandleRequest struct {
 	Interval string
 }
 
+// HistoricalCandlePage preserves the exact public REST response beside its
+// normalized candle rows. Every candle carries RawPayloadHash, providing a
+// deterministic raw-to-canonical link without inventing order-book history.
+type HistoricalCandlePage struct {
+	Exchange       ExchangeID
+	Instrument     domain.Instrument
+	Interval       string
+	Start          time.Time
+	End            time.Time
+	ReceivedAt     domain.EventTime
+	RawPayload     []byte
+	RawPayloadHash string
+	Candles        []Candle
+}
+
+// Valid rejects incomplete or unlinked page evidence.
+func (page HistoricalCandlePage) Valid() bool {
+	instrument, instrumentErr := domain.NewSpotInstrument(page.Instrument.Base, page.Instrument.Quote)
+	if page.Exchange == "" || instrumentErr != nil || instrument != page.Instrument || page.Interval == "" ||
+		page.Start.IsZero() || page.End.Before(page.Start) || page.ReceivedAt.Validate() != nil ||
+		len(page.RawPayload) == 0 || len(page.Candles) == 0 {
+		return false
+	}
+	digest := sha256.Sum256(page.RawPayload)
+	if hex.EncodeToString(digest[:]) != page.RawPayloadHash {
+		return false
+	}
+	for index, candle := range page.Candles {
+		if candle.Exchange != page.Exchange || candle.Instrument != page.Instrument ||
+			candle.Interval != page.Interval || candle.RawPayloadHash != page.RawPayloadHash ||
+			!candle.Closed || candle.OpenTime.IsZero() || candle.CloseTime.Before(candle.OpenTime) ||
+			(index > 0 && !page.Candles[index-1].OpenTime.Before(candle.OpenTime)) {
+			return false
+		}
+	}
+	return true
+}
+
 // StreamRequest asks for one public stream generation.
 type StreamRequest struct {
 	Instrument      domain.Instrument
@@ -153,7 +194,7 @@ type StreamRequest struct {
 // StreamKind is one canonical public stream payload class.
 type StreamKind string
 
-// Supported V1A public stream kinds.
+// Supported initial trend public stream kinds.
 const (
 	StreamDepth     StreamKind = "depth"
 	StreamTrades    StreamKind = "trades"
@@ -195,6 +236,13 @@ type InstrumentCatalog interface {
 type HistoricalReader interface {
 	Trades(context.Context, HistoryRequest) ([]Trade, error)
 	Candles(context.Context, CandleRequest) ([]Candle, error)
+}
+
+// HistoricalPageReader is the evidence-preserving history boundary used by
+// the evaluation importer. It is public-data-only and exposes no signer or
+// order-submission capability.
+type HistoricalPageReader interface {
+	CandlePage(context.Context, CandleRequest) (HistoricalCandlePage, error)
 }
 
 // CapabilitySource exposes an immutable capability descriptor.

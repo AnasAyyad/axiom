@@ -52,7 +52,7 @@ func persistSandboxCanaryEvidence(
 	directory, path string,
 	encoded []byte,
 ) error {
-	file, err := os.CreateTemp(filepath.Clean(directory), ".v1c-canary-")
+	file, err := os.CreateTemp(filepath.Clean(directory), ".sandbox_runtime-canary-")
 	if err != nil {
 		return fmt.Errorf("sandbox_canary_evidence_create_failed")
 	}

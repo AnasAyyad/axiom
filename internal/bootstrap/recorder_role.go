@@ -2,30 +2,23 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"log/slog"
-	"math"
 	"os"
 	"path/filepath"
-	"sort"
-	"sync"
 	"time"
 
 	"axiom/internal/buildinfo"
 	"axiom/internal/config"
 	"axiom/internal/domain"
+	"axiom/internal/evaluation"
 	"axiom/internal/exchanges/binance"
 	"axiom/internal/exchanges/bybit"
 	exchangecontracts "axiom/internal/exchanges/contracts"
 	marketrecorder "axiom/internal/recorder"
 	runtimecore "axiom/internal/runtime"
 	postgresstore "axiom/internal/storage/postgres"
-	postgresgenerated "axiom/internal/storage/postgres/generated"
-	"axiom/internal/storage/segments"
+	"axiom/internal/storage/pressure"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -36,69 +29,151 @@ type recorderRoleWork struct {
 	bybitClient     *bybit.PublicClient
 	bybitCollectors map[domain.Instrument]*bybit.InstrumentCollector
 	bybitRecorder   *marketrecorder.Recorder
-	catalog         *postgresstore.A11DatasetCatalog
-	metadata        *postgresstore.A11ShadowStore
+	catalog         *postgresstore.RecordedDatasetCatalog
+	metadata        *postgresstore.PublicShadowStore
 	commit          string
 	flush           time.Duration
+	pressurePolicy  pressure.Policy
+	pressureStore   storagePressureWriter
+	pressureProbe   func(string, time.Time) (pressure.Observation, error)
+	root            string
+	session         string
+	rotationControl *postgresstore.EvaluationRecorderControlStore
+	startupRotation *postgresstore.EvaluationRecorderRotation
 }
 
-func newRecorderRoleWork(
-	ctx context.Context,
-	pool *pgxpool.Pool,
-	runtimeConfig config.Runtime,
-	product config.Configuration,
-	clock domain.Clock,
-) (*recorderRoleWork, error) {
+type recorderRoleResumeState struct {
+	binanceRoot, bybitRoot                          string
+	lastOrdinal, binanceGeneration, bybitGeneration uint64
+	binanceFound, bybitFound                        bool
+}
+
+func newRecorderRoleWork(ctx context.Context, pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	product config.Configuration, clock domain.Clock) (*recorderRoleWork, error) {
 	if err := os.MkdirAll(runtimeConfig.Recorder.Root, 0o750); err != nil {
 		return nil, fmt.Errorf("recorder_root_unavailable")
 	}
 	exchanges := product.PublicExchanges()
-	monotonic := exchangecontracts.NewProcessMonotonicSource()
-	client, err := binance.NewRecorderPublicClientWithMonotonic(exchanges[0].EndpointSet, clock, monotonic)
+	rotationControl, rotation, campaignSession, session, err := evaluationRecorderStartup(ctx, pool,
+		runtimeConfig.InstanceID, clock)
 	if err != nil {
 		return nil, err
 	}
-	session := recorderSession(runtimeConfig.InstanceID, time.Now().UTC())
-	ordinals := &runtimecore.IngestOrdinals{}
-	root := recorderExchangeRoot(runtimeConfig.Recorder.Root, "binance", len(exchanges))
-	streamRecorder, err := newBinanceStreamRecorder(root, session, runtimeConfig, len(exchanges), ordinals, pool)
+	resume, err := loadRecorderRoleResume(runtimeConfig.Recorder.Root, session, len(exchanges))
 	if err != nil {
 		return nil, err
 	}
-	catalog, metadataStore, err := newRecorderStores(pool, runtimeConfig.InstanceID, clock)
+	if campaignSession && rotation.State == "ACTIVE" && rotation.ValidSeconds > 0 &&
+		(!resume.binanceFound || (len(exchanges) == 2 && !resume.bybitFound)) {
+		_ = rotationControl.Block(ctx, rotation.CampaignID, evaluation.ReasonPersistenceFailed)
+		return nil, fmt.Errorf("evaluation_recorder_resume_evidence_missing")
+	}
+	work, ordinals, monotonic, err := newPrimaryRecorderRole(pool, runtimeConfig, exchanges, session, resume, clock)
 	if err != nil {
 		return nil, err
 	}
-	sink, err := marketrecorder.NewBinanceStreamSink(streamRecorder)
-	if err != nil {
+	work.rotationControl = rotationControl
+	if err = configureRecorderPressure(work, pool, runtimeConfig.InstanceID); err != nil {
 		return nil, err
 	}
-	collectors, err := newBinanceCollectors(exchanges[0], runtimeConfig.Recorder, client, sink, clock)
-	if err != nil {
-		return nil, err
-	}
-	work := &recorderRoleWork{client: client, collectors: collectors, recorder: streamRecorder,
-		catalog: catalog, metadata: metadataStore, commit: buildinfo.Current().Commit,
-		flush: runtimeConfig.Recorder.FlushInterval}
 	if len(exchanges) == 2 {
 		if err = work.addBybit(runtimeConfig.InstanceID, runtimeConfig.Recorder, exchanges[1], session, ordinals,
-			pool, clock, monotonic); err != nil {
+			pool, clock, monotonic, resume.bybitFound, resume.bybitGeneration); err != nil {
 			return nil, err
 		}
+	}
+	if campaignSession {
+		work.startupRotation = &rotation
 	}
 	return work, nil
 }
 
+func evaluationRecorderStartup(ctx context.Context, pool *pgxpool.Pool, instance string,
+	clock domain.Clock) (*postgresstore.EvaluationRecorderControlStore, postgresstore.EvaluationRecorderRotation,
+	bool, string, error) {
+	var control *postgresstore.EvaluationRecorderControlStore
+	var rotation postgresstore.EvaluationRecorderRotation
+	campaignSession := false
+	var err error
+	if pool != nil {
+		control, err = postgresstore.NewEvaluationRecorderControlStore(pool, clock)
+		if err == nil {
+			rotation, campaignSession, err = control.StartupRotation(ctx)
+		}
+		if err != nil {
+			return nil, rotation, false, "", err
+		}
+	}
+	session := recorderSession(instance, time.Now().UTC())
+	if campaignSession {
+		session = rotation.DesiredSessionID
+	}
+	return control, rotation, campaignSession, session, nil
+}
+
+func loadRecorderRoleResume(root, session string, exchangeCount int) (recorderRoleResumeState, error) {
+	state := recorderRoleResumeState{binanceRoot: recorderExchangeRoot(root, "binance", exchangeCount),
+		bybitRoot: recorderExchangeRoot(root, "bybit", exchangeCount)}
+	var err error
+	state.lastOrdinal, state.binanceGeneration, state.bybitGeneration, state.binanceFound,
+		state.bybitFound, err = recorderResumeHighWater(state.binanceRoot, state.bybitRoot, session,
+		exchangeCount == 2)
+	return state, err
+}
+
+func newPrimaryRecorderRole(pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	exchanges []config.ExchangeConfiguration, session string, resume recorderRoleResumeState,
+	clock domain.Clock) (*recorderRoleWork, *runtimecore.IngestOrdinals, exchangecontracts.MonotonicSource, error) {
+	monotonic := exchangecontracts.NewProcessMonotonicSource()
+	client, err := binance.NewRecorderPublicClientWithMonotonic(exchanges[0].EndpointSet, clock, monotonic)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if resume.binanceGeneration > 0 {
+		if err = client.RestoreStreamGeneration(resume.binanceGeneration); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	ordinals, err := runtimecore.NewIngestOrdinalsAfter(resume.lastOrdinal)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	streamRecorder, err := newBinanceStreamRecorder(resume.binanceRoot, session, runtimeConfig,
+		len(exchanges), ordinals, pool, resume.binanceFound)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	catalog, metadataStore, err := newRecorderStores(pool, runtimeConfig.InstanceID, clock)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	sink, err := marketrecorder.NewBinanceStreamSink(streamRecorder)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	collectors, err := newBinanceCollectors(exchanges[0], runtimeConfig.Recorder, client, sink, clock)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	work := &recorderRoleWork{client: client, collectors: collectors, recorder: streamRecorder,
+		catalog: catalog, metadata: metadataStore, commit: buildinfo.Current().Commit,
+		flush: runtimeConfig.Recorder.FlushInterval, root: runtimeConfig.Recorder.Root, session: session,
+		pressurePolicy: pressure.Policy{HighFreeBytes: runtimeConfig.Recorder.HighFreeBytes,
+			CriticalFreeBytes: runtimeConfig.Recorder.CriticalFreeBytes,
+			SampleInterval:    runtimeConfig.Recorder.PressureInterval}}
+	return work, ordinals, monotonic, nil
+}
+
 func newRecorderStores(pool *pgxpool.Pool, instance string,
-	clock domain.Clock) (*postgresstore.A11DatasetCatalog, *postgresstore.A11ShadowStore, error) {
+	clock domain.Clock) (*postgresstore.RecordedDatasetCatalog, *postgresstore.PublicShadowStore, error) {
 	if pool == nil {
 		return nil, nil, nil
 	}
-	catalog, err := postgresstore.NewA11DatasetCatalog(pool)
+	catalog, err := postgresstore.NewRecordedDatasetCatalog(pool)
 	if err != nil {
 		return nil, nil, err
 	}
-	metadata, err := postgresstore.NewA11ShadowStore(pool, instance, clock)
+	metadata, err := postgresstore.NewPublicShadowStore(pool, instance, clock)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -114,16 +189,30 @@ func (work *recorderRoleWork) addBybit(
 	pool *pgxpool.Pool,
 	clock domain.Clock,
 	monotonic exchangecontracts.MonotonicSource,
+	resume bool,
+	lastGeneration uint64,
 ) error {
 	client, err := bybit.NewPublicClientWithMonotonic(exchange.EndpointSet, clock, monotonic)
 	if err != nil {
 		return err
 	}
-	recorder, err := marketrecorder.NewB2(filepath.Join(runtimeConfig.Root, "bybit"),
-		bybitRecorderDatasetID(session), session+"-bybit", "bybit", ordinals,
-		segmentCommitter(pool, session+"-bybit", "bybit"), nil,
-		marketrecorder.CollectorProfile{Instance: instance,
-			Region: runtimeConfig.CollectorRegion, MinimumReaderVersion: "dataset-reader.v2"})
+	if lastGeneration > 0 {
+		if err = client.RestoreStreamGeneration(lastGeneration); err != nil {
+			return err
+		}
+	}
+	profile := marketrecorder.CollectorProfile{Instance: instance,
+		Region: runtimeConfig.CollectorRegion, MinimumReaderVersion: "dataset-reader.v2"}
+	var recorder *marketrecorder.Recorder
+	if resume {
+		recorder, _, err = marketrecorder.ResumeCoherentMarketData(filepath.Join(runtimeConfig.Root, "bybit"),
+			bybitRecorderDatasetID(session), session+"-bybit", "bybit", ordinals,
+			segmentCommitter(pool, session+"-bybit", "bybit"), nil, profile)
+	} else {
+		recorder, err = marketrecorder.NewCoherentMarketData(filepath.Join(runtimeConfig.Root, "bybit"),
+			bybitRecorderDatasetID(session), session+"-bybit", "bybit", ordinals,
+			segmentCommitter(pool, session+"-bybit", "bybit"), nil, profile)
+	}
 	if err != nil {
 		return err
 	}
@@ -138,12 +227,6 @@ func (work *recorderRoleWork) addBybit(
 	}
 	work.bybitClient, work.bybitRecorder, work.bybitCollectors = client, recorder, collectors
 	return nil
-}
-
-func newRecorderCollectors(product config.Configuration, runtimeConfig config.RecorderRuntime,
-	client *binance.PublicClient, sink binance.PublicRecorder, clock domain.Clock,
-) (map[domain.Instrument]*binance.InstrumentCollector, error) {
-	return newBinanceCollectors(product.PublicExchanges()[0], runtimeConfig, client, sink, clock)
 }
 
 func newBinanceCollectors(exchange config.ExchangeConfiguration, runtimeConfig config.RecorderRuntime,
@@ -201,166 +284,3 @@ func newBybitCollectors(exchange config.ExchangeConfiguration, runtimeConfig con
 }
 
 // Run owns collector and flush lifecycles until cancellation or a fatal defect.
-func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) error {
-	if err := work.registerMetadata(ctx); err != nil {
-		return err
-	}
-	workContext, cancel := context.WithCancel(ctx)
-	defer cancel()
-	errorsChannel, group := work.startRecorderCollectors(workContext)
-	flushTicker := time.NewTicker(work.flush)
-	defer flushTicker.Stop()
-	binanceCapacity := work.recorder.FlushRequired()
-	var bybitCapacity <-chan struct{}
-	if work.bybitRecorder != nil {
-		bybitCapacity = work.bybitRecorder.FlushRequired()
-	}
-	for {
-		select {
-		case <-workContext.Done():
-			group.Wait()
-			return work.flushPending(logger, true)
-		case err := <-errorsChannel:
-			if err == nil {
-				err = fmt.Errorf("recorder_collector_unexpected_exit")
-			}
-			cancel()
-			group.Wait()
-			return err
-		case <-flushTicker.C:
-			if err := work.flushPending(logger, false); err != nil {
-				return err
-			}
-		case <-binanceCapacity:
-			if err := work.flushCapacity(logger, "binance", work.recorder); err != nil {
-				return err
-			}
-		case <-bybitCapacity:
-			if err := work.flushCapacity(logger, "bybit", work.bybitRecorder); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (work *recorderRoleWork) startRecorderCollectors(ctx context.Context) (<-chan error, *sync.WaitGroup) {
-	errorsChannel := make(chan error, len(work.collectors)+len(work.bybitCollectors))
-	group := &sync.WaitGroup{}
-	for _, collector := range work.collectors {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			errorsChannel <- collector.Run(ctx)
-		}()
-	}
-	for _, collector := range work.bybitCollectors {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			errorsChannel <- collector.Run(ctx)
-		}()
-	}
-	return errorsChannel, group
-}
-
-func (work *recorderRoleWork) registerMetadata(ctx context.Context) error {
-	if work.metadata == nil {
-		return fmt.Errorf("recorder_metadata_store_unavailable")
-	}
-	if err := work.registerExchangeMetadata(ctx, "binance", work.client, binanceInstruments(work.collectors)); err != nil {
-		return err
-	}
-	if work.bybitClient != nil {
-		return work.registerExchangeMetadata(ctx, "bybit", work.bybitClient,
-			bybitInstruments(work.bybitCollectors))
-	}
-	return nil
-}
-
-type publicMetadataClient interface {
-	Instruments(context.Context, []domain.Instrument) ([]exchangecontracts.InstrumentRecord, error)
-}
-
-func (work *recorderRoleWork) registerExchangeMetadata(ctx context.Context, exchange string,
-	client publicMetadataClient, instruments []domain.Instrument) error {
-	sort.Slice(instruments, func(left, right int) bool { return instruments[left].Symbol() < instruments[right].Symbol() })
-	records, err := client.Instruments(ctx, instruments)
-	if err != nil || len(records) != len(instruments) {
-		return fmt.Errorf("recorder_metadata_unavailable")
-	}
-	for _, record := range records {
-		if _, err = work.metadata.RegisterPublicMetadata(ctx, exchange, record.Metadata); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func binanceInstruments(collectors map[domain.Instrument]*binance.InstrumentCollector) []domain.Instrument {
-	instruments := make([]domain.Instrument, 0, len(collectors))
-	for instrument := range collectors {
-		instruments = append(instruments, instrument)
-	}
-	return instruments
-}
-
-func bybitInstruments(collectors map[domain.Instrument]*bybit.InstrumentCollector) []domain.Instrument {
-	instruments := make([]domain.Instrument, 0, len(collectors))
-	for instrument := range collectors {
-		instruments = append(instruments, instrument)
-	}
-	return instruments
-}
-
-// Ready requires every approved book and its instrument clock to be healthy.
-func (work *recorderRoleWork) Ready() bool {
-	for _, collector := range work.collectors {
-		if !collector.HealthSnapshot().Eligible {
-			return false
-		}
-	}
-	for _, collector := range work.bybitCollectors {
-		if !collector.HealthSnapshot().Eligible {
-			return false
-		}
-	}
-	return true
-}
-
-func recorderSession(instance string, started time.Time) string {
-	digest := sha256.Sum256([]byte(instance + started.Format(time.RFC3339Nano)))
-	return "recorder-" + hex.EncodeToString(digest[:8])
-}
-
-func recorderDatasetID(session string) string { return "binance-public-v1a-" + session }
-
-func segmentCommitter(
-	pool *pgxpool.Pool,
-	session string,
-	exchange string,
-) segments.Committer {
-	queries := postgresgenerated.New(pool)
-	return func(manifest segments.Manifest) error {
-		if manifest.Spec.RecordCount > math.MaxInt64 || manifest.Spec.FirstOrdinal > math.MaxInt64 ||
-			manifest.Spec.LastOrdinal > math.MaxInt64 {
-			return fmt.Errorf("segment_ordinal_overflow")
-		}
-		finalized := time.Now().UTC()
-		commitContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		_, err := queries.InsertMarketDataSegment(commitContext, postgresgenerated.InsertMarketDataSegmentParams{
-			ID: manifest.Spec.Name, RecorderSession: session, ExchangeID: exchange, EventType: "mixed_public",
-			SchemaVersion: manifest.Spec.SchemaVersion, ParserVersion: manifest.Spec.ParserVersion,
-			NormalizationVersion: manifest.Spec.NormalizationVersion, Path: manifest.Path,
-			Checksum: manifest.Checksum, OrderedContentHash: manifest.OrderedContentHash,
-			RecordCount: int64(manifest.Spec.RecordCount), FirstOrdinal: int64(manifest.Spec.FirstOrdinal),
-			LastOrdinal: int64(manifest.Spec.LastOrdinal), StartedAt: timestamp(manifest.Spec.StartedAt),
-			EndedAt: timestamp(manifest.Spec.EndedAt), State: "ready", FinalizedAt: timestamp(finalized),
-		})
-		return err
-	}
-}
-
-func timestamp(value time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{Time: value, Valid: true}
-}

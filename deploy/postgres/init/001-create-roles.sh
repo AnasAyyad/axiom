@@ -15,7 +15,7 @@ psql \
   --set=readonly_user="$POSTGRES_READONLY_USER" \
   --set=binance_engine_user="$POSTGRES_BINANCE_ENGINE_USER" \
   --set=bybit_engine_user="$POSTGRES_BYBIT_ENGINE_USER" \
-  --set=c6_qualification_user="$POSTGRES_C6_QUALIFICATION_USER" <<'SQL'
+  --set=sandbox_qualification_user="$POSTGRES_SANDBOX_QUALIFICATION_USER" <<'SQL'
 -- Read role passwords inside PostgreSQL so secret values never appear in the
 -- process argument vector or ordinary environment variables. The official
 -- image runs this script only while the initial superuser initializes an empty
@@ -28,7 +28,7 @@ SELECT
   rtrim(pg_read_file('/run/secrets/postgres_readonly_password'), E'\r\n') AS readonly_password,
   rtrim(pg_read_file('/run/secrets/postgres_binance_engine_password'), E'\r\n') AS binance_engine_password,
   rtrim(pg_read_file('/run/secrets/postgres_bybit_engine_password'), E'\r\n') AS bybit_engine_password,
-  rtrim(pg_read_file('/run/secrets/postgres_c6_qualification_password'), E'\r\n') AS c6_qualification_password
+  rtrim(pg_read_file('/run/secrets/postgres_sandbox_qualification_password'), E'\r\n') AS sandbox_qualification_password
 \gset
 
 SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'migrator_user', :'migrator_password')
@@ -57,8 +57,8 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'binance_engine_user')
 SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'bybit_engine_user', :'bybit_engine_password')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'bybit_engine_user')
 \gexec
-SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'c6_qualification_user', :'c6_qualification_password')
-WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'c6_qualification_user')
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'sandbox_qualification_user', :'sandbox_qualification_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'sandbox_qualification_user')
 \gexec
 
 SELECT format('ALTER ROLE %I PASSWORD %L', :'migrator_user', :'migrator_password')
@@ -75,13 +75,13 @@ SELECT format('ALTER ROLE %I PASSWORD %L', :'binance_engine_user', :'binance_eng
 \gexec
 SELECT format('ALTER ROLE %I PASSWORD %L', :'bybit_engine_user', :'bybit_engine_password')
 \gexec
-SELECT format('ALTER ROLE %I PASSWORD %L', :'c6_qualification_user', :'c6_qualification_password')
+SELECT format('ALTER ROLE %I PASSWORD %L', :'sandbox_qualification_user', :'sandbox_qualification_password')
 \gexec
 
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-GRANT CONNECT ON DATABASE :"DBNAME" TO :"migrator_user", :"runtime_user", :"recorder_user", :"backup_user", :"readonly_user", :"binance_engine_user", :"bybit_engine_user", :"c6_qualification_user";
+GRANT CONNECT ON DATABASE :"DBNAME" TO :"migrator_user", :"runtime_user", :"recorder_user", :"backup_user", :"readonly_user", :"binance_engine_user", :"bybit_engine_user", :"sandbox_qualification_user";
 GRANT USAGE, CREATE ON SCHEMA public TO :"migrator_user";
-GRANT USAGE ON SCHEMA public TO :"runtime_user", :"recorder_user", :"backup_user", :"readonly_user", :"binance_engine_user", :"bybit_engine_user", :"c6_qualification_user";
+GRANT USAGE ON SCHEMA public TO :"runtime_user", :"recorder_user", :"backup_user", :"readonly_user", :"binance_engine_user", :"bybit_engine_user", :"sandbox_qualification_user";
 
 ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_user" IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"runtime_user";
@@ -98,5 +98,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_user" IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_user" IN SCHEMA public
   GRANT USAGE ON TYPES TO :"binance_engine_user", :"bybit_engine_user";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_user" IN SCHEMA public
-  GRANT USAGE ON TYPES TO :"c6_qualification_user";
+  GRANT USAGE ON TYPES TO :"sandbox_qualification_user";
 SQL

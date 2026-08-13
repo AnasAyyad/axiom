@@ -27,6 +27,10 @@ type sandboxEngineAdapter interface {
 	sandbox.OrderBroker
 	sandbox.Reconciler
 	sandbox.SnapshotReconciler
+	StrategyMarketData() (sandbox.StrategyMarketData, error)
+	StrategyEligibility(
+		context.Context,
+	) ([]exchangecontracts.CollectorHealthSnapshot, error)
 	StartupEligibility(
 		context.Context,
 	) (exchangecontracts.CollectorHealthSnapshot, error)
@@ -47,7 +51,7 @@ func newSandboxEngineRoleWork(
 	product config.Configuration,
 	exchange string,
 ) (roleWork, error) {
-	if pool == nil || product.SchemaVersion != config.SchemaVersionV1C {
+	if pool == nil || product.SchemaVersion != config.SchemaVersionSandboxRuntime {
 		return nil, fmt.Errorf("sandbox_engine_configuration_invalid")
 	}
 	selected, err := sandboxEngineExchange(exchange, product.Mode)
@@ -101,7 +105,7 @@ func (work *sandboxEngineRoleWork) Run(
 	runErr := work.runSandboxEngineLoop(
 		ctx, startup.store, startup.account, startup.owner,
 		startup.fence, startup.adapter, startup.source,
-		startup.dispatcher, startup.recovery,
+		startup.dispatcher, startup.recovery, startup.scheduler,
 	)
 	work.ready.Store(false)
 	startup.lockAfterRun()

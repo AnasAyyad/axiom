@@ -13,16 +13,16 @@ import (
 )
 
 func (handler *handler) registerCommands(mux *http.ServeMux) {
-	handler.registerB8Commands(mux)
+	handler.registerMultiExchangeConsoleCommands(mux)
 	mux.HandleFunc("POST /api/v1/risk/pause", handler.authorizedMutation(handler.riskCommand("pause"), "commands.write"))
 	mux.HandleFunc("POST /api/v1/risk/resume", handler.authorizedMutation(handler.riskCommand("resume"), "commands.write"))
-	mux.HandleFunc("POST /api/v1/backtests", handler.authorizedMutation(handler.createJob("backtest"), "commands.write"))
-	mux.HandleFunc("POST /api/v1/replays", handler.authorizedMutation(handler.createJob("replay"), "commands.write"))
+	mux.HandleFunc("POST /api/v1/backtests", handler.authorizedMutation(handler.createJob("backtest"), "research.control"))
+	mux.HandleFunc("POST /api/v1/replays", handler.authorizedMutation(handler.createJob("replay"), "research.control"))
 	for _, action := range []string{"pause", "resume", "step"} {
-		mux.HandleFunc("POST /api/v1/replays/{id}/"+action, handler.authorizedMutation(handler.controlReplay(action), "commands.write"))
+		mux.HandleFunc("POST /api/v1/replays/{id}/"+action, handler.authorizedMutation(handler.controlReplay(action), "research.control"))
 	}
-	mux.HandleFunc("POST /api/v1/shadow-sessions", handler.authorizedMutation(handler.createShadow, "commands.write"))
-	mux.HandleFunc("POST /api/v1/shadow-sessions/{id}/stop", handler.authorizedMutation(handler.stopShadow, "commands.write"))
+	mux.HandleFunc("POST /api/v1/shadow-sessions", handler.authorizedMutation(handler.createShadow, "research.control"))
+	mux.HandleFunc("POST /api/v1/shadow-sessions/{id}/stop", handler.authorizedMutation(handler.stopShadow, "research.control"))
 }
 
 func (handler *handler) idempotencyKey(writer http.ResponseWriter, request *http.Request) (string, bool) {

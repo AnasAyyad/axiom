@@ -10,9 +10,16 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-a2 benchmark-a3 build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate a4-sqlc a4-postgres-qualify a8-sqlc a8-postgres-qualify a8-local-qualify a9-sqlc a9-postgres-qualify a9-model-qualify a10-sqlc a10-postgres-qualify a10-model-qualify a10-research-qualify a11-sqlc a11-postgres-qualify a11-contract-qualify a11-api-qualify a11-frontend-qualify a11-ui-fixture-qualify a11-e2e-qualify a11-security-qualify b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify b1-local-qualify b1-live-qualify b2-model-qualify b2-postgres-qualify b2-live-qualify b2-local-qualify b3-sqlc b3-model-qualify b3-postgres-qualify b3-research-qualify b3-local-qualify b4-sqlc b4-model-qualify b4-postgres-qualify b4-local-qualify b5-sqlc b5-model-qualify b5-postgres-qualify b5-local-qualify b6-sqlc b6-model-qualify b6-postgres-qualify b6-security-qualify b6-local-qualify b7-sqlc b7-model-qualify b7-postgres-qualify b7-research-qualify b7-local-qualify b8-sqlc b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify b8-local-qualify image backup-image image-reproducibility
-.PHONY: a7-soak-smoke b1-soak-smoke c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify v1c-pr1-local-qualify v1c-pr2-local-qualify
-.PHONY: c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke c6-observer-build c6-chaos-build c6-controller-image c6-chaos-record c6-soak v1c-pr3-local-qualify
+.PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-financial-arithmetic benchmark-deterministic-scheduler build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate durable-storage-sqlc durable-storage-postgres-qualify strategy-execution-sqlc strategy-execution-postgres-qualify strategy-execution-local-qualify portfolio-risk-sqlc portfolio-risk-postgres-qualify portfolio-risk-model-qualify research-registry-sqlc research-registry-postgres-qualify research-registry-model-qualify research-registry-research-qualify owner-console-sqlc owner-console-postgres-qualify owner-console-contract-qualify owner-console-api-qualify owner-console-frontend-qualify owner-console-ui-fixture-qualify owner-console-e2e-qualify owner-console-security-qualify exchange-expansion-model-qualify exchange-expansion-postgres-qualify exchange-expansion-adapter-qualify exchange-expansion-security-qualify exchange-expansion-local-qualify exchange-expansion-live-qualify coherent-market-data-model-qualify coherent-market-data-postgres-qualify coherent-market-data-live-qualify coherent-market-data-local-qualify mean-reversion-sqlc mean-reversion-model-qualify mean-reversion-postgres-qualify mean-reversion-research-qualify mean-reversion-local-qualify triangular-arbitrage-sqlc triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify triangular-arbitrage-local-qualify cross-exchange-arbitrage-sqlc cross-exchange-arbitrage-model-qualify cross-exchange-arbitrage-postgres-qualify cross-exchange-arbitrage-local-qualify inventory-rebalancing-sqlc inventory-rebalancing-model-qualify inventory-rebalancing-postgres-qualify inventory-rebalancing-security-qualify inventory-rebalancing-local-qualify research-promotion-sqlc research-promotion-model-qualify research-promotion-postgres-qualify research-promotion-research-qualify research-promotion-local-qualify multi-exchange-console-sqlc multi-exchange-console-model-qualify multi-exchange-console-postgres-qualify multi-exchange-console-api-qualify multi-exchange-console-frontend-qualify multi-exchange-console-security-qualify multi-exchange-console-live-qualify multi-exchange-console-local-qualify image backup-image backup-image-reproducibility image-reproducibility
+.PHONY: public-data-soak-smoke exchange-expansion-soak-smoke credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-postgres-qualify sandbox-security-foundation sandbox-connectivity
+.PHONY: sandbox-api-qualify sandbox-frontend-qualify sandbox-security-qualify sandbox-chaos-qualify sandbox-qualification-smoke sandbox-qualification-observer-build sandbox-qualification-chaos-build sandbox-qualification-controller-image sandbox-qualification-chaos-record sandbox-qualification-formal sandbox-qualification
+.PHONY: owner-control-contract-qualify owner-control-api-qualify owner-control-postgres-qualify owner-control-security-qualify owner-control
+.PHONY: owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify owner-experience
+.PHONY: run-lab-contract-qualify run-lab-api-qualify run-lab-postgres-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify run-lab
+.PHONY: operational-evidence-contract-qualify operational-evidence-api-qualify operational-evidence-postgres-qualify operational-evidence-frontend-qualify operational-evidence-browser-qualify operational-evidence-security-qualify operational-evidence
+.PHONY: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-formal operational-readiness
+.PHONY: evaluation-campaign-postgres-qualify
+.PHONY: release-certification-model-qualify release-certification-traceability-qualify release-certification-security-qualify release-certification-formal release-certify
 
 IMAGE ?= axiom:local
 BACKUP_IMAGE ?= axiom-backup:local
@@ -43,24 +50,35 @@ contracts: ## Generate Go and TypeScript models from OpenAPI.
 contracts-check: ## Prove generated OpenAPI models are current.
 	@GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)" scripts/check-generated.sh
 
+semantic-naming-check: ## Reject delivery-stage terminology in active product surfaces.
+	@$(NODE) scripts/check-semantic-naming.mjs
+
 docs-check: ## Validate local documentation links and requirement-matrix consistency.
+	@$(MAKE) semantic-naming-check NODE="$(NODE)"
 	@$(NODE) scripts/check-doc-links.mjs
-	@$(NODE) scripts/check-a0-traceability.mjs $(if $(wildcard $(PLAN_FILE)),$(PLAN_FILE))
-	@$(NODE) scripts/check-a2-config-reference.mjs
-	@$(NODE) scripts/check-a3-runtime-boundary.mjs
-	@$(NODE) scripts/check-a4-storage-boundary.mjs
-	@$(NODE) scripts/check-a5-observability-boundary.mjs
-	@$(NODE) scripts/check-a6-exchange-boundary.mjs
-	@$(NODE) scripts/check-a7-public-boundary.mjs
-	@$(NODE) scripts/check-b1-public-boundary.mjs
-	@$(NODE) scripts/check-b3-strategy-boundary.mjs
-	@$(NODE) scripts/check-b4-strategy-boundary.mjs
-	@$(NODE) scripts/check-b5-strategy-boundary.mjs
-	@$(NODE) scripts/check-b6-rebalancing-boundary.mjs
-	@$(NODE) scripts/check-b7-research-boundary.mjs
-	@$(NODE) scripts/check-a10-strategy-boundary.mjs
-	@$(NODE) scripts/check-a11-console-boundary.mjs
-	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
+	@$(NODE) scripts/check-traceability-traceability.mjs $(if $(wildcard $(PLAN_FILE)),$(PLAN_FILE))
+	@$(NODE) scripts/check-configuration-reference-config-reference.mjs
+	@$(NODE) scripts/check-runtime-recovery-runtime-boundary.mjs
+	@$(NODE) scripts/check-durable-storage-storage-boundary.mjs
+	@$(NODE) scripts/check-observability-observability-boundary.mjs
+	@$(NODE) scripts/check-exchange-integration-exchange-boundary.mjs
+	@$(NODE) scripts/check-public-data-public-boundary.mjs
+	@$(NODE) scripts/check-exchange-expansion-public-boundary.mjs
+	@$(NODE) scripts/check-mean-reversion-strategy-boundary.mjs
+	@$(NODE) scripts/check-triangular-arbitrage-strategy-boundary.mjs
+	@$(NODE) scripts/check-cross-exchange-strategy-boundary.mjs
+	@$(NODE) scripts/check-inventory-rebalancing-rebalancing-boundary.mjs
+	@$(NODE) scripts/check-research-promotion-research-boundary.mjs
+	@$(NODE) scripts/check-multi-exchange-console-console-boundary.mjs
+	@$(NODE) scripts/check-research-registry-strategy-boundary.mjs
+	@$(NODE) scripts/check-owner-console-console-boundary.mjs
+	@$(NODE) scripts/check-sandbox-qualification-boundary.mjs
+	@$(NODE) scripts/check-owner-control-boundary.mjs
+	@$(NODE) scripts/check-owner-experience-boundary.mjs
+	@$(NODE) scripts/check-run-lab-boundary.mjs
+	@$(NODE) scripts/check-operational-evidence-boundary.mjs
+	@$(NODE) scripts/check-operational-readiness-boundary.mjs
+	@$(NODE) scripts/check-release-certification-boundary.mjs
 
 format: ## Format owned Go, JavaScript, TypeScript, CSS, JSON, and YAML.
 	@$(GO) fmt ./...
@@ -97,10 +115,10 @@ fuzz-smoke: ## Run required execution-mode and financial parsing fuzz targets br
 	@$(GO) test ./internal/exchanges/bybit -run '^$$' -fuzz '^FuzzBybitAuthenticatedCreatePolicy$$' -fuzztime 3s
 	@$(GO) test ./internal/sandbox -run '^$$' -fuzz '^FuzzPrivateEventContract$$' -fuzztime 3s
 
-benchmark-a2: ## Measure exact decimal arithmetic with allocation reporting.
+benchmark-financial-arithmetic: ## Measure exact decimal arithmetic with allocation reporting.
 	@$(GO) test ./internal/domain -run '^$$' -bench '^BenchmarkFinancialArithmetic$$' -benchmem -count 5
 
-benchmark-a3: ## Measure deterministic scheduler overhead with allocation reporting.
+benchmark-deterministic-scheduler: ## Measure deterministic scheduler overhead with allocation reporting.
 	@$(GO) test ./internal/runtime -run '^$$' -bench '^BenchmarkDeterministicScheduler$$' -benchmem -count 5
 
 build: generate build-backend ## Build the embedded React/platform artifact.
@@ -117,7 +135,7 @@ compose-validate: ## Render every active Compose profile combination safely.
 	@scripts/check-compose.sh
 	@tests/integration/check-unavailable-profiles.sh
 
-compose-smoke: ## Start the image-backed A1 app, recorder, and worker profiles.
+compose-smoke: ## Start the image-backed application baseline app, recorder, and worker profiles.
 	@GO="$(GO)" tests/integration/smoke-compose-app.sh "$(IMAGE)"
 
 security-static: ## Run secret and prohibited-capability scans with negative tests.
@@ -125,33 +143,33 @@ security-static: ## Run secret and prohibited-capability scans with negative tes
 	@scripts/test-check-secret-patterns.sh
 	@scripts/check-prohibited-capabilities.sh
 	@scripts/test-check-prohibited-capabilities.sh
-	@GO="$(GO)" scripts/check-a6-binary-boundary.sh
-	@GO="$(GO)" scripts/check-a7-binary-boundary.sh
-	@scripts/check-v1c-security-boundary.sh
+	@GO="$(GO)" scripts/check-exchange-integration-binary-boundary.sh
+	@GO="$(GO)" scripts/check-public-data-binary-boundary.sh
+	@scripts/check-sandbox-security-boundary.sh
 
-c1-security-qualify: ## Prove the closed C1 credential, signer, endpoint, proxy, evidence, and emulator boundary.
+credential-security-qualify: ## Prove the closed credential, signer, endpoint, proxy, evidence, and emulator security boundary.
 	@$(GO) test ./internal/config ./internal/security ./internal/egressproxy \
 		./internal/exchanges/contracts ./internal/exchanges/binance \
 		./internal/exchanges/bybit ./internal/exchanges/sandboxemulator ./internal/sandbox -count=1
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres \
-		-run '^(TestV1CMigrationsDefineClosedDurableAuthenticatedEvidence|TestV1CEngineGrantIncludesOnlyClosedExecutionTables)$$' \
+		-run '^(TestSandboxRuntimeMigrationsDefineClosedDurableAuthenticatedEvidence|TestSandboxRuntimeEngineGrantIncludesClosedExecutionAndAlertTables)$$' \
 		-count=1
-	@scripts/check-v1c-security-boundary.sh
+	@scripts/check-sandbox-security-boundary.sh
 
-c2-auth-qualify: ## Exercise C2 password/TOTP, replay, one-use authorization, RBAC, audit, session, and rotation models.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+authentication-control-qualify: ## Exercise authentication control password/TOTP, replay, one-use authorization, RBAC, audit, session, and rotation models.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/authentication ./internal/sandbox ./internal/storage/postgres -count=1
 	@$(GO) test -race ./internal/authentication ./internal/sandbox -count=1
 
-c3-recovery-qualify: ## Exercise C3 atomic caps, durable dispatch, fencing, inbox/reducer, startup, and crash recovery.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+dispatcher-recovery-qualify: ## Exercise dispatcher recovery atomic caps, durable dispatch, fencing, inbox/reducer, startup, and crash recovery.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/sandbox ./internal/execution ./internal/reconciliation \
 		./internal/runtime ./internal/storage/postgres -count=1
 	@$(GO) test -race ./internal/sandbox ./internal/execution ./internal/reconciliation ./internal/runtime -count=1
 
-c4-binance-testnet-qualify: ## Prove the complete closed Binance Spot Testnet adapter and recovery behavior.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+binance-testnet-qualify: ## Prove the complete closed Binance Spot Testnet adapter and recovery behavior.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/exchanges/contracts ./internal/exchanges/binance \
 		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
 		./internal/storage/postgres -count=1
@@ -159,10 +177,10 @@ c4-binance-testnet-qualify: ## Prove the complete closed Binance Spot Testnet ad
 		./internal/sandbox ./internal/execution -count=1
 	@$(GO) test ./internal/exchanges/binance -run '^$$' \
 		-fuzz '^FuzzBinancePrivateEventDecoder$$' -fuzztime 3s
-	@scripts/check-v1c-security-boundary.sh
+	@scripts/check-sandbox-security-boundary.sh
 
-c5-bybit-demo-qualify: ## Prove the complete closed Bybit Demo Spot adapter and recovery behavior.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+bybit-demo-qualify: ## Prove the complete closed Bybit Demo Spot adapter and recovery behavior.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/config ./internal/bootstrap ./internal/egressproxy \
 		./internal/exchanges/contracts ./internal/exchanges/bybit \
 		./internal/exchanges/sandboxemulator ./internal/sandbox ./internal/execution \
@@ -172,106 +190,304 @@ c5-bybit-demo-qualify: ## Prove the complete closed Bybit Demo Spot adapter and 
 		-count=1
 	@$(GO) test ./internal/exchanges/bybit -run '^$$' \
 		-fuzz '^FuzzBybitDemoPrivateDecoder$$' -fuzztime 3s
-	@scripts/check-v1c-security-boundary.sh
+	@scripts/check-sandbox-security-boundary.sh
 
-v1c-postgres-qualify: ## Run V1C clean-install and exact B8-upgrade qualification on dedicated PostgreSQL 18 databases.
-	@test -n "$(AXIOM_V1C_TEST_DSN)" || { echo "AXIOM_V1C_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_V1C_UPGRADE_TEST_DSN)" || { echo "AXIOM_V1C_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@AXIOM_V1C_TEST_DSN="$(AXIOM_V1C_TEST_DSN)" \
-		AXIOM_V1C_UPGRADE_TEST_DSN="$(AXIOM_V1C_UPGRADE_TEST_DSN)" \
+sandbox-postgres-qualify: ## Run sandbox runtime clean-install and exact multi-exchange console-upgrade qualification on dedicated PostgreSQL 18 databases.
+	@test -n "$(AXIOM_SANDBOX_RUNTIME_TEST_DSN)" || { echo "AXIOM_SANDBOX_RUNTIME_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN)" || { echo "AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN="$(AXIOM_SANDBOX_RUNTIME_TEST_DSN)" \
+		AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN="$(AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN)" \
 		$(GO) test ./internal/storage/postgres \
-		-run '^TestV1CPostgres(CleanInstall|B8ToV1CUpgrade)Qualification$$' -count=1 -v
+		-run '^TestSandboxRuntimePostgres(CleanInstall|MultiExchangeConsoleToSandboxRuntimeUpgrade)Qualification$$' -count=1 -v
 
-v1c-pr1-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify v1c-postgres-qualify ## Pass every C1-C3 PR1 phase gate plus cumulative repository verification.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+sandbox-security-foundation: credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify sandbox-postgres-qualify ## Pass the credential, authentication, dispatcher-recovery, PostgreSQL, and cumulative repository security gates.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-v1c-pr2-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify v1c-postgres-qualify ## Pass every C1-C5 PR2 phase gate plus cumulative repository verification.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+sandbox-connectivity: credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-postgres-qualify ## Pass the credential, authentication, dispatcher-recovery, sandbox-connectivity, PostgreSQL, and cumulative repository gates.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-c6-api-qualify: ## Prove C6 contracts, redacted projections, durable controls, RBAC, and storage boundaries.
+sandbox-api-qualify: ## Prove sandbox qualification contracts, redacted projections, durable controls, RBAC, and storage boundaries.
 	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/api/... ./internal/authentication \
 			./internal/bootstrap ./internal/storage/postgres -count=1
 
-c6-frontend-qualify: ## Type-check, lint, test, build, and inspect the C6 sandbox console fixtures.
-	@$(MAKE) a11-frontend-qualify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
-	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'C6 sandbox'
+sandbox-frontend-qualify: ## Type-check, lint, test, build, and inspect the sandbox console fixtures.
+	@$(MAKE) owner-console-frontend-qualify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@AXIOM_OWNER_CONSOLE_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'Exchange sandbox workflows'
 
-c6-security-qualify: ## Prove C6 endpoint, secret, production-target, and prohibited-capability denial.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
-		$(GO) test ./internal/authentication ./internal/qualification/c6 \
+sandbox-security-qualify: ## Prove sandbox qualification endpoint, secret, production-target, and prohibited-capability denial.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/authentication ./internal/qualification/sandboxqualification \
 			./internal/storage/postgres -count=1
-	@scripts/check-v1c-security-boundary.sh
-	@$(NODE) scripts/check-v1c-pr3-boundary.mjs
+	@scripts/check-sandbox-security-boundary.sh
+	@$(NODE) scripts/check-sandbox-qualification-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)"
 
-c6-chaos-qualify: ## Exercise deterministic C6 fault, race, reset, reconnect, and recovery scenarios.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
-		$(GO) test ./internal/qualification/c6 ./internal/sandbox \
+sandbox-chaos-qualify: ## Exercise deterministic sandbox qualification fault, race, reset, reconnect, and recovery scenarios.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/qualification/sandboxqualification ./internal/sandbox \
 			./internal/exchanges/sandboxemulator ./internal/exchanges/binance \
 			./internal/exchanges/bybit ./internal/execution \
 			./internal/reconciliation ./internal/bootstrap \
 			./internal/storage/postgres -count=1
 
-c6-soak-smoke: ## Run only the short deterministic C6 smoke runner; never grants formal qualification.
-	@$(GO) test ./cmd/c6-soak ./cmd/c6-chaos ./internal/qualification/c6 \
-		-run '^TestC6' -count=1 -timeout=2m -v
+sandbox-qualification-smoke: ## Run only the short deterministic sandbox qualification smoke runner; never grants formal qualification.
+	@$(GO) test ./cmd/sandbox-qualification ./cmd/sandbox-qualification-chaos \
+		./internal/qualification/sandboxqualification \
+		-run '^TestSandboxQualification' -count=1 -timeout=2m -v
 
-c6-observer-build: ## Build the standalone exact-hash C6 observer at AXIOM_C6_OBSERVER_BIN.
-	@case "$(AXIOM_C6_OBSERVER_BIN)" in /*) ;; *) echo "AXIOM_C6_OBSERVER_BIN must be absolute" >&2; exit 1;; esac
-	@test -d "$$(dirname "$(AXIOM_C6_OBSERVER_BIN)")" || { echo "observer output directory is absent" >&2; exit 1; }
-	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_C6_OBSERVER_BIN)" ./cmd/c6-soak
+sandbox-qualification-observer-build: ## Build the standalone exact-hash observer at AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN.
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN must be absolute" >&2; exit 1;; esac
+	@test -d "$$(dirname "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)")" || { echo "observer output directory is absent" >&2; exit 1; }
+	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" ./cmd/sandbox-qualification
 
-c6-chaos-build: ## Build the standalone exact-hash C6 chaos controller at AXIOM_C6_CHAOS_BIN.
-	@case "$(AXIOM_C6_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_C6_CHAOS_BIN must be absolute" >&2; exit 1;; esac
-	@test -d "$$(dirname "$(AXIOM_C6_CHAOS_BIN)")" || { echo "controller output directory is absent" >&2; exit 1; }
-	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_C6_CHAOS_BIN)" ./cmd/c6-chaos
+sandbox-qualification-chaos-build: ## Build the exact-hash chaos controller at AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN.
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN must be absolute" >&2; exit 1;; esac
+	@test -d "$$(dirname "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)")" || { echo "controller output directory is absent" >&2; exit 1; }
+	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" ./cmd/sandbox-qualification-chaos
 
-c6-controller-image: ## Build the exact-source, internal-network C6 controller image.
-	@test -n "$(C6_CONTROLLER_IMAGE)" || { echo "C6_CONTROLLER_IMAGE is required" >&2; exit 1; }
+sandbox-qualification-controller-image: ## Build the exact-source, internal-network qualification controller image.
+	@test -n "$(SANDBOX_QUALIFICATION_CONTROLLER_IMAGE)" || { echo "SANDBOX_QUALIFICATION_CONTROLLER_IMAGE is required" >&2; exit 1; }
 	@test "$(COMMIT)" = "$$(git rev-parse HEAD)" || { echo "COMMIT must equal committed HEAD" >&2; exit 1; }
-	@test -z "$$(git status --porcelain)" || { echo "C6 controller image requires clean committed source" >&2; exit 1; }
-	@docker build --file deploy/docker/C6Controller.Dockerfile \
-		--tag "$(C6_CONTROLLER_IMAGE)" \
+	@test -z "$$(git status --porcelain)" || { echo "qualification controller image requires clean committed source" >&2; exit 1; }
+	@docker build --file deploy/docker/SandboxQualificationController.Dockerfile \
+		--tag "$(SANDBOX_QUALIFICATION_CONTROLLER_IMAGE)" \
 		--build-arg "COMMIT=$(COMMIT)" .
 
-c6-chaos-record: ## MANUAL: append the credential-free deterministic gate to one active formal run.
-	@test "$(AXIOM_C6_CHAOS_ENABLED)" = "1" || { echo "AXIOM_C6_CHAOS_ENABLED=1 is required" >&2; exit 1; }
-	@test "$(AXIOM_C6_CHAOS_MODE)" = "formal" || { echo "AXIOM_C6_CHAOS_MODE=formal is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_RUN_ID)" || { echo "AXIOM_C6_RUN_ID is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_COMMIT_SHA)" || { echo "AXIOM_C6_COMMIT_SHA is required" >&2; exit 1; }
-	@case "$(AXIOM_C6_SOURCE_ROOT)" in /*) ;; *) echo "AXIOM_C6_SOURCE_ROOT must be absolute" >&2; exit 1;; esac
-	@case "$(AXIOM_C6_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_C6_CHAOS_BIN must be absolute" >&2; exit 1;; esac
-	@test -x "$(AXIOM_C6_CHAOS_BIN)" || { echo "C6 chaos controller is not executable" >&2; exit 1; }
-	@test "$$(sha256sum "$(AXIOM_C6_CHAOS_BIN)" | awk '{print $$1}')" = "$(AXIOM_C6_CHAOS_EXECUTABLE_HASH)" || { echo "C6 chaos controller hash mismatch" >&2; exit 1; }
-	@"$(AXIOM_C6_CHAOS_BIN)"
+sandbox-qualification-chaos-record: ## MANUAL: append the credential-free deterministic gate to one active formal run.
+	@test "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_ENABLED)" = "1" || { echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_MODE)" = "formal" || { echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_RUN_ID)" || { echo "AXIOM_SANDBOX_QUALIFICATION_RUN_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA)" || { echo "AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA is required" >&2; exit 1; }
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_SOURCE_ROOT)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_SOURCE_ROOT must be absolute" >&2; exit 1;; esac
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN must be absolute" >&2; exit 1;; esac
+	@test -x "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" || { echo "qualification chaos controller is not executable" >&2; exit 1; }
+	@test "$$(sha256sum "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" | awk '{print $$1}')" = "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_EXECUTABLE_HASH)" || { echo "qualification chaos controller hash mismatch" >&2; exit 1; }
+	@"$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)"
 
-c6-soak: ## MANUAL: run the default-off exact 72-hour standalone observer.
-	@test "$(AXIOM_C6_SOAK_ENABLED)" = "1" || { echo "AXIOM_C6_SOAK_ENABLED=1 is required" >&2; exit 1; }
-	@test "$(AXIOM_C6_SOAK_MODE)" = "formal" || { echo "AXIOM_C6_SOAK_MODE=formal is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_RUN_ID)" || { echo "AXIOM_C6_RUN_ID is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_COMMIT_SHA)" || { echo "AXIOM_C6_COMMIT_SHA is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_BUILD_HASH)" || { echo "AXIOM_C6_BUILD_HASH is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_EXECUTABLE_HASH)" || { echo "AXIOM_C6_EXECUTABLE_HASH is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_IMAGE_HASH)" || { echo "AXIOM_C6_IMAGE_HASH is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_CONFIGURATION_HASH)" || { echo "AXIOM_C6_CONFIGURATION_HASH is required" >&2; exit 1; }
-	@test -n "$(AXIOM_C6_EVIDENCE_PATH)" || { echo "AXIOM_C6_EVIDENCE_PATH is required" >&2; exit 1; }
-	@case "$(AXIOM_C6_OBSERVER_BIN)" in /*) ;; *) echo "AXIOM_C6_OBSERVER_BIN must be absolute" >&2; exit 1;; esac
-	@test -x "$(AXIOM_C6_OBSERVER_BIN)" || { echo "C6 observer is not executable" >&2; exit 1; }
-	@test "$$(sha256sum "$(AXIOM_C6_OBSERVER_BIN)" | awk '{print $$1}')" = "$(AXIOM_C6_EXECUTABLE_HASH)" || { echo "C6 observer hash mismatch" >&2; exit 1; }
-	@"$(AXIOM_C6_OBSERVER_BIN)"
+sandbox-qualification-formal: ## MANUAL: run the default-off exact 72-hour standalone observer.
+	@test "$(AXIOM_SANDBOX_QUALIFICATION_ENABLED)" = "1" || { echo "AXIOM_SANDBOX_QUALIFICATION_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_SANDBOX_QUALIFICATION_MODE)" = "formal" || { echo "AXIOM_SANDBOX_QUALIFICATION_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_RUN_ID)" || { echo "AXIOM_SANDBOX_QUALIFICATION_RUN_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA)" || { echo "AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_BUILD_HASH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_BUILD_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH is required" >&2; exit 1; }
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN must be absolute" >&2; exit 1;; esac
+	@test -x "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" || { echo "qualification observer is not executable" >&2; exit 1; }
+	@test "$$(sha256sum "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" | awk '{print $$1}')" = "$(AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH)" || { echo "qualification observer hash mismatch" >&2; exit 1; }
+	@"$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)"
 
-v1c-pr3-local-qualify: c1-security-qualify c2-auth-qualify c3-recovery-qualify c4-binance-testnet-qualify c5-bybit-demo-qualify c6-api-qualify c6-frontend-qualify c6-security-qualify c6-chaos-qualify c6-soak-smoke v1c-postgres-qualify ## Pass every V1C non-soak gate; formal C6 soak remains separate and pending.
-	@AXIOM_V1C_TEST_DSN= AXIOM_V1C_UPGRADE_TEST_DSN= \
+sandbox-qualification: credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-api-qualify sandbox-frontend-qualify sandbox-security-qualify sandbox-chaos-qualify sandbox-qualification-smoke sandbox-postgres-qualify ## Pass every sandbox runtime non-soak gate; formal sandbox qualification soak remains separate and pending.
+	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+owner-control-contract-qualify: ## Prove the compatible generated owner control OpenAPI contract and source catalogue.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-owner-control-boundary.mjs
+
+owner-control-api-qualify: ## Exercise owner control validation, authorization, idempotency, revisions, projections, exports, and streams.
+	@AXIOM_OWNER_CONTROL_TEST_DSN= AXIOM_OWNER_CONTROL_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/api/console ./internal/authentication \
+			./internal/bootstrap ./internal/storage/postgres -count=1
+	@AXIOM_OWNER_CONTROL_TEST_DSN= AXIOM_OWNER_CONTROL_UPGRADE_TEST_DSN= \
+		$(GO) test -race ./internal/api/console ./internal/authentication -count=1
+
+owner-control-postgres-qualify: ## Run owner control clean-install and exact sandbox runtime-upgrade gates on dedicated PostgreSQL 18 databases.
+	@test -n "$(AXIOM_OWNER_CONTROL_TEST_DSN)" || { echo "AXIOM_OWNER_CONTROL_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OWNER_CONTROL_UPGRADE_TEST_DSN)" || { echo "AXIOM_OWNER_CONTROL_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_OWNER_CONTROL_TEST_DSN="$(AXIOM_OWNER_CONTROL_TEST_DSN)" \
+		AXIOM_OWNER_CONTROL_UPGRADE_TEST_DSN="$(AXIOM_OWNER_CONTROL_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestOwnerControlPostgres(CleanInstall|SandboxRuntimeToOwnerControlUpgrade)Qualification$$' -count=1 -v
+
+owner-control-security-qualify: ## Prove owner control redaction, secret, role, stream, and prohibited-capability boundaries.
+	@$(NODE) scripts/check-owner-control-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+owner-control: owner-control-contract-qualify owner-control-api-qualify owner-control-postgres-qualify owner-control-security-qualify ## Pass every owner control implementation gate; merge and formal cumulative acceptance remain separate.
+
+owner-experience-contract-qualify: ## Prove the owner experience browser consumes the compatible generated owner control contract.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-owner-control-boundary.mjs
+	@$(NODE) scripts/check-owner-experience-boundary.mjs
+
+owner-experience-frontend-qualify: ## Type-check, lint, test, build, and inspect the accessible owner experience command center.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+	@$(NODE) scripts/check-owner-experience-boundary.mjs
+
+owner-experience-browser-qualify: ## Run owner experience workflows in Chromium, Firefox, WebKit, tablet, and mobile fixtures.
+	@AXIOM_OWNER_CONSOLE_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'Owner command center'
+
+owner-experience-security-qualify: ## Prove owner experience has no arbitrary execution surface or forbidden V1 capability.
+	@$(NODE) scripts/check-owner-experience-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+owner-experience: owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify ## Pass every local owner experience implementation gate; merge and cumulative acceptance remain separate.
+
+run-lab-contract-qualify: ## Prove run lab uses compatible generated lab and evidence contracts.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-owner-control-boundary.mjs
+	@$(NODE) scripts/check-owner-experience-boundary.mjs
+	@$(NODE) scripts/check-run-lab-boundary.mjs
+
+run-lab-api-qualify: ## Exercise run lab authorization, lifecycle, manifest, replay, export, and shadow projections.
+	@AXIOM_OWNER_CONSOLE_TEST_DSN= $(GO) test ./internal/api/... ./internal/replay ./internal/backtest ./internal/storage/postgres -count=1
+
+run-lab-postgres-qualify: ## Run run lab durable lifecycle and evidence projections against PostgreSQL 18.
+	@test -n "$(AXIOM_OWNER_CONSOLE_TEST_DSN)" || { echo "AXIOM_OWNER_CONSOLE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_OWNER_CONSOLE_TEST_DSN="$(AXIOM_OWNER_CONSOLE_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestOwnerConsolePostgresAuthenticationCommandsAndConsoleQualification$$' -count=1 -v
+
+run-lab-frontend-qualify: ## Type-check, lint, test, build, and inspect the complete run-lab interface.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+	@$(NODE) scripts/check-run-lab-boundary.mjs
+
+run-lab-browser-qualify: ## Run run-lab workflows in Chromium, Firefox, WebKit, tablet, and mobile fixtures.
+	@AXIOM_OWNER_CONSOLE_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'Unified runs preserve immutable identity'
+
+run-lab-security-qualify: ## Prove run lab preserves redaction and every forbidden V1 capability boundary.
+	@$(NODE) scripts/check-run-lab-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+run-lab: run-lab-contract-qualify run-lab-api-qualify run-lab-postgres-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify ## Pass every local run lab implementation gate; merge and cumulative acceptance remain separate.
+
+operational-evidence-contract-qualify: ## Prove operational evidence uses compatible generated operational-evidence contracts.
+	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(NODE) scripts/check-owner-control-boundary.mjs
+	@$(NODE) scripts/check-owner-experience-boundary.mjs
+	@$(NODE) scripts/check-run-lab-boundary.mjs
+	@$(NODE) scripts/check-operational-evidence-boundary.mjs
+
+operational-evidence-api-qualify: ## Exercise operational evidence authorization, schedules, reports, incidents, alerts, audit, and artifacts.
+	@AXIOM_OPERATIONAL_EVIDENCE_TEST_DSN= AXIOM_OPERATIONAL_EVIDENCE_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/api/... ./internal/alerting ./internal/reporting \
+			./internal/storage/postgres ./internal/bootstrap -count=1
+	@$(GO) test -race ./internal/api/console ./internal/alerting ./internal/reporting -count=1
+
+operational-evidence-postgres-qualify: ## Run operational evidence clean-install and exact owner control-to-operational evidence upgrade gates on dedicated PostgreSQL 18 databases.
+	@test -n "$(AXIOM_OPERATIONAL_EVIDENCE_TEST_DSN)" || { echo "AXIOM_OPERATIONAL_EVIDENCE_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_EVIDENCE_UPGRADE_TEST_DSN)" || { echo "AXIOM_OPERATIONAL_EVIDENCE_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_OPERATIONAL_EVIDENCE_TEST_DSN="$(AXIOM_OPERATIONAL_EVIDENCE_TEST_DSN)" \
+		AXIOM_OPERATIONAL_EVIDENCE_UPGRADE_TEST_DSN="$(AXIOM_OPERATIONAL_EVIDENCE_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestOperationalEvidencePostgres(OperationalEvidence|OwnerControlToOperationalEvidenceUpgrade)Qualification$$' -count=1 -v
+
+operational-evidence-frontend-qualify: ## Type-check, lint, test, build, and inspect the operational-evidence workflows.
+	@$(PNPM) --filter @axiom/web typecheck
+	@$(PNPM) --filter @axiom/web lint
+	@$(PNPM) --filter @axiom/web test
+	@$(PNPM) --filter @axiom/web build
+	@$(NODE) scripts/check-operational-evidence-boundary.mjs
+
+operational-evidence-browser-qualify: ## Run operational evidence workflows in Chromium, Firefox, WebKit, tablet, and mobile fixtures.
+	@AXIOM_OWNER_CONSOLE_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e --grep 'Operational evidence workflows'
+
+operational-evidence-security-qualify: ## Prove operational evidence redaction, audit, hold, outbound, role, and prohibited-capability boundaries.
+	@$(NODE) scripts/check-operational-evidence-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+operational-evidence: operational-evidence-contract-qualify operational-evidence-api-qualify operational-evidence-postgres-qualify operational-evidence-frontend-qualify operational-evidence-browser-qualify operational-evidence-security-qualify ## Pass every local operational evidence implementation gate; merge and cumulative acceptance remain separate.
+
+operational-readiness-model-qualify: ## Exercise operational readiness pressure, retention, lifecycle, runner, and fail-closed runtime models.
+	@AXIOM_OPERATIONAL_READINESS_TEST_DSN= AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN= \
+		$(GO) test ./internal/storage/pressure ./internal/storage/segments \
+			./internal/qualification/operationalreadiness ./internal/config ./internal/bootstrap \
+			./internal/storage/postgres -count=1
+	@$(GO) test -race ./internal/storage/pressure ./internal/qualification/operationalreadiness \
+		./internal/bootstrap -count=1
+
+operational-readiness-backup-qualify: ## Prove independent mount rejection, encryption, retention, and authenticated restore evidence.
+	@$(GO) test ./internal/backup ./cmd/storage-backup -count=1
+	@$(GO) test -race ./internal/backup -count=1
+
+operational-readiness-postgres-qualify: ## Run operational readiness clean-install and exact operational evidence-to-operational readiness upgrade gates on PostgreSQL 18.
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_TEST_DSN)" || { echo "AXIOM_OPERATIONAL_READINESS_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN)" || { echo "AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_OPERATIONAL_READINESS_TEST_DSN="$(AXIOM_OPERATIONAL_READINESS_TEST_DSN)" \
+		AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN="$(AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestOperationalReadinessPostgres(OperationalReadiness|OperationalEvidenceToOperationalReadinessUpgrade)Qualification$$' -count=1 -v
+
+evaluation-campaign-postgres-qualify: ## Run evaluation campaign clean-install and exact migration-54 upgrade gates on PostgreSQL 18.
+	@test -n "$(AXIOM_EVALUATION_CAMPAIGN_TEST_DSN)" || { echo "AXIOM_EVALUATION_CAMPAIGN_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN)" || { echo "AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_EVALUATION_CAMPAIGN_TEST_DSN="$(AXIOM_EVALUATION_CAMPAIGN_TEST_DSN)" \
+		AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN="$(AXIOM_EVALUATION_CAMPAIGN_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres \
+		-run '^TestEvaluationCampaignPostgres(CleanInstall|SemanticRuntimeToCampaignUpgrade)Qualification$$' -count=1 -v
+
+operational-readiness-hardening-qualify: ## Validate operational readiness Compose retention, remote backup, digest, and lifecycle boundaries.
+	@$(NODE) scripts/check-operational-readiness-boundary.mjs
+	@scripts/check-compose.sh
+
+operational-readiness-chaos-qualify: ## Exercise terminal failure, no-replace evidence, races, restart, and kill-point models.
+	@$(GO) test ./internal/qualification/operationalreadiness ./internal/backup ./internal/storage/pressure \
+		./internal/execution ./internal/reconciliation ./internal/sandbox -count=1
+
+operational-readiness-smoke: ## Run only deterministic operational readiness smoke; output is always non-qualifying.
+	@$(GO) test ./internal/qualification/operationalreadiness -run '^(TestSmokeRunner|TestRunnerFails|TestFileStore)' \
+		-count=1 -timeout=2m -v
+
+operational-readiness-security-qualify: ## Prove observation-only operational readiness code, secret redaction, and prohibited-capability denial.
+	@$(NODE) scripts/check-operational-readiness-boundary.mjs
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+
+operational-readiness-formal: ## MANUAL: run the default-off exact seven-day operational readiness observer on the approved server.
+	@test "$(AXIOM_OPERATIONAL_READINESS_ENABLED)" = "1" || { echo "AXIOM_OPERATIONAL_READINESS_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_OPERATIONAL_READINESS_MODE)" = "formal" || { echo "AXIOM_OPERATIONAL_READINESS_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_RUN_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_RUN_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE is required" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "formal operational readiness requires a clean exact source" >&2; exit 1; }
+	@$(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/operational-readiness
+
+operational-readiness: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify ## Pass local operational readiness implementation gates; the reference-server seven-day verdict remains separate.
+
+release-certification-model-qualify: ## Exercise exact-identity, signature, expiry, tamper, duplicate, and fail-closed certification rules.
+	@$(GO) test ./internal/certification ./cmd/release-certify -count=1
+	@$(GO) test -race ./internal/certification -count=1
+
+release-certification-traceability-qualify: ## Validate release certification boundaries, complete documentation paths, and all 22 Section 35 dispositions.
+	@$(NODE) scripts/check-release-certification-boundary.mjs
+	@$(NODE) scripts/check-doc-links.mjs
+
+release-certification-security-qualify: release-certification-model-qualify release-certification-traceability-qualify ## Re-run V1 capability, secret, binary, and release certification release-input controls.
+	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
+	@$(GO) test ./internal/exchanges/binance ./internal/exchanges/bybit \
+		./internal/exchanges/sandboxemulator ./internal/egressproxy -count=1
+
+release-certification-formal: ## MANUAL: issue a signed verdict only from complete current formal evidence; default-off and expected to reject today.
+	@test "$(AXIOM_RELEASE_CERTIFICATION_ENABLED)" = "1" || { echo "AXIOM_RELEASE_CERTIFICATION_ENABLED=1 is required" >&2; exit 1; }
+	@test -n "$(AXIOM_RELEASE_CERTIFICATION_CANDIDATE_FILE)" || { echo "AXIOM_RELEASE_CERTIFICATION_CANDIDATE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_RELEASE_CERTIFICATION_TRUSTED_REVIEWERS_FILE)" || { echo "AXIOM_RELEASE_CERTIFICATION_TRUSTED_REVIEWERS_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_RELEASE_CERTIFICATION_SIGNING_KEY_FILE)" || { echo "AXIOM_RELEASE_CERTIFICATION_SIGNING_KEY_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_RELEASE_CERTIFICATION_VERDICT_DIRECTORY)" || { echo "AXIOM_RELEASE_CERTIFICATION_VERDICT_DIRECTORY is required" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "final certification requires a clean exact source" >&2; exit 1; }
+	@$(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/release-certify
+
+release-certify: release-certification-security-qualify owner-control-contract-qualify owner-control-api-qualify owner-control-security-qualify owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify run-lab-contract-qualify run-lab-api-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify operational-evidence-contract-qualify operational-evidence-api-qualify operational-evidence-frontend-qualify operational-evidence-browser-qualify operational-evidence-security-qualify operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-security-qualify credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-api-qualify sandbox-frontend-qualify sandbox-security-qualify sandbox-chaos-qualify ## Pass repository-verifiable release certification checks without invoking any formal or smoke soak target.
+	@$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 vulnerability: ## Scan the Go dependency graph for known vulnerabilities.
 	@$(GO) tool govulncheck -db "$(VULNDB)" ./...
 
-verify: preflight format-check contracts-check docs-check lint test test-race fuzz-smoke build compose-validate security-static vulnerability ## Run the complete local A1 quality gate.
+verify: preflight format-check contracts-check docs-check lint test test-race fuzz-smoke build compose-validate security-static vulnerability ## Run the complete local application baseline quality gate.
 
 dev-api: ## Run the local API health application.
 	@$(GO) run ./cmd/platform api
@@ -279,224 +495,224 @@ dev-api: ## Run the local API health application.
 dev-web: ## Run Vite with the API proxy.
 	@$(PNPM) --filter @axiom/web dev
 
-migrate: ## Run the exact A1 migration command surface.
+migrate: ## Run the exact application baseline migration command surface.
 	@$(GO) run ./cmd/platform admin migrate
 
-a4-sqlc: ## Generate and compile the reviewed A4 PostgreSQL queries.
+durable-storage-sqlc: ## Generate and compile the reviewed durable storage PostgreSQL queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_A4_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+	@AXIOM_DURABLE_STORAGE_TEST_DSN= $(GO) test ./internal/storage/postgres/...
 
-a4-postgres-qualify: ## Run the destructive A4 gate against a dedicated *_a4_test database.
-	@test -n "$(AXIOM_A4_TEST_DSN)" || { echo "AXIOM_A4_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) a4-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_A4_TEST_DSN="$(AXIOM_A4_TEST_DSN)" $(GO) test ./internal/storage/postgres \
-		-run '^TestA4PostgresMigrationJournalAndReservationIntegration$$' -count=1 -v
+durable-storage-postgres-qualify: ## Run the destructive durable storage gate against a dedicated *_durable_storage_test database.
+	@test -n "$(AXIOM_DURABLE_STORAGE_TEST_DSN)" || { echo "AXIOM_DURABLE_STORAGE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) durable-storage-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_DURABLE_STORAGE_TEST_DSN="$(AXIOM_DURABLE_STORAGE_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestDurableStoragePostgresMigrationJournalAndReservationIntegration$$' -count=1 -v
 
-a7-soak-smoke: ## Run the 20-second two-instrument Binance forensic soak harness.
-	@test -n "$(AXIOM_A7_SOURCE_COMMIT)" || { echo "AXIOM_A7_SOURCE_COMMIT is required" >&2; exit 1; }
-	@AXIOM_A7_SOAK_SMOKE=1 AXIOM_A7_SOURCE_COMMIT="$(AXIOM_A7_SOURCE_COMMIT)" \
-		$(GO) test ./internal/qualification -run '^TestA7PublicSoakHarnessSmoke$$' -count=1 -timeout=2m -v
+public-data-soak-smoke: ## Run the 20-second two-instrument Binance forensic soak harness.
+	@test -n "$(AXIOM_PUBLIC_DATA_SOURCE_COMMIT)" || { echo "AXIOM_PUBLIC_DATA_SOURCE_COMMIT is required" >&2; exit 1; }
+	@AXIOM_PUBLIC_DATA_SOAK_SMOKE=1 AXIOM_PUBLIC_DATA_SOURCE_COMMIT="$(AXIOM_PUBLIC_DATA_SOURCE_COMMIT)" \
+		$(GO) test ./internal/qualification -run '^TestPublicDataQualificationPublicSoakHarnessSmoke$$' -count=1 -timeout=2m -v
 
-a8-sqlc: ## Generate and compile the reviewed A8 PostgreSQL queries.
+strategy-execution-sqlc: ## Generate and compile the reviewed strategy execution PostgreSQL queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_A8_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+	@AXIOM_STRATEGY_EXECUTION_TEST_DSN= $(GO) test ./internal/storage/postgres/...
 
-a8-postgres-qualify: ## Run the A8 atomic repository gate against a dedicated *_a8_test database.
-	@test -n "$(AXIOM_A8_TEST_DSN)" || { echo "AXIOM_A8_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) a8-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_A8_TEST_DSN="$(AXIOM_A8_TEST_DSN)" $(GO) test ./internal/storage/postgres \
-		-run '^TestA8PostgresAtomicOrderFillJournalCheckpoint$$' -count=1 -v
+strategy-execution-postgres-qualify: ## Run the strategy execution atomic repository gate against a dedicated *_strategy_execution_test database.
+	@test -n "$(AXIOM_STRATEGY_EXECUTION_TEST_DSN)" || { echo "AXIOM_STRATEGY_EXECUTION_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) strategy-execution-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_STRATEGY_EXECUTION_TEST_DSN="$(AXIOM_STRATEGY_EXECUTION_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestStrategyExecutionPostgresAtomicOrderFillJournalCheckpoint$$' -count=1 -v
 
-a8-local-qualify: ## Verify and stream the ignored A7 engineering recordings without exporting payloads.
-	@AXIOM_A8_DATASET_43_ROOT=$(CURDIR)/.local/a7-soak-a641cd4 \
-		AXIOM_A8_DATASET_R2_ROOT=$(CURDIR)/.local/a7-soak-a641cd4-r2 \
-		$(GO) test ./internal/backtest -run '^TestA8IgnoredLocalDatasetQualification$$' -count=1 -v
+strategy-execution-local-qualify: ## Verify and stream the ignored public-data qualification engineering recordings without exporting payloads.
+	@AXIOM_STRATEGY_EXECUTION_DATASET_43_ROOT=$(CURDIR)/.local/a7-soak-a641cd4 \
+		AXIOM_STRATEGY_EXECUTION_DATASET_R2_ROOT=$(CURDIR)/.local/a7-soak-a641cd4-r2 \
+		$(GO) test ./internal/backtest -run '^TestStrategyExecutionIgnoredLocalDatasetQualification$$' -count=1 -v
 
-a9-sqlc: ## Generate and compile the reviewed A9 PostgreSQL queries.
+portfolio-risk-sqlc: ## Generate and compile the reviewed portfolio risk PostgreSQL queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_A9_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+	@AXIOM_PORTFOLIO_RISK_TEST_DSN= $(GO) test ./internal/storage/postgres/...
 
-a9-postgres-qualify: ## Run the A9 ownership/risk/recovery gate against a dedicated *_a9_test database.
-	@test -n "$(AXIOM_A9_TEST_DSN)" || { echo "AXIOM_A9_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) a9-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_A9_TEST_DSN="$(AXIOM_A9_TEST_DSN)" $(GO) test ./internal/storage/postgres \
-		-run '^TestA9PostgresPortfolioRiskRecoveryQualification$$' -count=1 -v
+portfolio-risk-postgres-qualify: ## Run the portfolio risk ownership/risk/recovery gate against a dedicated *_portfolio_risk_test database.
+	@test -n "$(AXIOM_PORTFOLIO_RISK_TEST_DSN)" || { echo "AXIOM_PORTFOLIO_RISK_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) portfolio-risk-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_PORTFOLIO_RISK_TEST_DSN="$(AXIOM_PORTFOLIO_RISK_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestPortfolioRiskPostgresPortfolioRiskRecoveryQualification$$' -count=1 -v
 
-a9-model-qualify: ## Exercise exact A9 portfolio, risk, reconciliation, and shared A8 pipeline models.
+portfolio-risk-model-qualify: ## Exercise exact portfolio risk portfolio, risk, reconciliation, and shared strategy execution pipeline models.
 	@$(GO) test ./internal/portfolio ./internal/risk ./internal/reconciliation -count=1
-	@$(GO) test ./internal/backtest -run '^TestA9.*Pipeline.*$$' -count=1 -v
+	@$(GO) test ./internal/backtest -run '^TestPortfolioRisk.*Pipeline.*$$' -count=1 -v
 
-a10-sqlc: ## Generate and compile the reviewed A10 Trend and research queries.
+research-registry-sqlc: ## Generate and compile the reviewed research registry Trend and research queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_A10_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+	@AXIOM_RESEARCH_REGISTRY_TEST_DSN= $(GO) test ./internal/storage/postgres/...
 
-a10-postgres-qualify: ## Run the A10 immutable research gate against a dedicated *_a10_test database.
-	@test -n "$(AXIOM_A10_TEST_DSN)" || { echo "AXIOM_A10_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) a10-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_A10_TEST_DSN="$(AXIOM_A10_TEST_DSN)" $(GO) test ./internal/storage/postgres \
-		-run '^TestA10PostgresTrendResearchQualification$$' -count=1 -v
+research-registry-postgres-qualify: ## Run the research registry immutable research gate against a dedicated *_research_registry_test database.
+	@test -n "$(AXIOM_RESEARCH_REGISTRY_TEST_DSN)" || { echo "AXIOM_RESEARCH_REGISTRY_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) research-registry-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_RESEARCH_REGISTRY_TEST_DSN="$(AXIOM_RESEARCH_REGISTRY_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestResearchRegistryPostgresTrendResearchQualification$$' -count=1 -v
 
-a10-model-qualify: ## Exercise exact Trend decisions through the shared allocator/risk pipeline.
+research-registry-model-qualify: ## Exercise exact Trend decisions through the shared allocator/risk pipeline.
 	@$(GO) test ./internal/strategies/trend -count=1 -v
 	@$(GO) test ./internal/backtest -count=1
-	@$(NODE) scripts/check-a10-strategy-boundary.mjs
+	@$(NODE) scripts/check-research-registry-strategy-boundary.mjs
 
-a10-research-qualify: ## Verify deterministic Go research and the independent locked Python checker.
+research-registry-research-qualify: ## Verify deterministic Go research and the independent locked Python checker.
 	@python3 -c 'import sys; assert sys.version_info[:3] == (3, 12, 3), sys.version'
 	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
 	@$(GO) test ./internal/research -count=1 -v
 
-a11-sqlc: ## Generate and compile reviewed A11 authentication and console queries.
+owner-console-sqlc: ## Generate and compile reviewed owner console authentication and console queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_A11_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+	@AXIOM_OWNER_CONSOLE_TEST_DSN= $(GO) test ./internal/storage/postgres/...
 
-a11-postgres-qualify: ## Run A11 auth, command, projection, stream, and immutability qualification.
-	@test -n "$(AXIOM_A11_TEST_DSN)" || { echo "AXIOM_A11_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) a11-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_A11_TEST_DSN="$(AXIOM_A11_TEST_DSN)" $(GO) test ./internal/storage/postgres \
-		-run '^TestA11PostgresAuthenticationCommandsAndConsoleQualification$$' -count=1 -v
+owner-console-postgres-qualify: ## Run owner console auth, command, projection, stream, and immutability qualification.
+	@test -n "$(AXIOM_OWNER_CONSOLE_TEST_DSN)" || { echo "AXIOM_OWNER_CONSOLE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) owner-console-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_OWNER_CONSOLE_TEST_DSN="$(AXIOM_OWNER_CONSOLE_TEST_DSN)" $(GO) test ./internal/storage/postgres \
+		-run '^TestOwnerConsolePostgresAuthenticationCommandsAndConsoleQualification$$' -count=1 -v
 
-a11-contract-qualify: ## Prove exact OpenAPI operations, generated models, and boundary ownership.
+owner-console-contract-qualify: ## Prove exact OpenAPI operations, generated models, and boundary ownership.
 	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
-	@$(NODE) scripts/check-a11-console-boundary.mjs
+	@$(NODE) scripts/check-owner-console-console-boundary.mjs
 	@$(GO) test ./internal/api/... -count=1
 
-a11-api-qualify: ## Exercise A11 authentication, authorization, API, bootstrap, and storage policy.
+owner-console-api-qualify: ## Exercise owner console authentication, authorization, API, bootstrap, and storage policy.
 	@$(GO) test ./internal/authentication ./internal/api/... ./internal/bootstrap ./internal/config -count=1
 
-a11-frontend-qualify: ## Type-check, lint, test, and build the routed accessible console.
+owner-console-frontend-qualify: ## Type-check, lint, test, and build the routed accessible console.
 	@$(PNPM) --filter @axiom/web typecheck
 	@$(PNPM) --filter @axiom/web lint
 	@$(PNPM) --filter @axiom/web test
 	@$(PNPM) --filter @axiom/web build
 
-a11-ui-fixture-qualify: ## Run deterministic desktop/mobile UI coverage with contract-shaped fixtures.
-	@AXIOM_A11_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e
+owner-console-ui-fixture-qualify: ## Run deterministic desktop/mobile UI coverage with contract-shaped fixtures.
+	@AXIOM_OWNER_CONSOLE_E2E_BASE_URL= $(PNPM) --filter @axiom/web test:e2e
 
-a11-e2e-qualify: ## Run the unmocked authenticated workflow against a clean integrated A11 environment.
-	@test -n "$(AXIOM_A11_E2E_BASE_URL)" || { echo "AXIOM_A11_E2E_BASE_URL is required" >&2; exit 1; }
-	@test -n "$(AXIOM_A11_E2E_CONFIGURATION_ID)" || { echo "AXIOM_A11_E2E_CONFIGURATION_ID is required" >&2; exit 1; }
-	@test -n "$(AXIOM_A11_E2E_DATASET_ID)" || { echo "AXIOM_A11_E2E_DATASET_ID is required" >&2; exit 1; }
-	@test -n "$(AXIOM_A11_E2E_RESEARCH_GENERATION_ID)" || { echo "AXIOM_A11_E2E_RESEARCH_GENERATION_ID is required" >&2; exit 1; }
-	@test -n "$(AXIOM_A11_E2E_PORTFOLIO_ID)" || { echo "AXIOM_A11_E2E_PORTFOLIO_ID is required" >&2; exit 1; }
-	@test -n "$(AXIOM_A11_E2E_EVIDENCE_SHADOW_ID)" || { echo "AXIOM_A11_E2E_EVIDENCE_SHADOW_ID is required" >&2; exit 1; }
-	@test -n "$(AXIOM_A11_E2E_PASSWORD)" || { echo "AXIOM_A11_E2E_PASSWORD is required" >&2; exit 1; }
+owner-console-e2e-qualify: ## Run the unmocked authenticated workflow against a clean integrated owner console environment.
+	@test -n "$(AXIOM_OWNER_CONSOLE_E2E_BASE_URL)" || { echo "AXIOM_OWNER_CONSOLE_E2E_BASE_URL is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OWNER_CONSOLE_E2E_CONFIGURATION_ID)" || { echo "AXIOM_OWNER_CONSOLE_E2E_CONFIGURATION_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OWNER_CONSOLE_E2E_DATASET_ID)" || { echo "AXIOM_OWNER_CONSOLE_E2E_DATASET_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OWNER_CONSOLE_E2E_RESEARCH_GENERATION_ID)" || { echo "AXIOM_OWNER_CONSOLE_E2E_RESEARCH_GENERATION_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OWNER_CONSOLE_E2E_PORTFOLIO_ID)" || { echo "AXIOM_OWNER_CONSOLE_E2E_PORTFOLIO_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OWNER_CONSOLE_E2E_EVIDENCE_SHADOW_ID)" || { echo "AXIOM_OWNER_CONSOLE_E2E_EVIDENCE_SHADOW_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OWNER_CONSOLE_E2E_PASSWORD)" || { echo "AXIOM_OWNER_CONSOLE_E2E_PASSWORD is required" >&2; exit 1; }
 	@$(PNPM) --filter @axiom/web test:e2e
 
-a11-security-qualify: ## Run A11 ownership checks plus repository secret/capability scans.
-	@$(NODE) scripts/check-a11-console-boundary.mjs
+owner-console-security-qualify: ## Run owner console ownership checks plus repository secret/capability scans.
+	@$(NODE) scripts/check-owner-console-console-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)"
 
-b1-model-qualify: ## Exercise common public contracts, Bybit semantics, local books, and recorder linkage.
+exchange-expansion-model-qualify: ## Exercise common public contracts, Bybit semantics, local books, and recorder linkage.
 	@$(GO) test ./internal/exchanges/contracts ./internal/exchanges/binance ./internal/exchanges/bybit ./internal/exchanges/emulator ./internal/marketdata ./internal/recorder -count=1
 
-b1-postgres-qualify: ## Run clean-install and V1A-upgrade B1 gates on PostgreSQL 18 *_b1_test databases.
-	@test -n "$(AXIOM_B1_TEST_DSN)" || { echo "AXIOM_B1_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B1_UPGRADE_TEST_DSN)" || { echo "AXIOM_B1_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@AXIOM_B1_TEST_DSN="$(AXIOM_B1_TEST_DSN)" \
-		AXIOM_B1_UPGRADE_TEST_DSN="$(AXIOM_B1_UPGRADE_TEST_DSN)" \
-		$(GO) test ./internal/storage/postgres -run '^TestB1Postgres(CleanInstall|V1AToB1Upgrade)Qualification$$' -count=1 -v
+exchange-expansion-postgres-qualify: ## Run clean-install and trend foundation-upgrade exchange expansion gates on PostgreSQL 18 *_exchange_expansion_test databases.
+	@test -n "$(AXIOM_EXCHANGE_EXPANSION_TEST_DSN)" || { echo "AXIOM_EXCHANGE_EXPANSION_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_EXCHANGE_EXPANSION_UPGRADE_TEST_DSN)" || { echo "AXIOM_EXCHANGE_EXPANSION_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_EXCHANGE_EXPANSION_TEST_DSN="$(AXIOM_EXCHANGE_EXPANSION_TEST_DSN)" \
+		AXIOM_EXCHANGE_EXPANSION_UPGRADE_TEST_DSN="$(AXIOM_EXCHANGE_EXPANSION_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres -run '^TestExchangeExpansionPostgres(CleanInstall|TrendFoundationToExchangeExpansionUpgrade)Qualification$$' -count=1 -v
 
-b1-adapter-qualify: ## Run Bybit normalization, endpoint, lifecycle, conformance, and fuzz qualification.
+exchange-expansion-adapter-qualify: ## Run Bybit normalization, endpoint, lifecycle, conformance, and fuzz qualification.
 	@$(GO) test ./internal/exchanges/bybit -count=1 -v
 	@$(GO) test ./internal/exchanges/bybit -run '^$$' -fuzz '^FuzzNormalizeBybitPublicStream$$' -fuzztime 3s
 
-b1-security-qualify: ## Prove B1 remains credential-free, public-only, and free of order/transfer methods.
-	@$(NODE) scripts/check-b1-public-boundary.mjs
+exchange-expansion-security-qualify: ## Prove exchange expansion remains credential-free, public-only, and free of order/transfer methods.
+	@$(NODE) scripts/check-exchange-expansion-public-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)"
 
-b1-local-qualify: b1-model-qualify b1-postgres-qualify b1-adapter-qualify b1-security-qualify verify ## Pass every non-live B1 phase gate cumulatively.
+exchange-expansion-local-qualify: exchange-expansion-model-qualify exchange-expansion-postgres-qualify exchange-expansion-adapter-qualify exchange-expansion-security-qualify verify ## Pass every non-live exchange expansion validation gate cumulatively.
 
-b1-live-qualify: ## Run explicitly enabled short Bybit production-public qualification.
-	@test "$(AXIOM_B1_LIVE_PUBLIC)" = "1" || { echo "AXIOM_B1_LIVE_PUBLIC=1 is required" >&2; exit 1; }
-	@AXIOM_B1_LIVE_PUBLIC=1 $(GO) test ./internal/exchanges/bybit \
+exchange-expansion-live-qualify: ## Run explicitly enabled short Bybit production-public qualification.
+	@test "$(AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC)" = "1" || { echo "AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC=1 is required" >&2; exit 1; }
+	@AXIOM_EXCHANGE_EXPANSION_LIVE_PUBLIC=1 $(GO) test ./internal/exchanges/bybit \
 		-run '^TestProductionPublicBybit(Surface|WebSocketRecording|RecorderManifest)$$' -count=1 -v
 
-b1-soak-smoke: ## Run the 20-second two-instrument Bybit forensic soak harness.
-	@test -n "$(AXIOM_B1_SOURCE_COMMIT)" || { echo "AXIOM_B1_SOURCE_COMMIT is required" >&2; exit 1; }
-	@AXIOM_B1_SOAK_SMOKE=1 AXIOM_B1_SOURCE_COMMIT="$(AXIOM_B1_SOURCE_COMMIT)" \
-		$(GO) test ./internal/qualification -run '^TestB1PublicSoakHarnessSmoke$$' -count=1 -timeout=2m -v
+exchange-expansion-soak-smoke: ## Run the 20-second two-instrument Bybit forensic soak harness.
+	@test -n "$(AXIOM_EXCHANGE_EXPANSION_SOURCE_COMMIT)" || { echo "AXIOM_EXCHANGE_EXPANSION_SOURCE_COMMIT is required" >&2; exit 1; }
+	@AXIOM_EXCHANGE_EXPANSION_SOAK_SMOKE=1 AXIOM_EXCHANGE_EXPANSION_SOURCE_COMMIT="$(AXIOM_EXCHANGE_EXPANSION_SOURCE_COMMIT)" \
+		$(GO) test ./internal/qualification -run '^TestExchangeExpansionPublicSoakHarnessSmoke$$' -count=1 -timeout=2m -v
 
-b2-model-qualify: ## Exercise B2 clocks, book evidence, deterministic joins, recovery, and Tier-A manifests.
+coherent-market-data-model-qualify: ## Exercise coherent market data clocks, book evidence, deterministic joins, recovery, and Tier-A manifests.
 	@$(GO) test ./internal/exchanges/contracts ./internal/exchanges/binance ./internal/exchanges/bybit \
 		./internal/marketdata ./internal/runtime ./internal/recorder ./internal/qualification -count=1
 
-b2-postgres-qualify: ## Run clean-install and B1-upgrade B2 gates on PostgreSQL 18 *_b2_test databases.
-	@test -n "$(AXIOM_B2_TEST_DSN)" || { echo "AXIOM_B2_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B2_UPGRADE_TEST_DSN)" || { echo "AXIOM_B2_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@AXIOM_B2_TEST_DSN="$(AXIOM_B2_TEST_DSN)" \
-		AXIOM_B2_UPGRADE_TEST_DSN="$(AXIOM_B2_UPGRADE_TEST_DSN)" \
-		$(GO) test ./internal/storage/postgres -run '^TestB2Postgres(CleanInstall|B1ToB2Upgrade)Qualification$$' -count=1 -v
+coherent-market-data-postgres-qualify: ## Run clean-install and exchange expansion-upgrade coherent market data gates on PostgreSQL 18 *_coherent_market_data_test databases.
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_TEST_DSN)" || { echo "AXIOM_COHERENT_MARKET_DATA_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_UPGRADE_TEST_DSN)" || { echo "AXIOM_COHERENT_MARKET_DATA_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@AXIOM_COHERENT_MARKET_DATA_TEST_DSN="$(AXIOM_COHERENT_MARKET_DATA_TEST_DSN)" \
+		AXIOM_COHERENT_MARKET_DATA_UPGRADE_TEST_DSN="$(AXIOM_COHERENT_MARKET_DATA_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres -run '^TestCoherentMarketDataPostgres(CleanInstall|ExchangeExpansionToCoherentMarketDataUpgrade)Qualification$$' -count=1 -v
 
-b2-live-qualify: ## Run the explicitly enabled short public-only Binance/Bybit coherent-view qualification; no soak.
-	@test "$(AXIOM_B2_LIVE_PUBLIC)" = "1" || { echo "AXIOM_B2_LIVE_PUBLIC=1 is required" >&2; exit 1; }
-	@AXIOM_B2_LIVE_PUBLIC=1 \
-		AXIOM_B2_LIVE_EVIDENCE_ROOT="$(AXIOM_B2_LIVE_EVIDENCE_ROOT)" \
-		AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" \
-		$(GO) test ./internal/qualification -run '^TestB2ProductionPublicRecordOnlyAndCoherentQualification$$' -count=1 -v
+coherent-market-data-live-qualify: ## Run the explicitly enabled short public-only Binance/Bybit coherent-view qualification; no soak.
+	@test "$(AXIOM_COHERENT_MARKET_DATA_LIVE_PUBLIC)" = "1" || { echo "AXIOM_COHERENT_MARKET_DATA_LIVE_PUBLIC=1 is required" >&2; exit 1; }
+	@AXIOM_COHERENT_MARKET_DATA_LIVE_PUBLIC=1 \
+		AXIOM_COHERENT_MARKET_DATA_LIVE_EVIDENCE_ROOT="$(AXIOM_COHERENT_MARKET_DATA_LIVE_EVIDENCE_ROOT)" \
+		AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION="$(AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION)" \
+		$(GO) test ./internal/qualification -run '^TestCoherentMarketDataProductionPublicRecordOnlyAndCoherentQualification$$' -count=1 -v
 
-b2-local-qualify: b2-model-qualify b2-postgres-qualify verify ## Pass every non-soak B2 gate cumulatively.
+coherent-market-data-local-qualify: coherent-market-data-model-qualify coherent-market-data-postgres-qualify verify ## Pass every non-soak coherent market data gate cumulatively.
 
-b2-soak-smoke: ## Run the 20-second non-formal six-collector B2 qualification harness.
-	@test -n "$(AXIOM_B2_SOURCE_COMMIT)" || { echo "AXIOM_B2_SOURCE_COMMIT is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B2_SOAK_OUTPUT)" || { echo "AXIOM_B2_SOAK_OUTPUT is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B2_COLLECTOR_REGION)" || { echo "AXIOM_B2_COLLECTOR_REGION is required" >&2; exit 1; }
-	@test "$(AXIOM_B2_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_B2_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
-	@test -z "$$(git status --porcelain)" || { echo "B2 smoke requires an exact clean committed source" >&2; exit 1; }
-	@AXIOM_B2_SOAK_SMOKE=1 AXIOM_B2_SOURCE_COMMIT="$(AXIOM_B2_SOURCE_COMMIT)" AXIOM_B2_SOAK_OUTPUT="$(AXIOM_B2_SOAK_OUTPUT)" AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestB2PublicSoakHarnessSmoke$$' -count=1 -timeout=5m -v
+coherent-market-data-soak-smoke: ## Run the 20-second non-formal six-collector coherent market data qualification harness.
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT)" || { echo "AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT)" || { echo "AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION)" || { echo "AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION is required" >&2; exit 1; }
+	@test "$(AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "coherent market data smoke requires an exact clean committed source" >&2; exit 1; }
+	@AXIOM_COHERENT_MARKET_DATA_SOAK_SMOKE=1 AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT="$(AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT)" AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT="$(AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT)" AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION="$(AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestCoherentMarketDataPublicSoakHarnessSmoke$$' -count=1 -timeout=5m -v
 
-b2-soak-qualify: ## Run the explicit formal 72-hour B2 qualification; never use this target for smoke.
-	@test "$(AXIOM_B2_SOAK)" = "1" || { echo "AXIOM_B2_SOAK=1 explicit opt-in is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B2_SOURCE_COMMIT)" || { echo "AXIOM_B2_SOURCE_COMMIT is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B2_SOAK_OUTPUT)" || { echo "AXIOM_B2_SOAK_OUTPUT is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B2_COLLECTOR_REGION)" || { echo "AXIOM_B2_COLLECTOR_REGION is required" >&2; exit 1; }
-	@test "$(AXIOM_B2_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_B2_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
-	@test -z "$$(git status --porcelain)" || { echo "formal B2 qualification requires a clean committed source" >&2; exit 1; }
-	@AXIOM_B2_SOAK=1 AXIOM_B2_SOURCE_COMMIT="$(AXIOM_B2_SOURCE_COMMIT)" AXIOM_B2_SOAK_OUTPUT="$(AXIOM_B2_SOAK_OUTPUT)" AXIOM_B2_COLLECTOR_REGION="$(AXIOM_B2_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestB2Continuous72HourPublicSoak$$' -count=1 -timeout=73h -v
+coherent-market-data-soak-qualify: ## Run the explicit formal 72-hour coherent market data qualification; never use this target for smoke.
+	@test "$(AXIOM_COHERENT_MARKET_DATA_SOAK)" = "1" || { echo "AXIOM_COHERENT_MARKET_DATA_SOAK=1 explicit opt-in is required" >&2; exit 1; }
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT)" || { echo "AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT)" || { echo "AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT is required" >&2; exit 1; }
+	@test -n "$(AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION)" || { echo "AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION is required" >&2; exit 1; }
+	@test "$(AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT)" = "$$(git rev-parse HEAD)" || { echo "AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "formal coherent market data qualification requires a clean committed source" >&2; exit 1; }
+	@AXIOM_COHERENT_MARKET_DATA_SOAK=1 AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT="$(AXIOM_COHERENT_MARKET_DATA_SOURCE_COMMIT)" AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT="$(AXIOM_COHERENT_MARKET_DATA_SOAK_OUTPUT)" AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION="$(AXIOM_COHERENT_MARKET_DATA_COLLECTOR_REGION)" $(GO) test ./internal/qualification -run '^TestCoherentMarketDataContinuous72HourPublicSoak$$' -count=1 -timeout=73h -v
 
-b3-sqlc: ## Generate and compile the reviewed B3 mean-reversion and research queries.
+mean-reversion-sqlc: ## Generate and compile the reviewed mean-reversion and research queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= $(GO) test ./internal/storage/postgres/...
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= $(GO) test ./internal/storage/postgres/...
 
-b3-model-qualify: ## Exercise exact B3 decisions through shared allocation, risk, execution, simulation, and accounting.
+mean-reversion-model-qualify: ## Exercise exact mean reversion decisions through shared allocation, risk, execution, simulation, and accounting.
 	@$(GO) test ./internal/strategies/meanreversion ./internal/portfolio ./internal/risk ./internal/backtest -count=1 -v
 	@$(GO) test -race ./internal/strategies/meanreversion ./internal/portfolio ./internal/risk -count=1
-	@$(NODE) scripts/check-b3-strategy-boundary.mjs
+	@$(NODE) scripts/check-mean-reversion-strategy-boundary.mjs
 
-b3-postgres-qualify: ## Run clean-install and B2-upgrade B3 gates on PostgreSQL 18 *_b3_test databases.
-	@test -n "$(AXIOM_B3_TEST_DSN)" || { echo "AXIOM_B3_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B3_UPGRADE_TEST_DSN)" || { echo "AXIOM_B3_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) b3-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_B3_TEST_DSN="$(AXIOM_B3_TEST_DSN)" \
-		AXIOM_B3_UPGRADE_TEST_DSN="$(AXIOM_B3_UPGRADE_TEST_DSN)" \
-		$(GO) test ./internal/storage/postgres -run '^TestB3Postgres(CleanInstall|B2ToB3Upgrade)Qualification$$' -count=1 -v
+mean-reversion-postgres-qualify: ## Run clean-install and coherent market data-upgrade mean reversion gates on PostgreSQL 18 *_mean_reversion_test databases.
+	@test -n "$(AXIOM_MEAN_REVERSION_TEST_DSN)" || { echo "AXIOM_MEAN_REVERSION_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN)" || { echo "AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) mean-reversion-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_MEAN_REVERSION_TEST_DSN="$(AXIOM_MEAN_REVERSION_TEST_DSN)" \
+		AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN="$(AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN)" \
+		$(GO) test ./internal/storage/postgres -run '^TestMeanReversionPostgres(CleanInstall|CoherentMarketDataToMeanReversionUpgrade)Qualification$$' -count=1 -v
 
-b3-research-qualify: ## Verify separate deterministic B3 research contracts and the independent Python checker.
+mean-reversion-research-qualify: ## Verify separate deterministic mean reversion research contracts and the independent Python checker.
 	@python3 -c 'import sys; assert sys.version_info[:3] == (3, 12, 3), sys.version'
 	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
 	@$(GO) test ./internal/research -count=1 -v
 
-b3-local-qualify: b3-model-qualify b3-postgres-qualify b3-research-qualify ## Pass every non-soak B3 phase gate cumulatively.
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
+mean-reversion-local-qualify: mean-reversion-model-qualify mean-reversion-postgres-qualify mean-reversion-research-qualify ## Pass every non-soak mean reversion validation gate cumulatively.
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-b4-sqlc: ## Generate and compile the reviewed B4 triangular-arbitrage queries.
+triangular-arbitrage-sqlc: ## Generate and compile the reviewed triangular arbitrage triangular-arbitrage queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+	@AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
-b4-model-qualify: ## Exercise exact B4 evaluation, atomic claims, central risk, sequential recovery, lifetime, and accounting.
+triangular-arbitrage-model-qualify: ## Exercise exact triangular arbitrage evaluation, atomic claims, central risk, sequential recovery, lifetime, and accounting.
 	@$(GO) test ./internal/config ./internal/accounting ./internal/execution ./internal/portfolio \
 		./internal/risk ./internal/strategies/arbitrage ./internal/strategies/triangular -count=1 -v
 	@$(GO) test -race ./internal/portfolio ./internal/execution \
@@ -505,38 +721,38 @@ b4-model-qualify: ## Exercise exact B4 evaluation, atomic claims, central risk, 
 		-bench '^BenchmarkTriangularEvaluator$$' -benchmem -count=1
 	@$(GO) test ./internal/strategies/triangular -run '^$$' \
 		-fuzz '^FuzzTriangularExactCycles$$' -fuzztime 3s
-	@$(NODE) scripts/check-b4-strategy-boundary.mjs
+	@$(NODE) scripts/check-triangular-arbitrage-strategy-boundary.mjs
 
-b4-postgres-qualify: ## Run clean-install and exact B3-upgrade B4 gates on PostgreSQL 18 *_b4_test databases.
-	@test -n "$(AXIOM_B4_TEST_DSN)" || { echo "AXIOM_B4_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B4_UPGRADE_TEST_DSN)" || { echo "AXIOM_B4_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) b4-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_B4_TEST_DSN="$(AXIOM_B4_TEST_DSN)" \
-		AXIOM_B4_UPGRADE_TEST_DSN="$(AXIOM_B4_UPGRADE_TEST_DSN)" \
+triangular-arbitrage-postgres-qualify: ## Run clean-install and exact mean reversion-upgrade triangular arbitrage gates on PostgreSQL 18 *_triangular_arbitrage_test databases.
+	@test -n "$(AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN)" || { echo "AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN)" || { echo "AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) triangular-arbitrage-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN="$(AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN)" \
+		AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN="$(AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN)" \
 		$(GO) test ./internal/storage/postgres \
-		-run '^TestB4Postgres(CleanInstall|B3ToB4Upgrade)Qualification$$' -count=1 -v
+		-run '^TestTriangularArbitragePostgres(CleanInstall|MeanReversionToTriangularArbitrageUpgrade)Qualification$$' -count=1 -v
 
-b4-local-qualify: b4-model-qualify b4-postgres-qualify ## Pass every non-soak B4 phase gate cumulatively.
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+triangular-arbitrage-local-qualify: triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify ## Pass every non-soak triangular arbitrage validation gate cumulatively.
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-b5-sqlc: ## Generate and compile the reviewed B5 cross-exchange-arbitrage queries.
+cross-exchange-arbitrage-sqlc: ## Generate and compile the reviewed cross-exchange arbitrage cross-exchange-arbitrage queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
-b5-model-qualify: ## Exercise exact B5 coherent evaluation, closed-cycle economics, atomic claims, concurrent recovery, inventory, and accounting.
+cross-exchange-arbitrage-model-qualify: ## Exercise exact cross-exchange arbitrage coherent evaluation, closed-cycle economics, atomic claims, concurrent recovery, inventory, and accounting.
 	@$(GO) test ./internal/config ./internal/accounting ./internal/execution ./internal/portfolio \
 		./internal/risk ./internal/strategies/arbitrage ./internal/strategies/crossarb -count=1 -v
 	@$(GO) test -race ./internal/portfolio ./internal/execution \
@@ -545,172 +761,172 @@ b5-model-qualify: ## Exercise exact B5 coherent evaluation, closed-cycle economi
 		-bench '^BenchmarkCrossExchangeEvaluator$$' -benchmem -count=1
 	@$(GO) test ./internal/strategies/crossarb -run '^$$' \
 		-fuzz '^FuzzCrossExchangeClosedCycle$$' -fuzztime 3s
-	@$(NODE) scripts/check-b5-strategy-boundary.mjs
+	@$(NODE) scripts/check-cross-exchange-strategy-boundary.mjs
 
-b5-postgres-qualify: ## Run clean-install and exact B4-upgrade B5 gates on PostgreSQL 18 *_b5_test databases.
-	@test -n "$(AXIOM_B5_TEST_DSN)" || { echo "AXIOM_B5_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B5_UPGRADE_TEST_DSN)" || { echo "AXIOM_B5_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) b5-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_B5_TEST_DSN="$(AXIOM_B5_TEST_DSN)" \
-		AXIOM_B5_UPGRADE_TEST_DSN="$(AXIOM_B5_UPGRADE_TEST_DSN)" \
+cross-exchange-arbitrage-postgres-qualify: ## Run clean-install and exact triangular arbitrage-upgrade cross-exchange arbitrage gates on PostgreSQL 18 *_cross_exchange_arbitrage_test databases.
+	@test -n "$(AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN)" || { echo "AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN)" || { echo "AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) cross-exchange-arbitrage-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN="$(AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN)" \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN="$(AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN)" \
 		$(GO) test ./internal/storage/postgres \
-		-run '^TestB5Postgres(CleanInstall|B4ToB5Upgrade)Qualification$$' -count=1 -v
+		-run '^TestCrossExchangeArbitragePostgres(CleanInstall|TriangularArbitrageToCrossExchangeArbitrageUpgrade)Qualification$$' -count=1 -v
 
-b5-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify ## Pass every non-soak B4 and B5 phase gate cumulatively.
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+cross-exchange-arbitrage-local-qualify: triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify cross-exchange-arbitrage-model-qualify cross-exchange-arbitrage-postgres-qualify ## Pass every non-soak triangular arbitrage and cross-exchange arbitrage validation gate cumulatively.
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-b6-sqlc: ## Generate and compile the reviewed B6 advisory-rebalancing queries.
+inventory-rebalancing-sqlc: ## Generate and compile the reviewed inventory rebalancing advisory-rebalancing queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
-b6-model-qualify: ## Exercise reviewed facts, exact route costs, natural reversal, deterministic search, and advisory evidence.
+inventory-rebalancing-model-qualify: ## Exercise reviewed facts, exact route costs, natural reversal, deterministic search, and advisory evidence.
 	@$(GO) test ./internal/config ./internal/rebalancing ./internal/portfolio -count=1 -v
 	@$(GO) test -race ./internal/rebalancing ./internal/portfolio -count=1
 	@$(GO) test ./internal/rebalancing -run '^$$' \
 		-bench '^BenchmarkAdvisoryOptimizer$$' -benchmem -count=1
 	@$(GO) test ./internal/rebalancing -run '^$$' \
 		-fuzz '^FuzzAdvisoryOptimizerPreservesExactNonNegativeCost$$' -fuzztime 3s
-	@$(NODE) scripts/check-b6-rebalancing-boundary.mjs
+	@$(NODE) scripts/check-inventory-rebalancing-rebalancing-boundary.mjs
 
-b6-postgres-qualify: ## Run clean-install and exact B5-upgrade B6 gates on PostgreSQL 18 *_b6_test databases.
-	@test -n "$(AXIOM_B6_TEST_DSN)" || { echo "AXIOM_B6_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B6_UPGRADE_TEST_DSN)" || { echo "AXIOM_B6_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) b6-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_B6_TEST_DSN="$(AXIOM_B6_TEST_DSN)" \
-		AXIOM_B6_UPGRADE_TEST_DSN="$(AXIOM_B6_UPGRADE_TEST_DSN)" \
+inventory-rebalancing-postgres-qualify: ## Run clean-install and exact cross-exchange arbitrage-upgrade inventory rebalancing gates on PostgreSQL 18 *_inventory_rebalancing_test databases.
+	@test -n "$(AXIOM_INVENTORY_REBALANCING_TEST_DSN)" || { echo "AXIOM_INVENTORY_REBALANCING_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN)" || { echo "AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) inventory-rebalancing-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_INVENTORY_REBALANCING_TEST_DSN="$(AXIOM_INVENTORY_REBALANCING_TEST_DSN)" \
+		AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN="$(AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN)" \
 		$(GO) test ./internal/storage/postgres \
-		-run '^TestB6Postgres(CleanInstall|B5ToB6Upgrade)Qualification$$' -count=1 -v
+		-run '^TestInventoryRebalancingPostgres(CleanInstall|CrossExchangeArbitrageToInventoryRebalancingUpgrade)Qualification$$' -count=1 -v
 
-b6-security-qualify: ## Prove B6 has no external asset-movement execution surface in source, API, UI, config, or binary.
-	@$(NODE) scripts/check-b6-rebalancing-boundary.mjs
+inventory-rebalancing-security-qualify: ## Prove inventory rebalancing has no external asset-movement execution surface in source, API, UI, config, or binary.
+	@$(NODE) scripts/check-inventory-rebalancing-rebalancing-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)"
 	@$(MAKE) build-backend GO="$(GO)"
-	@bash scripts/check-b6-binary-boundary.sh "$(PLATFORM)"
+	@bash scripts/check-inventory-rebalancing-binary-boundary.sh "$(PLATFORM)"
 
-b6-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify ## Pass every non-soak B4, B5, and B6 phase gate cumulatively.
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+inventory-rebalancing-local-qualify: triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify cross-exchange-arbitrage-model-qualify cross-exchange-arbitrage-postgres-qualify inventory-rebalancing-model-qualify inventory-rebalancing-postgres-qualify inventory-rebalancing-security-qualify ## Pass every non-soak triangular arbitrage, cross-exchange arbitrage, and inventory rebalancing validation gate cumulatively.
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-b7-sqlc: ## Generate and compile the reviewed B7 research-governance queries.
+research-promotion-sqlc: ## Generate and compile the reviewed research promotion research-governance queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
-b7-model-qualify: ## Exercise preregistration, locked suites, statistics, evidence eligibility, comparison, and promotion.
+research-promotion-model-qualify: ## Exercise preregistration, locked suites, statistics, evidence eligibility, comparison, and promotion.
 	@$(GO) test ./internal/research -count=1 -v
 	@$(GO) test -race ./internal/research -count=1
 	@$(GO) test ./internal/research -run '^$$' \
-		-bench '^BenchmarkB7ValidationSuite$$' -benchmem -count=1
+		-bench '^BenchmarkResearchPromotionValidationSuite$$' -benchmem -count=1
 	@$(GO) test ./internal/research -run '^$$' \
-		-fuzz '^FuzzB7MultipleTestingPreservesProbabilityBounds$$' -fuzztime 3s
-	@$(NODE) scripts/check-b7-research-boundary.mjs
+		-fuzz '^FuzzResearchPromotionMultipleTestingPreservesProbabilityBounds$$' -fuzztime 3s
+	@$(NODE) scripts/check-research-promotion-research-boundary.mjs
 
-b7-postgres-qualify: ## Run clean-install and exact B6-upgrade B7 gates on PostgreSQL 18 *_b7_test databases.
-	@test -n "$(AXIOM_B7_TEST_DSN)" || { echo "AXIOM_B7_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B7_UPGRADE_TEST_DSN)" || { echo "AXIOM_B7_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) b7-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_B7_TEST_DSN="$(AXIOM_B7_TEST_DSN)" \
-		AXIOM_B7_UPGRADE_TEST_DSN="$(AXIOM_B7_UPGRADE_TEST_DSN)" \
+research-promotion-postgres-qualify: ## Run clean-install and exact inventory rebalancing-upgrade research promotion gates on PostgreSQL 18 *_research_promotion_test databases.
+	@test -n "$(AXIOM_RESEARCH_PROMOTION_TEST_DSN)" || { echo "AXIOM_RESEARCH_PROMOTION_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN)" || { echo "AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) research-promotion-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_RESEARCH_PROMOTION_TEST_DSN="$(AXIOM_RESEARCH_PROMOTION_TEST_DSN)" \
+		AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN="$(AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN)" \
 		$(GO) test ./internal/storage/postgres \
-		-run '^TestB7Postgres(CleanInstall|B6ToB7Upgrade)Qualification$$' -count=1 -v
+		-run '^TestResearchPromotionPostgres(CleanInstall|InventoryRebalancingToResearchPromotionUpgrade)Qualification$$' -count=1 -v
 
-b7-research-qualify: ## Independently recalculate B7 statistics and eligibility outside the Go runtime.
+research-promotion-research-qualify: ## Independently recalculate research promotion statistics and eligibility outside the Go runtime.
 	@python3 -c 'import sys; assert sys.version_info[:3] == (3, 12, 3), sys.version'
 	@PYTHONPATH=research/src python3 -m unittest discover -s research/tests
-	@$(NODE) scripts/check-b7-research-boundary.mjs
+	@$(NODE) scripts/check-research-promotion-research-boundary.mjs
 
-b7-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify ## Pass every non-soak B4, B5, B6, and B7 phase gate cumulatively.
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+research-promotion-local-qualify: triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify cross-exchange-arbitrage-model-qualify cross-exchange-arbitrage-postgres-qualify inventory-rebalancing-model-qualify inventory-rebalancing-postgres-qualify inventory-rebalancing-security-qualify research-promotion-model-qualify research-promotion-postgres-qualify research-promotion-research-qualify ## Pass every non-soak triangular arbitrage, cross-exchange arbitrage, inventory rebalancing, and research promotion validation gate cumulatively.
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-b8-sqlc: ## Generate and compile the reviewed B8 multi-exchange console queries.
+multi-exchange-console-sqlc: ## Generate and compile the reviewed multi-exchange console multi-exchange console queries.
 	@command -v "$(SQLC)" >/dev/null || { echo "sqlc executable is required" >&2; exit 1; }
 	@$(SQLC) generate --file sqlc.yaml
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/storage/postgres/...
 
-b8-model-qualify: ## Exercise deterministic replay faults and fail-closed B8 request boundaries.
+multi-exchange-console-model-qualify: ## Exercise deterministic replay faults and fail-closed multi-exchange console request boundaries.
 	@$(GO) test ./internal/replay ./internal/api/console -count=1 -v
 	@$(GO) test -race ./internal/replay ./internal/api/console -count=1
 
-b8-postgres-qualify: ## Run clean-install and exact B7-upgrade B8 gates on PostgreSQL 18 *_b8_test databases.
-	@test -n "$(AXIOM_B8_TEST_DSN)" || { echo "AXIOM_B8_TEST_DSN is required" >&2; exit 1; }
-	@test -n "$(AXIOM_B8_UPGRADE_TEST_DSN)" || { echo "AXIOM_B8_UPGRADE_TEST_DSN is required" >&2; exit 1; }
-	@$(MAKE) b8-sqlc GO="$(GO)" SQLC="$(SQLC)"
-	@AXIOM_B8_TEST_DSN="$(AXIOM_B8_TEST_DSN)" \
-		AXIOM_B8_UPGRADE_TEST_DSN="$(AXIOM_B8_UPGRADE_TEST_DSN)" \
+multi-exchange-console-postgres-qualify: ## Run clean-install and exact research promotion-upgrade multi-exchange console gates on PostgreSQL 18 *_multi_exchange_console_test databases.
+	@test -n "$(AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN)" || { echo "AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN is required" >&2; exit 1; }
+	@test -n "$(AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN)" || { echo "AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN is required" >&2; exit 1; }
+	@$(MAKE) multi-exchange-console-sqlc GO="$(GO)" SQLC="$(SQLC)"
+	@AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN="$(AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN)" \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN="$(AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN)" \
 		$(GO) test ./internal/storage/postgres \
-		-run '^TestB8Postgres(CleanInstall|B7ToB8Upgrade)Qualification$$' -count=1 -v
+		-run '^TestMultiExchangeConsolePostgres(CleanInstall|ResearchPromotionToMultiExchangeConsoleUpgrade)Qualification$$' -count=1 -v
 
-b8-api-qualify: ## Verify generated B8 OpenAPI contracts, generic projections, commands, and SSE envelopes.
+multi-exchange-console-api-qualify: ## Verify generated multi-exchange console OpenAPI contracts, generic projections, commands, and SSE envelopes.
 	@$(MAKE) contracts-check GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(GO) test ./internal/api/console ./internal/storage/postgres \
-		-run 'B8|Stream|Cursor|Filter' -count=1 -v
-	@$(NODE) scripts/check-b8-console-boundary.mjs
+		-run 'multi-exchange console|Stream|Cursor|Filter' -count=1 -v
+	@$(NODE) scripts/check-multi-exchange-console-console-boundary.mjs
 
-b8-frontend-qualify: ## Typecheck, lint, test, and build the accessible responsive B8 console.
+multi-exchange-console-frontend-qualify: ## Typecheck, lint, test, and build the accessible responsive multi-exchange console.
 	@$(PNPM) --filter @axiom/web typecheck
 	@$(PNPM) --filter @axiom/web lint
 	@$(PNPM) --filter @axiom/web test
 	@$(PNPM) --filter @axiom/web build
 
-b8-security-qualify: ## Prove B8 remains public-data, virtual, advisory, and unable to submit real orders or move assets.
-	@$(NODE) scripts/check-b8-console-boundary.mjs
+multi-exchange-console-security-qualify: ## Prove multi-exchange console remains public-data, virtual, advisory, and unable to submit real orders or move assets.
+	@$(NODE) scripts/check-multi-exchange-console-console-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)"
 	@$(MAKE) build-backend GO="$(GO)"
-	@bash scripts/check-b6-binary-boundary.sh "$(PLATFORM)"
-	@bash scripts/check-b8-binary-boundary.sh "$(PLATFORM)"
+	@bash scripts/check-inventory-rebalancing-binary-boundary.sh "$(PLATFORM)"
+	@bash scripts/check-multi-exchange-console-binary-boundary.sh "$(PLATFORM)"
 
-b8-live-qualify: ## Verify B8 navigation, responsive layout, keyboard flow, and simulation lock in Chromium.
-	@$(PNPM) --filter @axiom/web test:e2e --grep 'B8 multi-exchange'
+multi-exchange-console-live-qualify: ## Verify multi-exchange console navigation, responsive layout, keyboard flow, and simulation lock in Chromium.
+	@$(PNPM) --filter @axiom/web test:e2e --grep 'Multi-exchange workflows'
 
-b8-local-qualify: b4-model-qualify b4-postgres-qualify b5-model-qualify b5-postgres-qualify b6-model-qualify b6-postgres-qualify b6-security-qualify b7-model-qualify b7-postgres-qualify b7-research-qualify b8-model-qualify b8-postgres-qualify b8-api-qualify b8-frontend-qualify b8-security-qualify b8-live-qualify ## Pass every non-soak B4-B8 phase gate cumulatively.
-	@AXIOM_B3_TEST_DSN= AXIOM_B3_UPGRADE_TEST_DSN= \
-		AXIOM_B4_TEST_DSN= AXIOM_B4_UPGRADE_TEST_DSN= \
-		AXIOM_B5_TEST_DSN= AXIOM_B5_UPGRADE_TEST_DSN= \
-		AXIOM_B6_TEST_DSN= AXIOM_B6_UPGRADE_TEST_DSN= \
-		AXIOM_B7_TEST_DSN= AXIOM_B7_UPGRADE_TEST_DSN= \
-		AXIOM_B8_TEST_DSN= AXIOM_B8_UPGRADE_TEST_DSN= \
+multi-exchange-console-local-qualify: triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify cross-exchange-arbitrage-model-qualify cross-exchange-arbitrage-postgres-qualify inventory-rebalancing-model-qualify inventory-rebalancing-postgres-qualify inventory-rebalancing-security-qualify research-promotion-model-qualify research-promotion-postgres-qualify research-promotion-research-qualify multi-exchange-console-model-qualify multi-exchange-console-postgres-qualify multi-exchange-console-api-qualify multi-exchange-console-frontend-qualify multi-exchange-console-security-qualify multi-exchange-console-live-qualify ## Pass every non-soak triangular arbitrage-multi-exchange console validation gate cumulatively.
+	@AXIOM_MEAN_REVERSION_TEST_DSN= AXIOM_MEAN_REVERSION_UPGRADE_TEST_DSN= \
+		AXIOM_TRIANGULAR_ARBITRAGE_TEST_DSN= AXIOM_TRIANGULAR_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_CROSS_EXCHANGE_ARBITRAGE_TEST_DSN= AXIOM_CROSS_EXCHANGE_ARBITRAGE_UPGRADE_TEST_DSN= \
+		AXIOM_INVENTORY_REBALANCING_TEST_DSN= AXIOM_INVENTORY_REBALANCING_UPGRADE_TEST_DSN= \
+		AXIOM_RESEARCH_PROMOTION_TEST_DSN= AXIOM_RESEARCH_PROMOTION_UPGRADE_TEST_DSN= \
+		AXIOM_MULTI_EXCHANGE_CONSOLE_TEST_DSN= AXIOM_MULTI_EXCHANGE_CONSOLE_UPGRADE_TEST_DSN= \
 		$(MAKE) verify GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
 image: ## Build the pinned minimal Axiom image.
@@ -722,6 +938,10 @@ image: ## Build the pinned minimal Axiom image.
 
 backup-image: ## Build the pinned PostgreSQL-tooling backup image.
 	@docker build --file deploy/backup/Dockerfile --tag "$(BACKUP_IMAGE)" .
+	@scripts/inspect-backup-image.sh "$(BACKUP_IMAGE)"
+
+backup-image-reproducibility: backup-image ## Rebuild without layer cache and compare the complete backup runtime payload.
+	@scripts/check-backup-image-reproducibility.sh "$(BACKUP_IMAGE)" "$(BACKUP_IMAGE)-rebuild"
 
 image-reproducibility: image ## Rebuild and compare the complete runtime image payload.
 	@VERSION="$(VERSION)" COMMIT="$(COMMIT)" BUILT_AT="$(BUILT_AT)" DIRTY="$(DIRTY)" \
