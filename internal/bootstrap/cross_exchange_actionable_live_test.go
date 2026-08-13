@@ -105,26 +105,24 @@ func newCrossExchangeProbeComponents(t *testing.T) crossExchangeProbeComponents 
 	clock, monotonic := &domain.SystemClock{}, exchangecontracts.NewProcessMonotonicSource()
 	binanceClient, err := binance.NewRecorderPublicClientWithMonotonic(venues["binance"].EndpointSet, clock, monotonic)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("binance public client: %v", err)
 	}
 	bybitClient, err := bybit.NewPublicClientWithMonotonic(venues["bybit"].EndpointSet, clock, monotonic)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("bybit public client: %v", err)
 	}
 	recorder := &crossExchangeProbeRecorder{}
 	binanceConfig := binance.DefaultCollectorConfig(instrument)
 	binanceConfig.BookDepth, binanceConfig.QueueCapacity = 1000, 16384
-	binanceConfig.CandleIntervals = []string{"4h"}
 	binanceCollector, err := binance.NewInstrumentCollector(binanceConfig, binanceClient, recorder, clock)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("binance collector: %v", err)
 	}
 	bybitConfig := bybit.DefaultCollectorConfig(instrument)
 	bybitConfig.BookDepth, bybitConfig.QueueCapacity = 1000, 16384
-	bybitConfig.CandleIntervals = []string{"4h"}
 	bybitCollector, err := bybit.NewInstrumentCollector(bybitConfig, bybitClient, recorder, clock)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("bybit collector: %v", err)
 	}
 	maximum, _ := domain.ParseQuantity("1000000")
 	session := &ownerConsoleCrossExchangeShadowSession{
