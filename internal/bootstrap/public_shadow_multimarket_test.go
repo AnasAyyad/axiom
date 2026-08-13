@@ -15,6 +15,18 @@ import (
 func TestPublicShadowSagaMarketSourceBuildsCoherentUSDTFeeRules(t *testing.T) {
 	now := time.Date(2026, 8, 9, 18, 0, 0, 0, time.UTC)
 	source, keys, collectors := newPublicShadowSagaTestSource(t, now)
+	for index, key := range keys {
+		collectors[key.Instrument].(*publicShadowSagaCollector).health.ClockOffset = time.Duration(index+1) * time.Second
+	}
+	set, err := source.CaptureSandboxSagaMarketViews(context.Background(), keys, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, member := range set.Members {
+		if member.Clock.Offset != 0 || member.Clock.Uncertainty != time.Millisecond || !member.Clock.Eligible {
+			t.Fatalf("member did not use the single capture clock: %#v", member.Clock)
+		}
+	}
 	reader, err := NewSandboxSagaMarketInputReader(source)
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +77,9 @@ func newPublicShadowSagaTestSource(t *testing.T, now time.Time) (
 	}
 	fee, _ := domain.ParseRate("0.001")
 	source := &publicShadowSagaMarketSource{claimID: "triangle-shadow", exchange: "binance",
-		monotonic: publicShadowSagaMonotonic(1_000_000), collectors: collectors, metadata: metadata,
+		monotonic: publicShadowSagaMonotonic(1_000_000),
+		clock: publicShadowSagaClock{health: exchangecontracts.ClockHealth{ObservedAt: now.Add(-time.Second),
+			Uncertainty: time.Millisecond, Eligible: true}}, collectors: collectors, metadata: metadata,
 		maximumQuantity: maximum, feeVersion: "fixed-bps-v1", feeRate: fee, collectorRegion: "engine-local"}
 	return source, keys, collectors
 }
@@ -87,6 +101,10 @@ func assertPublicShadowSagaFeeRules(t *testing.T, capture validatedSandboxSagaMa
 type publicShadowSagaMonotonic uint64
 
 func (value publicShadowSagaMonotonic) MonotonicOffset() uint64 { return uint64(value) }
+
+type publicShadowSagaClock struct{ health exchangecontracts.ClockHealth }
+
+func (clock publicShadowSagaClock) ClockHealth() exchangecontracts.ClockHealth { return clock.health }
 
 type publicShadowSagaCollector struct {
 	provider marketdata.MarketViewProvider

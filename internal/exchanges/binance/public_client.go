@@ -236,6 +236,9 @@ func (client *PublicClient) sampleServerTime(
 // TimeHealth returns the latest fail-closed server-time estimate.
 func (client *PublicClient) TimeHealth() TimeHealth { return client.timeSync.Health() }
 
+// ClockHealth exposes the shared exchange clock through an exchange-neutral contract.
+func (client *PublicClient) ClockHealth() exchangecontracts.ClockHealth { return client.TimeHealth() }
+
 // Snapshot loads and strictly normalizes one approved public depth snapshot.
 func (client *PublicClient) Snapshot(
 	ctx context.Context,

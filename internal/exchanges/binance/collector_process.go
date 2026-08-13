@@ -49,6 +49,7 @@ func (collector *InstrumentCollector) installSnapshot(
 		}
 		collector.stats.depthUpdates.Add(1)
 	}
+	collector.notifyMarketUpdate()
 	return nil
 }
 
@@ -281,6 +282,7 @@ func (collector *InstrumentCollector) processObserved(ctx context.Context, obser
 			return err
 		}
 		collector.stats.depthUpdates.Add(1)
+		collector.notifyMarketUpdate()
 	case exchangecontracts.StreamTrades:
 		if observed.Event.Trade == nil {
 			return streamError()
@@ -290,6 +292,7 @@ func (collector *InstrumentCollector) processObserved(ctx context.Context, obser
 		if err := collector.processCandle(observed); err != nil {
 			return err
 		}
+		collector.notifyMarketUpdate()
 	case exchangecontracts.StreamTicker:
 		if observed.Event.Ticker == nil {
 			return streamError()

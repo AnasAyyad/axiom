@@ -66,7 +66,9 @@ func newOwnerConsoleTriangularTestSession(t *testing.T, now time.Time) (
 		t.Fatal(err)
 	}
 	session := &ownerConsoleLiveShadowSession{claim: claim,
-		client: ownerConsoleTriangularPublicClient{offset: 1_000_000}, collectors: collectors,
+		client: ownerConsoleTriangularPublicClient{offset: 1_000_000,
+			health: exchangecontracts.ClockHealth{ObservedAt: now.Add(-time.Second),
+				Uncertainty: time.Millisecond, Eligible: true}}, collectors: collectors,
 		metadata: metadata, maximumQuantity: maximum, triangularConfig: configured,
 		balances: owned.Snapshot()}
 	return claim, session
@@ -163,7 +165,10 @@ func ownerConsoleTriangularTestMarkets(t *testing.T, now time.Time, exchange str
 	return collectors, metadata, maximum
 }
 
-type ownerConsoleTriangularPublicClient struct{ offset uint64 }
+type ownerConsoleTriangularPublicClient struct {
+	offset uint64
+	health exchangecontracts.ClockHealth
+}
 
 func (client ownerConsoleTriangularPublicClient) Instruments(context.Context, []domain.Instrument) ([]exchangecontracts.InstrumentRecord, error) {
 	return nil, nil
@@ -172,3 +177,6 @@ func (client ownerConsoleTriangularPublicClient) Candles(context.Context, exchan
 	return nil, nil
 }
 func (client ownerConsoleTriangularPublicClient) MonotonicOffset() uint64 { return client.offset }
+func (client ownerConsoleTriangularPublicClient) ClockHealth() exchangecontracts.ClockHealth {
+	return client.health
+}

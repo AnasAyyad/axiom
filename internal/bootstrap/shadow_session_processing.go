@@ -126,6 +126,7 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 ) error {
 	workContext, cancel := context.WithCancel(ctx)
 	defer cancel()
+	marketUpdates := mergePublicShadowMarketUpdates(workContext, collectors)
 	errorsChannel := make(chan error, len(collectors))
 	var group sync.WaitGroup
 	for _, collector := range collectors {
@@ -150,6 +151,12 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 				group.Wait()
 				return err
 			}
+		case <-marketUpdates:
+			if err := evaluate(workContext); err != nil {
+				cancel()
+				group.Wait()
+				return err
+			}
 		case <-evaluateTicker.C:
 			if err := activity(workContext); err != nil {
 				cancel()
@@ -169,6 +176,41 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 			}
 		}
 	}
+}
+
+type shadowPublicMarketUpdateSource interface {
+	MarketUpdates() <-chan struct{}
+}
+
+func mergePublicShadowMarketUpdates(ctx context.Context, collectors []shadowPublicCollector) <-chan struct{} {
+	merged := make(chan struct{}, 1)
+	for _, collector := range collectors {
+		source, ok := collector.(shadowPublicMarketUpdateSource)
+		if !ok {
+			continue
+		}
+		updates := source.MarketUpdates()
+		if updates == nil {
+			continue
+		}
+		go func(updates <-chan struct{}) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case _, open := <-updates:
+					if !open {
+						return
+					}
+					select {
+					case merged <- struct{}{}:
+					default:
+					}
+				}
+			}
+		}(updates)
+	}
+	return merged
 }
 
 func (session *ownerConsoleLiveShadowSession) loadReferenceData(ctx context.Context) error {
