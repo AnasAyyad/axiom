@@ -144,6 +144,74 @@ func TestPublicStreamRetainsRawFrameAndNormalizesExpectedStream(t *testing.T) {
 	}
 }
 
+func TestPublicClientCombinesThreeApprovedInstrumentsOnOneObservedStream(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Unix(1_700_000_000, 0).UTC())
+	client, _ := NewPublicClient(publicEndpointSet, clock)
+	depth := string(fixture(t, "depth-update.json"))
+	frames := make([][]byte, 0, 3)
+	for _, symbol := range []string{"BTCUSDT", "ETHUSDT", "ETHBTC"} {
+		payload := strings.ReplaceAll(depth, "BTCUSDT", symbol)
+		frames = append(frames, []byte(`{"stream":"`+strings.ToLower(symbol)+`@depth@100ms","data":`+payload+`}`))
+	}
+	connector := &fakeConnector{connection: &fakeConnection{frames: frames}}
+	client.connector = connector
+	requests := make([]exchangecontracts.StreamRequest, 0, 3)
+	for _, assets := range [][2]domain.AssetSymbol{{"BTC", "USDT"}, {"ETH", "USDT"}, {"ETH", "BTC"}} {
+		instrument, err := domain.NewSpotInstrument(assets[0], assets[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		requests = append(requests, exchangecontracts.StreamRequest{Instrument: instrument,
+			Kinds: []exchangecontracts.StreamKind{exchangecontracts.StreamDepth}})
+	}
+	stream, err := client.SubscribeCombinedObserved(context.Background(), requests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	if connector.target == nil || connector.target.Query().Get("streams") !=
+		"btcusdt@depth@100ms/ethbtc@depth@100ms/ethusdt@depth@100ms" {
+		t.Fatalf("combined target = %v", connector.target)
+	}
+	seen := make(map[string]bool, 3)
+	for range 3 {
+		observed, receiveErr := stream.ReceiveObserved(context.Background())
+		if receiveErr != nil || observed.Event.Depth == nil {
+			t.Fatalf("combined receive = %#v, %v", observed, receiveErr)
+		}
+		if observed.ConnectionGeneration != 1 || observed.ConnectionID != "binance-public-1" {
+			t.Fatalf("combined connection evidence = %#v", observed)
+		}
+		seen[observed.Event.Depth.Instrument.Symbol()] = true
+	}
+	if !seen["BTCUSDT"] || !seen["ETHUSDT"] || !seen["ETHBTC"] {
+		t.Fatalf("combined instruments = %v", seen)
+	}
+}
+
+func TestPublicClientRejectsInvalidCombinedObservedRequestsBeforeNetwork(t *testing.T) {
+	clock, _ := domain.NewReplayClock(time.Unix(1_700_000_000, 0).UTC())
+	client, _ := NewPublicClient(publicEndpointSet, clock)
+	connector := &fakeConnector{connection: &fakeConnection{}}
+	client.connector = connector
+	btc := approvedBTC(t)
+	request := exchangecontracts.StreamRequest{Instrument: btc,
+		Kinds: []exchangecontracts.StreamKind{exchangecontracts.StreamDepth}}
+	for _, requests := range [][]exchangecontracts.StreamRequest{
+		nil,
+		{request},
+		{request, request},
+		{request, request, request, request},
+	} {
+		if _, err := client.SubscribeCombinedObserved(context.Background(), requests); err == nil {
+			t.Fatalf("combined request unexpectedly accepted: %#v", requests)
+		}
+		if connector.target != nil {
+			t.Fatal("invalid combined request reached the network")
+		}
+	}
+}
+
 func TestResponseErrorRetainsBoundedUpstreamEvidence(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

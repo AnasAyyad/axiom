@@ -11,6 +11,7 @@ for (const file of [
   "internal/exchanges/binance/endpoint_policy.go",
   "internal/exchanges/binance/public_client.go",
   "internal/exchanges/binance/public_stream.go",
+  "internal/exchanges/binance/combined_stream.go",
   "internal/exchanges/binance/collector.go",
   "internal/marketdata/book.go",
   "internal/recorder/binance_sink.go",
@@ -64,6 +65,7 @@ for (const [label, required] of [
   ["gap recorder", /RecordSourceGap/],
   ["recorded snapshot", /SnapshotRecorded/],
   ["recorded subscription", /SubscribeRecorded/],
+  ["combined observed subscription", /SubscribeCombinedObserved/],
 ]) {
   if (!required.test(production)) fail(`missing invariant ${label}`);
 }
@@ -120,6 +122,7 @@ const allowed = new Set([
   "SampleServerTime",
   "SampleServerTimeRecorded",
   "TimeHealth",
+  "ClockHealth",
   "Snapshot",
   "SnapshotRecorded",
   "MonotonicOffset",
@@ -130,6 +133,7 @@ const allowed = new Set([
   "Subscribe",
   "SubscribeObserved",
   "SubscribeRecorded",
+  "SubscribeCombinedObserved",
   "RestoreStreamGeneration",
 ]);
 for (const method of exported) {

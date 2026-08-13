@@ -1,5 +1,21 @@
 # Axiom implementation status
 
+## Binance combined triangle stream experiment — 2026-08-13
+
+**Status:** Implemented locally on an isolated experiment branch; regional live
+comparison pending.
+
+The Binance public adapter can now open one observed-only WebSocket containing
+depth streams for BTC/USDT, ETH/USDT, and ETH/BTC. The gated live probe warms one
+shared clock estimate, waits for all three instruments, evaluates coherence on
+every depth event under the unchanged policy, checks each instrument's sequence
+continuity, and emits progress and a machine-readable report.
+
+This does not replace the production per-instrument collector, recorder,
+snapshot bridge, or reconnect lifecycle. It does not claim that Binance frames
+are an atomic snapshot, does not alter B2 or any formal evidence, and introduces
+no credentials or order capability.
+
 ## Owner-console response and PR corrective slice — 2026-08-10
 
 **Status:** Implemented; hosted rerun pending after PostgreSQL qualification

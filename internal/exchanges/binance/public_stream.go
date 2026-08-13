@@ -114,10 +114,23 @@ func (client *PublicClient) subscribe(
 	if err != nil {
 		return nil, err
 	}
+	return client.openPublicStream(ctx, expected, names, request.Instrument, recorder)
+}
+
+func (client *PublicClient) openPublicStream(
+	ctx context.Context,
+	expected map[string]exchangecontracts.StreamKind,
+	names []string,
+	instrument domain.Instrument,
+	recorder PublicRecorder,
+) (ObservedStream, error) {
+	if len(expected) == 0 || len(names) == 0 || len(expected) != len(names) {
+		return nil, streamError()
+	}
 	target := *client.wsOrigin
 	target.Path = "/stream"
 	target.RawQuery = url.Values{"streams": {strings.Join(names, "/")}}.Encode()
-	if _, err = client.validateWS(&target); err != nil {
+	if _, err := client.validateWS(&target); err != nil {
 		return nil, err
 	}
 	connection, err := client.connector.Connect(ctx, &target)
@@ -136,7 +149,7 @@ func (client *PublicClient) subscribe(
 	}
 	return &publicStream{connection: connection, clock: client.clock, expected: expected,
 		id: "binance-public-" + strconv.FormatUint(generation, 10), generation: generation,
-		instrument: request.Instrument, monotonic: client.monotonic, recorder: recorder}, nil
+		instrument: instrument, monotonic: client.monotonic, recorder: recorder}, nil
 }
 
 // Receive returns only the normalized event for the shared exchange integration contract.

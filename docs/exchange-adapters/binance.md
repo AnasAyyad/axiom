@@ -14,6 +14,36 @@ availability/resynchronization waiver. Its preserved automated result remains
 short public probe into soak evidence. Future exact-source qualification runs
 remain the remediation path.
 
+## Combined triangle stream experiment
+
+The adapter exposes an observed-only combined subscription for the three
+approved triangle instruments: BTC/USDT, ETH/USDT, and ETH/BTC. It opens one
+credential-free Binance WebSocket URL containing all requested stream names,
+while every received frame retains its own instrument, exchange event,
+connection generation, local receipt time, and monotonic offset.
+
+This is an experiment, not the production collector topology. A combined
+connection does not turn separately published Binance instrument updates into
+one atomic exchange snapshot. It also creates one shared connection failure
+domain. The existing per-instrument snapshot bridge, sequence-gap recovery,
+recording, and reconnect lifecycle remain unchanged until comparative evidence
+supports a separately reviewed collector change.
+
+Run the public-only regional probe explicitly with:
+
+```bash
+AXIOM_BINANCE_COMBINED_TRIANGLE_LIVE=1 \
+AXIOM_BINANCE_COMBINED_TRIANGLE_DURATION=30s \
+AXIOM_BINANCE_COMBINED_TRIANGLE_REGION=tokyo \
+make binance-combined-triangle-live-probe
+```
+
+The probe warms the shared Binance clock, waits for depth events from all three
+instruments, evaluates on every later depth event using the unchanged 250 ms
+age/skew and 100 ms uncertainty policy, checks per-instrument update-sequence
+continuity, and emits progress plus one JSON result. It records no orders and
+its result is non-qualifying.
+
 ## Public capabilities
 
 | Feature | V1A disposition | Constraint |
