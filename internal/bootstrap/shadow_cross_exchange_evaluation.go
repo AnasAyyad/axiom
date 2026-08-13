@@ -43,22 +43,11 @@ func (session *ownerConsoleCrossExchangeShadowSession) evaluateReadyInput(
 		}
 		return err
 	}
-	session.stateMutex.Lock()
-	alreadyEvaluated := market.Coherent.Identity == session.lastViewID
-	needsInitialization := session.balances == nil
-	session.stateMutex.Unlock()
-	if alreadyEvaluated {
+	if session.crossExchangeViewEvaluated(market.Coherent.Identity) {
 		return nil
 	}
-	if needsInitialization {
-		balances, initializationErr := session.store.InitializeCrossExchangeShadowInventory(ctx,
-			session.claim, market.Markets, market.Trigger.UTC)
-		if initializationErr != nil {
-			return initializationErr
-		}
-		session.stateMutex.Lock()
-		session.balances = balances
-		session.stateMutex.Unlock()
+	if err = session.initializeCrossExchangeBalances(ctx, market); err != nil {
+		return err
 	}
 	input, err := session.buildInput(market)
 	if err != nil {
@@ -69,6 +58,32 @@ func (session *ownerConsoleCrossExchangeShadowSession) evaluateReadyInput(
 		return err
 	}
 	return session.recordAndProcess(ctx, &input, market.Coherent.Identity, instrument)
+}
+
+func (session *ownerConsoleCrossExchangeShadowSession) crossExchangeViewEvaluated(identity string) bool {
+	session.stateMutex.Lock()
+	defer session.stateMutex.Unlock()
+	return identity == session.lastViewID
+}
+
+func (session *ownerConsoleCrossExchangeShadowSession) initializeCrossExchangeBalances(
+	ctx context.Context, market SandboxCrossExchangeMarketInput,
+) error {
+	session.stateMutex.Lock()
+	initialized := session.balances != nil
+	session.stateMutex.Unlock()
+	if initialized {
+		return nil
+	}
+	balances, err := session.store.InitializeCrossExchangeShadowInventory(ctx,
+		session.claim, market.Markets, market.Trigger.UTC)
+	if err != nil {
+		return err
+	}
+	session.stateMutex.Lock()
+	session.balances = balances
+	session.stateMutex.Unlock()
+	return nil
 }
 
 type crossExchangeBookCommitSource interface {

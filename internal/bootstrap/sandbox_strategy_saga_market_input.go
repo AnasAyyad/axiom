@@ -2,14 +2,10 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
 
-	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/marketdata"
 	runtimecore "axiom/internal/runtime"
@@ -128,7 +124,7 @@ func (reader *SandboxSagaMarketInputReader) ReadTriangular(
 		}
 		keys = append(keys, runtimecore.MarketKey{Exchange: string(work.Account.Exchange), Instrument: instrument})
 	}
-	capture, err := reader.capture(ctx, keys, now)
+	capture, err := reader.captureTriangular(ctx, keys, now, triangular.DefaultConfiguration().MaximumBookAge)
 	if err != nil {
 		return SandboxTriangularMarketInput{}, fmt.Errorf("sandbox_triangular_market_input_unavailable")
 	}
@@ -197,7 +193,8 @@ func (reader *SandboxSagaMarketInputReader) capture(
 	keys []runtimecore.MarketKey,
 	now time.Time,
 ) (validatedSandboxSagaMarketCapture, error) {
-	return reader.captureWithJoin(ctx, keys, now, false)
+	policy := runtimecore.InitialCoherentMarketDataCoherentPolicy()
+	return reader.captureWithPolicy(ctx, keys, now, policy.MaximumBookAge, false, false)
 }
 
 func (reader *SandboxSagaMarketInputReader) captureCrossExchangeActionable(
@@ -205,15 +202,30 @@ func (reader *SandboxSagaMarketInputReader) captureCrossExchangeActionable(
 	keys []runtimecore.MarketKey,
 	now time.Time,
 ) (validatedSandboxSagaMarketCapture, error) {
-	return reader.captureWithJoin(ctx, keys, now, true)
+	policy := runtimecore.InitialCrossExchangeActionablePolicy()
+	return reader.captureWithPolicy(ctx, keys, now, policy.MaximumBookAge, true, false)
 }
 
-func (reader *SandboxSagaMarketInputReader) captureWithJoin(
+func (reader *SandboxSagaMarketInputReader) captureTriangular(
 	ctx context.Context,
 	keys []runtimecore.MarketKey,
 	now time.Time,
-	actionable bool,
+	maximumBookAge time.Duration,
 ) (validatedSandboxSagaMarketCapture, error) {
+	return reader.captureWithPolicy(ctx, keys, now, maximumBookAge, false, true)
+}
+
+func (reader *SandboxSagaMarketInputReader) captureWithPolicy(
+	ctx context.Context,
+	keys []runtimecore.MarketKey,
+	now time.Time,
+	maximumBookAge time.Duration,
+	actionable bool,
+	sameExchangeTriangular bool,
+) (validatedSandboxSagaMarketCapture, error) {
+	if actionable && sameExchangeTriangular {
+		return validatedSandboxSagaMarketCapture{}, fmt.Errorf("sandbox_saga_market_capture_invalid")
+	}
 	requested := append([]runtimecore.MarketKey(nil), keys...)
 	sort.Slice(requested, func(left, right int) bool {
 		if requested[left].Exchange != requested[right].Exchange {
@@ -222,7 +234,7 @@ func (reader *SandboxSagaMarketInputReader) captureWithJoin(
 		return requested[left].Instrument.Symbol() < requested[right].Instrument.Symbol()
 	})
 	set, err := reader.source.CaptureSandboxSagaMarketViews(ctx, requested, now)
-	if err != nil || !validSandboxSagaCaptureSet(set, requested, now) {
+	if err != nil || !validSandboxSagaCaptureSet(set, requested, now, maximumBookAge) {
 		return validatedSandboxSagaMarketCapture{}, fmt.Errorf("sandbox_saga_market_capture_invalid")
 	}
 	views := runtimecore.NewMarketViews()
@@ -231,7 +243,7 @@ func (reader *SandboxSagaMarketInputReader) captureWithJoin(
 	seen := make(map[string]struct{}, len(requested))
 	for _, member := range set.Members {
 		item, memberErr := validateSandboxSagaCaptureMember(
-			views, requested, set.Trigger, member, seen, now)
+			views, requested, set.Trigger, member, seen, now, maximumBookAge)
 		if memberErr != nil {
 			return validatedSandboxSagaMarketCapture{}, memberErr
 		}
@@ -240,6 +252,8 @@ func (reader *SandboxSagaMarketInputReader) captureWithJoin(
 	var coherent runtimecore.CoherentView
 	if actionable {
 		coherent, err = views.CrossExchangeActionableAsOf(requested, set.Trigger)
+	} else if sameExchangeTriangular {
+		coherent, err = views.SameExchangeTriangularAsOf(requested, set.Trigger, maximumBookAge)
 	} else {
 		coherent, err = views.CoherentAsOf(requested, set.Trigger,
 			runtimecore.InitialCoherentMarketDataCoherentPolicy())
@@ -253,25 +267,26 @@ func (reader *SandboxSagaMarketInputReader) captureWithJoin(
 }
 
 func validSandboxSagaCaptureSet(set SandboxSagaMarketViewSet, requested []runtimecore.MarketKey,
-	now time.Time,
+	now time.Time, maximumBookAge time.Duration,
 ) bool {
-	return set.Trigger.MonotonicNanos != 0 && set.Trigger.IngestOrdinal != 0 &&
+	return maximumBookAge > 0 && maximumBookAge <= 250*time.Millisecond &&
+		set.Trigger.MonotonicNanos != 0 && set.Trigger.IngestOrdinal != 0 &&
 		!set.Trigger.UTC.IsZero() && set.Trigger.UTC.Location() == time.UTC &&
-		!set.Trigger.UTC.After(now) && now.Sub(set.Trigger.UTC) <= 250*time.Millisecond &&
+		!set.Trigger.UTC.After(now) && now.Sub(set.Trigger.UTC) <= maximumBookAge &&
 		set.FirstDetectedOffset != 0 && set.FirstDetectedOffset <= set.Trigger.MonotonicNanos &&
-		set.Trigger.MonotonicNanos-set.FirstDetectedOffset <= uint64((250*time.Millisecond).Nanoseconds()) &&
+		set.Trigger.MonotonicNanos-set.FirstDetectedOffset <= uint64(maximumBookAge.Nanoseconds()) &&
 		len(set.Members) == len(requested)
 }
 
 func validateSandboxSagaCaptureMember(views *runtimecore.MarketViews,
 	requested []runtimecore.MarketKey, trigger runtimecore.AsOfTrigger,
-	member SandboxSagaMarketMember, seen map[string]struct{}, now time.Time,
+	member SandboxSagaMarketMember, seen map[string]struct{}, now time.Time, maximumBookAge time.Duration,
 ) (validatedSandboxSagaMarketMember, error) {
 	view := member.View
 	key := runtimecore.MarketKey{Exchange: view.Exchange(), Instrument: view.Instrument()}
 	identity := key.Exchange + "\x00" + key.Instrument.Symbol()
 	if _, duplicate := seen[identity]; duplicate || !containsSandboxSagaMarketKey(requested, key) ||
-		!view.Eligible(trigger.MonotonicNanos, 250*time.Millisecond) ||
+		!view.Eligible(trigger.MonotonicNanos, maximumBookAge) ||
 		!validSandboxSagaInstrumentRules(member.Rules, key, now) ||
 		member.CollectorInstance == "" || member.CollectorRegion == "" {
 		return validatedSandboxSagaMarketMember{}, fmt.Errorf("sandbox_saga_market_member_invalid")
@@ -316,80 +331,4 @@ func containsSandboxSagaMarketKey(values []runtimecore.MarketKey, wanted runtime
 		}
 	}
 	return false
-}
-
-func validSandboxSagaInstrumentRules(
-	rules arbitrage.InstrumentRules,
-	key runtimecore.MarketKey,
-	now time.Time,
-) bool {
-	zeroQuantity, quantityErr := domain.ParseQuantity("0")
-	zeroRate, rateErr := domain.ParseRate("0")
-	_, assetErr := domain.ParseAssetSymbol(string(rules.Fee.Asset))
-	return quantityErr == nil && rateErr == nil && assetErr == nil && rules.Active &&
-		rules.Exchange == key.Exchange && rules.Metadata.Instrument == key.Instrument &&
-		rules.Metadata.Validate() == nil && !rules.Metadata.EffectiveAt.After(now) &&
-		rules.MaximumQuantity.Compare(zeroQuantity) > 0 && rules.Fee.Version != "" &&
-		rules.Fee.Rate.Compare(zeroRate) >= 0 && !rules.ObservedAt.IsZero() &&
-		rules.ObservedAt.Location() == time.UTC && !rules.ObservedAt.After(now)
-}
-
-func sandboxSagaInstrument(symbol string) (domain.Instrument, error) {
-	switch symbol {
-	case "BTCUSDT":
-		return domain.NewSpotInstrument("BTC", "USDT")
-	case "ETHUSDT":
-		return domain.NewSpotInstrument("ETH", "USDT")
-	case "ETHBTC":
-		return domain.NewSpotInstrument("ETH", "BTC")
-	default:
-		return domain.Instrument{}, fmt.Errorf("sandbox_saga_instrument_invalid")
-	}
-}
-
-func sandboxSagaMarketEvidenceHash(identity string, rules []arbitrage.InstrumentRules) string {
-	encoded, _ := json.Marshal(struct {
-		Identity string                      `json:"coherent_view_id"`
-		Rules    []arbitrage.InstrumentRules `json:"rules"`
-	}{Identity: identity, Rules: rules})
-	digest := sha256.Sum256(encoded)
-	return hex.EncodeToString(digest[:])
-}
-
-func sandboxSagaRiskMarket(
-	markets []triangular.MarketInput,
-	work sandbox.StrategySessionWork,
-	trigger runtimecore.AsOfTrigger,
-) (sandbox.StrategyMarketInput, error) {
-	if work.ValidAt(trigger.UTC) != nil || trigger.MonotonicNanos == 0 || trigger.IngestOrdinal == 0 {
-		return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_invalid")
-	}
-	for _, market := range markets {
-		if string(market.Snapshot.Exchange) != string(work.Account.Exchange) ||
-			market.Snapshot.Instrument.Symbol() != work.Instrument ||
-			market.Observation.Validate() != nil ||
-			!validSandboxSagaInstrumentRules(market.Rules, runtimecore.MarketKey{
-				Exchange: string(work.Account.Exchange), Instrument: market.Snapshot.Instrument,
-			}, trigger.UTC) {
-			continue
-		}
-		encoded, err := json.Marshal(market.Rules)
-		if err != nil {
-			return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_invalid")
-		}
-		digest := sha256.Sum256(encoded)
-		metadataHash := hex.EncodeToString(digest[:])
-		result := sandbox.StrategyMarketInput{Instrument: market.Snapshot.Instrument,
-			Metadata: exchangecontracts.InstrumentRecord{Exchange: market.Snapshot.Exchange,
-				NativeSymbol: market.Snapshot.Instrument.Symbol(), NativeStatus: "Trading",
-				Metadata: market.Rules.Metadata, MaximumQuantity: market.Rules.MaximumQuantity,
-				RawPayloadHash: metadataHash},
-			Book: market.Snapshot, ObservedAt: domain.EventTime{UTC: trigger.UTC,
-				Sequence: trigger.IngestOrdinal}}
-		if sandbox.StrategyMarketEvidenceHash(result) == "" {
-			return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_invalid")
-		}
-		return result, nil
-	}
-	return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_unavailable")
 }

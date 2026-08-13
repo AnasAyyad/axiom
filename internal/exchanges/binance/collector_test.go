@@ -32,6 +32,32 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 		return collector.HealthSnapshot().Eligible && viewErr == nil &&
 			view.Health() == marketdata.HealthHealthy && view.Sequence() == 101 && collector.Stats().DepthUpdates == 1
 	})
+	assertCollectorCommittedView(t, collector, source, instrument)
+	assertCollectorClockHealthTransitions(t, collector)
+	beforeCancel, _ := collector.Views().Book(collectorExchange, instrument)
+	cancel()
+	if err = <-done; err != nil {
+		t.Fatal(err)
+	}
+	afterCancel, _ := collector.Views().Book(collectorExchange, instrument)
+	if afterCancel.Health() != beforeCancel.Health() || afterCancel.Version() != beforeCancel.Version() {
+		t.Fatalf("normal cancellation mutated final book: before=%s/%d after=%s/%d",
+			beforeCancel.Health(), beforeCancel.Version(), afterCancel.Health(), afterCancel.Version())
+	}
+	stats := collector.Stats()
+	if stats.Messages != 1 || stats.DepthUpdates != 1 || stats.Rebuilds != 1 ||
+		recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 {
+		t.Fatalf("unexpected collector evidence: %#v raw=%d canonical=%d", stats, recorder.raw.Load(), recorder.canonical.Load())
+	}
+}
+
+func assertCollectorCommittedView(
+	t *testing.T,
+	collector *InstrumentCollector,
+	source *collectorSourceFixture,
+	instrument domain.Instrument,
+) {
+	t.Helper()
 	select {
 	case <-collector.MarketUpdates():
 	default:
@@ -52,6 +78,10 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	if current.Bids()[0].Quantity.String() == "999" || !current.Eligible(source.MonotonicOffset(), time.Second) {
 		t.Fatal("collector exposed mutable or stale view")
 	}
+}
+
+func assertCollectorClockHealthTransitions(t *testing.T, collector *InstrumentCollector) {
+	t.Helper()
 	if health := collector.HealthSnapshot(); !health.BookEligible || !health.ClockEligible || !health.Eligible {
 		t.Fatalf("combined health not ready: %#v", health)
 	}
@@ -61,21 +91,6 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 		t.Fatalf("clock degradation did not fail combined readiness: %#v", health)
 	}
 	collector.setClockHealth(TimeHealth{ObservedAt: time.Now().UTC(), Eligible: true}, false)
-	beforeCancel, _ := collector.Views().Book(collectorExchange, instrument)
-	cancel()
-	if err = <-done; err != nil {
-		t.Fatal(err)
-	}
-	afterCancel, _ := collector.Views().Book(collectorExchange, instrument)
-	if afterCancel.Health() != beforeCancel.Health() || afterCancel.Version() != beforeCancel.Version() {
-		t.Fatalf("normal cancellation mutated final book: before=%s/%d after=%s/%d",
-			beforeCancel.Health(), beforeCancel.Version(), afterCancel.Health(), afterCancel.Version())
-	}
-	stats := collector.Stats()
-	if stats.Messages != 1 || stats.DepthUpdates != 1 || stats.Rebuilds != 1 ||
-		recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 {
-		t.Fatalf("unexpected collector evidence: %#v raw=%d canonical=%d", stats, recorder.raw.Load(), recorder.canonical.Load())
-	}
 }
 
 func TestCollectorHealthUsesNewerSharedBinanceClockEstimate(t *testing.T) {

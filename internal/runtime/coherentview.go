@@ -10,6 +10,7 @@ import (
 
 const initialCoherentMarketDataCoherentPolicyVersion = "axiom.coherent-view-policy.v1"
 const crossExchangeActionablePolicyVersion = "axiom.cross-exchange-actionable-view-policy.v1"
+const sameExchangeTriangularCoherentPolicyVersion = "axiom.same-exchange-triangular-view-policy.v1"
 
 // CoherentPolicy is an immutable versioned cross-market eligibility policy.
 type CoherentPolicy struct {
@@ -30,6 +31,12 @@ func InitialCoherentMarketDataCoherentPolicy() CoherentPolicy {
 func InitialCrossExchangeActionablePolicy() CoherentPolicy {
 	return CoherentPolicy{Version: crossExchangeActionablePolicyVersion,
 		MaximumBookAge: 150 * time.Millisecond, MaximumInterBookSkew: 150 * time.Millisecond,
+		MaximumClockUncertainty: 100 * time.Millisecond}
+}
+
+func sameExchangeTriangularCoherentPolicy(maximumBookAge time.Duration) CoherentPolicy {
+	return CoherentPolicy{Version: sameExchangeTriangularCoherentPolicyVersion,
+		MaximumBookAge: maximumBookAge, MaximumInterBookSkew: maximumBookAge,
 		MaximumClockUncertainty: 100 * time.Millisecond}
 }
 
@@ -100,7 +107,8 @@ func (views *MarketViews) CoherentAsOf(
 	trigger AsOfTrigger,
 	policy CoherentPolicy,
 ) (CoherentView, error) {
-	if policy.Version == crossExchangeActionablePolicyVersion {
+	if policy.Version == crossExchangeActionablePolicyVersion ||
+		policy.Version == sameExchangeTriangularCoherentPolicyVersion {
 		return CoherentView{}, runtimeError("coherent_view_rejected", "configuration")
 	}
 	return views.coherentAsOf(keys, trigger, policy, validateCoherentMembers)
@@ -117,6 +125,20 @@ func (views *MarketViews) CrossExchangeActionableAsOf(
 		return CoherentView{}, runtimeError("coherent_view_rejected", "configuration")
 	}
 	return views.coherentAsOf(keys, trigger, policy, validateCrossExchangeActionableMembers)
+}
+
+// SameExchangeTriangularAsOf selects one already-committed three-book view
+// without applying the cross-venue corrected-clock interval-overlap rule.
+func (views *MarketViews) SameExchangeTriangularAsOf(
+	keys []MarketKey,
+	trigger AsOfTrigger,
+	maximumBookAge time.Duration,
+) (CoherentView, error) {
+	policy := sameExchangeTriangularCoherentPolicy(maximumBookAge)
+	if len(keys) != 3 || !validSameExchangeTriangularPolicy(policy) {
+		return CoherentView{}, runtimeError("coherent_view_rejected", "configuration")
+	}
+	return views.coherentAsOf(keys, trigger, policy, validateSameExchangeTriangularMembers)
 }
 
 func (views *MarketViews) coherentAsOf(
@@ -206,6 +228,11 @@ func RestoreCoherentView(
 	validator := validateCoherentMembers
 	if policy.Version == crossExchangeActionablePolicyVersion {
 		validator = validateCrossExchangeActionableMembers
+	} else if policy.Version == sameExchangeTriangularCoherentPolicyVersion {
+		if !validSameExchangeTriangularPolicy(policy) {
+			return CoherentView{}, runtimeError("coherent_view_restore_rejected", "configuration")
+		}
+		validator = validateSameExchangeTriangularMembers
 	}
 	if err := validator(copyMembers, policy); err != nil {
 		return CoherentView{}, runtimeError("coherent_view_restore_rejected", "eligibility")
@@ -307,6 +334,33 @@ func validateCrossExchangeActionableMembers(members []ViewReference, policy Cohe
 	return nil
 }
 
+func validateSameExchangeTriangularMembers(members []ViewReference, policy CoherentPolicy) error {
+	if len(members) != 3 {
+		return runtimeError("coherent_view_rejected", "membership")
+	}
+	exchange := members[0].Key.Exchange
+	clockOffset, clockUncertainty := members[0].ClockOffset, members[0].ClockUncertainty
+	minimumReceive, maximumReceive := members[0].ReceiveMonotonicNanos, members[0].ReceiveMonotonicNanos
+	for _, member := range members {
+		if member.Key.Exchange != exchange {
+			return runtimeError("coherent_view_rejected", "exchange")
+		}
+		if member.ClockOffset != clockOffset || member.ClockUncertainty != clockUncertainty {
+			return runtimeError("coherent_view_rejected", "clock")
+		}
+		if member.ReceiveMonotonicNanos < minimumReceive {
+			minimumReceive = member.ReceiveMonotonicNanos
+		}
+		if member.ReceiveMonotonicNanos > maximumReceive {
+			maximumReceive = member.ReceiveMonotonicNanos
+		}
+	}
+	if maximumReceive-minimumReceive > uint64(policy.MaximumInterBookSkew.Nanoseconds()) {
+		return runtimeError("coherent_view_rejected", "skew")
+	}
+	return nil
+}
+
 func validTrigger(trigger AsOfTrigger) bool {
 	return trigger.MonotonicNanos > 0 && trigger.IngestOrdinal > 0 && !trigger.UTC.IsZero() &&
 		trigger.UTC.Location() == time.UTC
@@ -315,4 +369,11 @@ func validTrigger(trigger AsOfTrigger) bool {
 func validCoherentPolicy(policy CoherentPolicy) bool {
 	return validViewLabel(policy.Version) && policy.MaximumBookAge > 0 && policy.MaximumInterBookSkew > 0 &&
 		policy.MaximumClockUncertainty > 0
+}
+
+func validSameExchangeTriangularPolicy(policy CoherentPolicy) bool {
+	return validCoherentPolicy(policy) && policy.Version == sameExchangeTriangularCoherentPolicyVersion &&
+		policy.MaximumBookAge <= 250*time.Millisecond &&
+		policy.MaximumInterBookSkew == policy.MaximumBookAge &&
+		policy.MaximumClockUncertainty == 100*time.Millisecond
 }

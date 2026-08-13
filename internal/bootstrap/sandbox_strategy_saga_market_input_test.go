@@ -14,13 +14,20 @@ import (
 	"axiom/internal/strategies/arbitrage"
 )
 
-func TestSandboxSagaMarketInputReaderBuildsSynchronizedTriangularAndCrossInputs(t *testing.T) {
+func TestSandboxSagaMarketInputReaderBuildsSynchronizedTriangularInput(t *testing.T) {
 	now := time.Date(2026, 8, 9, 14, 0, 0, 0, time.UTC)
 	triangularSource := sagaMarketSource(t, now, []runtimecore.MarketKey{
 		{Exchange: "binance", Instrument: sagaInstrument(t, "BTCUSDT")},
 		{Exchange: "binance", Instrument: sagaInstrument(t, "ETHBTC")},
 		{Exchange: "binance", Instrument: sagaInstrument(t, "ETHUSDT")},
 	})
+	for index, member := range triangularSource.set.Members {
+		member.View = sagaBookView(t, member.View.Exchange(), member.View.Instrument(),
+			now.Add(-time.Duration(index)*time.Second), member.View.Observation().ReceivedOffsetNanos,
+			member.View.Observation().IngestOrdinal)
+		member.Clock.ObservedAt = now.Add(-3 * time.Second)
+		triangularSource.set.Members[index] = member
+	}
 	reader, err := NewSandboxSagaMarketInputReader(triangularSource)
 	if err != nil {
 		t.Fatal(err)
@@ -41,12 +48,16 @@ func TestSandboxSagaMarketInputReaderBuildsSynchronizedTriangularAndCrossInputs(
 		}
 	}
 
+}
+
+func TestSandboxSagaMarketInputReaderBuildsSynchronizedCrossExchangeInput(t *testing.T) {
+	now := time.Date(2026, 8, 9, 14, 0, 0, 0, time.UTC)
 	crossKeys := []runtimecore.MarketKey{
 		{Exchange: "binance", Instrument: sagaInstrument(t, "BTCUSDT")},
 		{Exchange: "bybit", Instrument: sagaInstrument(t, "BTCUSDT")},
 	}
 	crossSource := sagaMarketSource(t, now, crossKeys)
-	reader, _ = NewSandboxSagaMarketInputReader(crossSource)
+	reader, _ := NewSandboxSagaMarketInputReader(crossSource)
 	crossWork := sagaPlanFacts(t, sandbox.StrategyCrossExchangeArbitrage, now).Coordinator.Work
 	cross, err := reader.ReadCrossExchange(context.Background(), crossWork, now)
 	if err != nil || len(cross.Markets) != 2 || len(cross.Coherent.Identity) != 64 ||

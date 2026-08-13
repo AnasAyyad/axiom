@@ -292,6 +292,7 @@ func (collector *InstrumentCollector) processObserved(ctx context.Context, obser
 		if err := collector.processCandle(observed); err != nil {
 			return err
 		}
+		collector.notifyMarketUpdate()
 	case exchangecontracts.StreamTicker:
 		if observed.Event.Ticker == nil {
 			return streamError()

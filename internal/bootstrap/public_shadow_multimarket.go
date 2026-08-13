@@ -60,20 +60,29 @@ func (source *publicShadowSagaMarketSource) CaptureSandboxSagaMarketViews(
 	if !source.validCaptureRequest(ctx, keys, now) {
 		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_saga_market_capture_invalid")
 	}
-	logical := source.monotonic.MonotonicOffset()
 	clock := source.clock.ClockHealth()
-	if logical == 0 || !clock.Eligible {
+	if !clock.Eligible {
 		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_saga_market_capture_invalid")
 	}
 	views, health, firstDetected, err := source.captureShadowSagaViews(keys, clock)
 	if err != nil {
 		return SandboxSagaMarketViewSet{}, err
 	}
+	logical := source.monotonic.MonotonicOffset()
 	if firstDetected == 0 || firstDetected > logical {
 		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_saga_market_capture_invalid")
 	}
+	ingestOrdinal := uint64(0)
+	for _, view := range views {
+		if ordinal := view.Observation().IngestOrdinal; ordinal > ingestOrdinal {
+			ingestOrdinal = ordinal
+		}
+	}
+	if ingestOrdinal == 0 {
+		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_saga_market_capture_invalid")
+	}
 	result := SandboxSagaMarketViewSet{Trigger: runtimecore.AsOfTrigger{
-		MonotonicNanos: logical, IngestOrdinal: logical, UTC: now,
+		MonotonicNanos: logical, IngestOrdinal: ingestOrdinal, UTC: now,
 	}, FirstDetectedOffset: firstDetected, Members: make([]SandboxSagaMarketMember, 0, len(keys))}
 	for _, key := range keys {
 		member, memberErr := source.shadowSagaMember(key, views, health)

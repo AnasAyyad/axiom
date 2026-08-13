@@ -98,6 +98,7 @@ func cloneReasonCounts(values map[string]uint64) map[string]uint64 {
 
 type fixedSandboxSagaMarketViewSource struct{ set SandboxSagaMarketViewSet }
 
+// CaptureSandboxSagaMarketViews returns the immutable set supplied to the dual-policy comparison.
 func (source fixedSandboxSagaMarketViewSource) CaptureSandboxSagaMarketViews(
 	context.Context, []runtimecore.MarketKey, time.Time,
 ) (SandboxSagaMarketViewSet, error) {

@@ -130,15 +130,7 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 	workContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	marketUpdates := mergePublicShadowMarketUpdates(workContext, collectors)
-	errorsChannel := make(chan error, len(collectors))
-	var group sync.WaitGroup
-	for _, collector := range collectors {
-		group.Add(1)
-		go func(value shadowPublicCollector) {
-			defer group.Done()
-			errorsChannel <- value.Run(workContext)
-		}(collector)
-	}
+	errorsChannel, group := startPublicShadowCollectorGroup(workContext, collectors)
 	evaluateTicker := time.NewTicker(500 * time.Millisecond)
 	flushTicker := time.NewTicker(flushEvery)
 	defer evaluateTicker.Stop()
@@ -179,6 +171,21 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 			}
 		}
 	}
+}
+
+func startPublicShadowCollectorGroup(ctx context.Context,
+	collectors []shadowPublicCollector,
+) (<-chan error, *sync.WaitGroup) {
+	errorsChannel := make(chan error, len(collectors))
+	group := &sync.WaitGroup{}
+	for _, collector := range collectors {
+		group.Add(1)
+		go func(value shadowPublicCollector) {
+			defer group.Done()
+			errorsChannel <- value.Run(ctx)
+		}(collector)
+	}
+	return errorsChannel, group
 }
 
 type shadowPublicMarketUpdateSource interface {

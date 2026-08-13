@@ -443,7 +443,7 @@ func TestReviewedMultiStrategyResearchRecorderConfigurationDecodes(t *testing.T)
 		t.Fatal(err)
 	}
 	configuration, err := DecodeJSON(payload)
-	if err != nil || configuration.SchemaVersion != SchemaVersionInventoryRebalancing || configuration.Revision != 2 ||
+	if err != nil || configuration.SchemaVersion != SchemaVersionInventoryRebalancing || configuration.Revision != 3 ||
 		len(configuration.Exchanges) != 2 || len(configuration.Instruments) != 3 ||
 		configuration.Instruments[2].Base != "ETH" || configuration.Instruments[2].Quote != "BTC" ||
 		len(configuration.MeanReversion.Parameters) != MeanReversionParameterCount ||
@@ -451,6 +451,20 @@ func TestReviewedMultiStrategyResearchRecorderConfigurationDecodes(t *testing.T)
 		len(configuration.CrossExchange.Parameters) != CrossExchangeParameterCount ||
 		len(configuration.Rebalancing.Parameters) != RebalancingParameterCount {
 		t.Fatalf("reviewed multi-strategy research configuration = %#v, %v", configuration.Exchanges, err)
+	}
+	bookAgeFound := false
+	for _, parameter := range configuration.Triangular.Parameters {
+		if parameter.ID != "triangular.arrival_book_max_age" {
+			continue
+		}
+		bookAgeFound = true
+		if parameter.Value != "100" || parameter.AlgorithmVersion != "triangular-book-freshness.v2" ||
+			parameter.ApprovalReference != "ADR-0028" {
+			t.Fatalf("reviewed triangular freshness = %#v", parameter)
+		}
+	}
+	if !bookAgeFound {
+		t.Fatal("reviewed triangular freshness parameter is missing")
 	}
 }
 

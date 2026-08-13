@@ -79,6 +79,31 @@ func TestOwnerConsoleTriangularShadowProcessorHasExplicitSingleVenueOwnership(t 
 	}
 }
 
+func TestTriangularShadowConsumesEachETHBTCBookVersionOnce(t *testing.T) {
+	session := &ownerConsoleLiveShadowSession{}
+	if session.consumeTriangularTrigger(0, 1) || session.consumeTriangularTrigger(1, 0) {
+		t.Fatal("invalid trigger identity was consumed")
+	}
+	if !session.consumeTriangularTrigger(1, 1) {
+		t.Fatal("first ETHBTC book version was not consumed")
+	}
+	if session.consumeTriangularTrigger(1, 1) {
+		t.Fatal("same ETHBTC book version was consumed twice")
+	}
+	if !session.consumeTriangularTrigger(1, 2) {
+		t.Fatal("next ETHBTC book version was not consumed")
+	}
+	if session.consumeTriangularTrigger(1, 1) {
+		t.Fatal("regressed ETHBTC book version was consumed")
+	}
+	if !session.consumeTriangularTrigger(2, 1) {
+		t.Fatal("first version after reconnect was not consumed")
+	}
+	if session.consumeTriangularTrigger(1, 3) {
+		t.Fatal("regressed ETHBTC connection generation was consumed")
+	}
+}
+
 func TestPublicShadowCandleMergeIsChronologicalAndLiveWins(t *testing.T) {
 	instrument, _ := domain.NewSpotInstrument("BTC", "USDT")
 	start := time.Date(2026, 7, 19, 0, 0, 0, 0, time.UTC)

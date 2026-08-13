@@ -28,39 +28,41 @@ import (
 )
 
 type ownerConsoleLiveShadowSession struct {
-	claim            postgresstore.PublicShadowClaim
-	store            *postgresstore.PublicShadowStore
-	client           shadowPublicClient
-	collectors       map[domain.Instrument]shadowPublicCollector
-	public           *marketrecorder.Recorder
-	decisions        *marketrecorder.Recorder
-	catalog          *postgresstore.RecordedDatasetCatalog
-	processor        backtest.Processor
-	trendConfig      trend.Configuration
-	meanConfig       meanreversion.Configuration
-	triangularConfig triangular.Configuration
-	flushEvery       time.Duration
-	commit           string
-	entries          atomic.Bool
-	flushMutex       sync.Mutex
-	stateMutex       sync.Mutex
-	activityMutex    sync.Mutex
-	lastActivity     string
-	lastActivityAt   time.Time
-	lastMarketViewID string
-	metadata         map[domain.Instrument]domain.InstrumentMetadata
-	metadataIDs      map[domain.Instrument]string
-	maximumQuantity  map[domain.Instrument]domain.Quantity
-	history          map[domain.Instrument][]exchangecontracts.Candle
-	primaryHistory   map[domain.Instrument][]exchangecontracts.Candle
-	higherHistory    map[domain.Instrument][]exchangecontracts.Candle
-	seen             map[domain.Instrument]time.Time
-	positions        map[domain.Instrument]trend.PositionState
-	meanPositions    map[domain.Instrument]meanreversion.PositionState
-	cooldowns        map[domain.Instrument]uint64
-	balances         portfolio.Snapshot
-	lastOrdinal      uint64
-	datasetID        string
+	claim                           postgresstore.PublicShadowClaim
+	store                           *postgresstore.PublicShadowStore
+	client                          shadowPublicClient
+	collectors                      map[domain.Instrument]shadowPublicCollector
+	public                          *marketrecorder.Recorder
+	decisions                       *marketrecorder.Recorder
+	catalog                         *postgresstore.RecordedDatasetCatalog
+	processor                       backtest.Processor
+	trendConfig                     trend.Configuration
+	meanConfig                      meanreversion.Configuration
+	triangularConfig                triangular.Configuration
+	flushEvery                      time.Duration
+	commit                          string
+	entries                         atomic.Bool
+	flushMutex                      sync.Mutex
+	stateMutex                      sync.Mutex
+	activityMutex                   sync.Mutex
+	lastActivity                    string
+	lastActivityAt                  time.Time
+	lastMarketViewID                string
+	lastTriangularTriggerGeneration uint64
+	lastTriangularTriggerVersion    uint64
+	metadata                        map[domain.Instrument]domain.InstrumentMetadata
+	metadataIDs                     map[domain.Instrument]string
+	maximumQuantity                 map[domain.Instrument]domain.Quantity
+	history                         map[domain.Instrument][]exchangecontracts.Candle
+	primaryHistory                  map[domain.Instrument][]exchangecontracts.Candle
+	higherHistory                   map[domain.Instrument][]exchangecontracts.Candle
+	seen                            map[domain.Instrument]time.Time
+	positions                       map[domain.Instrument]trend.PositionState
+	meanPositions                   map[domain.Instrument]meanreversion.PositionState
+	cooldowns                       map[domain.Instrument]uint64
+	balances                        portfolio.Snapshot
+	lastOrdinal                     uint64
+	datasetID                       string
 }
 
 type shadowPublicClient interface {

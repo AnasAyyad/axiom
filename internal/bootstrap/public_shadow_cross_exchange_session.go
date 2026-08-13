@@ -296,6 +296,23 @@ func (source *ownerConsoleCrossExchangeMarketSource) CaptureSandboxSagaMarketVie
 	if err != nil {
 		return SandboxSagaMarketViewSet{}, err
 	}
+	result, maximumOrdinal, triggerMatched, err := source.captureCrossExchangeMembers(keys, feeRate)
+	if err != nil {
+		return SandboxSagaMarketViewSet{}, err
+	}
+	logical := session.clients["binance"].MonotonicOffset()
+	if !triggerMatched || maximumOrdinal == 0 || logical == 0 || result.FirstDetectedOffset == 0 ||
+		result.FirstDetectedOffset > logical {
+		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_cross_exchange_market_capture_invalid")
+	}
+	result.Trigger = runtimecore.AsOfTrigger{MonotonicNanos: logical, IngestOrdinal: maximumOrdinal, UTC: now}
+	return result, nil
+}
+
+func (source *ownerConsoleCrossExchangeMarketSource) captureCrossExchangeMembers(
+	keys []runtimecore.MarketKey, feeRate domain.Rate,
+) (SandboxSagaMarketViewSet, uint64, bool, error) {
+	session := source.session
 	result := SandboxSagaMarketViewSet{Members: make([]SandboxSagaMarketMember, 0, 2)}
 	maximumOrdinal := uint64(0)
 	triggerMatched := false
@@ -310,7 +327,8 @@ func (source *ownerConsoleCrossExchangeMarketSource) CaptureSandboxSagaMarketVie
 		maximum, maximumFound := session.maximum[key]
 		if viewErr != nil || !metadataFound || !maximumFound || !health.Eligible ||
 			health.Exchange != key.Exchange || health.Instrument != key.Instrument.Symbol() {
-			return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_cross_exchange_market_member_unavailable")
+			return SandboxSagaMarketViewSet{}, 0, false,
+				fmt.Errorf("shadow_cross_exchange_market_member_unavailable")
 		}
 		if key.Exchange == source.trigger.Exchange && key.Instrument == source.trigger.Instrument {
 			triggerMatched = sameBookCommitView(source.trigger, view)
@@ -330,13 +348,7 @@ func (source *ownerConsoleCrossExchangeMarketSource) CaptureSandboxSagaMarketVie
 			CollectorInstance: "owner_console-shadow-" + session.claim.ID + "-" + key.Exchange,
 			CollectorRegion:   "engine-local"})
 	}
-	logical := session.clients["binance"].MonotonicOffset()
-	if !triggerMatched || maximumOrdinal == 0 || logical == 0 || result.FirstDetectedOffset == 0 ||
-		result.FirstDetectedOffset > logical {
-		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_cross_exchange_market_capture_invalid")
-	}
-	result.Trigger = runtimecore.AsOfTrigger{MonotonicNanos: logical, IngestOrdinal: maximumOrdinal, UTC: now}
-	return result, nil
+	return result, maximumOrdinal, triggerMatched, nil
 }
 
 func (session *ownerConsoleCrossExchangeShadowSession) captureMarket(ctx context.Context,

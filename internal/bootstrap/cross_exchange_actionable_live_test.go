@@ -22,35 +22,55 @@ import (
 )
 
 func TestCrossExchangeActionablePublicProbe(t *testing.T) {
-	if os.Getenv("AXIOM_CROSS_EXCHANGE_PROBE_PUBLIC") != "1" {
-		t.Skip("set AXIOM_CROSS_EXCHANGE_PROBE_PUBLIC=1 to run the public-only diagnostic")
-	}
-	duration := crossExchangeProbeDuration(t)
-	output := crossExchangeProbeOutput(t)
-	region, commit := os.Getenv("AXIOM_CROSS_EXCHANGE_PROBE_REGION"), os.Getenv("AXIOM_CROSS_EXCHANGE_PROBE_COMMIT")
-	if region == "" || len(commit) != 40 {
-		t.Fatal("probe region and exact source commit are required")
-	}
+	run := crossExchangeProbeConfiguration(t)
 	components := newCrossExchangeProbeComponents(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := startCrossExchangeProbeCollectors(ctx, components)
-	warmupStarted := time.Now().UTC()
+	run.warmupStarted = time.Now().UTC()
 	if !awaitCrossExchangeProbeReady(ctx, components, 2*time.Minute) {
 		cancel()
 		awaitCrossExchangeProbeCollectors(t, done)
 		t.Fatal("public collectors did not become timing-eligible within two minutes")
 	}
+	runCrossExchangeProbe(t, ctx, cancel, done, components, run)
+}
+
+type crossExchangeProbeRun struct {
+	duration      time.Duration
+	output        string
+	region        string
+	commit        string
+	warmupStarted time.Time
+}
+
+func crossExchangeProbeConfiguration(t *testing.T) crossExchangeProbeRun {
+	t.Helper()
+	if os.Getenv("AXIOM_CROSS_EXCHANGE_PROBE_PUBLIC") != "1" {
+		t.Skip("set AXIOM_CROSS_EXCHANGE_PROBE_PUBLIC=1 to run the public-only diagnostic")
+	}
+	run := crossExchangeProbeRun{duration: crossExchangeProbeDuration(t), output: crossExchangeProbeOutput(t),
+		region: os.Getenv("AXIOM_CROSS_EXCHANGE_PROBE_REGION"), commit: os.Getenv("AXIOM_CROSS_EXCHANGE_PROBE_COMMIT")}
+	if run.region == "" || len(run.commit) != 40 {
+		t.Fatal("probe region and exact source commit are required")
+	}
+	return run
+}
+
+func runCrossExchangeProbe(t *testing.T, ctx context.Context, cancel context.CancelFunc, done <-chan error,
+	components crossExchangeProbeComponents, run crossExchangeProbeRun,
+) {
+	t.Helper()
 	started := time.Now().UTC()
-	samplesPath := filepath.Join(output, "samples.ndjson")
+	samplesPath := filepath.Join(run.output, "samples.ndjson")
 	samples, err := os.OpenFile(samplesPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	encoder := json.NewEncoder(samples)
-	summary := newCrossExchangeProbeSummary(region, commit, duration, warmupStarted, started)
+	summary := newCrossExchangeProbeSummary(run.region, run.commit, run.duration, run.warmupStarted, started)
 	updates := mergePublicShadowMarketUpdates(ctx, components.collectorList())
-	deadline := time.NewTimer(duration)
+	deadline := time.NewTimer(run.duration)
 	progress := time.NewTicker(time.Minute)
 	defer deadline.Stop()
 	defer progress.Stop()
@@ -63,9 +83,9 @@ func TestCrossExchangeActionablePublicProbe(t *testing.T) {
 				t.Fatal(err)
 			}
 			summary.finish(components, time.Now().UTC())
-			writeCrossExchangeProbeSummary(t, output, summary)
+			writeCrossExchangeProbeSummary(t, run.output, summary)
 			t.Logf("probe complete: samples=%d strict=%d actionable=%d output=%s",
-				summary.Samples, summary.StrictPasses, summary.ActionablePasses, output)
+				summary.Samples, summary.StrictPasses, summary.ActionablePasses, run.output)
 			return
 		case <-progress.C:
 			t.Logf("probe progress: elapsed=%s samples=%d strict=%d actionable=%d",
@@ -98,6 +118,32 @@ func newCrossExchangeProbeComponents(t *testing.T) crossExchangeProbeComponents 
 	instrument, _ := domain.NewSpotInstrument("BTC", "USDT")
 	keys := []runtimecore.MarketKey{{Exchange: "binance", Instrument: instrument},
 		{Exchange: "bybit", Instrument: instrument}}
+	clients, collectors := newCrossExchangeProbeCollectors(t, configuration, instrument, keys)
+	maximum, _ := domain.ParseQuantity("1000000")
+	session := &ownerConsoleCrossExchangeShadowSession{
+		claim:   postgresProbeClaim(configuration),
+		clients: clients, collectors: collectors,
+		metadata:       make(map[runtimecore.MarketKey]domain.InstrumentMetadata, 2),
+		maximum:        map[runtimecore.MarketKey]domain.Quantity{keys[0]: maximum, keys[1]: maximum},
+		lastTrigger:    make(map[string]exchangecontracts.BookCommit, 2),
+		coherenceStats: newCrossExchangeCoherenceStatistics(),
+	}
+	metadataContext, cancelMetadata := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelMetadata()
+	for _, key := range keys {
+		records, metadataErr := session.clients[key.Exchange].Instruments(metadataContext, []domain.Instrument{instrument})
+		if metadataErr != nil || len(records) != 1 {
+			t.Fatalf("%s metadata: %v", key.Exchange, metadataErr)
+		}
+		session.metadata[key] = records[0].Metadata
+	}
+	return crossExchangeProbeComponents{session: session, keys: keys}
+}
+
+func newCrossExchangeProbeCollectors(t *testing.T, configuration config.Configuration,
+	instrument domain.Instrument, keys []runtimecore.MarketKey,
+) (map[string]shadowPublicClient, map[runtimecore.MarketKey]shadowPublicCollector) {
+	t.Helper()
 	venues := make(map[string]config.ExchangeConfiguration, 2)
 	for _, venue := range configuration.PublicExchanges() {
 		venues[venue.ID] = venue
@@ -124,28 +170,8 @@ func newCrossExchangeProbeComponents(t *testing.T) crossExchangeProbeComponents 
 	if err != nil {
 		t.Fatalf("bybit collector: %v", err)
 	}
-	maximum, _ := domain.ParseQuantity("1000000")
-	session := &ownerConsoleCrossExchangeShadowSession{
-		claim:   postgresProbeClaim(configuration),
-		clients: map[string]shadowPublicClient{"binance": binanceClient, "bybit": bybitClient},
-		collectors: map[runtimecore.MarketKey]shadowPublicCollector{
-			keys[0]: binanceCollector, keys[1]: bybitCollector,
-		},
-		metadata:       make(map[runtimecore.MarketKey]domain.InstrumentMetadata, 2),
-		maximum:        map[runtimecore.MarketKey]domain.Quantity{keys[0]: maximum, keys[1]: maximum},
-		lastTrigger:    make(map[string]exchangecontracts.BookCommit, 2),
-		coherenceStats: newCrossExchangeCoherenceStatistics(),
-	}
-	metadataContext, cancelMetadata := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancelMetadata()
-	for _, key := range keys {
-		records, metadataErr := session.clients[key.Exchange].Instruments(metadataContext, []domain.Instrument{instrument})
-		if metadataErr != nil || len(records) != 1 {
-			t.Fatalf("%s metadata: %v", key.Exchange, metadataErr)
-		}
-		session.metadata[key] = records[0].Metadata
-	}
-	return crossExchangeProbeComponents{session: session, keys: keys}
+	return map[string]shadowPublicClient{"binance": binanceClient, "bybit": bybitClient},
+		map[runtimecore.MarketKey]shadowPublicCollector{keys[0]: binanceCollector, keys[1]: bybitCollector}
 }
 
 func postgresProbeClaim(configuration config.Configuration) postgresstore.PublicShadowClaim {

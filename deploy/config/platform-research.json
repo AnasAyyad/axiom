@@ -1,6 +1,6 @@
 {
   "schema_version": "axiom.configuration@1.5.0",
-  "revision": 2,
+  "revision": 3,
   "environment": "shadow",
   "mode": "shadow",
   "product": "spot",
@@ -1361,8 +1361,8 @@
       },
       {
         "id": "triangular.arrival_book_max_age",
-        "description": "Every leg book age must remain strictly below this threshold.",
-        "value": "250",
+        "description": "Every leg book age must remain at or below this threshold.",
+        "value": "100",
         "unit": "milliseconds",
         "minimum": "0",
         "maximum": "250",
@@ -1376,13 +1376,13 @@
         "model_dependencies": [
           "market_view_model"
         ],
-        "algorithm_version": "triangular-book-freshness.v1",
+        "algorithm_version": "triangular-book-freshness.v2",
         "evaluation_timezone": "UTC",
         "change_behavior": "existing candidates retain their opening configuration; new decisions require a new snapshot",
-        "approval_actor": "authoritative_specification",
-        "approval_reference": "AX-V1B-B04-FUN-001/AX-V1B-B04-SAF-001",
-        "approved_at": "2026-07-23T00:00:00Z",
-        "change_reason": "initial immutable triangular arbitrage exact triangular arbitrage baseline"
+        "approval_actor": "owner_review",
+        "approval_reference": "ADR-0028",
+        "approved_at": "2026-08-13T00:00:00Z",
+        "change_reason": "reviewed 100ms same-exchange as-of freshness ceiling"
       },
       {
         "id": "triangular.minimum_net_edge",
