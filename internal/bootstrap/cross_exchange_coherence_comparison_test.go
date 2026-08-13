@@ -19,8 +19,8 @@ func TestCrossExchangeComparisonKeepsStrictAndActionableVerdictsSeparate(t *test
 	set.Members[1].Clock.Offset = 100 * time.Millisecond
 	trigger := ownerConsoleCrossExchangeSetTrigger(t, set, "bybit")
 	strict, comparison := compareCrossExchangeCapture(context.Background(), keys, now, trigger, set)
-	if strict.coherent.Identity() != "" || comparison.StrictB2.Passed || comparison.StrictB2.Reason != "interval" {
-		t.Fatalf("strict verdict=%#v capture=%#v", comparison.StrictB2, strict)
+	if strict.coherent.Identity() != "" || comparison.Strict.Passed || comparison.Strict.Reason != "interval" {
+		t.Fatalf("strict verdict=%#v capture=%#v", comparison.Strict, strict)
 	}
 	if !comparison.Actionable.Passed || comparison.Actionable.ViewID == "" || len(comparison.Members) != 2 ||
 		comparison.CorrectedOverlap >= 0 {

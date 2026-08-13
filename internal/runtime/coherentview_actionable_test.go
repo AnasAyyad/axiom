@@ -6,14 +6,14 @@ import (
 	"time"
 )
 
-func TestCrossExchangeActionableAsOfKeepsStrictB2Unchanged(t *testing.T) {
+func TestCrossExchangeActionableAsOfKeepsStrictCoherentPolicyUnchanged(t *testing.T) {
 	views := NewMarketViews()
 	keys := coherentKeys(t)
 	mustActivateAndPublish(t, views, keys[0], 1, 900_000_000, 1, time.Millisecond, 0)
 	mustActivateAndPublish(t, views, keys[1], 1, 950_000_000, 2, time.Millisecond, time.Second)
 	trigger := triggerAt(uint64(time.Second), 10)
 	if _, err := views.CoherentAsOf(keys, trigger, InitialCoherentMarketDataCoherentPolicy()); err == nil || !strings.Contains(err.Error(), "interval") {
-		t.Fatalf("strict B2 accepted disjoint intervals: %v", err)
+		t.Fatalf("strict coherent-view policy accepted disjoint intervals: %v", err)
 	}
 	actionable, err := views.CrossExchangeActionableAsOf(keys, trigger)
 	if err != nil || actionable.Policy() != InitialCrossExchangeActionablePolicy() || len(actionable.Members()) != 2 {
@@ -69,6 +69,6 @@ func TestCrossExchangeActionableAsOfFailsClosed(t *testing.T) {
 func TestStrictCoherentAsOfRejectsActionablePolicySubstitution(t *testing.T) {
 	views, keys, trigger := coherentFixture(t, 100*time.Millisecond, 10*time.Millisecond, time.Millisecond)
 	if _, err := views.CoherentAsOf(keys, trigger, InitialCrossExchangeActionablePolicy()); err == nil || !strings.Contains(err.Error(), "configuration") {
-		t.Fatalf("actionable policy substituted into strict B2: %v", err)
+		t.Fatalf("actionable policy substituted into strict coherent-view policy: %v", err)
 	}
 }

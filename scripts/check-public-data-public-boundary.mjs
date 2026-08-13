@@ -120,6 +120,7 @@ const allowed = new Set([
   "SampleServerTime",
   "SampleServerTimeRecorded",
   "TimeHealth",
+  "ClockHealth",
   "Snapshot",
   "SnapshotRecorded",
   "MonotonicOffset",

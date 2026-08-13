@@ -192,7 +192,7 @@ func (components crossExchangeProbeComponents) compare(ctx context.Context,
 	set, err := source.CaptureSandboxSagaMarketViews(ctx, components.keys, now)
 	if err != nil {
 		return crossExchangeCoherenceComparison{Trigger: trigger,
-			StrictB2: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCoherentMarketDataCoherentPolicy().Version,
+			Strict: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCoherentMarketDataCoherentPolicy().Version,
 				Reason: "capture_failure"},
 			Actionable: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCrossExchangeActionablePolicy().Version,
 				Reason: "capture_failure"}}
@@ -311,10 +311,10 @@ func newCrossExchangeProbeSummary(region, commit string, duration time.Duration,
 func (summary *crossExchangeProbeSummary) observe(comparison crossExchangeCoherenceComparison) {
 	summary.Samples++
 	summary.Triggers[comparison.Trigger.Exchange]++
-	if comparison.StrictB2.Passed {
+	if comparison.Strict.Passed {
 		summary.StrictPasses++
 	} else {
-		summary.StrictRejections[comparison.StrictB2.Reason]++
+		summary.StrictRejections[comparison.Strict.Reason]++
 	}
 	if comparison.Actionable.Passed {
 		summary.ActionablePasses++

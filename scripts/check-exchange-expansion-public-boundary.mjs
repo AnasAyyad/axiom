@@ -105,6 +105,7 @@ for (const forbidden of [
 const allowed = new Set([
   "Capabilities",
   "Health",
+  "ClockHealth",
   "RateBudget",
   "MonotonicOffset",
   "SampleServerTime",

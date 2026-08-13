@@ -27,7 +27,7 @@ func InitialCoherentMarketDataCoherentPolicy() CoherentPolicy {
 }
 
 // InitialCrossExchangeActionablePolicy returns the experimental strategy-view
-// limits. It is distinct from and cannot replace the strict B2 policy.
+// limits. It is distinct from and cannot replace the strict coherent-view policy.
 func InitialCrossExchangeActionablePolicy() CoherentPolicy {
 	return CoherentPolicy{Version: crossExchangeActionablePolicyVersion,
 		MaximumBookAge: 150 * time.Millisecond, MaximumInterBookSkew: 150 * time.Millisecond,

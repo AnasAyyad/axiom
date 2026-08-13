@@ -35,7 +35,7 @@ type crossExchangeMemberTiming struct {
 type crossExchangeCoherenceComparison struct {
 	Trigger          exchangecontracts.BookCommit  `json:"trigger"`
 	Decision         runtimecore.AsOfTrigger       `json:"decision"`
-	StrictB2         crossExchangeCoherenceVerdict `json:"strict_b2"`
+	Strict           crossExchangeCoherenceVerdict `json:"strict"`
 	Actionable       crossExchangeCoherenceVerdict `json:"actionable"`
 	ReceiveSkew      time.Duration                 `json:"receive_skew_nanos"`
 	CorrectedOverlap time.Duration                 `json:"corrected_overlap_nanos"`
@@ -65,10 +65,10 @@ func (session *ownerConsoleCrossExchangeShadowSession) observeCrossExchangeCompa
 		session.coherenceStats = newCrossExchangeCoherenceStatistics()
 	}
 	session.coherenceStats.Comparisons++
-	if comparison.StrictB2.Passed {
+	if comparison.Strict.Passed {
 		session.coherenceStats.StrictPasses++
 	} else {
-		session.coherenceStats.StrictRejections[comparison.StrictB2.Reason]++
+		session.coherenceStats.StrictRejections[comparison.Strict.Reason]++
 	}
 	if comparison.Actionable.Passed {
 		session.coherenceStats.ActionablePasses++
@@ -109,15 +109,15 @@ func compareCrossExchangeCapture(ctx context.Context, keys []runtimecore.MarketK
 	trigger exchangecontracts.BookCommit, set SandboxSagaMarketViewSet,
 ) (validatedSandboxSagaMarketCapture, crossExchangeCoherenceComparison) {
 	comparison := crossExchangeCoherenceComparison{Trigger: trigger, Decision: set.Trigger,
-		StrictB2:   crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCoherentMarketDataCoherentPolicy().Version},
+		Strict:     crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCoherentMarketDataCoherentPolicy().Version},
 		Actionable: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCrossExchangeActionablePolicy().Version}}
 	reader, err := NewSandboxSagaMarketInputReader(fixedSandboxSagaMarketViewSource{set: set})
 	if err != nil {
-		comparison.StrictB2.Reason, comparison.Actionable.Reason = "capture_failure", "capture_failure"
+		comparison.Strict.Reason, comparison.Actionable.Reason = "capture_failure", "capture_failure"
 		return validatedSandboxSagaMarketCapture{}, comparison
 	}
 	strict, strictErr := reader.capture(ctx, keys, now)
-	comparison.StrictB2 = coherenceVerdict(comparison.StrictB2.PolicyVersion, strict.coherent, strictErr)
+	comparison.Strict = coherenceVerdict(comparison.Strict.PolicyVersion, strict.coherent, strictErr)
 	actionable, actionableErr := reader.captureCrossExchangeActionable(ctx, keys, now)
 	comparison.Actionable = coherenceVerdict(comparison.Actionable.PolicyVersion, actionable.coherent, actionableErr)
 	comparison.Members, comparison.ReceiveSkew, comparison.CorrectedOverlap, err =

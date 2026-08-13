@@ -362,7 +362,7 @@ func (session *ownerConsoleCrossExchangeShadowSession) captureMarket(ctx context
 	set, err := source.CaptureSandboxSagaMarketViews(ctx, keys, now)
 	if err != nil {
 		session.observeCrossExchangeComparison(crossExchangeCoherenceComparison{Trigger: trigger,
-			StrictB2: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCoherentMarketDataCoherentPolicy().Version,
+			Strict: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCoherentMarketDataCoherentPolicy().Version,
 				Reason: "capture_failure"},
 			Actionable: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCrossExchangeActionablePolicy().Version,
 				Reason: "capture_failure"}})
@@ -370,7 +370,7 @@ func (session *ownerConsoleCrossExchangeShadowSession) captureMarket(ctx context
 	}
 	capture, comparison := compareCrossExchangeCapture(ctx, keys, now, trigger, set)
 	session.observeCrossExchangeComparison(comparison)
-	if !comparison.StrictB2.Passed {
+	if !comparison.Strict.Passed {
 		return SandboxCrossExchangeMarketInput{}, errPublicShadowCrossExchangeMarketInputUnavailable
 	}
 	markets := make([]crossarb.MarketInput, 0, 2)
