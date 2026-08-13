@@ -49,6 +49,7 @@ func TestSandboxRuntimePostgresCleanInstallQualification(t *testing.T) {
 	assertSandboxRuntimeMultilegPersistence(t, ctx, pool)
 	assertSandboxRuntimeControlRecoveryAndReset(t, ctx, pool)
 	assertSandboxQualificationBoundary(t, ctx, pool)
+	assertSandboxQualificationObserverQueryParameters(t, ctx, pool)
 }
 
 func TestSandboxRuntimePostgresMultiExchangeConsoleToSandboxRuntimeUpgradeQualification(t *testing.T) {
@@ -82,6 +83,7 @@ func TestSandboxRuntimePostgresMultiExchangeConsoleToSandboxRuntimeUpgradeQualif
 	}
 	assertSandboxRuntimeSchema(t, ctx, pool)
 	assertSandboxQualificationBoundary(t, ctx, pool)
+	assertSandboxQualificationObserverQueryParameters(t, ctx, pool)
 }
 
 func openSandboxRuntimeTestDatabase(t *testing.T, environment string) (context.Context, *pgxpool.Pool) {
@@ -127,7 +129,7 @@ func assertSandboxRuntimeSchema(t *testing.T, ctx context.Context, pool *pgxpool
 		"sandbox_runtime_engine_runtime_events", "sandbox_qualification_order_observations",
 		"sandbox_qualification_runs", "sandbox_qualification_accounts",
 		"sandbox_qualification_samples", "sandbox_qualification_failures",
-		"sandbox_qualification_chaos_events",
+		"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
 	}
 	for _, table := range tables {
 		var count int
@@ -136,6 +138,48 @@ SELECT count(*) FROM information_schema.tables
 WHERE table_schema='public' AND table_name=$1`, table).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("sandbox runtime table %s count=%d error=%v", table, count, err)
 		}
+	}
+}
+
+func assertSandboxQualificationObserverQueryParameters(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	observedAt := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
+	var total, fresh, leases int
+	var cycles int64
+	err := pool.QueryRow(
+		ctx,
+		sandboxQualificationObserveAccountsSQL,
+		observedAt,
+	).Scan(&total, &fresh, &leases, &cycles)
+	if err != nil {
+		t.Fatalf("sandbox qualification account observer query parameters rejected: %v", err)
+	}
+	var reconnects, duration int64
+	var runtimeHealthy bool
+	err = pool.QueryRow(
+		ctx,
+		sandboxQualificationObserveRuntimeSQL,
+		observedAt.Add(-time.Minute),
+		observedAt,
+	).Scan(&reconnects, &duration, &runtimeHealthy)
+	if err != nil {
+		t.Fatalf("sandbox qualification runtime observer cutoff parameters rejected: %v", err)
+	}
+	var details int
+	err = pool.QueryRow(
+		ctx,
+		"SELECT count(*) FROM ("+
+			sandboxQualificationObserveAccountDetailsSQL+
+			") account_details",
+		observedAt,
+		observedAt.Add(-time.Minute),
+	).Scan(&details)
+	if err != nil {
+		t.Fatalf("sandbox qualification account recovery observer query parameters rejected: %v", err)
 	}
 }
 

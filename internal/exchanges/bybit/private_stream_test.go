@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/sandbox"
 )
 
@@ -69,9 +70,15 @@ func (connector *fakeDemoPrivateConnector) Connect(
 	return connection, nil
 }
 
-func TestBybitPrivateStreamAuthenticatesSubscribesAndReconnects(t *testing.T) {
+func TestBybitPrivateStreamReturnsTypedLossThenExplicitlyReconnects(t *testing.T) {
 	fixture := newBybitPrivateStreamFixture(t)
 	defer fixture.source.Close()
+	if _, err := fixture.source.Receive(context.Background()); exchangecontracts.KindOf(err) != exchangecontracts.ErrorTransient {
+		t.Fatalf("stream loss was not typed: %v", err)
+	}
+	if err := fixture.source.Reconnect(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	event, err := fixture.source.Receive(context.Background())
 	if err != nil || event.Kind != sandbox.PrivateBalanceEvent ||
 		fixture.connector.index != 2 {
@@ -98,7 +105,10 @@ func TestBybitPrivateStreamExplicitReconnectCompletesWithoutEvent(
 ) {
 	fixture := newBybitPrivateStreamFixture(t)
 	defer fixture.source.Close()
-	if _, err := fixture.source.Receive(context.Background()); err != nil {
+	if _, err := fixture.source.Receive(context.Background()); exchangecontracts.KindOf(err) != exchangecontracts.ErrorTransient {
+		t.Fatalf("stream loss was not typed: %v", err)
+	}
+	if err := fixture.source.Reconnect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	auth := []byte(`{"success":true,"ret_msg":"","conn_id":"demo-2","req_id":"","op":"auth"}`)

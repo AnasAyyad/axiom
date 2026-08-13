@@ -782,14 +782,53 @@ func TestSandboxRuntimeMigrationsDefineClosedDurableAuthenticatedEvidence(t *tes
 	sandboxRuntimeExecution := migrationForVersion(migrations, "000022")
 	sandboxRuntimeBinanceStream := migrationForVersion(migrations, "000023")
 	sandboxQualification := migrationForVersion(migrations, "000024")
+	sandboxQualificationRecovery := migrationForVersion(migrations, "000056")
+	sandboxQualificationStreamRecovery := migrationForVersion(migrations, "000057")
 	if sandboxRuntimeAuth.SQL == "" || sandboxRuntimeExecution.SQL == "" ||
-		sandboxRuntimeBinanceStream.SQL == "" || sandboxQualification.SQL == "" {
+		sandboxRuntimeBinanceStream.SQL == "" || sandboxQualification.SQL == "" ||
+		sandboxQualificationRecovery.SQL == "" ||
+		sandboxQualificationStreamRecovery.SQL == "" {
 		t.Fatal("sandbox runtime migrations are missing")
 	}
 	assertSandboxRuntimeBinanceStreamMigration(t, sandboxRuntimeBinanceStream)
 	assertSandboxRuntimeAuthMigration(t, sandboxRuntimeAuth)
 	assertSandboxRuntimeExecutionMigration(t, sandboxRuntimeExecution)
 	assertSandboxQualificationMigration(t, sandboxQualification)
+	assertSandboxQualificationRecoveryMigration(t, sandboxQualificationRecovery)
+	assertSandboxQualificationPrivateStreamRecoveryMigration(
+		t, sandboxQualificationStreamRecovery,
+	)
+}
+
+func assertSandboxQualificationPrivateStreamRecoveryMigration(
+	t *testing.T,
+	migration Migration,
+) {
+	t.Helper()
+	assertMigrationContains(
+		t, migration, "sandbox qualification private-stream recovery", []string{
+			"'private_stream'",
+			"incident_source text not null",
+			"incident_source in ('reconciliation','private_stream')",
+			"'recovery_expired','recovery_repeated'",
+		},
+	)
+}
+
+func assertSandboxQualificationRecoveryMigration(
+	t *testing.T,
+	migration Migration,
+) {
+	t.Helper()
+	assertMigrationContains(
+		t, migration, "sandbox qualification bounded recovery", []string{
+			"failure_kind text",
+			"cause_code text",
+			"account_observations jsonb",
+			"create table sandbox_qualification_recovery_events",
+			"sandbox_qualification_recovery_events_immutable",
+		},
+	)
 }
 
 func TestOwnerControlMigrationDefinesFailClosedControlPlane(t *testing.T) {

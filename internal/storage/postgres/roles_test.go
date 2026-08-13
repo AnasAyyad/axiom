@@ -500,6 +500,7 @@ func assertSandboxQualificationRoleAppendGrants(t *testing.T, appendOnly string)
 		"sandbox_qualification_samples",
 		"sandbox_qualification_failures",
 		"sandbox_qualification_chaos_events",
+		"sandbox_qualification_recovery_events",
 	} {
 		if !strings.Contains(
 			appendOnly,

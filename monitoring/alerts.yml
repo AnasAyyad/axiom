@@ -137,7 +137,21 @@ groups:
         labels: { severity: critical, reason_code: sandbox_qualification_failed }
         annotations:
           summary: sandbox qualification smoke or formal qualification terminated with failure
-          runbook: docs/operations/incident-response.md#sandbox_runtime-sandbox_qualification-qualification-failure
+          runbook: docs/operations/incident-response.md#sandbox-runtime-sandbox-qualification-qualification-failure
+      - alert: AxiomSandboxQualificationRecoveryActive
+        expr: axiom_sandbox_qualification_recovery_incidents{state="active"} > 0
+        for: 0m
+        labels: { severity: warning, reason_code: sandbox_qualification_recovery_active }
+        annotations:
+          summary: A sandbox qualification account is in bounded read-only recovery
+          runbook: docs/operations/incident-response.md#sandbox-runtime-sandbox-qualification-bounded-read-only-recovery
+      - alert: AxiomSandboxQualificationRecoveryTerminal
+        expr: axiom_sandbox_qualification_recovery_incidents{state=~"expired|repeated|unrecoverable"} > 0
+        for: 0m
+        labels: { severity: critical, reason_code: sandbox_qualification_recovery_terminal }
+        annotations:
+          summary: A sandbox qualification read-only recovery became terminal
+          runbook: docs/operations/incident-response.md#sandbox-runtime-sandbox-qualification-bounded-read-only-recovery
       - alert: AxiomCriticalAlertLatencySLO
         expr: histogram_quantile(0.95, sum by (le) (rate(axiom_critical_alert_latency_seconds_bucket[5m]))) > 5
         for: 5m

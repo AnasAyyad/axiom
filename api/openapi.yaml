@@ -5533,6 +5533,7 @@ components:
           failures,
           chaos,
           slo,
+          recovery_incidents,
           formal_soak_pending,
           audit_url,
         ]
@@ -5576,8 +5577,72 @@ components:
           items: { type: string, maxLength: 80 }
         chaos: { $ref: "#/components/schemas/SandboxChaosSummary" }
         slo: { $ref: "#/components/schemas/SandboxSLOSummary" }
+        recovery_incidents:
+          type: array
+          items: { $ref: "#/components/schemas/SandboxRecoveryIncident" }
         formal_soak_pending: { type: boolean }
         audit_url: { type: string, pattern: "^/api/v1/audit-events" }
+    SandboxRecoveryIncident:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          account_id,
+          exchange,
+          environment,
+          state,
+          incident_source,
+          reason_category,
+          cause_code,
+          deadline_at,
+          clean_check_count,
+          detected_at,
+          evidence_hash,
+        ]
+      properties:
+        account_id: { type: string, minLength: 1 }
+        exchange:
+          type: string
+          enum: [binance, bybit]
+          x-enum-varnames:
+            [
+              SandboxRecoveryIncidentExchangeBinance,
+              SandboxRecoveryIncidentExchangeBybit,
+            ]
+        environment:
+          type: string
+          enum: [spot_testnet, demo]
+          x-enum-varnames:
+            [
+              SandboxRecoveryIncidentEnvironmentSpotTestnet,
+              SandboxRecoveryIncidentEnvironmentDemo,
+            ]
+        state:
+          type: string
+          enum: [active, recovered, expired, repeated, unrecoverable]
+          x-enum-varnames:
+            [
+              SandboxRecoveryIncidentStateActive,
+              SandboxRecoveryIncidentStateRecovered,
+              SandboxRecoveryIncidentStateExpired,
+              SandboxRecoveryIncidentStateRepeated,
+              SandboxRecoveryIncidentStateUnrecoverable,
+            ]
+        incident_source:
+          type: string
+          enum: [reconciliation, private_stream]
+          x-enum-varnames:
+            [
+              SandboxRecoveryIncidentIncidentSourceReconciliation,
+              SandboxRecoveryIncidentIncidentSourcePrivateStream,
+            ]
+        reason_category: { type: string, maxLength: 64 }
+        cause_code: { type: string, pattern: "^[a-z0-9_]{1,64}$" }
+        deadline_at: { $ref: "#/components/schemas/Timestamp" }
+        clean_check_count: { type: integer, minimum: 0, maximum: 2 }
+        detected_at: { $ref: "#/components/schemas/Timestamp" }
+        recovery_timestamp: { $ref: "#/components/schemas/Timestamp" }
+        evidence_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
     SandboxOverview:
       type: object
       additionalProperties: false

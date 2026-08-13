@@ -1877,6 +1877,22 @@ function sandboxQualificationFixture() {
     profitability_evidence: false,
     qualified: false,
     failures: [],
+    recovery_incidents: [
+      {
+        account_id: "bybit-qualification",
+        exchange: "bybit",
+        environment: "demo",
+        state: "recovered",
+        incident_source: "private_stream",
+        reason_category: "transient_outage",
+        cause_code: "private_stream_receive_failed",
+        deadline_at: "2026-07-16T12:02:00Z",
+        clean_check_count: 2,
+        detected_at: now,
+        recovery_timestamp: "2026-07-16T12:00:31Z",
+        evidence_hash: "a".repeat(64),
+      },
+    ],
     chaos: {
       status: "passed",
       passed: 14,

@@ -12,7 +12,10 @@ const requiredFiles = [
   "internal/api/console/sandbox_commands.go",
   "internal/api/console/sandbox_authorization_commands.go",
   "internal/qualification/sandboxqualification/runner.go",
+  "cmd/sandbox-qualification-chaos/main.go",
   "internal/storage/postgres/migrations/000024_v1c_c6_console_qualification.sql",
+  "internal/storage/postgres/migrations/000056_sandbox_qualification_bounded_recovery.sql",
+  "internal/storage/postgres/migrations/000057_sandbox_qualification_private_stream_recovery.sql",
   "web/src/app/SandboxOperationsPage.tsx",
 ];
 
@@ -105,6 +108,7 @@ const apiSources = [
   "internal/api/console/sandbox_authorization_commands.go",
   "internal/storage/postgres/sandbox_runtime_console_order_admission.go",
   "cmd/sandbox-qualification/main.go",
+  "cmd/sandbox-qualification-chaos/main.go",
 ]
   .map(read)
   .join("\n");
@@ -159,10 +163,37 @@ requireText(
     "sandbox-security-qualify:",
     "sandbox-chaos-qualify:",
     "sandbox-qualification-smoke:",
+    "sandbox-qualification-observer-build:",
+    "sandbox-qualification-chaos-build:",
+    "sandbox-qualification-controller-image:",
+    "sandbox-qualification-chaos-record:",
     "sandbox-qualification-formal:",
     "sandbox-qualification:",
   ],
   "qualification targets",
+);
+
+const deploymentReadme = read("deploy/README.md");
+requireText(
+  deploymentReadme,
+  [
+    "docker run --name REPLACE_WITH_RUN_ID-observer",
+    "  --no-healthcheck",
+    "  --entrypoint /qualification/sandbox-qualification REPLACE_WITH_EXACT_IMAGE",
+  ],
+  "standalone observer launch contract",
+);
+
+const controllerDockerfile = read(
+  "deploy/docker/SandboxQualificationController.Dockerfile",
+);
+requireText(
+  makefile + controllerDockerfile,
+  [
+    "build -buildvcs=false -trimpath -ldflags='-buildid='",
+    'CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-buildid="',
+  ],
+  "reproducible qualification controller build contract",
 );
 
 console.log("Sandbox-qualification source boundary passed");

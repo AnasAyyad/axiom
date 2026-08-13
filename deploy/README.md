@@ -422,7 +422,7 @@ Repeat the same sequence with
 missing, or unsealed file is not acceptance evidence. Never infer
 profitability from either sandbox result.
 
-### Manual C6 72-hour qualification
+### Manual sandbox qualification 72-hour run
 
 Do not start this observer until the PR3 implementation commit is clean, all
 non-soak gates pass, both engines are healthy on the exact candidate, and the
@@ -432,7 +432,7 @@ or reconcile an order. The matching engines remain the only
 credential-owning processes.
 
 For an existing database, provision the dedicated
-`POSTGRES_C6_QUALIFICATION_USER` before applying migration `000024`. Its
+`POSTGRES_SANDBOX_QUALIFICATION_USER` before applying migration `000024`. Its
 password file is separate from the API and both engine roles. The migrator
 grants the observer only redacted operational reads, immutable qualification
 appends, and the constrained terminal run transition.
@@ -444,26 +444,96 @@ validation rejects a dirty source, a missing image identity, either missing
 approved account environment, a duration other than 259,200 seconds, or a
 sample interval outside 15 seconds through 5 minutes.
 
+One account may consume at most one bounded read-only recovery during the
+run, shared across authoritative reconciliation and private-stream transport
+disconnects. Only redacted typed `transient_outage` or `maintenance` failures
+are permitted. The engine must enter `DEGRADED`, disable dispatch, reconnect
+and backfill a disconnected private stream, reconcile immediately, then record
+a second clean reconciliation at least 30 seconds later before returning only
+to `READY_PAUSED`. The deadline is two minutes and the 72-hour clock continues.
+Rate-limit, authentication/timestamp, mismatch, persistence, lease, unsafe
+state, untyped, repeated, and expired incidents terminate the run. The sealed
+`c6-f153781-20260806-r1` and `c6-596db28-20260806-r2` runs remain `FAILED`
+and disqualified; neither can be resumed, relabeled, or written to. Never
+remove or replace their evidence. Every retry uses a new run ID and a new
+absent evidence path.
+
+The observer is a standalone committed-source binary, not `go run`. Build it
+and the deterministic controller into a new retained qualification directory,
+then record both SHA-256 values before launch:
+
 ```bash
-DB_HOST=127.0.0.1 \
-DB_USER=axiom_sandbox_qualification \
-DB_PASSWORD_FILE="$PWD/.secrets/postgres_sandbox_qualification_password" \
-AXIOM_SANDBOX_QUALIFICATION_SOAK_ENABLED=1 \
-AXIOM_SANDBOX_QUALIFICATION_SOAK_MODE=formal \
-AXIOM_SANDBOX_QUALIFICATION_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
-AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA=REPLACE_WITH_40_HEX \
-AXIOM_SANDBOX_QUALIFICATION_BUILD_HASH=REPLACE_WITH_64_HEX \
-AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
-AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
-AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
-AXIOM_SANDBOX_QUALIFICATION_SOURCE_DIRTY=false \
-AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH=/absolute/new/c6-terminal.json \
-make sandbox-qualification-formal
+install -d -m 0750 /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin
+AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification \
+  make sandbox-qualification-observer-build
+AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN=/srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification-chaos \
+  make sandbox-qualification-chaos-build
+SANDBOX_QUALIFICATION_CONTROLLER_IMAGE=axiom-sandbox-qualification-controller:REPLACE_WITH_COMMIT \
+COMMIT=REPLACE_WITH_40_HEX make sandbox-qualification-controller-image
+sha256sum /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification \
+  /srv/axiom-data/qualification/REPLACE_WITH_RUN_ID/bin/sandbox-qualification-chaos
+```
+
+The base deployment intentionally publishes no PostgreSQL port. Keep it that
+way during qualification. Run the observer as a separate, no-restart container
+on the existing internal `axiom_core` network, with only the qualification database
+password file and evidence directory mounted. Wrap this exact `docker run`
+command in a persistent system supervisor so any exit is terminal:
+
+```bash
+docker run --name REPLACE_WITH_RUN_ID-observer \
+  --no-healthcheck \
+  --network axiom_core --read-only --restart=no --user "$(id -u):70" \
+  --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+  --mount type=bind,src=/absolute/retained/bin/sandbox-qualification,dst=/qualification/sandbox-qualification,readonly \
+  --mount type=bind,src="$PWD/.secrets/postgres_sandbox_qualification_password",dst=/run/secrets/postgres_sandbox_qualification_password,readonly \
+  --mount type=bind,src=/absolute/retained/evidence,dst=/qualification/evidence \
+  --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
+  --env DB_USER=axiom_sandbox_qualification \
+  --env DB_PASSWORD_FILE=/run/secrets/postgres_sandbox_qualification_password \
+  --env AXIOM_SANDBOX_QUALIFICATION_ENABLED=1 \
+  --env AXIOM_SANDBOX_QUALIFICATION_MODE=formal \
+  --env AXIOM_SANDBOX_QUALIFICATION_RUN_ID=REPLACE_WITH_NEW_RUN_ID \
+  --env AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA=REPLACE_WITH_40_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_BUILD_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH=sha256:REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH=REPLACE_WITH_64_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_SOURCE_DIRTY=false \
+  --env AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH=/qualification/evidence/sandbox-qualification-terminal.json \
+  --entrypoint /qualification/sandbox-qualification REPLACE_WITH_EXACT_IMAGE
 ```
 
 The approved deterministic chaos controller must append exactly one run-bound
-result for every closed C6 scenario after the run starts. Missing, duplicate,
+result for every closed qualification scenario after the run starts. Missing, duplicate,
 unknown, or failed scenario evidence makes the terminal verdict fail closed.
+After the run row is confirmed `RUNNING`, invoke the retained controller once
+from the same exact clean checkout:
+
+```bash
+docker run --rm --network axiom_core --read-only --user "$(id -u):70" \
+  --tmpfs /tmp:rw,exec,nosuid,nodev,size=2g --workdir "$PWD" \
+  --mount type=bind,src="$PWD",dst="$PWD",readonly \
+  --mount type=bind,src="$PWD/.secrets/postgres_sandbox_qualification_password",dst=/run/secrets/postgres_sandbox_qualification_password,readonly \
+  --env DB_HOST=postgres --env DB_PORT=5432 --env DB_NAME=axiom \
+  --env DB_USER=axiom_sandbox_qualification \
+  --env DB_PASSWORD_FILE=/run/secrets/postgres_sandbox_qualification_password \
+  --env AXIOM_SANDBOX_QUALIFICATION_CHAOS_ENABLED=1 \
+  --env AXIOM_SANDBOX_QUALIFICATION_CHAOS_MODE=formal \
+  --env AXIOM_SANDBOX_QUALIFICATION_RUN_ID=REPLACE_WITH_RUN_ID \
+  --env AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA=REPLACE_WITH_40_HEX \
+  --env AXIOM_SANDBOX_QUALIFICATION_SOURCE_ROOT="$PWD" \
+  --env AXIOM_SANDBOX_QUALIFICATION_CHAOS_EXECUTABLE_HASH=REPLACE_WITH_64_HEX \
+  REPLACE_WITH_EXACT_CONTROLLER_IMAGE
+```
+
+The controller verifies its own hash, the exact clean Git commit, and the
+active run identity. It runs `make sandbox-chaos-qualify` with a strict child
+environment that contains no database or exchange credentials, hashes the
+transcript, and appends the complete fourteen-scenario result atomically.
+The controller image is built from the exact clean commit, preloads the pinned
+Go module graph, and runs without external egress on `axiom_core`; never use
+a generic toolchain image with the live qualification database secret.
 The runner also fails on duplicate create, lost/double-posted fill, unresolved
 unknown, mismatch/suspense, stale account, lease loss, persistence failure,
 unsafe recovery/restart, production target, cap breach, alert latency, or

@@ -113,8 +113,9 @@ func newPrivateEventSource(
 	return source, nil
 }
 
-// Receive returns one normalized durable private event, reconnecting and
-// backfilling before exposing post-gap state.
+// Receive returns one normalized durable private event. Transport loss is
+// returned as one typed, sanitized failure so the engine owns reconnect,
+// backfill, reconciliation, and readiness as one bounded state machine.
 func (source *BybitPrivateEventSource) Receive(
 	ctx context.Context,
 ) (sandbox.PrivateEvent, error) {
@@ -159,25 +160,9 @@ func (source *BybitPrivateEventSource) receiveDemoPrivateBody(
 
 	body, err := connection.Receive(ctx)
 	if err != nil {
-		source.mutex.Lock()
-		if source.closed {
-			source.mutex.Unlock()
-			return nil, nil, ErrDemoPrivateEvent
-		}
-		if err = source.reconnectLocked(ctx); err != nil {
-			source.mutex.Unlock()
-			return nil, nil, ErrDemoPrivateEvent
-		}
-		if event, ok := source.popPending(); ok {
-			source.mutex.Unlock()
-			return nil, &event, nil
-		}
-		connection = source.connection
-		source.mutex.Unlock()
-		body, err = connection.Receive(ctx)
-		if err != nil {
-			return nil, nil, ErrDemoPrivateEvent
-		}
+		return nil, nil, bybitPrivateTransportFailure(
+			"private_stream_receive_failed",
+		)
 	}
 	return body, nil, nil
 }
@@ -209,7 +194,9 @@ func (source *BybitPrivateEventSource) connectAndBackfillLocked(
 ) error {
 	connection, err := source.connector.Connect(ctx)
 	if err != nil {
-		return ErrDemoPrivateEvent
+		return bybitPrivateTransportFailure(
+			"private_stream_connect_failed",
+		)
 	}
 	if err = source.authenticateAndSubscribe(ctx, connection); err != nil {
 		_ = connection.Close()
@@ -242,22 +229,40 @@ func (source *BybitPrivateEventSource) authenticateAndSubscribe(
 		return ErrDemoPrivateEvent
 	}
 	if connection.Send(ctx, request) != nil {
-		return ErrDemoPrivateEvent
+		return bybitPrivateTransportFailure("private_stream_send_failed")
 	}
 	body, err := connection.Receive(ctx)
-	if err != nil || !validDemoPrivateControl(body, "auth", "") {
+	if err != nil {
+		return bybitPrivateTransportFailure("private_stream_receive_failed")
+	}
+	if !validDemoPrivateControl(body, "auth", "") {
 		return ErrDemoPrivateEvent
 	}
 	subscribe, err := demoPrivateSubscriptionRequest()
-	if err != nil || connection.Send(ctx, subscribe) != nil {
+	if err != nil {
 		return ErrDemoPrivateEvent
 	}
+	if connection.Send(ctx, subscribe) != nil {
+		return bybitPrivateTransportFailure("private_stream_send_failed")
+	}
 	body, err = connection.Receive(ctx)
-	if err != nil ||
-		!validDemoPrivateControl(body, "subscribe", demoPrivateSubscribeID) {
+	if err != nil {
+		return bybitPrivateTransportFailure("private_stream_receive_failed")
+	}
+	if !validDemoPrivateControl(body, "subscribe", demoPrivateSubscribeID) {
 		return ErrDemoPrivateEvent
 	}
 	return nil
+}
+
+func bybitPrivateTransportFailure(cause string) error {
+	return exchangecontracts.NewDetailedError(
+		exchangecontracts.ErrorTransient,
+		exchangecontracts.OperationStream,
+		0,
+		0,
+		cause,
+	)
 }
 
 func (source *BybitPrivateEventSource) authenticationRequest() (

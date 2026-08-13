@@ -12,7 +12,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-financial-arithmetic benchmark-deterministic-scheduler build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate durable-storage-sqlc durable-storage-postgres-qualify strategy-execution-sqlc strategy-execution-postgres-qualify strategy-execution-local-qualify portfolio-risk-sqlc portfolio-risk-postgres-qualify portfolio-risk-model-qualify research-registry-sqlc research-registry-postgres-qualify research-registry-model-qualify research-registry-research-qualify owner-console-sqlc owner-console-postgres-qualify owner-console-contract-qualify owner-console-api-qualify owner-console-frontend-qualify owner-console-ui-fixture-qualify owner-console-e2e-qualify owner-console-security-qualify exchange-expansion-model-qualify exchange-expansion-postgres-qualify exchange-expansion-adapter-qualify exchange-expansion-security-qualify exchange-expansion-local-qualify exchange-expansion-live-qualify coherent-market-data-model-qualify coherent-market-data-postgres-qualify coherent-market-data-live-qualify coherent-market-data-local-qualify mean-reversion-sqlc mean-reversion-model-qualify mean-reversion-postgres-qualify mean-reversion-research-qualify mean-reversion-local-qualify triangular-arbitrage-sqlc triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify triangular-arbitrage-local-qualify cross-exchange-arbitrage-sqlc cross-exchange-arbitrage-model-qualify cross-exchange-arbitrage-postgres-qualify cross-exchange-arbitrage-local-qualify inventory-rebalancing-sqlc inventory-rebalancing-model-qualify inventory-rebalancing-postgres-qualify inventory-rebalancing-security-qualify inventory-rebalancing-local-qualify research-promotion-sqlc research-promotion-model-qualify research-promotion-postgres-qualify research-promotion-research-qualify research-promotion-local-qualify multi-exchange-console-sqlc multi-exchange-console-model-qualify multi-exchange-console-postgres-qualify multi-exchange-console-api-qualify multi-exchange-console-frontend-qualify multi-exchange-console-security-qualify multi-exchange-console-live-qualify multi-exchange-console-local-qualify image backup-image backup-image-reproducibility image-reproducibility
 .PHONY: public-data-soak-smoke exchange-expansion-soak-smoke credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-postgres-qualify sandbox-security-foundation sandbox-connectivity
-.PHONY: sandbox-api-qualify sandbox-frontend-qualify sandbox-security-qualify sandbox-chaos-qualify sandbox-qualification-smoke sandbox-qualification-formal sandbox-qualification
+.PHONY: sandbox-api-qualify sandbox-frontend-qualify sandbox-security-qualify sandbox-chaos-qualify sandbox-qualification-smoke sandbox-qualification-observer-build sandbox-qualification-chaos-build sandbox-qualification-controller-image sandbox-qualification-chaos-record sandbox-qualification-formal sandbox-qualification
 .PHONY: owner-control-contract-qualify owner-control-api-qualify owner-control-postgres-qualify owner-control-security-qualify owner-control
 .PHONY: owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify owner-experience
 .PHONY: run-lab-contract-qualify run-lab-api-qualify run-lab-postgres-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify run-lab
@@ -235,10 +235,40 @@ sandbox-chaos-qualify: ## Exercise deterministic sandbox qualification fault, ra
 			./internal/storage/postgres -count=1
 
 sandbox-qualification-smoke: ## Run only the short deterministic sandbox qualification smoke runner; never grants formal qualification.
-	@$(GO) test ./cmd/sandbox-qualification ./internal/qualification/sandboxqualification \
+	@$(GO) test ./cmd/sandbox-qualification ./cmd/sandbox-qualification-chaos \
+		./internal/qualification/sandboxqualification \
 		-run '^TestSandboxQualification' -count=1 -timeout=2m -v
 
-sandbox-qualification-formal: ## MANUAL: run the default-off exact 72-hour observer; requires explicit identity and evidence variables.
+sandbox-qualification-observer-build: ## Build the standalone exact-hash observer at AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN.
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN must be absolute" >&2; exit 1;; esac
+	@test -d "$$(dirname "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)")" || { echo "observer output directory is absent" >&2; exit 1; }
+	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" ./cmd/sandbox-qualification
+
+sandbox-qualification-chaos-build: ## Build the exact-hash chaos controller at AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN.
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN must be absolute" >&2; exit 1;; esac
+	@test -d "$$(dirname "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)")" || { echo "controller output directory is absent" >&2; exit 1; }
+	@CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -ldflags='-buildid=' -o "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" ./cmd/sandbox-qualification-chaos
+
+sandbox-qualification-controller-image: ## Build the exact-source, internal-network qualification controller image.
+	@test -n "$(SANDBOX_QUALIFICATION_CONTROLLER_IMAGE)" || { echo "SANDBOX_QUALIFICATION_CONTROLLER_IMAGE is required" >&2; exit 1; }
+	@test "$(COMMIT)" = "$$(git rev-parse HEAD)" || { echo "COMMIT must equal committed HEAD" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "qualification controller image requires clean committed source" >&2; exit 1; }
+	@docker build --file deploy/docker/SandboxQualificationController.Dockerfile \
+		--tag "$(SANDBOX_QUALIFICATION_CONTROLLER_IMAGE)" \
+		--build-arg "COMMIT=$(COMMIT)" .
+
+sandbox-qualification-chaos-record: ## MANUAL: append the credential-free deterministic gate to one active formal run.
+	@test "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_ENABLED)" = "1" || { echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_MODE)" = "formal" || { echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_RUN_ID)" || { echo "AXIOM_SANDBOX_QUALIFICATION_RUN_ID is required" >&2; exit 1; }
+	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA)" || { echo "AXIOM_SANDBOX_QUALIFICATION_COMMIT_SHA is required" >&2; exit 1; }
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_SOURCE_ROOT)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_SOURCE_ROOT must be absolute" >&2; exit 1;; esac
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN must be absolute" >&2; exit 1;; esac
+	@test -x "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" || { echo "qualification chaos controller is not executable" >&2; exit 1; }
+	@test "$$(sha256sum "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)" | awk '{print $$1}')" = "$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_EXECUTABLE_HASH)" || { echo "qualification chaos controller hash mismatch" >&2; exit 1; }
+	@"$(AXIOM_SANDBOX_QUALIFICATION_CHAOS_BIN)"
+
+sandbox-qualification-formal: ## MANUAL: run the default-off exact 72-hour standalone observer.
 	@test "$(AXIOM_SANDBOX_QUALIFICATION_ENABLED)" = "1" || { echo "AXIOM_SANDBOX_QUALIFICATION_ENABLED=1 is required" >&2; exit 1; }
 	@test "$(AXIOM_SANDBOX_QUALIFICATION_MODE)" = "formal" || { echo "AXIOM_SANDBOX_QUALIFICATION_MODE=formal is required" >&2; exit 1; }
 	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_RUN_ID)" || { echo "AXIOM_SANDBOX_QUALIFICATION_RUN_ID is required" >&2; exit 1; }
@@ -248,7 +278,10 @@ sandbox-qualification-formal: ## MANUAL: run the default-off exact 72-hour obser
 	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_IMAGE_HASH is required" >&2; exit 1; }
 	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_CONFIGURATION_HASH is required" >&2; exit 1; }
 	@test -n "$(AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH)" || { echo "AXIOM_SANDBOX_QUALIFICATION_EVIDENCE_PATH is required" >&2; exit 1; }
-	@$(GO) run ./cmd/sandbox-qualification
+	@case "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" in /*) ;; *) echo "AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN must be absolute" >&2; exit 1;; esac
+	@test -x "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" || { echo "qualification observer is not executable" >&2; exit 1; }
+	@test "$$(sha256sum "$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)" | awk '{print $$1}')" = "$(AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH)" || { echo "qualification observer hash mismatch" >&2; exit 1; }
+	@"$(AXIOM_SANDBOX_QUALIFICATION_OBSERVER_BIN)"
 
 sandbox-qualification: credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-api-qualify sandbox-frontend-qualify sandbox-security-qualify sandbox-chaos-qualify sandbox-qualification-smoke sandbox-postgres-qualify ## Pass every sandbox runtime non-soak gate; formal sandbox qualification soak remains separate and pending.
 	@AXIOM_SANDBOX_RUNTIME_TEST_DSN= AXIOM_SANDBOX_RUNTIME_UPGRADE_TEST_DSN= \

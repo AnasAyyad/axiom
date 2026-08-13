@@ -81,22 +81,23 @@ type Metrics struct {
 	alerts             *prometheus.GaugeVec
 	ready              *prometheus.GaugeVec
 
-	sandboxOrders                    *prometheus.CounterVec
-	sandboxAnomalies                 *prometheus.CounterVec
-	sandboxUnknown                   *prometheus.GaugeVec
-	sandboxReconciliation            *prometheus.GaugeVec
-	sandboxArms                      *prometheus.GaugeVec
-	sandboxCapUsage                  *prometheus.GaugeVec
-	sandboxCapRejections             *prometheus.CounterVec
-	sandboxResets                    *prometheus.CounterVec
-	sandboxEngineReady               *prometheus.GaugeVec
-	sandboxEngineEvents              *prometheus.CounterVec
-	sandboxRecovery                  *prometheus.HistogramVec
-	criticalAlertLatency             *prometheus.HistogramVec
-	sandboxQualificationSoakState    *prometheus.GaugeVec
-	sandboxQualificationSoakDuration *prometheus.GaugeVec
-	sandboxQualificationSoakFailures *prometheus.CounterVec
-	sandboxQualificationMemoryTrend  *prometheus.GaugeVec
+	sandboxOrders                         *prometheus.CounterVec
+	sandboxAnomalies                      *prometheus.CounterVec
+	sandboxUnknown                        *prometheus.GaugeVec
+	sandboxReconciliation                 *prometheus.GaugeVec
+	sandboxArms                           *prometheus.GaugeVec
+	sandboxCapUsage                       *prometheus.GaugeVec
+	sandboxCapRejections                  *prometheus.CounterVec
+	sandboxResets                         *prometheus.CounterVec
+	sandboxEngineReady                    *prometheus.GaugeVec
+	sandboxEngineEvents                   *prometheus.CounterVec
+	sandboxRecovery                       *prometheus.HistogramVec
+	criticalAlertLatency                  *prometheus.HistogramVec
+	sandboxQualificationSoakState         *prometheus.GaugeVec
+	sandboxQualificationSoakDuration      *prometheus.GaugeVec
+	sandboxQualificationSoakFailures      *prometheus.CounterVec
+	sandboxQualificationMemoryTrend       *prometheus.GaugeVec
+	sandboxQualificationRecoveryIncidents *prometheus.GaugeVec
 
 	evaluationStage         *prometheus.GaugeVec
 	evaluationValidTime     *prometheus.GaugeVec
@@ -183,6 +184,7 @@ func initializeSandboxQualificationMetrics(metrics *Metrics, labels prometheus.L
 	metrics.sandboxQualificationSoakDuration = gauge("axiom_sandbox_qualification_soak_duration_seconds", "Observed sandbox qualification duration.", []string{"mode"}, labels)
 	metrics.sandboxQualificationSoakFailures = counter("axiom_sandbox_qualification_soak_failures_total", "Sandbox qualification failures by closed reason.", []string{"reason"}, labels)
 	metrics.sandboxQualificationMemoryTrend = gauge("axiom_sandbox_qualification_memory_trend_bytes", "Bounded resident-memory trend after warm-up.", []string{"window"}, labels)
+	metrics.sandboxQualificationRecoveryIncidents = gauge("axiom_sandbox_qualification_recovery_incidents", "Current bounded sandbox qualification read-only recovery incidents by state.", []string{"exchange", "state"}, labels)
 }
 
 func initializeEvaluationMetrics(metrics *Metrics, labels prometheus.Labels) {
@@ -214,6 +216,7 @@ func (metrics *Metrics) register() {
 		metrics.sandboxEngineEvents, metrics.sandboxRecovery,
 		metrics.criticalAlertLatency, metrics.sandboxQualificationSoakState,
 		metrics.sandboxQualificationSoakDuration, metrics.sandboxQualificationSoakFailures, metrics.sandboxQualificationMemoryTrend,
+		metrics.sandboxQualificationRecoveryIncidents,
 		metrics.evaluationStage, metrics.evaluationValidTime, metrics.evaluationRecording,
 		metrics.evaluationFeedFreshness, metrics.evaluationFeedHealthy, metrics.evaluationMembers,
 		metrics.evaluationFinancial, metrics.evaluationFunnel, metrics.evaluationFailure,

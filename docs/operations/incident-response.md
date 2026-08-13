@@ -164,7 +164,32 @@ extend expiry, reuse an authorization, or loosen policy to make a request pass.
 If a new arm is appropriate, require a fresh reason and password/TOTP one-use
 authorization through the normal API.
 
-### V1C C6 qualification failure
+### Sandbox runtime sandbox qualification bounded read-only recovery
+
+One future C6 run may tolerate at most one typed `transient_outage` or
+`maintenance` read-only incident per account, shared between reconciliation
+and private-stream transport disconnects. The account enters `DEGRADED`,
+remains dispatch-disabled, and has a two-minute deadline. The 72-hour run clock
+continues. For a stream incident, reconnect and bounded backfill are followed
+by an immediate authoritative reconciliation. Recovery then requires a second
+fully clean reconciliation at least 30 seconds later, with the private stream,
+evidence, lease, and account safety gates healthy. The only successful
+destination is `READY_PAUSED`; recovery never arms an account.
+
+Rate limits, authentication or timestamp errors, account/order/balance
+mismatches, persistence failures, lease loss, unsafe fills/orders, stale
+health, and any second incident are terminal C6 failures. Record only the
+typed stable source, failure kind, and sanitized cause code. Never retain payloads,
+URLs, secrets, signatures, or raw exchange errors. Immutable events are
+recorded as `detected`, `first_clean_check`, `recovered`, `expired`,
+`repeated`, or `unrecoverable` and are bound to the run, account epoch,
+timestamp, and evidence hash.
+
+The prior failed C6 run is sealed evidence. It remains disqualified and cannot
+be resumed, relabeled, or repaired in place. A future attempt uses a new run
+ID, new evidence path, current identities, and the same exact 72-hour gate.
+
+### Sandbox runtime sandbox qualification qualification failure
 
 Stop the run without deleting or replacing any existing terminal file. Preserve
 the exact commit, executable/image/configuration hashes, account epochs and

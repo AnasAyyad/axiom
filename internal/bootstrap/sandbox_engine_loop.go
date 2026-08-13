@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -165,18 +164,20 @@ func (loop sandboxEngineLoop) run(
 			}
 		case <-tickers.lease.C:
 			if err := loop.renewLease(ctx); err != nil {
+				health.leaseHeld = false
 				if ctx.Err() != nil {
 					return nil
 				}
 				return err
 			}
+			health.leaseHeld = true
 		case <-tickers.dispatch.C:
-			err := loop.dispatch(ctx, health.ready)
+			err := loop.dispatch(ctx, health.dispatchAllowed)
 			if err = health.observeRuntime(ctx, loop, err); err != nil {
 				return err
 			}
 		case <-tickers.recovery.C:
-			err := loop.recover(ctx, health.ready)
+			err := loop.recover(ctx, health.exchangeEligible && health.privateHealthy)
 			if err = health.observeRuntime(ctx, loop, err); err != nil {
 				return err
 			}
@@ -248,87 +249,6 @@ func (loop sandboxEngineLoop) dispatch(
 	}
 	_, err := loop.dispatcher.DispatchOnce(ctx, time.Now().UTC(), 2)
 	return err
-}
-
-func (loop sandboxEngineLoop) evaluateStrategies(ctx context.Context) error {
-	if !loop.work.sandboxSubmissionEnabled() {
-		return nil
-	}
-	if loop.scheduler == nil {
-		return fmt.Errorf("sandbox_engine_strategy_scheduler_unavailable")
-	}
-	if _, err := loop.scheduler.Tick(ctx); err != nil {
-		return fmt.Errorf("sandbox_engine_strategy_scheduler_failed")
-	}
-	return nil
-}
-
-func (loop sandboxEngineLoop) recover(
-	ctx context.Context,
-	eligible bool,
-) error {
-	if !eligible {
-		return nil
-	}
-	started := time.Now()
-	recovered, err := loop.recovery.RecoverOnce(ctx, started.UTC(), 2)
-	if recovered == 0 && err == nil {
-		return nil
-	}
-	occurredAt := time.Now().UTC()
-	recordErr := loop.store.RecordEngineRuntimeEvent(
-		ctx,
-		loop.account.AccountID,
-		loop.account.Epoch,
-		loop.work.exchange,
-		loop.fence,
-		"UNKNOWN_RECOVERY",
-		time.Since(started),
-		err == nil,
-		occurredAt,
-	)
-	if recordErr != nil {
-		return recordErr
-	}
-	return err
-}
-
-func (loop sandboxEngineLoop) reconcile(
-	ctx context.Context,
-	eligible bool,
-) error {
-	if !eligible {
-		return nil
-	}
-	started := time.Now()
-	result, err := loop.work.reconcile(
-		ctx, loop.store, loop.adapter, loop.account,
-	)
-	occurredAt := time.Now().UTC()
-	recordErr := loop.store.RecordEngineRuntimeEvent(
-		ctx,
-		loop.account.AccountID,
-		loop.account.Epoch,
-		loop.work.exchange,
-		loop.fence,
-		"RECONCILIATION",
-		time.Since(started),
-		err == nil && result.State == "clean",
-		occurredAt,
-	)
-	if recordErr != nil {
-		return recordErr
-	}
-	if err != nil {
-		return fmt.Errorf("sandbox_engine_reconciliation_failed: %w", err)
-	}
-	if result.State != "clean" {
-		return fmt.Errorf(
-			"sandbox_engine_reconciliation_state_%s",
-			result.State,
-		)
-	}
-	return nil
 }
 
 func (loop sandboxEngineLoop) refreshEligibility(

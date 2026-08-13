@@ -1301,6 +1301,7 @@ export interface components {
       "observed_duration_seconds": number;
       "profitability_evidence": false;
       "qualified": boolean;
+      "recovery_incidents": Array<components["schemas"]["SandboxRecoveryIncident"]>;
       "required_duration_seconds": number;
       "slo": components["schemas"]["SandboxSLOSummary"];
       "started_at"?: components["schemas"]["Timestamp"];
@@ -1321,6 +1322,20 @@ export interface components {
     "SandboxReconciliationPage": components["schemas"]["Page"] & {
       "items": Array<components["schemas"]["SandboxReconciliation"]>;
       "reset_incidents": Array<components["schemas"]["SandboxResetIncident"]>;
+    };
+    "SandboxRecoveryIncident": {
+      "account_id": string;
+      "cause_code": string;
+      "clean_check_count": number;
+      "deadline_at": components["schemas"]["Timestamp"];
+      "detected_at": components["schemas"]["Timestamp"];
+      "environment": "spot_testnet" | "demo";
+      "evidence_hash": string;
+      "exchange": "binance" | "bybit";
+      "incident_source": "reconciliation" | "private_stream";
+      "reason_category": string;
+      "recovery_timestamp"?: components["schemas"]["Timestamp"];
+      "state": "active" | "recovered" | "expired" | "repeated" | "unrecoverable";
     };
     "SandboxResetIncident": {
       "account_id": string;

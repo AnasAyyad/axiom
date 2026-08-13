@@ -18,6 +18,27 @@ SELECT id,mode,state,commit_sha,build_hash,executable_hash,image_hash,
 FROM sandbox_qualification_runs
 ORDER BY created_at DESC,id DESC LIMIT 1`
 
+const sandboxRuntimeConsoleRecoveryIncidentsSQL = `
+WITH latest AS (
+ SELECT DISTINCT ON (account_id)
+   account_id,exchange,environment,state,incident_source,failure_kind,cause_code,
+   deadline_at,clean_check_count,recovery_timestamp,evidence_hash
+ FROM sandbox_qualification_recovery_events
+ WHERE run_id=$1
+ ORDER BY account_id,occurred_at DESC,id DESC
+)
+SELECT latest.account_id,latest.exchange,latest.environment,latest.state,
+       latest.incident_source,latest.failure_kind,latest.cause_code,latest.deadline_at,
+       latest.clean_check_count,detected.occurred_at,
+       latest.recovery_timestamp,latest.evidence_hash
+FROM latest
+JOIN LATERAL (
+ SELECT occurred_at FROM sandbox_qualification_recovery_events event
+ WHERE event.run_id=$1 AND event.account_id=latest.account_id
+ ORDER BY occurred_at,id LIMIT 1
+) detected ON true
+ORDER BY latest.exchange,latest.account_id`
+
 // SandboxQualification exposes the latest immutable runner and chaos state. A
 // smoke pass remains explicitly non-qualified and leaves the formal soak open.
 func (store *OwnerConsoleStore) SandboxQualification(
@@ -42,6 +63,11 @@ func (store *OwnerConsoleStore) SandboxQualification(
 	if err == nil {
 		status.Slo, err = store.sandboxRuntimeConsoleQualificationSLO(ctx, row.id)
 	}
+	if err == nil {
+		status.RecoveryIncidents, err = store.sandboxRuntimeConsoleRecoveryIncidents(
+			ctx, row.id,
+		)
+	}
 	return status, err
 }
 
@@ -62,6 +88,7 @@ func defaultSandboxQualificationStatus(now time.Time) generated.SandboxQualifica
 		ProfitabilityEvidence:   false,
 		Qualified:               false,
 		Failures:                []string{},
+		RecoveryIncidents:       []generated.SandboxRecoveryIncident{},
 		FormalSoakPending:       true,
 		AuditUrl:                "/api/v1/audit-events?event_type=sandbox_runtime_sandbox_qualification",
 		Chaos: generated.SandboxChaosSummary{
@@ -72,6 +99,57 @@ func defaultSandboxQualificationStatus(now time.Time) generated.SandboxQualifica
 		},
 		Slo: generated.SandboxSLOSummary{},
 	}
+}
+
+func (store *OwnerConsoleStore) sandboxRuntimeConsoleRecoveryIncidents(
+	ctx context.Context,
+	runID string,
+) ([]generated.SandboxRecoveryIncident, error) {
+	rows, err := store.pool.Query(ctx, sandboxRuntimeConsoleRecoveryIncidentsSQL, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]generated.SandboxRecoveryIncident, 0)
+	for rows.Next() {
+		item, scanErr := scanSandboxRuntimeConsoleRecoveryIncident(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func scanSandboxRuntimeConsoleRecoveryIncident(
+	scanner sandboxRuntimeConsoleRowScanner,
+) (generated.SandboxRecoveryIncident, error) {
+	var item generated.SandboxRecoveryIncident
+	var state, incidentSource, reasonCategory, causeCode string
+	var accountID, exchange, environment string
+	var deadline, detected time.Time
+	var recoveryAt *time.Time
+	var cleanChecks int
+	err := scanner.Scan(
+		&accountID, &exchange, &environment, &state, &incidentSource, &reasonCategory,
+		&causeCode, &deadline, &cleanChecks, &detected, &recoveryAt,
+		&item.EvidenceHash,
+	)
+	if err != nil {
+		return generated.SandboxRecoveryIncident{}, err
+	}
+	item.AccountId = accountID
+	item.Exchange = generated.SandboxRecoveryIncidentExchange(exchange)
+	item.Environment = generated.SandboxRecoveryIncidentEnvironment(environment)
+	item.State = generated.SandboxRecoveryIncidentState(state)
+	item.IncidentSource = generated.SandboxRecoveryIncidentIncidentSource(incidentSource)
+	item.ReasonCategory = reasonCategory
+	item.CauseCode = causeCode
+	item.DeadlineAt = deadline
+	item.CleanCheckCount = cleanChecks
+	item.DetectedAt = detected
+	item.RecoveryTimestamp = recoveryAt
+	return item, nil
 }
 
 func (store *OwnerConsoleStore) loadSandboxQualification(

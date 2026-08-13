@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
@@ -18,6 +19,7 @@ type SandboxQualificationStore struct {
 	pool             *pgxpool.Pool
 	mutex            sync.Mutex
 	started          time.Time
+	runID            string
 	baselineRestarts int64
 }
 
@@ -109,6 +111,7 @@ func (store *SandboxQualificationStore) Begin(
 	}
 	store.mutex.Lock()
 	store.started = started
+	store.runID = identity.RunID
 	store.baselineRestarts = baselineRestarts
 	store.mutex.Unlock()
 	return nil
@@ -120,7 +123,15 @@ func (store *SandboxQualificationStore) AppendSample(
 	runID string,
 	sample sandboxQualification.Sample,
 ) error {
-	_, err := store.pool.Exec(ctx, sandboxQualificationInsertSampleSQL,
+	accounts := sample.Accounts
+	if accounts == nil {
+		accounts = []sandboxQualification.AccountObservation{}
+	}
+	encodedAccounts, err := json.Marshal(accounts)
+	if err != nil {
+		return fmt.Errorf("sandbox_qualification_account_observations_encode_failed")
+	}
+	_, err = store.pool.Exec(ctx, sandboxQualificationInsertSampleSQL,
 		runID, sample.Ordinal, sample.ObservedAt, sample.OrdersAcknowledged,
 		sample.DuplicateCreates, sample.LostFills,
 		sample.DoublePostedFills, sample.UnknownOrders,
@@ -131,7 +142,37 @@ func (store *SandboxQualificationStore) AppendSample(
 		sample.LargestOrderMicrounits, sample.MaximumAccountOpen,
 		sample.GlobalOpen, sample.AllAccountsFresh, sample.AllLeasesHeld,
 		sample.PersistenceHealthy, sample.RestartSafe, sample.EntrySafe,
-		sample.ProductionTargetObserved,
+		sample.ProductionTargetObserved, encodedAccounts,
+	)
+	return err
+}
+
+// AppendRecoveryEvent persists one immutable redacted recovery lifecycle fact.
+func (store *SandboxQualificationStore) AppendRecoveryEvent(
+	ctx context.Context,
+	event sandboxQualification.RecoveryEvent,
+) error {
+	if event.RunID == "" || event.AccountID == "" || event.AccountEpoch == 0 ||
+		event.Exchange == "" || event.Environment == "" || event.Event == "" ||
+		event.State == "" ||
+		(event.IncidentSource != "reconciliation" &&
+			event.IncidentSource != "private_stream") ||
+		event.FailureKind == "" || event.CauseCode == "" ||
+		event.DeadlineAt.IsZero() || event.OccurredAt.IsZero() ||
+		event.OccurredAt.Location() != time.UTC || len(event.EvidenceHash) != 64 {
+		return fmt.Errorf("sandbox_qualification_recovery_event_invalid")
+	}
+	_, err := store.pool.Exec(ctx, `
+INSERT INTO sandbox_qualification_recovery_events(
+ id,run_id,account_id,exchange,environment,account_epoch,event,state,
+ incident_source,failure_kind,cause_code,deadline_at,clean_check_count,
+ recovery_timestamp,evidence_hash,occurred_at
+) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+		event.EvidenceHash, event.RunID, event.AccountID, event.Exchange,
+		event.Environment, event.AccountEpoch, event.Event, event.State,
+		event.IncidentSource, event.FailureKind, event.CauseCode, event.DeadlineAt,
+		event.CleanCheckCount, event.RecoveryTimestamp, event.EvidenceHash,
+		event.OccurredAt,
 	)
 	return err
 }
@@ -237,7 +278,7 @@ func (store *SandboxQualificationStore) observeSandboxQualificationAccounts(
 	var total, fresh, leases int
 	var cycles int64
 	err := store.pool.QueryRow(ctx, sandboxQualificationObserveAccountsSQL,
-		started, now,
+		now,
 	).Scan(&total, &fresh, &leases, &cycles)
 	if err != nil {
 		return err
@@ -245,11 +286,16 @@ func (store *SandboxQualificationStore) observeSandboxQualificationAccounts(
 	sample.AllAccountsFresh = total == 2 && fresh == total
 	sample.AllLeasesHeld = total == 2 && leases == total
 	sample.EntrySafe = sample.AllAccountsFresh && sample.AllLeasesHeld
+	if err := store.observeSandboxQualificationAccountDetails(ctx, now, sample); err != nil {
+		return err
+	}
 	if cycles > baselineRestarts {
 		sample.Restarts = uint64(cycles - baselineRestarts)
 	}
 	var runtimeHealthy bool
-	err = store.pool.QueryRow(ctx, sandboxQualificationObserveRuntimeSQL, started).Scan(
+	err = store.pool.QueryRow(
+		ctx, sandboxQualificationObserveRuntimeSQL, started, now,
+	).Scan(
 		&sample.Reconnects,
 		&sample.RecoveryDurationMillis,
 		&runtimeHealthy,
@@ -259,6 +305,33 @@ func (store *SandboxQualificationStore) observeSandboxQualificationAccounts(
 	}
 	sample.RestartSafe = runtimeHealthy
 	return nil
+}
+
+type sandboxQualificationRuntimeIncident struct {
+	kind, failureKind, causeCode string
+	at                           *time.Time
+}
+
+type sandboxQualificationAccountRuntime struct {
+	account            sandboxQualification.AccountObservation
+	runtimeSucceeded   bool
+	runtimeAt          *time.Time
+	first              sandboxQualificationRuntimeIncident
+	latest             sandboxQualificationRuntimeIncident
+	terminal           sandboxQualificationRuntimeIncident
+	failureCount       int
+	hasTerminalFailure bool
+	reconnectAt        *time.Time
+	firstCleanAt       *time.Time
+	secondCleanAt      *time.Time
+}
+
+type sandboxQualificationAccountHealth struct {
+	fresh, lease, safe, active bool
+}
+
+type sandboxQualificationAccountScanner interface {
+	Scan(...any) error
 }
 
 func (store *SandboxQualificationStore) observeSandboxQualificationReconciliation(

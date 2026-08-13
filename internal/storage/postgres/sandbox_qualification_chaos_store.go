@@ -3,9 +3,33 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"axiom/internal/qualification/sandboxqualification"
 )
+
+// AssertChaosRun verifies that deterministic fault evidence will be bound to
+// the exact clean-source run while it is actively being observed.
+func (store *SandboxQualificationStore) AssertChaosRun(
+	ctx context.Context,
+	runID, commitSHA string,
+) (time.Time, error) {
+	var (
+		state   string
+		commit  string
+		started time.Time
+	)
+	err := store.pool.QueryRow(ctx, `
+SELECT state,commit_sha,started_at
+FROM sandbox_qualification_runs WHERE id=$1`, runID).Scan(
+		&state, &commit, &started,
+	)
+	if err != nil || state != "RUNNING" || commit != commitSHA ||
+		started.IsZero() {
+		return time.Time{}, fmt.Errorf("sandbox_qualification_chaos_run_rejected")
+	}
+	return started.UTC(), nil
+}
 
 // Events returns the immutable deterministic chaos events for one sandbox qualification run.
 func (store *SandboxQualificationStore) Events(
@@ -50,7 +74,21 @@ func (store *SandboxQualificationStore) AppendChaosEvents(
 		return err
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
+	var (
+		state   string
+		started time.Time
+	)
+	if err = tx.QueryRow(ctx, `
+SELECT state,started_at
+FROM sandbox_qualification_runs WHERE id=$1 FOR UPDATE`, runID).Scan(
+		&state, &started,
+	); err != nil || state != "RUNNING" || started.IsZero() {
+		return fmt.Errorf("sandbox_qualification_chaos_run_rejected")
+	}
 	for index, event := range events {
+		if event.OccurredAt.Before(started) {
+			return fmt.Errorf("sandbox_qualification_chaos_evidence_predates_run")
+		}
 		if _, err = tx.Exec(ctx, `
 INSERT INTO sandbox_qualification_chaos_events(
  id,run_id,scenario,outcome,deterministic_seed_hash,evidence_hash,occurred_at

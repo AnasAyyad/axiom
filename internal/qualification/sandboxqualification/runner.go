@@ -73,6 +73,13 @@ func (runner Runner) collect(
 	configuration Config,
 	evidence *Evidence,
 ) {
+	// Let the first reconciliation cycle complete after the run is durably
+	// started. The probe requires runtime evidence newer than the run start;
+	// sampling immediately would turn a healthy startup into stale_data.
+	if err := runner.Clock.Wait(ctx, configuration.SampleInterval); err != nil {
+		appendFailure(evidence, "operator_abort", runner.Clock.Now())
+		return
+	}
 	var ordinal uint64
 	for {
 		ordinal++
@@ -91,10 +98,11 @@ func (runner Runner) collect(
 			appendFailure(evidence, "persistence_failure", observed)
 			break
 		}
+		runner.appendRecoveryEvents(ctx, configuration, evidence, sample)
 		evaluateSample(evidence, sample)
 		if len(evidence.Failures) > 0 ||
-			observed.Sub(evidence.StartedAt).Truncate(time.Second) >=
-				configuration.Duration {
+			(observed.Sub(evidence.StartedAt).Truncate(time.Second) >=
+				configuration.Duration && !sample.RecoveryActive) {
 			break
 		}
 		if err = runner.Clock.Wait(ctx, configuration.SampleInterval); err != nil {
@@ -168,7 +176,8 @@ func newEvidence(configuration Config, started time.Time) Evidence {
 			CriticalAlertLatencyMillis: uint64(AlertSLO.Milliseconds()),
 			RecoveryDurationMillis:     uint64(RecoveryRTO.Milliseconds()),
 		},
-		Samples: []Sample{}, Chaos: []ChaosEvent{}, Failures: []Failure{},
+		Samples: []Sample{}, RecoveryEvents: []RecoveryEvent{},
+		Chaos: []ChaosEvent{}, Failures: []Failure{},
 	}
 }
 
@@ -184,7 +193,8 @@ func evaluateSample(evidence *Evidence, sample Sample) {
 			"unresolved_unknown"},
 		{sample.ReconciliationMismatches > 0, "reconciliation_mismatch"},
 		{sample.SuspenseItems > 0, "suspense"},
-		{!sample.AllAccountsFresh || !sample.EntrySafe, "stale_data"},
+		{(!sample.AllAccountsFresh || !sample.EntrySafe) &&
+			!sampleAllowsActiveRecovery(sample), "stale_data"},
 		{!sample.AllLeasesHeld, "lease_loss"},
 		{!sample.PersistenceHealthy, "persistence_failure"},
 		{!sample.RestartSafe ||
@@ -201,6 +211,61 @@ func evaluateSample(evidence *Evidence, sample Sample) {
 	for _, check := range checks {
 		if check.failed {
 			appendFailure(evidence, check.reason, sample.ObservedAt)
+		}
+	}
+	evaluateRecovery(evidence, sample)
+}
+
+func sampleAllowsActiveRecovery(sample Sample) bool {
+	if !sample.RecoveryActive || len(sample.Accounts) == 0 {
+		return false
+	}
+	active := 0
+	for _, account := range sample.Accounts {
+		if account.RecoveryState != "active" {
+			if (account.RecoveryState != "not_required" &&
+				account.RecoveryState != "recovered") ||
+				account.State != "READY_PAUSED" ||
+				!account.StreamHealthy || !account.EvidenceHealthy ||
+				!account.LeaseHeld || !account.AccountSafe ||
+				!account.ReconciliationClean {
+				return false
+			}
+			continue
+		}
+		active++
+		streamAllowed := account.StreamHealthy ||
+			(account.IncidentSource == "private_stream" &&
+				account.CleanCheckCount == 0)
+		if account.State != "DEGRADED" || !streamAllowed ||
+			!account.EvidenceHealthy || !account.LeaseHeld || !account.AccountSafe ||
+			(account.IncidentSource != "reconciliation" &&
+				account.IncidentSource != "private_stream") ||
+			(account.FailureKind != "transient_outage" && account.FailureKind != "maintenance") ||
+			account.DeadlineAt == nil || account.CleanCheckCount > 1 ||
+			!sample.ObservedAt.Before(account.DeadlineAt.UTC()) {
+			return false
+		}
+	}
+	return active > 0
+}
+
+func evaluateRecovery(evidence *Evidence, sample Sample) {
+	for _, account := range sample.Accounts {
+		switch account.RecoveryState {
+		case "expired":
+			appendFailure(evidence, "recovery_expired", sample.ObservedAt)
+		case "repeated":
+			appendFailure(evidence, "recovery_repeated", sample.ObservedAt)
+		case "unrecoverable":
+			appendFailure(evidence, "recovery_unrecoverable", sample.ObservedAt)
+		case "active":
+			if account.DeadlineAt != nil &&
+				!sample.ObservedAt.Before(account.DeadlineAt.UTC()) {
+				appendFailure(evidence, "recovery_expired", sample.ObservedAt)
+			} else if !sampleAllowsActiveRecovery(sample) {
+				appendFailure(evidence, "recovery_unrecoverable", sample.ObservedAt)
+			}
 		}
 	}
 }

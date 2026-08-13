@@ -25,6 +25,11 @@ func run(ctx context.Context) error {
 		os.Getenv("AXIOM_SANDBOX_QUALIFICATION_MODE") != "formal" {
 		return fmt.Errorf("formal runner is default-off")
 	}
+	if err := sandboxQualification.VerifyCurrentExecutableHash(
+		os.Getenv("AXIOM_SANDBOX_QUALIFICATION_EXECUTABLE_HASH"),
+	); err != nil {
+		return err
+	}
 	runtimeConfig, err := config.LoadRuntime()
 	if err != nil {
 		return err

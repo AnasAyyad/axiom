@@ -159,6 +159,9 @@ func recordSandboxQualificationMetricFixtures(t *testing.T, metrics *Metrics) {
 		"soak":           metrics.SetSandboxQualificationSoak("smoke", "SMOKE_PASSED", 2*time.Second),
 		"failure":        metrics.RecordSandboxQualificationFailure("unresolved_unknown"),
 		"memory":         metrics.SetSandboxQualificationMemoryTrend("run", -1024),
+		"recovery incident": metrics.SetSandboxQualificationRecovery(
+			"binance", "active", 1,
+		),
 	})
 }
 
@@ -196,6 +199,7 @@ func assertSandboxQualificationMetricNames(t *testing.T, metrics *Metrics) {
 		"axiom_sandbox_qualification_soak_duration_seconds",
 		"axiom_sandbox_qualification_soak_failures_total",
 		"axiom_sandbox_qualification_memory_trend_bytes",
+		"axiom_sandbox_qualification_recovery_incidents",
 	} {
 		if !strings.Contains(encoded, required) {
 			t.Fatalf("missing sandbox qualification metric %q", required)
@@ -210,6 +214,9 @@ func assertSandboxQualificationMetricLabelsRejected(t *testing.T, metrics *Metri
 		"state":         metrics.RecordSandboxOrder("binance", "native-private-payload"),
 		"failure":       metrics.RecordSandboxQualificationFailure("raw database error"),
 		"memory window": metrics.SetSandboxQualificationMemoryTrend("run-id-123", 1),
+		"recovery state": metrics.SetSandboxQualificationRecovery(
+			"binance", "raw-error", 1,
+		),
 	} {
 		if err == nil {
 			t.Fatalf("unbounded sandbox qualification %s label accepted", name)

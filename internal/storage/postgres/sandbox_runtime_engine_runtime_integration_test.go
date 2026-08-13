@@ -24,7 +24,44 @@ func assertSandboxRuntimeEngineRuntimePersistence(
 	fixture := newSandboxRuntimeEngineRuntimeFixture(t, ctx, pool)
 	assertSandboxRuntimeEngineStartupEvidence(t, fixture)
 	assertSandboxRuntimeEngineObservationFencing(t, fixture)
+	assertSandboxQualificationObservationCutoff(t, fixture)
+	assertSandboxRuntimePrivateStreamEvidence(t, fixture)
 	assertSandboxRuntimeEngineCommandFencing(t, fixture)
+}
+
+func assertSandboxRuntimePrivateStreamEvidence(
+	t *testing.T,
+	fixture sandboxRuntimeEngineRuntimeFixture,
+) {
+	t.Helper()
+	occurredAt := fixture.now.Add(10 * time.Second)
+	err := fixture.store.RecordEngineRuntimeRecoveryEvent(
+		fixture.ctx, fixture.account.AccountID, fixture.created.Epoch,
+		fixture.account.Exchange, fixture.fence, "PRIVATE_STREAM",
+		25*time.Millisecond, false, exchangecontracts.ErrorTransient,
+		"private_stream_receive_failed", occurredAt,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kind, failureKind, causeCode, evidenceHash string
+	var succeeded bool
+	if err = fixture.pool.QueryRow(fixture.ctx, `
+SELECT kind,succeeded,failure_kind,cause_code,evidence_hash
+FROM sandbox_runtime_engine_runtime_events
+WHERE account_id=$1 AND occurred_at=$2`, fixture.account.AccountID, occurredAt).
+		Scan(&kind, &succeeded, &failureKind, &causeCode, &evidenceHash); err != nil ||
+		kind != "PRIVATE_STREAM" || succeeded ||
+		failureKind != "transient_outage" ||
+		causeCode != "private_stream_receive_failed" || len(evidenceHash) != 64 {
+		t.Fatalf("private stream evidence=%s/%t/%s/%s/%s error=%v",
+			kind, succeeded, failureKind, causeCode, evidenceHash, err)
+	}
+	if _, err = fixture.pool.Exec(fixture.ctx, `
+UPDATE sandbox_runtime_engine_runtime_events SET cause_code='mutated'
+WHERE account_id=$1 AND occurred_at=$2`, fixture.account.AccountID, occurredAt); err == nil {
+		t.Fatal("private stream runtime evidence mutation was accepted")
+	}
 }
 
 type sandboxRuntimeEngineRuntimeFixture struct {

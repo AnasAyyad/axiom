@@ -3537,6 +3537,35 @@ Deliver test/demo orders, fills, unknown states, reconciliation/suspense, arm ex
 
 Acceptance: long-running sandbox canaries meet caps and SLOs; UI cannot arm production or bypass reconciliation/risk; all actions are auditable.
 
+#### C6 bounded read-only recovery
+
+The formal C6 observer may tolerate one and only one read-only incident per
+account during one 72-hour run. The incident may originate from authoritative
+reconciliation or a private-stream transport disconnect, and only when the
+existing typed exchange error class is `transient_outage` or `maintenance`.
+Both sources share the same single-incident budget. The incident is redacted
+to its stable source, failure kind, and sanitized cause code. Rate limits,
+authentication/timestamp errors, account, order, or balance mismatches,
+persistence failures, lease loss, stale or unsafe fills/orders, and any second
+incident are terminal C6 failures.
+
+The permitted incident enters `DEGRADED` and pauses that account. Its recovery
+deadline is two minutes and the formal 72-hour clock continues. A private
+stream incident reconnects and completes its bounded backfill, then triggers
+an immediate authoritative reconciliation instead of waiting for the periodic
+timer. That is the first clean check. Recovery needs a second consecutive clean
+reconciliation at least 30 seconds later, with stream, evidence, lease, and
+account-safety health all true. During recovery dispatch is disabled; a
+successful recovery can return only to `READY_PAUSED`, never to `ARMED`.
+
+Recovery evidence is append-only and bound to the run, account, epoch,
+timestamp, stable failure class/cause, and evidence hash. Its event vocabulary
+is `detected`, `first_clean_check`, `recovered`, `expired`, `repeated`, and
+`unrecoverable`. Payloads, URLs, secrets, signatures, and raw exchange errors
+are never retained. A prior failed run remains sealed and disqualified; it
+cannot be resumed or relabeled. A future run uses a new run ID and fresh
+immutable evidence.
+
 ### V1C release gate
 
 - Outbound-request capture proves production-private submission impossible.

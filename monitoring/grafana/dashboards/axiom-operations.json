@@ -142,7 +142,8 @@
       "targets": [
         { "expr": "histogram_quantile(0.95, sum by (le, exchange, operation) (rate(axiom_sandbox_recovery_duration_seconds_bucket[5m])))", "legendFormat": "{{exchange}} {{operation}} p95" },
         { "expr": "histogram_quantile(0.95, sum by (le, reason) (rate(axiom_critical_alert_latency_seconds_bucket[5m])))", "legendFormat": "{{reason}} alert p95" },
-        { "expr": "axiom_sandbox_qualification_memory_trend_bytes", "legendFormat": "memory {{window}}" }
+        { "expr": "axiom_sandbox_qualification_memory_trend_bytes", "legendFormat": "memory {{window}}" },
+        { "expr": "max by (exchange, state) (axiom_sandbox_qualification_recovery_incidents)", "legendFormat": "qualification recovery {{exchange}} {{state}}" }
       ],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 35 }

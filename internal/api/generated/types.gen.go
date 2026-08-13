@@ -3809,6 +3809,87 @@ func (e SandboxReconciliationState) Valid() bool {
 	}
 }
 
+// Defines values for SandboxRecoveryIncidentEnvironment.
+const (
+	SandboxRecoveryIncidentEnvironmentDemo        SandboxRecoveryIncidentEnvironment = "demo"
+	SandboxRecoveryIncidentEnvironmentSpotTestnet SandboxRecoveryIncidentEnvironment = "spot_testnet"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentEnvironment enum.
+func (e SandboxRecoveryIncidentEnvironment) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentEnvironmentDemo:
+		return true
+	case SandboxRecoveryIncidentEnvironmentSpotTestnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxRecoveryIncidentExchange.
+const (
+	SandboxRecoveryIncidentExchangeBinance SandboxRecoveryIncidentExchange = "binance"
+	SandboxRecoveryIncidentExchangeBybit   SandboxRecoveryIncidentExchange = "bybit"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentExchange enum.
+func (e SandboxRecoveryIncidentExchange) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentExchangeBinance:
+		return true
+	case SandboxRecoveryIncidentExchangeBybit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxRecoveryIncidentIncidentSource.
+const (
+	SandboxRecoveryIncidentIncidentSourcePrivateStream  SandboxRecoveryIncidentIncidentSource = "private_stream"
+	SandboxRecoveryIncidentIncidentSourceReconciliation SandboxRecoveryIncidentIncidentSource = "reconciliation"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentIncidentSource enum.
+func (e SandboxRecoveryIncidentIncidentSource) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentIncidentSourcePrivateStream:
+		return true
+	case SandboxRecoveryIncidentIncidentSourceReconciliation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxRecoveryIncidentState.
+const (
+	SandboxRecoveryIncidentStateActive        SandboxRecoveryIncidentState = "active"
+	SandboxRecoveryIncidentStateExpired       SandboxRecoveryIncidentState = "expired"
+	SandboxRecoveryIncidentStateRecovered     SandboxRecoveryIncidentState = "recovered"
+	SandboxRecoveryIncidentStateRepeated      SandboxRecoveryIncidentState = "repeated"
+	SandboxRecoveryIncidentStateUnrecoverable SandboxRecoveryIncidentState = "unrecoverable"
+)
+
+// Valid indicates whether the value is a known member of the SandboxRecoveryIncidentState enum.
+func (e SandboxRecoveryIncidentState) Valid() bool {
+	switch e {
+	case SandboxRecoveryIncidentStateActive:
+		return true
+	case SandboxRecoveryIncidentStateExpired:
+		return true
+	case SandboxRecoveryIncidentStateRecovered:
+		return true
+	case SandboxRecoveryIncidentStateRepeated:
+		return true
+	case SandboxRecoveryIncidentStateUnrecoverable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SandboxResetIncidentAdjustmentsAsset.
 const (
 	SandboxResetIncidentAdjustmentAssetBTC  SandboxResetIncidentAdjustmentsAsset = "BTC"
@@ -7401,6 +7482,7 @@ type SandboxQualificationStatus struct {
 	ObservedDurationSeconds int64                                           `json:"observed_duration_seconds"`
 	ProfitabilityEvidence   SandboxQualificationStatusProfitabilityEvidence `json:"profitability_evidence"`
 	Qualified               bool                                            `json:"qualified"`
+	RecoveryIncidents       []SandboxRecoveryIncident                       `json:"recovery_incidents"`
 	RequiredDurationSeconds int64                                           `json:"required_duration_seconds"`
 	Slo                     SandboxSLOSummary                               `json:"slo"`
 
@@ -7445,6 +7527,40 @@ type SandboxReconciliationPage struct {
 	ResetIncidents []SandboxResetIncident  `json:"reset_incidents"`
 	Revision       Revision                `json:"revision"`
 }
+
+// SandboxRecoveryIncident defines model for SandboxRecoveryIncident.
+type SandboxRecoveryIncident struct {
+	AccountId       string `json:"account_id"`
+	CauseCode       string `json:"cause_code"`
+	CleanCheckCount int    `json:"clean_check_count"`
+
+	// DeadlineAt RFC 3339 timestamp with an explicit UTC offset.
+	DeadlineAt Timestamp `json:"deadline_at"`
+
+	// DetectedAt RFC 3339 timestamp with an explicit UTC offset.
+	DetectedAt     Timestamp                             `json:"detected_at"`
+	Environment    SandboxRecoveryIncidentEnvironment    `json:"environment"`
+	EvidenceHash   string                                `json:"evidence_hash"`
+	Exchange       SandboxRecoveryIncidentExchange       `json:"exchange"`
+	IncidentSource SandboxRecoveryIncidentIncidentSource `json:"incident_source"`
+	ReasonCategory string                                `json:"reason_category"`
+
+	// RecoveryTimestamp RFC 3339 timestamp with an explicit UTC offset.
+	RecoveryTimestamp *Timestamp                   `json:"recovery_timestamp,omitempty"`
+	State             SandboxRecoveryIncidentState `json:"state"`
+}
+
+// SandboxRecoveryIncidentEnvironment defines model for SandboxRecoveryIncident.Environment.
+type SandboxRecoveryIncidentEnvironment string
+
+// SandboxRecoveryIncidentExchange defines model for SandboxRecoveryIncident.Exchange.
+type SandboxRecoveryIncidentExchange string
+
+// SandboxRecoveryIncidentIncidentSource defines model for SandboxRecoveryIncident.IncidentSource.
+type SandboxRecoveryIncidentIncidentSource string
+
+// SandboxRecoveryIncidentState defines model for SandboxRecoveryIncident.State.
+type SandboxRecoveryIncidentState string
 
 // SandboxResetIncident defines model for SandboxResetIncident.
 type SandboxResetIncident struct {

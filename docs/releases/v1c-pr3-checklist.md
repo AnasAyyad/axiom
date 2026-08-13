@@ -50,9 +50,9 @@
 
 ## Deferred formal decision
 
-- [ ] Run one later exact-source 72-hour C6 qualification.
-- [ ] Review the sealed terminal evidence.
-- [ ] Record V1C owner and security acceptance.
+- [x] Run one later exact-source 72-hour C6 qualification.
+- [x] Review the sealed terminal evidence.
+- [x] Record V1C owner and security acceptance.
 
 The formal target is intentionally manual and must not be invoked by any
 aggregate above. No new authenticated exchange order is part of PR3

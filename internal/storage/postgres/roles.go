@@ -102,7 +102,7 @@ var runtimeReadTables = []string{
 	"sandbox_accounting_positions", "sandbox_accounting_position_fees",
 	"sandbox_qualification_runs", "sandbox_qualification_accounts",
 	"sandbox_qualification_samples", "sandbox_qualification_failures",
-	"sandbox_qualification_chaos_events",
+	"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
 	"owner_console_reason_catalogue", "owner_console_activity_projection", "owner_console_activity_explanations",
 	"owner_console_strategy_controls", "owner_console_risk_controls", "owner_console_qualification_catalogue",
 	"owner_console_alert_routes", "owner_console_audit_chain", "owner_console_storage_pressure_state",
@@ -176,12 +176,13 @@ var sandboxQualificationReadTables = []string{
 	"sandbox_runtime_engine_runtime_events", "sandbox_qualification_order_observations",
 	"sandbox_runtime_exchange_accounts", "sandbox_runtime_account_leases",
 	"sandbox_runtime_reconciliation_differences",
+	"sandbox_qualification_recovery_events",
 }
 
 var sandboxQualificationAppendTables = []string{
 	"sandbox_qualification_runs", "sandbox_qualification_accounts",
 	"sandbox_qualification_samples", "sandbox_qualification_failures",
-	"sandbox_qualification_chaos_events",
+	"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
 }
 
 var readOnlyTables = []string{
@@ -233,7 +234,7 @@ var readOnlyTables = []string{
 	"sandbox_runtime_engine_runtime_events", "sandbox_qualification_order_observations",
 	"sandbox_qualification_runs", "sandbox_qualification_accounts",
 	"sandbox_qualification_samples", "sandbox_qualification_failures",
-	"sandbox_qualification_chaos_events",
+	"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
 	"circuit_breaker_events", "exchanges", "execution_plan_legs", "execution_plans", "fill_journal_postings", "fills", "incidents", "instrument_metadata_versions",
 	"instruments", "journal_transactions", "ledger_entries", "market_data_segments", "model_versions",
 	"public_clock_samples", "public_connection_events",
