@@ -2,8 +2,7 @@
 
 ## Binance combined triangle stream experiment — 2026-08-13
 
-**Status:** Implemented locally on an isolated experiment branch; regional live
-comparison pending.
+**Status:** Implemented and exercised as a non-qualifying regional experiment.
 
 The Binance public adapter can now open one observed-only WebSocket containing
 depth streams for BTC/USDT, ETH/USDT, and ETH/BTC. The gated live probe warms one
@@ -15,6 +14,24 @@ This does not replace the production per-instrument collector, recorder,
 snapshot bridge, or reconnect lifecycle. It does not claim that Binance frames
 are an atomic snapshot, does not alter B2 or any formal evidence, and introduces
 no credentials or order capability.
+
+The 2026-08-13 30-second comparison ran from exact source commit `64b6060` on
+AWS Tokyo, Singapore, and Osaka. All three technical probes passed and detected
+no per-instrument sequence gaps:
+
+| Region | Clock uncertainty | Evaluations | Accepted | Interval rejects | Stale rejects |
+|---|---:|---:|---:|---:|---:|
+| Tokyo | 1.156 ms | 667 | 0 (0.00%) | 319 | 348 |
+| Singapore | 34.319 ms | 667 | 65 (9.75%) | 254 | 348 |
+| Osaka | 5.190 ms | 657 | 0 (0.00%) | 282 | 375 |
+
+Singapore's accepted count is not sufficient evidence that it is the best
+collector region. Its wider clock interval makes overlap mathematically more
+likely than Tokyo's or Osaka's narrower interval. ETH/BTC also published far
+fewer events than BTC/USDT and ETH/USDT in every region, producing many stale
+rejections. The experiment therefore shows that one socket works and can alter
+the measured result, but does not establish an atomic three-book view or justify
+a production collector change.
 
 ## Owner-console response and PR corrective slice — 2026-08-10
 
