@@ -32,6 +32,11 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 		return collector.HealthSnapshot().Eligible && viewErr == nil &&
 			view.Health() == marketdata.HealthHealthy && view.Sequence() == 101 && collector.Stats().DepthUpdates == 1
 	})
+	select {
+	case <-collector.MarketUpdates():
+	default:
+		t.Fatal("committed book update did not publish a coalesced market notification")
+	}
 	view, _ := collector.Views().Book(collectorExchange, instrument)
 	bids := view.Bids()
 	bids[0].Quantity = mustQuantity(t, "999")
@@ -62,6 +67,31 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	if stats.Messages != 1 || stats.DepthUpdates != 1 || stats.Rebuilds != 1 ||
 		recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 {
 		t.Fatalf("unexpected collector evidence: %#v raw=%d canonical=%d", stats, recorder.raw.Load(), recorder.canonical.Load())
+	}
+}
+
+func TestCollectorHealthUsesNewerSharedBinanceClockEstimate(t *testing.T) {
+	instrument := approvedBTC(t)
+	clock := &domain.SystemClock{}
+	degradedAt := time.Now().UTC().Add(-time.Second)
+	shared := TimeHealth{ObservedAt: degradedAt.Add(time.Millisecond), Offset: 3 * time.Millisecond,
+		Uncertainty: 2 * time.Millisecond, Eligible: true}
+	source := &sharedClockCollectorSource{collectorSourceFixture: newCollectorSource(t, instrument, clock, 101),
+		health: shared}
+	collector, err := NewInstrumentCollector(testCollectorConfig(instrument), source, &collectorRecorder{}, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	collector.markClockDegraded(TimeHealth{ObservedAt: degradedAt.Add(-time.Millisecond)}, degradedAt)
+	health := collector.HealthSnapshot()
+	if !health.ClockEligible || health.ClockObservedAt != shared.ObservedAt ||
+		health.ClockOffset != shared.Offset || health.ClockUncertainty != shared.Uncertainty ||
+		!health.DegradedSince.IsZero() {
+		t.Fatalf("newer shared clock was not used: %#v", health)
+	}
+	source.health.ObservedAt = degradedAt.Add(-time.Millisecond)
+	if health = collector.HealthSnapshot(); health.ClockEligible || health.DegradedSince != degradedAt {
+		t.Fatalf("older shared clock incorrectly recovered local degradation: %#v", health)
 	}
 }
 
@@ -219,6 +249,13 @@ type recoveringClockCollectorSource struct {
 	*collectorSourceFixture
 	clockSamples atomic.Uint64
 }
+
+type sharedClockCollectorSource struct {
+	*collectorSourceFixture
+	health TimeHealth
+}
+
+func (source *sharedClockCollectorSource) TimeHealth() TimeHealth { return source.health }
 
 func (source *recoveringClockCollectorSource) SampleServerTimeRecorded(
 	ctx context.Context,

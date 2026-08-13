@@ -16,9 +16,12 @@ import (
 // collectors to the shared coherent multi-market reader. It performs no REST
 // request and has no authenticated exchange capability.
 type publicShadowSagaMarketSource struct {
-	claimID         string
-	exchange        string
-	monotonic       interface{ MonotonicOffset() uint64 }
+	claimID   string
+	exchange  string
+	monotonic interface{ MonotonicOffset() uint64 }
+	clock     interface {
+		ClockHealth() exchangecontracts.ClockHealth
+	}
 	collectors      map[domain.Instrument]shadowPublicCollector
 	metadata        map[domain.Instrument]domain.InstrumentMetadata
 	maximumQuantity map[domain.Instrument]domain.Quantity
@@ -36,8 +39,14 @@ func newPublicShadowSagaMarketSource(session *ownerConsoleLiveShadowSession) (*p
 	if err != nil {
 		return nil, err
 	}
+	clock, ok := session.client.(interface {
+		ClockHealth() exchangecontracts.ClockHealth
+	})
+	if !ok {
+		return nil, fmt.Errorf("shadow_saga_market_clock_unavailable")
+	}
 	return &publicShadowSagaMarketSource{claimID: session.claim.ID, exchange: session.claim.ExchangeID,
-		monotonic: session.client, collectors: session.collectors, metadata: session.metadata,
+		monotonic: session.client, clock: clock, collectors: session.collectors, metadata: session.metadata,
 		maximumQuantity: session.maximumQuantity, feeVersion: session.claim.Configuration.Models.Fee,
 		feeRate: fee, collectorRegion: "engine-local"}, nil
 }
@@ -52,10 +61,11 @@ func (source *publicShadowSagaMarketSource) CaptureSandboxSagaMarketViews(
 		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_saga_market_capture_invalid")
 	}
 	logical := source.monotonic.MonotonicOffset()
-	if logical == 0 {
+	clock := source.clock.ClockHealth()
+	if logical == 0 || !clock.Eligible {
 		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_saga_market_capture_invalid")
 	}
-	views, health, firstDetected, err := source.captureShadowSagaViews(keys)
+	views, health, firstDetected, err := source.captureShadowSagaViews(keys, clock)
 	if err != nil {
 		return SandboxSagaMarketViewSet{}, err
 	}
@@ -79,11 +89,13 @@ func (source *publicShadowSagaMarketSource) validCaptureRequest(ctx context.Cont
 	keys []runtimecore.MarketKey, now time.Time,
 ) bool {
 	return source != nil && ctx != nil && source.monotonic != nil && source.claimID != "" &&
-		source.exchange != "" && len(keys) == 3 && len(source.collectors) == 3 &&
+		source.clock != nil && source.exchange != "" && len(keys) == 3 && len(source.collectors) == 3 &&
 		!now.IsZero() && now.Location() == time.UTC
 }
 
-func (source *publicShadowSagaMarketSource) captureShadowSagaViews(keys []runtimecore.MarketKey) (
+func (source *publicShadowSagaMarketSource) captureShadowSagaViews(keys []runtimecore.MarketKey,
+	clock exchangecontracts.ClockHealth,
+) (
 	map[domain.Instrument]marketdata.BookView,
 	map[domain.Instrument]exchangecontracts.CollectorHealthSnapshot,
 	uint64,
@@ -97,6 +109,11 @@ func (source *publicShadowSagaMarketSource) captureShadowSagaViews(keys []runtim
 		if err != nil {
 			return nil, nil, 0, err
 		}
+		snapshot.ClockObservedAt = clock.ObservedAt
+		snapshot.ClockOffset = clock.Offset
+		snapshot.ClockUncertainty = clock.Uncertainty
+		snapshot.ClockEligible = clock.Eligible
+		snapshot.Eligible = snapshot.BookEligible && clock.Eligible
 		views[key.Instrument], health[key.Instrument] = view, snapshot
 		if published := view.Observation().PublishedOffsetNanos; published > firstDetected {
 			firstDetected = published
