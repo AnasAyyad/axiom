@@ -1,5 +1,34 @@
 # Axiom implementation status
 
+## Binance ETH/BTC-triggered as-of experiment — 2026-08-13
+
+**Status:** Implemented and exercised as a non-qualifying timing experiment.
+
+The slower ETH/BTC depth stream was used only as an evaluation trigger. At
+each ETH/BTC event, the probe selected the latest already-observed BTC/USDT and
+ETH/USDT views whose exchange timestamps were not later than the trigger. It
+used the shared Binance clock estimate, rejected sequence gaps and post-trigger
+data, and compared maximum view ages of 50, 100, 150, and 250 milliseconds.
+It did not issue extra REST requests or wait for future events.
+
+The 2026-08-13 30-second comparison ran concurrently from exact source commit
+`8b3a363` on AWS Tokyo, Singapore, and Osaka:
+
+| Region | Clock uncertainty | ETH/BTC triggers | Old interval policy | 50 ms as-of | 100 ms as-of | 150 ms as-of | 250 ms as-of | Sequence gaps |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Tokyo | 1.108 ms | 16 | 0/16 | 0/16 | 16/16 | 16/16 | 16/16 | 0 |
+| Singapore | 33.439 ms | 17 | 0/17 | 0/17 | 17/17 | 17/17 | 17/17 | 0 |
+| Osaka | 4.810 ms | 18 | 0/18 | 0/18 | 18/18 | 18/18 | 18/18 | 0 |
+
+The result supports the as-of selection model and shows that 100 milliseconds
+was the smallest tested bound that accepted every observed trigger in this
+short sample. It does not yet justify a production policy or region choice.
+The probe measures timing eligibility only: it does not reconstruct full order
+books, bridge snapshots, exercise reconnect recovery, calculate triangular
+economics, or provide campaign qualification evidence. A longer run with the
+production book-health lifecycle is required before selecting a bound; 150 or
+250 milliseconds must not be chosen merely to increase acceptance.
+
 ## Binance combined triangle stream experiment — 2026-08-13
 
 **Status:** Implemented and exercised as a non-qualifying regional experiment.
