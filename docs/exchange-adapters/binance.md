@@ -44,6 +44,15 @@ age/skew and 100 ms uncertainty policy, checks per-instrument update-sequence
 continuity, and emits progress plus one JSON result. It records no orders and
 its result is non-qualifying.
 
+A second non-qualifying probe tests the slower-leg-trigger hypothesis without
+changing production behavior. It continuously observes all three depth streams,
+but evaluates only when ETH/BTC updates. At that trigger it compares the current
+generic interval-overlap policy with latest-at-or-before-trigger same-exchange
+views at 50, 100, 150, and 250 ms age/skew limits. The comparison still rejects
+clock uncertainty above 100 ms, any sequence gap, missing input, or post-trigger
+input. It is timing evidence only: it does not install snapshots, reconstruct a
+full book, simulate a fill, or qualify the triangular strategy.
+
 ## Public capabilities
 
 | Feature | V1A disposition | Constraint |
