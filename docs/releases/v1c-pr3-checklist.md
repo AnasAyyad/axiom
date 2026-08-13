@@ -50,8 +50,8 @@
 
 ## Deferred formal decision
 
-- [ ] Run one later exact-source 72-hour C6 qualification.
-- [ ] Review the sealed terminal evidence.
+- [x] Run one later exact-source 72-hour C6 qualification.
+- [x] Review the sealed terminal evidence.
 - [ ] Record V1C owner and security acceptance.
 
 The formal target is intentionally manual and must not be invoked by any
