@@ -14,6 +14,14 @@ authentication headers, arbitrary origins, private paths, and unknown query
 shapes. The client exposes metadata, server time, snapshots, public trades,
 tickers, candles, public streams, health, and request-budget telemetry only.
 
+The gated `bybit-ethbtc-trigger-live-probe` is a public-data-only,
+non-qualifying timing experiment. It opens independent depth streams for
+BTC/USDT, ETH/USDT, and ETH/BTC using one shared client clock, evaluates only
+when ETH/BTC changes, and compares the latest already-observed views against
+50, 100, 150, and 250 millisecond age bounds. It rejects future data, excessive
+clock uncertainty, and sequence regression. It does not reconstruct the
+production books, change strategy behavior, use credentials, or place orders.
+
 ## Book semantics
 
 Every Bybit `snapshot` replaces the local generation atomically. A later

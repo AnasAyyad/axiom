@@ -11,7 +11,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .DEFAULT_GOAL := help
 
 .PHONY: help preflight deps generate contracts contracts-check docs-check format format-check lint test test-backend test-frontend test-race fuzz-smoke benchmark-financial-arithmetic benchmark-deterministic-scheduler build build-backend build-frontend compose-validate compose-smoke security-static vulnerability verify dev-api dev-web migrate durable-storage-sqlc durable-storage-postgres-qualify strategy-execution-sqlc strategy-execution-postgres-qualify strategy-execution-local-qualify portfolio-risk-sqlc portfolio-risk-postgres-qualify portfolio-risk-model-qualify research-registry-sqlc research-registry-postgres-qualify research-registry-model-qualify research-registry-research-qualify owner-console-sqlc owner-console-postgres-qualify owner-console-contract-qualify owner-console-api-qualify owner-console-frontend-qualify owner-console-ui-fixture-qualify owner-console-e2e-qualify owner-console-security-qualify exchange-expansion-model-qualify exchange-expansion-postgres-qualify exchange-expansion-adapter-qualify exchange-expansion-security-qualify exchange-expansion-local-qualify exchange-expansion-live-qualify coherent-market-data-model-qualify coherent-market-data-postgres-qualify coherent-market-data-live-qualify coherent-market-data-local-qualify mean-reversion-sqlc mean-reversion-model-qualify mean-reversion-postgres-qualify mean-reversion-research-qualify mean-reversion-local-qualify triangular-arbitrage-sqlc triangular-arbitrage-model-qualify triangular-arbitrage-postgres-qualify triangular-arbitrage-local-qualify cross-exchange-arbitrage-sqlc cross-exchange-arbitrage-model-qualify cross-exchange-arbitrage-postgres-qualify cross-exchange-arbitrage-local-qualify inventory-rebalancing-sqlc inventory-rebalancing-model-qualify inventory-rebalancing-postgres-qualify inventory-rebalancing-security-qualify inventory-rebalancing-local-qualify research-promotion-sqlc research-promotion-model-qualify research-promotion-postgres-qualify research-promotion-research-qualify research-promotion-local-qualify multi-exchange-console-sqlc multi-exchange-console-model-qualify multi-exchange-console-postgres-qualify multi-exchange-console-api-qualify multi-exchange-console-frontend-qualify multi-exchange-console-security-qualify multi-exchange-console-live-qualify multi-exchange-console-local-qualify image backup-image backup-image-reproducibility image-reproducibility
-.PHONY: public-data-soak-smoke exchange-expansion-soak-smoke binance-combined-triangle-live-probe binance-ethbtc-trigger-live-probe credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-postgres-qualify sandbox-security-foundation sandbox-connectivity
+.PHONY: public-data-soak-smoke exchange-expansion-soak-smoke binance-combined-triangle-live-probe binance-ethbtc-trigger-live-probe bybit-ethbtc-trigger-live-probe credential-security-qualify authentication-control-qualify dispatcher-recovery-qualify binance-testnet-qualify bybit-demo-qualify sandbox-postgres-qualify sandbox-security-foundation sandbox-connectivity
 .PHONY: sandbox-api-qualify sandbox-frontend-qualify sandbox-security-qualify sandbox-chaos-qualify sandbox-qualification-smoke sandbox-qualification-formal sandbox-qualification
 .PHONY: owner-control-contract-qualify owner-control-api-qualify owner-control-postgres-qualify owner-control-security-qualify owner-control
 .PHONY: owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify owner-experience
@@ -638,6 +638,14 @@ binance-ethbtc-trigger-live-probe: ## Compare ETHBTC-triggered same-exchange as-
 		AXIOM_BINANCE_ETHBTC_TRIGGER_REGION="$(AXIOM_BINANCE_ETHBTC_TRIGGER_REGION)" \
 		$(GO) test ./internal/exchanges/binance \
 		-run '^TestProductionPublicBinanceETHBTCTriggeredAsOfProbe$$' -count=1 -timeout=7m -v
+
+bybit-ethbtc-trigger-live-probe: ## Compare Bybit ETHBTC-triggered same-exchange as-of limits; experimental and non-qualifying.
+	@test "$(AXIOM_BYBIT_ETHBTC_TRIGGER_LIVE)" = "1" || { echo "AXIOM_BYBIT_ETHBTC_TRIGGER_LIVE=1 is required" >&2; exit 1; }
+	@AXIOM_BYBIT_ETHBTC_TRIGGER_LIVE=1 \
+		AXIOM_BYBIT_ETHBTC_TRIGGER_DURATION="$(AXIOM_BYBIT_ETHBTC_TRIGGER_DURATION)" \
+		AXIOM_BYBIT_ETHBTC_TRIGGER_REGION="$(AXIOM_BYBIT_ETHBTC_TRIGGER_REGION)" \
+		$(GO) test ./internal/exchanges/bybit \
+		-run '^TestProductionPublicBybitETHBTCTriggeredAsOfProbe$$' -count=1 -timeout=7m -v
 
 coherent-market-data-local-qualify: coherent-market-data-model-qualify coherent-market-data-postgres-qualify verify ## Pass every non-soak coherent market data gate cumulatively.
 
