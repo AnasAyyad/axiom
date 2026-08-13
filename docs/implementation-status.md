@@ -1,5 +1,47 @@
 # Axiom implementation status
 
+## Five-minute Binance and Bybit ETH/BTC-triggered comparison — 2026-08-13
+
+**Status:** Completed as a public-data-only, non-qualifying timing experiment.
+
+Exact source commit `f86cd3c` ran for five measured minutes on AWS Tokyo,
+Singapore, and Osaka. Binance and Bybit ran concurrently in each region. Each
+probe used one shared clock estimate per exchange and evaluated only on ETH/BTC
+events, with no credentials, orders, or future-data waiting.
+
+Binance results:
+
+| Region | Clock uncertainty | Triggers | Old policy | 50 ms | 100 ms | 150 ms | 250 ms | Gaps |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Tokyo | 1.172 ms | 390 | 0/390 | 0/390 | 388/390 | 388/390 | 390/390 | 0 |
+| Singapore | 34.124 ms | 386 | 0/386 | 0/386 | 384/386 | 384/386 | 386/386 | 0 |
+| Osaka | 4.444 ms | 390 | 0/390 | 0/390 | 388/390 | 388/390 | 390/390 | 0 |
+| Total | — | 1,166 | 0/1,166 | 0/1,166 | 1,160/1,166 (99.49%) | 1,160/1,166 (99.49%) | 1,166/1,166 (100%) | 0 |
+
+Bybit results:
+
+| Region | Clock uncertainty | Triggers | Old policy | 50 ms | 100 ms | 150 ms | 250 ms | Resets/regressions |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Tokyo | 35.274 ms | 483 | 447/483 | 447/483 | 447/483 | 447/483 | 478/483 | 0/0 |
+| Singapore | 1.993 ms | 476 | 0/476 | 438/476 | 438/476 | 438/476 | 470/476 | 0/0 |
+| Osaka | 38.874 ms | 482 | 442/482 | 442/482 | 442/482 | 442/482 | 477/482 | 0/0 |
+| Total | — | 1,441 | 889/1,441 (61.69%) | 1,327/1,441 (92.09%) | 1,327/1,441 (92.09%) | 1,327/1,441 (92.09%) | 1,425/1,441 (98.89%) | 0/0 |
+
+Binance had six 100/150-millisecond age rejects, all recovered by 250
+milliseconds. Bybit had 113 age rejects at 50/100/150 milliseconds and 15 at
+250 milliseconds. One additional Singapore Bybit evaluation failed closed as
+`post_trigger`: independent receive goroutines delivered an event out of its
+monotonic order, so the probe did not use it as past data.
+
+The result supports an exchange-specific same-exchange as-of policy and does
+not support using the old interval-overlap result to select a region. It does
+not yet establish 250 milliseconds as production policy: these probes measure
+timing eligibility, not full-book health, snapshot/reconnect recovery,
+triangular profitability, fill likelihood, or campaign qualification. The next
+test must use the production book histories to select the latest healthy view
+at or before each trigger, then measure the age distribution over a materially
+longer run before preregistering a limit.
+
 ## Binance ETH/BTC-triggered as-of experiment — 2026-08-13
 
 **Status:** Implemented and exercised as a non-qualifying timing experiment.
