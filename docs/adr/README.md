@@ -36,6 +36,7 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0025](0025-v1d-d5-operational-readiness.md) | Accepted | D5 uses fail-closed pressure, independent recovery, and terminal readiness evidence. |
 | [0026](0026-v1d-d6-cumulative-certification.md) | Accepted | D6 requires exact signed cumulative evidence and never promotes local/CI results into certification. |
 | [0027](0027-owner-console-semantic-runtime.md) | Accepted | Owner console uses one semantic owner and unified run workflows. |
+| [0028](0028-same-exchange-triangular-asof-coherence.md) | Accepted | Triangular shadow evaluation joins three same-exchange committed books at ETH/BTC events under a 100 ms ceiling. |
 
 ## Naming and lifecycle
 

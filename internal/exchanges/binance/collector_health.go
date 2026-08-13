@@ -19,6 +19,17 @@ func (collector *InstrumentCollector) HealthSnapshot() exchangecontracts.Collect
 	clockEligible := collector.clockEligible
 	degradedSince := collector.degradedSince
 	collector.healthMutex.RUnlock()
+	if source, ok := collector.source.(interface{ TimeHealth() TimeHealth }); ok {
+		shared := source.TimeHealth()
+		if !shared.ObservedAt.IsZero() {
+			clock = shared
+			clockEligible = shared.Eligible &&
+				(degradedSince.IsZero() || shared.ObservedAt.After(degradedSince))
+			if clockEligible {
+				degradedSince = time.Time{}
+			}
+		}
+	}
 	return exchangecontracts.CollectorHealthSnapshot{
 		ObservedAt:       collector.lifecycle.Now().UTC(),
 		Exchange:         collectorExchange,

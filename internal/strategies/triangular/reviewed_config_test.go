@@ -2,6 +2,7 @@ package triangular
 
 import (
 	"testing"
+	"time"
 
 	platformconfig "axiom/internal/config"
 )
@@ -13,6 +14,9 @@ func TestReviewedConfigurationMapsExactlyToRuntimeContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := DefaultConfiguration()
+	if expected.MaximumBookAge != 100*time.Millisecond {
+		t.Fatalf("reviewed default book age = %s", expected.MaximumBookAge)
+	}
 	if runtime.StrategyVersion != expected.StrategyVersion ||
 		runtime.ModelVersion != expected.ModelVersion ||
 		runtime.MaximumCycleNotional != expected.MaximumCycleNotional ||

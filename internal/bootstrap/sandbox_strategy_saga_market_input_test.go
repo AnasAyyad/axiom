@@ -21,6 +21,13 @@ func TestSandboxSagaMarketInputReaderBuildsSynchronizedTriangularAndCrossInputs(
 		{Exchange: "binance", Instrument: sagaInstrument(t, "ETHBTC")},
 		{Exchange: "binance", Instrument: sagaInstrument(t, "ETHUSDT")},
 	})
+	for index, member := range triangularSource.set.Members {
+		member.View = sagaBookView(t, member.View.Exchange(), member.View.Instrument(),
+			now.Add(-time.Duration(index)*time.Second), member.View.Observation().ReceivedOffsetNanos,
+			member.View.Observation().IngestOrdinal)
+		member.Clock.ObservedAt = now.Add(-3 * time.Second)
+		triangularSource.set.Members[index] = member
+	}
 	reader, err := NewSandboxSagaMarketInputReader(triangularSource)
 	if err != nil {
 		t.Fatal(err)

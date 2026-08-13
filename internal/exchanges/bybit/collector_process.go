@@ -230,7 +230,11 @@ func (collector *InstrumentCollector) processObserved(
 		}
 		return nil
 	case exchangecontracts.StreamDepth:
-		return collector.processDepth(ctx, observed)
+		if err := collector.processDepth(ctx, observed); err != nil {
+			return err
+		}
+		collector.notifyMarketUpdate()
+		return nil
 	case exchangecontracts.StreamTrades:
 		count := len(observed.Event.Trades)
 		if observed.Event.Trade != nil {
@@ -246,7 +250,11 @@ func (collector *InstrumentCollector) processObserved(
 		}
 		collector.stats.tickers.Add(1)
 	case exchangecontracts.StreamCandle:
-		return collector.processCandle(observed)
+		if err := collector.processCandle(observed); err != nil {
+			return err
+		}
+		collector.notifyMarketUpdate()
+		return nil
 	default:
 		return streamError()
 	}

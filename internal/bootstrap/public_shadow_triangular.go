@@ -67,8 +67,8 @@ func (session *ownerConsoleLiveShadowSession) captureTriangularMarket(
 	if err != nil {
 		return SandboxTriangularMarketInput{}, err
 	}
-	capture, err := reader.capture(ctx, keys, now)
-	if err != nil {
+	capture, err := reader.captureTriangular(ctx, keys, now, session.triangularConfig.MaximumBookAge)
+	if err != nil || !session.matchesConsumedTriangularTrigger(capture.coherent) {
 		return SandboxTriangularMarketInput{}, errPublicShadowTriangularMarketInputUnavailable
 	}
 	markets := make([]triangular.MarketInput, 0, len(capture.members))
@@ -79,6 +79,22 @@ func (session *ownerConsoleLiveShadowSession) captureTriangularMarket(
 	return SandboxTriangularMarketInput{Markets: markets, Trigger: capture.trigger,
 		FirstDetectedOffset: capture.firstDetected, CoherentViewID: capture.coherent.Identity(),
 		InstrumentMetadataID: sandboxSagaMarketEvidenceHash(capture.coherent.Identity(), capture.rules)}, nil
+}
+
+func (session *ownerConsoleLiveShadowSession) matchesConsumedTriangularTrigger(
+	view runtimecore.CoherentView,
+) bool {
+	for _, member := range view.Members() {
+		if member.Key.Instrument.Symbol() != "ETHBTC" {
+			continue
+		}
+		session.stateMutex.Lock()
+		matches := session.lastTriangularTriggerGeneration == member.ConnectionGeneration &&
+			session.lastTriangularTriggerVersion == member.BookVersion
+		session.stateMutex.Unlock()
+		return matches
+	}
+	return false
 }
 
 func ownerConsoleTriangularMarketKeys(claim postgresstore.PublicShadowClaim) ([]runtimecore.MarketKey, error) {

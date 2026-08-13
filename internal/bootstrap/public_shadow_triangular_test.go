@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,9 @@ import (
 func TestOwnerConsoleTriangularInputBindsThreeBooksCapitalRiskAndReplay(t *testing.T) {
 	now := time.Date(2026, 8, 9, 19, 0, 0, 0, time.UTC)
 	claim, session := newOwnerConsoleTriangularTestSession(t, now)
+	if !session.consumeCurrentTriangularTrigger() {
+		t.Fatal("ETHBTC trigger was not consumed")
+	}
 	input, err := session.buildTriangularInput(context.Background(), now)
 	if err != nil {
 		t.Fatal(err)
@@ -33,6 +37,18 @@ func TestOwnerConsoleTriangularInputBindsThreeBooksCapitalRiskAndReplay(t *testi
 	}
 	if _, err = triangular.Evaluate(evaluation); err == nil {
 		t.Fatal("missing exact third-asset fee mark was accepted")
+	}
+}
+
+func TestOwnerConsoleTriangularCaptureRejectsDifferentETHBTCTriggerVersion(t *testing.T) {
+	now := time.Date(2026, 8, 9, 19, 5, 0, 0, time.UTC)
+	_, session := newOwnerConsoleTriangularTestSession(t, now)
+	if !session.consumeTriangularTrigger(1, 99) {
+		t.Fatal("test trigger was not consumed")
+	}
+	_, err := session.captureTriangularMarket(context.Background(), now)
+	if !errors.Is(err, errPublicShadowTriangularMarketInputUnavailable) {
+		t.Fatalf("mismatched ETHBTC trigger capture error = %v", err)
 	}
 }
 
@@ -66,7 +82,9 @@ func newOwnerConsoleTriangularTestSession(t *testing.T, now time.Time) (
 		t.Fatal(err)
 	}
 	session := &ownerConsoleLiveShadowSession{claim: claim,
-		client: ownerConsoleTriangularPublicClient{offset: 1_000_000}, collectors: collectors,
+		client: ownerConsoleTriangularPublicClient{offset: 1_000_000,
+			health: exchangecontracts.ClockHealth{ObservedAt: now.Add(-time.Second),
+				Uncertainty: time.Millisecond, Eligible: true}}, collectors: collectors,
 		metadata: metadata, maximumQuantity: maximum, triangularConfig: configured,
 		balances: owned.Snapshot()}
 	return claim, session
@@ -163,7 +181,10 @@ func ownerConsoleTriangularTestMarkets(t *testing.T, now time.Time, exchange str
 	return collectors, metadata, maximum
 }
 
-type ownerConsoleTriangularPublicClient struct{ offset uint64 }
+type ownerConsoleTriangularPublicClient struct {
+	offset uint64
+	health exchangecontracts.ClockHealth
+}
 
 func (client ownerConsoleTriangularPublicClient) Instruments(context.Context, []domain.Instrument) ([]exchangecontracts.InstrumentRecord, error) {
 	return nil, nil
@@ -172,3 +193,6 @@ func (client ownerConsoleTriangularPublicClient) Candles(context.Context, exchan
 	return nil, nil
 }
 func (client ownerConsoleTriangularPublicClient) MonotonicOffset() uint64 { return client.offset }
+func (client ownerConsoleTriangularPublicClient) ClockHealth() exchangecontracts.ClockHealth {
+	return client.health
+}
