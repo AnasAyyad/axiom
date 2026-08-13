@@ -47,6 +47,8 @@ type ownerConsoleCrossExchangeShadowSession struct {
 	lastActivity   string
 	lastActivityAt time.Time
 	lastViewID     string
+	lastTrigger    map[string]exchangecontracts.BookCommit
+	coherenceStats crossExchangeCoherenceStatistics
 	datasetID      string
 	lastOrdinal    uint64
 	metadata       map[runtimecore.MarketKey]domain.InstrumentMetadata
@@ -90,7 +92,9 @@ func newOwnerConsoleCrossExchangeShadowSession(
 		collectors: collectors, public: publicRecorders, decisions: decisionRecorder, catalog: catalog,
 		processor: processor, configuration: configuration, flushEvery: runtimeConfig.Recorder.FlushInterval,
 		commit: claimConfigurationCommit(), metadata: make(map[runtimecore.MarketKey]domain.InstrumentMetadata, 2),
-		maximum: make(map[runtimecore.MarketKey]domain.Quantity, 2)}
+		maximum:        make(map[runtimecore.MarketKey]domain.Quantity, 2),
+		lastTrigger:    make(map[string]exchangecontracts.BookCommit, 2),
+		coherenceStats: newCrossExchangeCoherenceStatistics()}
 	if session.commit == "" || session.flushEvery <= 0 {
 		return nil, fmt.Errorf("shadow_cross_exchange_build_identity_invalid")
 	}
@@ -276,6 +280,7 @@ func (session *ownerConsoleCrossExchangeShadowSession) loadReferenceData(ctx con
 
 type ownerConsoleCrossExchangeMarketSource struct {
 	session *ownerConsoleCrossExchangeShadowSession
+	trigger exchangecontracts.BookCommit
 }
 
 // CaptureSandboxSagaMarketViews returns one complete coherent public generation.
@@ -283,19 +288,17 @@ func (source *ownerConsoleCrossExchangeMarketSource) CaptureSandboxSagaMarketVie
 	keys []runtimecore.MarketKey, now time.Time,
 ) (SandboxSagaMarketViewSet, error) {
 	session := source.session
-	if session == nil || ctx == nil || len(keys) != 2 || len(session.collectors) != 2 {
-		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_cross_exchange_market_capture_invalid")
-	}
-	logical := session.clients["binance"].MonotonicOffset()
-	if logical == 0 {
+	if session == nil || ctx == nil || len(keys) != 2 || len(session.collectors) != 2 ||
+		source.trigger.Validate() != nil {
 		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_cross_exchange_market_capture_invalid")
 	}
 	feeRate, err := publicShadowFeeRate(session.claim.Configuration.Models.Fee)
 	if err != nil {
 		return SandboxSagaMarketViewSet{}, err
 	}
-	result := SandboxSagaMarketViewSet{Trigger: runtimecore.AsOfTrigger{MonotonicNanos: logical,
-		IngestOrdinal: logical, UTC: now}, Members: make([]SandboxSagaMarketMember, 0, 2)}
+	result := SandboxSagaMarketViewSet{Members: make([]SandboxSagaMarketMember, 0, 2)}
+	maximumOrdinal := uint64(0)
+	triggerMatched := false
 	for _, key := range keys {
 		collector := session.collectors[key]
 		view, viewErr := collectorBook(collector, key)
@@ -309,6 +312,12 @@ func (source *ownerConsoleCrossExchangeMarketSource) CaptureSandboxSagaMarketVie
 			health.Exchange != key.Exchange || health.Instrument != key.Instrument.Symbol() {
 			return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_cross_exchange_market_member_unavailable")
 		}
+		if key.Exchange == source.trigger.Exchange && key.Instrument == source.trigger.Instrument {
+			triggerMatched = sameBookCommitView(source.trigger, view)
+		}
+		if ordinal := view.Observation().IngestOrdinal; ordinal > maximumOrdinal {
+			maximumOrdinal = ordinal
+		}
 		if published := view.Observation().PublishedOffsetNanos; published > result.FirstDetectedOffset {
 			result.FirstDetectedOffset = published
 		}
@@ -321,25 +330,35 @@ func (source *ownerConsoleCrossExchangeMarketSource) CaptureSandboxSagaMarketVie
 			CollectorInstance: "owner_console-shadow-" + session.claim.ID + "-" + key.Exchange,
 			CollectorRegion:   "engine-local"})
 	}
-	if result.FirstDetectedOffset == 0 || result.FirstDetectedOffset > logical {
+	logical := session.clients["binance"].MonotonicOffset()
+	if !triggerMatched || maximumOrdinal == 0 || logical == 0 || result.FirstDetectedOffset == 0 ||
+		result.FirstDetectedOffset > logical {
 		return SandboxSagaMarketViewSet{}, fmt.Errorf("shadow_cross_exchange_market_capture_invalid")
 	}
+	result.Trigger = runtimecore.AsOfTrigger{MonotonicNanos: logical, IngestOrdinal: maximumOrdinal, UTC: now}
 	return result, nil
 }
 
 func (session *ownerConsoleCrossExchangeShadowSession) captureMarket(ctx context.Context,
-	now time.Time,
+	now time.Time, trigger exchangecontracts.BookCommit,
 ) (SandboxCrossExchangeMarketInput, error) {
 	keys, err := ownerConsoleCrossExchangeMarketKeys(session.claim)
 	if err != nil {
 		return SandboxCrossExchangeMarketInput{}, err
 	}
-	reader, err := NewSandboxSagaMarketInputReader(&ownerConsoleCrossExchangeMarketSource{session: session})
+	source := &ownerConsoleCrossExchangeMarketSource{session: session, trigger: trigger}
+	set, err := source.CaptureSandboxSagaMarketViews(ctx, keys, now)
 	if err != nil {
-		return SandboxCrossExchangeMarketInput{}, err
+		session.observeCrossExchangeComparison(crossExchangeCoherenceComparison{Trigger: trigger,
+			StrictB2: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCoherentMarketDataCoherentPolicy().Version,
+				Reason: "capture_failure"},
+			Actionable: crossExchangeCoherenceVerdict{PolicyVersion: runtimecore.InitialCrossExchangeActionablePolicy().Version,
+				Reason: "capture_failure"}})
+		return SandboxCrossExchangeMarketInput{}, errPublicShadowCrossExchangeMarketInputUnavailable
 	}
-	capture, err := reader.capture(ctx, keys, now)
-	if err != nil {
+	capture, comparison := compareCrossExchangeCapture(ctx, keys, now, trigger, set)
+	session.observeCrossExchangeComparison(comparison)
+	if !comparison.StrictB2.Passed {
 		return SandboxCrossExchangeMarketInput{}, errPublicShadowCrossExchangeMarketInputUnavailable
 	}
 	markets := make([]crossarb.MarketInput, 0, 2)

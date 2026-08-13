@@ -1,5 +1,26 @@
 # Axiom implementation status
 
+## Cross-exchange exact event binding and dual coherence probe — 2026-08-13
+
+**Status:** Implemented on `feature/cross-exchange-actionable-coherence`; local
+validation and regional public diagnostics are tracked separately. No merge,
+deployment, campaign, qualification, certification, or strategy-policy
+promotion is implied.
+
+Binance and Bybit collectors now expose the latest exact committed-book
+identity behind their coalesced hot-path signals. Cross-exchange shadow capture
+binds one monotonic venue generation/version, reads both immutable books before
+setting the decision boundary, and uses the maximum real member ingest ordinal.
+Superseded triggers, repeated versions, gaps, reconnects, future members, and
+unhealthy inputs fail closed.
+
+Strict `axiom.coherent-view-policy.v1` remains unchanged and is still the only
+cross-exchange strategy admission path. The parallel
+`axiom.cross-exchange-actionable-view-policy.v1` verdict is experimental and
+non-admitting. The public-only probe retains exact dual-verdict samples and
+summary timing/rejection evidence without credentials or orders. Regional
+results require an exact committed source and are not formal evidence.
+
 ## Owner-console response and PR corrective slice — 2026-08-10
 
 **Status:** Implemented; hosted rerun pending after PostgreSQL qualification

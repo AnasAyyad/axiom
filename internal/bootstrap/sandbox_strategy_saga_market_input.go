@@ -197,6 +197,23 @@ func (reader *SandboxSagaMarketInputReader) capture(
 	keys []runtimecore.MarketKey,
 	now time.Time,
 ) (validatedSandboxSagaMarketCapture, error) {
+	return reader.captureWithJoin(ctx, keys, now, false)
+}
+
+func (reader *SandboxSagaMarketInputReader) captureCrossExchangeActionable(
+	ctx context.Context,
+	keys []runtimecore.MarketKey,
+	now time.Time,
+) (validatedSandboxSagaMarketCapture, error) {
+	return reader.captureWithJoin(ctx, keys, now, true)
+}
+
+func (reader *SandboxSagaMarketInputReader) captureWithJoin(
+	ctx context.Context,
+	keys []runtimecore.MarketKey,
+	now time.Time,
+	actionable bool,
+) (validatedSandboxSagaMarketCapture, error) {
 	requested := append([]runtimecore.MarketKey(nil), keys...)
 	sort.Slice(requested, func(left, right int) bool {
 		if requested[left].Exchange != requested[right].Exchange {
@@ -220,9 +237,15 @@ func (reader *SandboxSagaMarketInputReader) capture(
 		}
 		validated, rules = append(validated, item), append(rules, member.Rules)
 	}
-	coherent, err := views.CoherentAsOf(requested, set.Trigger, runtimecore.InitialCoherentMarketDataCoherentPolicy())
+	var coherent runtimecore.CoherentView
+	if actionable {
+		coherent, err = views.CrossExchangeActionableAsOf(requested, set.Trigger)
+	} else {
+		coherent, err = views.CoherentAsOf(requested, set.Trigger,
+			runtimecore.InitialCoherentMarketDataCoherentPolicy())
+	}
 	if err != nil {
-		return validatedSandboxSagaMarketCapture{}, fmt.Errorf("sandbox_saga_market_coherence_invalid")
+		return validatedSandboxSagaMarketCapture{}, fmt.Errorf("sandbox_saga_market_coherence_invalid: %w", err)
 	}
 	sortValidatedSandboxSagaMarket(validated, rules)
 	return validatedSandboxSagaMarketCapture{trigger: set.Trigger,

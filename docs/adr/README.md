@@ -36,6 +36,7 @@ ADRs record durable architectural, dependency, security, and safety decisions fo
 | [0025](0025-v1d-d5-operational-readiness.md) | Accepted | D5 uses fail-closed pressure, independent recovery, and terminal readiness evidence. |
 | [0026](0026-v1d-d6-cumulative-certification.md) | Accepted | D6 requires exact signed cumulative evidence and never promotes local/CI results into certification. |
 | [0027](0027-owner-console-semantic-runtime.md) | Accepted | Owner console uses one semantic owner and unified run workflows. |
+| [0029](0029-cross-exchange-actionable-coherence-experiment.md) | Accepted | Cross-exchange shadow capture binds exact venue events and records a non-admitting actionable-view verdict beside unchanged strict B2. |
 
 ## Naming and lifecycle
 

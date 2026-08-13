@@ -14,29 +14,31 @@ import (
 
 // InstrumentCollector owns the single ordered writer for one public spot instrument.
 type InstrumentCollector struct {
-	config           CollectorConfig
-	source           collectorSource
-	recorder         PublicRecorder
-	clock            domain.Clock
-	book             *marketdata.Book
-	candles          *marketdata.CandleStore
-	candleStores     map[string]*marketdata.CandleStore
-	provider         *marketdata.Provider
-	stats            *CollectorStats
-	marketUpdates    chan struct{}
-	running          atomic.Bool
-	healthMutex      sync.RWMutex
-	clockHealth      TimeHealth
-	clockEligible    bool
-	degradedSince    time.Time
-	evidenceSink     exchangecontracts.LifecycleEvidenceSink
-	evidenceFailed   chan struct{}
-	evidenceOnce     sync.Once
-	evidenceMutex    sync.Mutex
-	evidenceErr      error
-	lifecycle        collectorLifecycle
-	lifecycleCycle   atomic.Uint64
-	lifecycleAttempt atomic.Uint64
+	config            CollectorConfig
+	source            collectorSource
+	recorder          PublicRecorder
+	clock             domain.Clock
+	book              *marketdata.Book
+	candles           *marketdata.CandleStore
+	candleStores      map[string]*marketdata.CandleStore
+	provider          *marketdata.Provider
+	stats             *CollectorStats
+	marketUpdates     chan struct{}
+	marketUpdateMutex sync.RWMutex
+	latestBookCommit  exchangecontracts.BookCommit
+	running           atomic.Bool
+	healthMutex       sync.RWMutex
+	clockHealth       TimeHealth
+	clockEligible     bool
+	degradedSince     time.Time
+	evidenceSink      exchangecontracts.LifecycleEvidenceSink
+	evidenceFailed    chan struct{}
+	evidenceOnce      sync.Once
+	evidenceMutex     sync.Mutex
+	evidenceErr       error
+	lifecycle         collectorLifecycle
+	lifecycleCycle    atomic.Uint64
+	lifecycleAttempt  atomic.Uint64
 }
 
 // NewInstrumentCollector constructs one fail-closed bounded collector.
@@ -81,7 +83,27 @@ func (collector *InstrumentCollector) Views() marketdata.MarketViewProvider {
 // MarketUpdates exposes coalesced commit notifications without blocking the collector hot path.
 func (collector *InstrumentCollector) MarketUpdates() <-chan struct{} { return collector.marketUpdates }
 
+// LatestBookCommit returns the newest exact immutable book identity paired with
+// the coalesced update signal.
+func (collector *InstrumentCollector) LatestBookCommit() exchangecontracts.BookCommit {
+	collector.marketUpdateMutex.RLock()
+	defer collector.marketUpdateMutex.RUnlock()
+	return collector.latestBookCommit
+}
+
 func (collector *InstrumentCollector) notifyMarketUpdate() {
+	view := collector.book.View()
+	observation := view.Observation()
+	commit := exchangecontracts.BookCommit{Exchange: view.Exchange(), Instrument: view.Instrument(),
+		ConnectionGeneration: view.Generation(), BookVersion: view.Version(),
+		IngestOrdinal: observation.IngestOrdinal, ReceivedOffsetNanos: observation.ReceivedOffsetNanos,
+		PublishedOffsetNanos: observation.PublishedOffsetNanos}
+	if commit.Validate() != nil {
+		return
+	}
+	collector.marketUpdateMutex.Lock()
+	collector.latestBookCommit = commit
+	collector.marketUpdateMutex.Unlock()
 	select {
 	case collector.marketUpdates <- struct{}{}:
 	default:

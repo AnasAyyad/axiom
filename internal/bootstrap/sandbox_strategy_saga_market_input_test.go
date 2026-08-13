@@ -155,6 +155,7 @@ func sagaBookViewPrices(
 		t.Fatal("book setup failed")
 	}
 	observation := marketdata.Observation{
+		ExchangeTime: now.Add(-30 * time.Millisecond),
 		ReceivedAt:   domain.EventTime{UTC: now.Add(-20 * time.Millisecond), Sequence: ordinal*3 - 2},
 		ProcessedAt:  domain.EventTime{UTC: now.Add(-10 * time.Millisecond), Sequence: ordinal*3 - 1},
 		PublishedAt:  domain.EventTime{UTC: now, Sequence: ordinal * 3},

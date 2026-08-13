@@ -253,7 +253,6 @@ func (collector *InstrumentCollector) processObserved(
 		if err := collector.processCandle(observed); err != nil {
 			return err
 		}
-		collector.notifyMarketUpdate()
 		return nil
 	default:
 		return streamError()

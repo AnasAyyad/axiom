@@ -6,19 +6,27 @@ import (
 	"testing"
 	"time"
 
+	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/marketdata"
 )
 
 func TestPublicShadowEvaluationIsTriggeredByCollectorMarketUpdate(t *testing.T) {
-	collector := &eventDrivenShadowCollector{updates: make(chan struct{}, 1), running: make(chan struct{})}
+	instrument, _ := domain.NewSpotInstrument("BTC", "USDT")
+	collector := &eventDrivenShadowCollector{updates: make(chan struct{}, 1), running: make(chan struct{}),
+		commit: exchangecontracts.BookCommit{Exchange: "binance", Instrument: instrument,
+			ConnectionGeneration: 1, BookVersion: 7, IngestOrdinal: 9,
+			ReceivedOffsetNanos: 10, PublishedOffsetNanos: 11}}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	evaluated := make(chan struct{}, 1)
 	go func() {
 		done <- runPublicShadowCollectors(ctx, []shadowPublicCollector{collector}, time.Hour,
 			func(context.Context) error { return nil },
-			func(context.Context) error {
+			func(_ context.Context, update exchangecontracts.BookCommit) error {
+				if update.Exchange != "binance" || update.BookVersion != 7 {
+					t.Errorf("update = %#v", update)
+				}
 				select {
 				case evaluated <- struct{}{}:
 				default:
@@ -53,6 +61,7 @@ type eventDrivenShadowCollector struct {
 	updates chan struct{}
 	running chan struct{}
 	once    sync.Once
+	commit  exchangecontracts.BookCommit
 }
 
 func (collector *eventDrivenShadowCollector) Run(ctx context.Context) error {
@@ -71,4 +80,8 @@ func (*eventDrivenShadowCollector) HealthSnapshot() exchangecontracts.CollectorH
 
 func (collector *eventDrivenShadowCollector) MarketUpdates() <-chan struct{} {
 	return collector.updates
+}
+
+func (collector *eventDrivenShadowCollector) LatestBookCommit() exchangecontracts.BookCommit {
+	return collector.commit
 }

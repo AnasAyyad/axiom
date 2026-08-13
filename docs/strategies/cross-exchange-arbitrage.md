@@ -27,6 +27,20 @@ uncertainty interval, and version-vector identity. Missing members, gaps,
 future data, incompatible regions, clock uncertainty, book age above 250 ms,
 or inter-book skew above 250 ms fail closed.
 
+Live shadow capture is event-bound. Each Binance or Bybit committed-book signal
+identifies the exact triggering exchange, instrument, connection generation,
+book version, ingest ordinal, receive offset, and publish offset. The runtime
+captures that exact trigger plus the newest already-committed peer book, then
+sets the decision boundary after both reads and uses the maximum real member
+ingest ordinal. A superseded/mismatched trigger or repeated venue version is
+skipped. No REST request or waiting window is added.
+
+ADR-0029 also defines a non-admitting diagnostic verdict with a 150 ms local
+age/skew ceiling, the existing 100 ms uncertainty ceiling, and bounded exchange
+event/source-delay checks. It records whether a locally actionable pair would
+pass when strict corrected intervals do not overlap. This verdict cannot create
+a strategy input: B2 remains the sole admission authority.
+
 The shared exact conversion engine uses complete executable ask or bid depth,
 instrument tick and step filters, minimum quantity and notional, VWAP, fees,
 spread/depth cost, and dust. Binary floating point is absent from prices,
@@ -109,3 +123,12 @@ testnet/demo order, margin, derivative, leverage, short sale, transfer,
 withdrawal, borrowing, lending, staking, or rebalancing execution capability.
 Formal acceptance remains subject to predecessor, deferred soak, and
 Product/Security/QA/SRE gates.
+
+The public comparison probe can be run from an exact clean commit with:
+
+```bash
+scripts/run-cross-exchange-coherence-probe.sh aws-ap-northeast-1 12m
+```
+
+Its NDJSON and summary are route diagnostics only, not qualification or a
+profitability result.

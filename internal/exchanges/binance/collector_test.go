@@ -38,6 +38,14 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 		t.Fatal("committed book update did not publish a coalesced market notification")
 	}
 	view, _ := collector.Views().Book(collectorExchange, instrument)
+	commit := collector.LatestBookCommit()
+	observation := view.Observation()
+	if commit.Validate() != nil || commit.BookVersion != view.Version() ||
+		commit.ConnectionGeneration != view.Generation() || commit.IngestOrdinal != observation.IngestOrdinal ||
+		commit.ReceivedOffsetNanos != observation.ReceivedOffsetNanos ||
+		commit.PublishedOffsetNanos != observation.PublishedOffsetNanos {
+		t.Fatalf("latest committed book identity=%#v view=%#v", commit, view)
+	}
 	bids := view.Bids()
 	bids[0].Quantity = mustQuantity(t, "999")
 	current, _ := collector.Views().Book(collectorExchange, instrument)
