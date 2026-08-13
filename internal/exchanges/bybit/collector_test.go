@@ -45,6 +45,15 @@ func TestExchangeExpansionInstrumentCollectorAppliesSnapshotsMonotonicDeltasAndP
 			stats.Snapshots == 2 && stats.Resets == 1 && stats.DepthUpdates == 1 && stats.Trades == 1 &&
 			stats.Tickers == 1 && stats.Candles == 1 && stats.Heartbeats == 1
 	})
+	view, _ := collector.Views().Book(collectorExchange, instrument)
+	commit := collector.LatestBookCommit()
+	observation := view.Observation()
+	if commit.Validate() != nil || commit.BookVersion != view.Version() ||
+		commit.ConnectionGeneration != view.Generation() || commit.IngestOrdinal != observation.IngestOrdinal ||
+		commit.ReceivedOffsetNanos != observation.ReceivedOffsetNanos ||
+		commit.PublishedOffsetNanos != observation.PublishedOffsetNanos {
+		t.Fatalf("latest committed book identity=%#v view=%#v", commit, view)
+	}
 	if health := collector.HealthSnapshot(); !health.BookEligible || !health.ClockEligible || !health.Eligible {
 		t.Fatalf("combined health not ready: %#v", health)
 	}

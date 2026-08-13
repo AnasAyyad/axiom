@@ -118,24 +118,19 @@ func (session *ownerConsoleLiveShadowSession) Run(ctx context.Context) error {
 	return runPublicShadowCollectors(ctx, collectors, session.flushEvery,
 		func(loop context.Context) error {
 			return session.recordShadowActivity(loop, session.currentShadowActivity(time.Now().UTC()))
-		}, session.evaluateReadyInputs, session.FlushAvailable)
+		}, func(loop context.Context, _ exchangecontracts.BookCommit) error {
+			return session.evaluateReadyInputs(loop)
+		}, session.FlushAvailable)
 }
 
 func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCollector,
-	flushEvery time.Duration, activity, evaluate, flush func(context.Context) error,
+	flushEvery time.Duration, activity func(context.Context) error,
+	evaluate func(context.Context, exchangecontracts.BookCommit) error, flush func(context.Context) error,
 ) error {
 	workContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	marketUpdates := mergePublicShadowMarketUpdates(workContext, collectors)
-	errorsChannel := make(chan error, len(collectors))
-	var group sync.WaitGroup
-	for _, collector := range collectors {
-		group.Add(1)
-		go func(value shadowPublicCollector) {
-			defer group.Done()
-			errorsChannel <- value.Run(workContext)
-		}(collector)
-	}
+	errorsChannel, group := startPublicShadowCollectorGroup(workContext, collectors)
 	evaluateTicker := time.NewTicker(500 * time.Millisecond)
 	flushTicker := time.NewTicker(flushEvery)
 	defer evaluateTicker.Stop()
@@ -151,8 +146,8 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 				group.Wait()
 				return err
 			}
-		case <-marketUpdates:
-			if err := evaluate(workContext); err != nil {
+		case update := <-marketUpdates:
+			if err := evaluate(workContext, update); err != nil {
 				cancel()
 				group.Wait()
 				return err
@@ -163,7 +158,7 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 				group.Wait()
 				return err
 			}
-			if err := evaluate(workContext); err != nil {
+			if err := evaluate(workContext, exchangecontracts.BookCommit{}); err != nil {
 				cancel()
 				group.Wait()
 				return err
@@ -178,12 +173,28 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 	}
 }
 
-type shadowPublicMarketUpdateSource interface {
-	MarketUpdates() <-chan struct{}
+func startPublicShadowCollectorGroup(ctx context.Context,
+	collectors []shadowPublicCollector,
+) (<-chan error, *sync.WaitGroup) {
+	errorsChannel := make(chan error, len(collectors))
+	group := &sync.WaitGroup{}
+	for _, collector := range collectors {
+		group.Add(1)
+		go func(value shadowPublicCollector) {
+			defer group.Done()
+			errorsChannel <- value.Run(ctx)
+		}(collector)
+	}
+	return errorsChannel, group
 }
 
-func mergePublicShadowMarketUpdates(ctx context.Context, collectors []shadowPublicCollector) <-chan struct{} {
-	merged := make(chan struct{}, 1)
+type shadowPublicMarketUpdateSource interface {
+	MarketUpdates() <-chan struct{}
+	LatestBookCommit() exchangecontracts.BookCommit
+}
+
+func mergePublicShadowMarketUpdates(ctx context.Context, collectors []shadowPublicCollector) <-chan exchangecontracts.BookCommit {
+	merged := make(chan exchangecontracts.BookCommit, len(collectors))
 	for _, collector := range collectors {
 		source, ok := collector.(shadowPublicMarketUpdateSource)
 		if !ok {
@@ -193,7 +204,7 @@ func mergePublicShadowMarketUpdates(ctx context.Context, collectors []shadowPubl
 		if updates == nil {
 			continue
 		}
-		go func(updates <-chan struct{}) {
+		go func(source shadowPublicMarketUpdateSource, updates <-chan struct{}) {
 			for {
 				select {
 				case <-ctx.Done():
@@ -202,13 +213,16 @@ func mergePublicShadowMarketUpdates(ctx context.Context, collectors []shadowPubl
 					if !open {
 						return
 					}
-					select {
-					case merged <- struct{}{}:
-					default:
+					commit := source.LatestBookCommit()
+					if commit.Validate() == nil {
+						select {
+						case merged <- commit:
+						default:
+						}
 					}
 				}
 			}
-		}(updates)
+		}(source, updates)
 	}
 	return merged
 }

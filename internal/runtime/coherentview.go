@@ -9,6 +9,7 @@ import (
 )
 
 const initialCoherentMarketDataCoherentPolicyVersion = "axiom.coherent-view-policy.v1"
+const crossExchangeActionablePolicyVersion = "axiom.cross-exchange-actionable-view-policy.v1"
 const sameExchangeTriangularCoherentPolicyVersion = "axiom.same-exchange-triangular-view-policy.v1"
 
 // CoherentPolicy is an immutable versioned cross-market eligibility policy.
@@ -23,6 +24,14 @@ type CoherentPolicy struct {
 func InitialCoherentMarketDataCoherentPolicy() CoherentPolicy {
 	return CoherentPolicy{Version: initialCoherentMarketDataCoherentPolicyVersion, MaximumBookAge: 250 * time.Millisecond,
 		MaximumInterBookSkew: 250 * time.Millisecond, MaximumClockUncertainty: 100 * time.Millisecond}
+}
+
+// InitialCrossExchangeActionablePolicy returns the experimental strategy-view
+// limits. It is distinct from and cannot replace the strict B2 policy.
+func InitialCrossExchangeActionablePolicy() CoherentPolicy {
+	return CoherentPolicy{Version: crossExchangeActionablePolicyVersion,
+		MaximumBookAge: 150 * time.Millisecond, MaximumInterBookSkew: 150 * time.Millisecond,
+		MaximumClockUncertainty: 100 * time.Millisecond}
 }
 
 func sameExchangeTriangularCoherentPolicy(maximumBookAge time.Duration) CoherentPolicy {
@@ -98,10 +107,24 @@ func (views *MarketViews) CoherentAsOf(
 	trigger AsOfTrigger,
 	policy CoherentPolicy,
 ) (CoherentView, error) {
-	if policy.Version == sameExchangeTriangularCoherentPolicyVersion {
+	if policy.Version == crossExchangeActionablePolicyVersion ||
+		policy.Version == sameExchangeTriangularCoherentPolicyVersion {
 		return CoherentView{}, runtimeError("coherent_view_rejected", "configuration")
 	}
 	return views.coherentAsOf(keys, trigger, policy, validateCoherentMembers)
+}
+
+// CrossExchangeActionableAsOf selects the exact locally available Binance and
+// Bybit books without weakening the separate strict corrected-interval policy.
+func (views *MarketViews) CrossExchangeActionableAsOf(
+	keys []MarketKey,
+	trigger AsOfTrigger,
+) (CoherentView, error) {
+	policy := InitialCrossExchangeActionablePolicy()
+	if len(keys) != 2 {
+		return CoherentView{}, runtimeError("coherent_view_rejected", "configuration")
+	}
+	return views.coherentAsOf(keys, trigger, policy, validateCrossExchangeActionableMembers)
 }
 
 // SameExchangeTriangularAsOf selects one already-committed three-book view
@@ -203,7 +226,9 @@ func RestoreCoherentView(
 		}
 	}
 	validator := validateCoherentMembers
-	if policy.Version == sameExchangeTriangularCoherentPolicyVersion {
+	if policy.Version == crossExchangeActionablePolicyVersion {
+		validator = validateCrossExchangeActionableMembers
+	} else if policy.Version == sameExchangeTriangularCoherentPolicyVersion {
 		if !validSameExchangeTriangularPolicy(policy) {
 			return CoherentView{}, runtimeError("coherent_view_restore_rejected", "configuration")
 		}
@@ -276,6 +301,35 @@ func validateCoherentMembers(members []ViewReference, policy CoherentPolicy) err
 	}
 	if latestStart.After(earliestEnd) {
 		return runtimeError("coherent_view_rejected", "interval")
+	}
+	return nil
+}
+
+func validateCrossExchangeActionableMembers(members []ViewReference, policy CoherentPolicy) error {
+	if len(members) != 2 || policy != InitialCrossExchangeActionablePolicy() {
+		return runtimeError("coherent_view_rejected", "membership")
+	}
+	seen := map[string]bool{"binance": false, "bybit": false}
+	instrument := members[0].Key.Instrument
+	minimumReceive, maximumReceive := members[0].ReceiveMonotonicNanos, members[0].ReceiveMonotonicNanos
+	for _, member := range members {
+		if _, expected := seen[member.Key.Exchange]; !expected || seen[member.Key.Exchange] ||
+			member.Key.Instrument != instrument {
+			return runtimeError("coherent_view_rejected", "membership")
+		}
+		seen[member.Key.Exchange] = true
+		if member.ReceiveMonotonicNanos < minimumReceive {
+			minimumReceive = member.ReceiveMonotonicNanos
+		}
+		if member.ReceiveMonotonicNanos > maximumReceive {
+			maximumReceive = member.ReceiveMonotonicNanos
+		}
+	}
+	if !seen["binance"] || !seen["bybit"] {
+		return runtimeError("coherent_view_rejected", "membership")
+	}
+	if maximumReceive-minimumReceive > uint64(policy.MaximumInterBookSkew.Nanoseconds()) {
+		return runtimeError("coherent_view_rejected", "skew")
 	}
 	return nil
 }

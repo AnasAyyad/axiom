@@ -9,6 +9,7 @@ import (
 
 	"axiom/internal/accounting"
 	"axiom/internal/domain"
+	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/execution"
 	marketrecorder "axiom/internal/recorder"
 	"axiom/internal/replay"
@@ -16,8 +17,17 @@ import (
 	"axiom/internal/strategies/crossarb"
 )
 
-func (session *ownerConsoleCrossExchangeShadowSession) evaluateReadyInput(ctx context.Context) error {
+func (session *ownerConsoleCrossExchangeShadowSession) evaluateReadyInput(
+	ctx context.Context,
+	trigger exchangecontracts.BookCommit,
+) error {
 	if !session.entries.Load() {
+		return nil
+	}
+	if trigger.Validate() != nil {
+		trigger = session.latestCrossExchangeTrigger()
+	}
+	if !session.consumeCrossExchangeTrigger(trigger) {
 		return nil
 	}
 	for _, collector := range session.collectors {
@@ -26,29 +36,18 @@ func (session *ownerConsoleCrossExchangeShadowSession) evaluateReadyInput(ctx co
 		}
 	}
 	now := time.Now().UTC()
-	market, err := session.captureMarket(ctx, now)
+	market, err := session.captureMarket(ctx, now, trigger)
 	if err != nil {
 		if errors.Is(err, errPublicShadowCrossExchangeMarketInputUnavailable) {
 			return nil
 		}
 		return err
 	}
-	session.stateMutex.Lock()
-	alreadyEvaluated := market.Coherent.Identity == session.lastViewID
-	needsInitialization := session.balances == nil
-	session.stateMutex.Unlock()
-	if alreadyEvaluated {
+	if session.crossExchangeViewEvaluated(market.Coherent.Identity) {
 		return nil
 	}
-	if needsInitialization {
-		balances, initializationErr := session.store.InitializeCrossExchangeShadowInventory(ctx,
-			session.claim, market.Markets, market.Trigger.UTC)
-		if initializationErr != nil {
-			return initializationErr
-		}
-		session.stateMutex.Lock()
-		session.balances = balances
-		session.stateMutex.Unlock()
+	if err = session.initializeCrossExchangeBalances(ctx, market); err != nil {
+		return err
 	}
 	input, err := session.buildInput(market)
 	if err != nil {
@@ -59,6 +58,80 @@ func (session *ownerConsoleCrossExchangeShadowSession) evaluateReadyInput(ctx co
 		return err
 	}
 	return session.recordAndProcess(ctx, &input, market.Coherent.Identity, instrument)
+}
+
+func (session *ownerConsoleCrossExchangeShadowSession) crossExchangeViewEvaluated(identity string) bool {
+	session.stateMutex.Lock()
+	defer session.stateMutex.Unlock()
+	return identity == session.lastViewID
+}
+
+func (session *ownerConsoleCrossExchangeShadowSession) initializeCrossExchangeBalances(
+	ctx context.Context, market SandboxCrossExchangeMarketInput,
+) error {
+	session.stateMutex.Lock()
+	initialized := session.balances != nil
+	session.stateMutex.Unlock()
+	if initialized {
+		return nil
+	}
+	balances, err := session.store.InitializeCrossExchangeShadowInventory(ctx,
+		session.claim, market.Markets, market.Trigger.UTC)
+	if err != nil {
+		return err
+	}
+	session.stateMutex.Lock()
+	session.balances = balances
+	session.stateMutex.Unlock()
+	return nil
+}
+
+type crossExchangeBookCommitSource interface {
+	LatestBookCommit() exchangecontracts.BookCommit
+}
+
+func (session *ownerConsoleCrossExchangeShadowSession) latestCrossExchangeTrigger() exchangecontracts.BookCommit {
+	session.stateMutex.Lock()
+	consumed := make(map[string]exchangecontracts.BookCommit, len(session.lastTrigger))
+	for exchange, commit := range session.lastTrigger {
+		consumed[exchange] = commit
+	}
+	session.stateMutex.Unlock()
+	latest := exchangecontracts.BookCommit{}
+	for _, collector := range session.collectors {
+		source, ok := collector.(crossExchangeBookCommitSource)
+		if !ok {
+			continue
+		}
+		candidate := source.LatestBookCommit()
+		previous := consumed[candidate.Exchange]
+		newer := candidate.ConnectionGeneration > previous.ConnectionGeneration ||
+			(candidate.ConnectionGeneration == previous.ConnectionGeneration && candidate.BookVersion > previous.BookVersion)
+		if candidate.Validate() == nil && newer && candidate.PublishedOffsetNanos > latest.PublishedOffsetNanos {
+			latest = candidate
+		}
+	}
+	return latest
+}
+
+func (session *ownerConsoleCrossExchangeShadowSession) consumeCrossExchangeTrigger(
+	trigger exchangecontracts.BookCommit,
+) bool {
+	if trigger.Validate() != nil || (trigger.Exchange != "binance" && trigger.Exchange != "bybit") {
+		return false
+	}
+	session.stateMutex.Lock()
+	defer session.stateMutex.Unlock()
+	if session.lastTrigger == nil {
+		session.lastTrigger = make(map[string]exchangecontracts.BookCommit, 2)
+	}
+	previous := session.lastTrigger[trigger.Exchange]
+	if trigger.ConnectionGeneration < previous.ConnectionGeneration ||
+		(trigger.ConnectionGeneration == previous.ConnectionGeneration && trigger.BookVersion <= previous.BookVersion) {
+		return false
+	}
+	session.lastTrigger[trigger.Exchange] = trigger
+	return true
 }
 
 func (session *ownerConsoleCrossExchangeShadowSession) buildInput(market SandboxCrossExchangeMarketInput) (crossarb.Input, error) {

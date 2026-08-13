@@ -14,7 +14,7 @@ import (
 	"axiom/internal/strategies/arbitrage"
 )
 
-func TestSandboxSagaMarketInputReaderBuildsSynchronizedTriangularAndCrossInputs(t *testing.T) {
+func TestSandboxSagaMarketInputReaderBuildsSynchronizedTriangularInput(t *testing.T) {
 	now := time.Date(2026, 8, 9, 14, 0, 0, 0, time.UTC)
 	triangularSource := sagaMarketSource(t, now, []runtimecore.MarketKey{
 		{Exchange: "binance", Instrument: sagaInstrument(t, "BTCUSDT")},
@@ -48,12 +48,16 @@ func TestSandboxSagaMarketInputReaderBuildsSynchronizedTriangularAndCrossInputs(
 		}
 	}
 
+}
+
+func TestSandboxSagaMarketInputReaderBuildsSynchronizedCrossExchangeInput(t *testing.T) {
+	now := time.Date(2026, 8, 9, 14, 0, 0, 0, time.UTC)
 	crossKeys := []runtimecore.MarketKey{
 		{Exchange: "binance", Instrument: sagaInstrument(t, "BTCUSDT")},
 		{Exchange: "bybit", Instrument: sagaInstrument(t, "BTCUSDT")},
 	}
 	crossSource := sagaMarketSource(t, now, crossKeys)
-	reader, _ = NewSandboxSagaMarketInputReader(crossSource)
+	reader, _ := NewSandboxSagaMarketInputReader(crossSource)
 	crossWork := sagaPlanFacts(t, sandbox.StrategyCrossExchangeArbitrage, now).Coordinator.Work
 	cross, err := reader.ReadCrossExchange(context.Background(), crossWork, now)
 	if err != nil || len(cross.Markets) != 2 || len(cross.Coherent.Identity) != 64 ||
@@ -162,6 +166,7 @@ func sagaBookViewPrices(
 		t.Fatal("book setup failed")
 	}
 	observation := marketdata.Observation{
+		ExchangeTime: now.Add(-30 * time.Millisecond),
 		ReceivedAt:   domain.EventTime{UTC: now.Add(-20 * time.Millisecond), Sequence: ordinal*3 - 2},
 		ProcessedAt:  domain.EventTime{UTC: now.Add(-10 * time.Millisecond), Sequence: ordinal*3 - 1},
 		PublishedAt:  domain.EventTime{UTC: now, Sequence: ordinal * 3},

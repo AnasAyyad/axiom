@@ -32,27 +32,8 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 		return collector.HealthSnapshot().Eligible && viewErr == nil &&
 			view.Health() == marketdata.HealthHealthy && view.Sequence() == 101 && collector.Stats().DepthUpdates == 1
 	})
-	select {
-	case <-collector.MarketUpdates():
-	default:
-		t.Fatal("committed book update did not publish a coalesced market notification")
-	}
-	view, _ := collector.Views().Book(collectorExchange, instrument)
-	bids := view.Bids()
-	bids[0].Quantity = mustQuantity(t, "999")
-	current, _ := collector.Views().Book(collectorExchange, instrument)
-	if current.Bids()[0].Quantity.String() == "999" || !current.Eligible(source.MonotonicOffset(), time.Second) {
-		t.Fatal("collector exposed mutable or stale view")
-	}
-	if health := collector.HealthSnapshot(); !health.BookEligible || !health.ClockEligible || !health.Eligible {
-		t.Fatalf("combined health not ready: %#v", health)
-	}
-	collector.markClockDegraded(TimeHealth{}, time.Now().UTC())
-	if health := collector.HealthSnapshot(); !health.BookEligible || health.ClockEligible || health.Eligible ||
-		health.DegradedSince.IsZero() {
-		t.Fatalf("clock degradation did not fail combined readiness: %#v", health)
-	}
-	collector.setClockHealth(TimeHealth{ObservedAt: time.Now().UTC(), Eligible: true}, false)
+	assertCollectorCommittedView(t, collector, source, instrument)
+	assertCollectorClockHealthTransitions(t, collector)
 	beforeCancel, _ := collector.Views().Book(collectorExchange, instrument)
 	cancel()
 	if err = <-done; err != nil {
@@ -68,6 +49,48 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 		recorder.raw.Load() == 0 || recorder.canonical.Load() == 0 {
 		t.Fatalf("unexpected collector evidence: %#v raw=%d canonical=%d", stats, recorder.raw.Load(), recorder.canonical.Load())
 	}
+}
+
+func assertCollectorCommittedView(
+	t *testing.T,
+	collector *InstrumentCollector,
+	source *collectorSourceFixture,
+	instrument domain.Instrument,
+) {
+	t.Helper()
+	select {
+	case <-collector.MarketUpdates():
+	default:
+		t.Fatal("committed book update did not publish a coalesced market notification")
+	}
+	view, _ := collector.Views().Book(collectorExchange, instrument)
+	commit := collector.LatestBookCommit()
+	observation := view.Observation()
+	if commit.Validate() != nil || commit.BookVersion != view.Version() ||
+		commit.ConnectionGeneration != view.Generation() || commit.IngestOrdinal != observation.IngestOrdinal ||
+		commit.ReceivedOffsetNanos != observation.ReceivedOffsetNanos ||
+		commit.PublishedOffsetNanos != observation.PublishedOffsetNanos {
+		t.Fatalf("latest committed book identity=%#v view=%#v", commit, view)
+	}
+	bids := view.Bids()
+	bids[0].Quantity = mustQuantity(t, "999")
+	current, _ := collector.Views().Book(collectorExchange, instrument)
+	if current.Bids()[0].Quantity.String() == "999" || !current.Eligible(source.MonotonicOffset(), time.Second) {
+		t.Fatal("collector exposed mutable or stale view")
+	}
+}
+
+func assertCollectorClockHealthTransitions(t *testing.T, collector *InstrumentCollector) {
+	t.Helper()
+	if health := collector.HealthSnapshot(); !health.BookEligible || !health.ClockEligible || !health.Eligible {
+		t.Fatalf("combined health not ready: %#v", health)
+	}
+	collector.markClockDegraded(TimeHealth{}, time.Now().UTC())
+	if health := collector.HealthSnapshot(); !health.BookEligible || health.ClockEligible || health.Eligible ||
+		health.DegradedSince.IsZero() {
+		t.Fatalf("clock degradation did not fail combined readiness: %#v", health)
+	}
+	collector.setClockHealth(TimeHealth{ObservedAt: time.Now().UTC(), Eligible: true}, false)
 }
 
 func TestCollectorHealthUsesNewerSharedBinanceClockEstimate(t *testing.T) {

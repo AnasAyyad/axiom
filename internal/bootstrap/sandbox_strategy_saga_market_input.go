@@ -2,14 +2,10 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
 
-	"axiom/internal/domain"
 	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/marketdata"
 	runtimecore "axiom/internal/runtime"
@@ -198,7 +194,16 @@ func (reader *SandboxSagaMarketInputReader) capture(
 	now time.Time,
 ) (validatedSandboxSagaMarketCapture, error) {
 	policy := runtimecore.InitialCoherentMarketDataCoherentPolicy()
-	return reader.captureWithPolicy(ctx, keys, now, policy.MaximumBookAge, false)
+	return reader.captureWithPolicy(ctx, keys, now, policy.MaximumBookAge, false, false)
+}
+
+func (reader *SandboxSagaMarketInputReader) captureCrossExchangeActionable(
+	ctx context.Context,
+	keys []runtimecore.MarketKey,
+	now time.Time,
+) (validatedSandboxSagaMarketCapture, error) {
+	policy := runtimecore.InitialCrossExchangeActionablePolicy()
+	return reader.captureWithPolicy(ctx, keys, now, policy.MaximumBookAge, true, false)
 }
 
 func (reader *SandboxSagaMarketInputReader) captureTriangular(
@@ -207,7 +212,7 @@ func (reader *SandboxSagaMarketInputReader) captureTriangular(
 	now time.Time,
 	maximumBookAge time.Duration,
 ) (validatedSandboxSagaMarketCapture, error) {
-	return reader.captureWithPolicy(ctx, keys, now, maximumBookAge, true)
+	return reader.captureWithPolicy(ctx, keys, now, maximumBookAge, false, true)
 }
 
 func (reader *SandboxSagaMarketInputReader) captureWithPolicy(
@@ -215,8 +220,12 @@ func (reader *SandboxSagaMarketInputReader) captureWithPolicy(
 	keys []runtimecore.MarketKey,
 	now time.Time,
 	maximumBookAge time.Duration,
+	actionable bool,
 	sameExchangeTriangular bool,
 ) (validatedSandboxSagaMarketCapture, error) {
+	if actionable && sameExchangeTriangular {
+		return validatedSandboxSagaMarketCapture{}, fmt.Errorf("sandbox_saga_market_capture_invalid")
+	}
 	requested := append([]runtimecore.MarketKey(nil), keys...)
 	sort.Slice(requested, func(left, right int) bool {
 		if requested[left].Exchange != requested[right].Exchange {
@@ -241,14 +250,16 @@ func (reader *SandboxSagaMarketInputReader) captureWithPolicy(
 		validated, rules = append(validated, item), append(rules, member.Rules)
 	}
 	var coherent runtimecore.CoherentView
-	if sameExchangeTriangular {
+	if actionable {
+		coherent, err = views.CrossExchangeActionableAsOf(requested, set.Trigger)
+	} else if sameExchangeTriangular {
 		coherent, err = views.SameExchangeTriangularAsOf(requested, set.Trigger, maximumBookAge)
 	} else {
 		coherent, err = views.CoherentAsOf(requested, set.Trigger,
 			runtimecore.InitialCoherentMarketDataCoherentPolicy())
 	}
 	if err != nil {
-		return validatedSandboxSagaMarketCapture{}, fmt.Errorf("sandbox_saga_market_coherence_invalid")
+		return validatedSandboxSagaMarketCapture{}, fmt.Errorf("sandbox_saga_market_coherence_invalid: %w", err)
 	}
 	sortValidatedSandboxSagaMarket(validated, rules)
 	return validatedSandboxSagaMarketCapture{trigger: set.Trigger,
@@ -320,80 +331,4 @@ func containsSandboxSagaMarketKey(values []runtimecore.MarketKey, wanted runtime
 		}
 	}
 	return false
-}
-
-func validSandboxSagaInstrumentRules(
-	rules arbitrage.InstrumentRules,
-	key runtimecore.MarketKey,
-	now time.Time,
-) bool {
-	zeroQuantity, quantityErr := domain.ParseQuantity("0")
-	zeroRate, rateErr := domain.ParseRate("0")
-	_, assetErr := domain.ParseAssetSymbol(string(rules.Fee.Asset))
-	return quantityErr == nil && rateErr == nil && assetErr == nil && rules.Active &&
-		rules.Exchange == key.Exchange && rules.Metadata.Instrument == key.Instrument &&
-		rules.Metadata.Validate() == nil && !rules.Metadata.EffectiveAt.After(now) &&
-		rules.MaximumQuantity.Compare(zeroQuantity) > 0 && rules.Fee.Version != "" &&
-		rules.Fee.Rate.Compare(zeroRate) >= 0 && !rules.ObservedAt.IsZero() &&
-		rules.ObservedAt.Location() == time.UTC && !rules.ObservedAt.After(now)
-}
-
-func sandboxSagaInstrument(symbol string) (domain.Instrument, error) {
-	switch symbol {
-	case "BTCUSDT":
-		return domain.NewSpotInstrument("BTC", "USDT")
-	case "ETHUSDT":
-		return domain.NewSpotInstrument("ETH", "USDT")
-	case "ETHBTC":
-		return domain.NewSpotInstrument("ETH", "BTC")
-	default:
-		return domain.Instrument{}, fmt.Errorf("sandbox_saga_instrument_invalid")
-	}
-}
-
-func sandboxSagaMarketEvidenceHash(identity string, rules []arbitrage.InstrumentRules) string {
-	encoded, _ := json.Marshal(struct {
-		Identity string                      `json:"coherent_view_id"`
-		Rules    []arbitrage.InstrumentRules `json:"rules"`
-	}{Identity: identity, Rules: rules})
-	digest := sha256.Sum256(encoded)
-	return hex.EncodeToString(digest[:])
-}
-
-func sandboxSagaRiskMarket(
-	markets []triangular.MarketInput,
-	work sandbox.StrategySessionWork,
-	trigger runtimecore.AsOfTrigger,
-) (sandbox.StrategyMarketInput, error) {
-	if work.ValidAt(trigger.UTC) != nil || trigger.MonotonicNanos == 0 || trigger.IngestOrdinal == 0 {
-		return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_invalid")
-	}
-	for _, market := range markets {
-		if string(market.Snapshot.Exchange) != string(work.Account.Exchange) ||
-			market.Snapshot.Instrument.Symbol() != work.Instrument ||
-			market.Observation.Validate() != nil ||
-			!validSandboxSagaInstrumentRules(market.Rules, runtimecore.MarketKey{
-				Exchange: string(work.Account.Exchange), Instrument: market.Snapshot.Instrument,
-			}, trigger.UTC) {
-			continue
-		}
-		encoded, err := json.Marshal(market.Rules)
-		if err != nil {
-			return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_invalid")
-		}
-		digest := sha256.Sum256(encoded)
-		metadataHash := hex.EncodeToString(digest[:])
-		result := sandbox.StrategyMarketInput{Instrument: market.Snapshot.Instrument,
-			Metadata: exchangecontracts.InstrumentRecord{Exchange: market.Snapshot.Exchange,
-				NativeSymbol: market.Snapshot.Instrument.Symbol(), NativeStatus: "Trading",
-				Metadata: market.Rules.Metadata, MaximumQuantity: market.Rules.MaximumQuantity,
-				RawPayloadHash: metadataHash},
-			Book: market.Snapshot, ObservedAt: domain.EventTime{UTC: trigger.UTC,
-				Sequence: trigger.IngestOrdinal}}
-		if sandbox.StrategyMarketEvidenceHash(result) == "" {
-			return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_invalid")
-		}
-		return result, nil
-	}
-	return sandbox.StrategyMarketInput{}, fmt.Errorf("sandbox_saga_risk_market_unavailable")
 }

@@ -20,9 +20,15 @@ import (
 func TestOwnerConsoleCrossExchangeShadowBuildsCoherentOwnedRecordedInput(t *testing.T) {
 	now := time.Date(2026, 8, 9, 22, 30, 0, 0, time.UTC)
 	claim, session, instrument := newOwnerConsoleCrossExchangeTestSession(t, now)
-	market, err := session.captureMarket(context.Background(), now)
+	trigger := ownerConsoleCrossExchangeTestCommit(t, session, "binance", instrument)
+	market, err := session.captureMarket(context.Background(), now, trigger)
 	if err != nil || market.Coherent.Identity == "" || len(market.Markets) != 2 {
 		t.Fatalf("market=%#v error=%v", market, err)
+	}
+	statistics := session.crossExchangeCoherenceStatistics()
+	if statistics.Comparisons != 1 || statistics.StrictPasses != 1 || statistics.ActionablePasses != 1 ||
+		len(statistics.Last.Members) != 2 || statistics.Last.ReceiveSkew != 10*time.Microsecond {
+		t.Fatalf("coherence statistics=%#v", statistics)
 	}
 	initializeOwnerConsoleCrossExchangeTestBalances(t, session, market)
 	input, err := session.buildInput(market)
@@ -33,9 +39,49 @@ func TestOwnerConsoleCrossExchangeShadowBuildsCoherentOwnedRecordedInput(t *test
 	assertOwnerConsoleCrossExchangeRecordedInput(t, claim, session, input)
 	bybit := runtimecore.MarketKey{Exchange: "bybit", Instrument: instrument}
 	session.collectors[bybit].(*publicShadowSagaCollector).health.Eligible = false
-	if _, err = session.captureMarket(context.Background(), now); !errorsIsCrossInputUnavailable(err) {
+	if _, err = session.captureMarket(context.Background(), now, trigger); !errorsIsCrossInputUnavailable(err) {
 		t.Fatalf("ineligible pair error=%v", err)
 	}
+}
+
+func TestOwnerConsoleCrossExchangeCaptureBindsExactTriggerAndDeduplicatesVersions(t *testing.T) {
+	now := time.Date(2026, 8, 9, 22, 35, 0, 0, time.UTC)
+	_, session, instrument := newOwnerConsoleCrossExchangeTestSession(t, now)
+	trigger := ownerConsoleCrossExchangeTestCommit(t, session, "bybit", instrument)
+	if !session.consumeCrossExchangeTrigger(trigger) || session.consumeCrossExchangeTrigger(trigger) {
+		t.Fatal("exact Bybit trigger was not consumed exactly once")
+	}
+	regressed := trigger
+	regressed.BookVersion--
+	if session.consumeCrossExchangeTrigger(regressed) {
+		t.Fatal("regressed trigger was consumed")
+	}
+	mismatched := trigger
+	mismatched.BookVersion++
+	if _, err := session.captureMarket(context.Background(), now, mismatched); !errorsIsCrossInputUnavailable(err) {
+		t.Fatalf("mismatched trigger error=%v", err)
+	}
+	statistics := session.crossExchangeCoherenceStatistics()
+	if statistics.Comparisons != 1 || statistics.StrictRejections["capture_failure"] != 1 ||
+		statistics.ActionRejections["capture_failure"] != 1 {
+		t.Fatalf("mismatch statistics=%#v", statistics)
+	}
+}
+
+func ownerConsoleCrossExchangeTestCommit(t *testing.T, session *ownerConsoleCrossExchangeShadowSession,
+	exchange string, instrument domain.Instrument,
+) exchangecontracts.BookCommit {
+	t.Helper()
+	key := runtimecore.MarketKey{Exchange: exchange, Instrument: instrument}
+	view, err := collectorBook(session.collectors[key], key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := view.Observation()
+	return exchangecontracts.BookCommit{Exchange: exchange, Instrument: instrument,
+		ConnectionGeneration: view.Generation(), BookVersion: view.Version(),
+		IngestOrdinal: observation.IngestOrdinal, ReceivedOffsetNanos: observation.ReceivedOffsetNanos,
+		PublishedOffsetNanos: observation.PublishedOffsetNanos}
 }
 
 func newOwnerConsoleCrossExchangeTestSession(t *testing.T, now time.Time) (
