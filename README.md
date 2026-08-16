@@ -39,7 +39,7 @@ missing. Axiom V1 is **NOT CERTIFIED**.
 
 ## Exact toolchains
 
-- Go `1.26.5`
+- Go `1.26.6`
 - Node.js `24.18.0`
 - pnpm `11.12.0` through Corepack
 - PostgreSQL `18.4-alpine`

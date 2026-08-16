@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.12@sha256:93bfd3b68c109427185cd78b4779fc82b484b0b7618e36d0f104d4d801e66d25
 
 ARG NODE_VERSION=24.18.0
-ARG GO_VERSION=1.26.5
+ARG GO_VERSION=1.26.6
 
 FROM node:${NODE_VERSION}-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS web-build
 ARG PNPM_VERSION=11.12.0
@@ -19,7 +19,7 @@ RUN --mount=type=cache,id=axiom-pnpm,target=/pnpm/store \
     pnpm install --offline --frozen-lockfile --store-dir=/pnpm/store && \
     pnpm --filter @axiom/web build
 
-FROM golang:${GO_VERSION}-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651 AS go-build
+FROM golang:${GO_VERSION}-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 AS go-build
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILT_AT=unknown
