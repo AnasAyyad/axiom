@@ -60,8 +60,8 @@ func (runner Runner) Run(ctx context.Context, configuration Config) (Evidence, e
 		return Evidence{}, fmt.Errorf("operational_readiness_preflight_failed")
 	}
 	started := runner.Clock.Now()
-	if started.IsZero() || started.Location() != time.UTC || started.Before(preflight.CheckedAt) ||
-		started.Sub(preflight.CheckedAt) > MaximumPreflightAge ||
+	if started.IsZero() || started.Location() != time.UTC ||
+		len(preflightWindowFailureReasons(preflight, started)) > 0 ||
 		runner.Store.Begin(ctx, configuration, preflight, started) != nil {
 		return Evidence{}, fmt.Errorf("operational_readiness_runner_start_failed")
 	}
@@ -71,22 +71,8 @@ func (runner Runner) Run(ctx context.Context, configuration Config) (Evidence, e
 }
 
 func validatePreflight(preflight Preflight, mode Mode) error {
-	if preflight.CheckedAt.IsZero() || preflight.CheckedAt.Location() != time.UTC ||
-		!preflight.ClockSynchronized || preflight.ClockThresholdMillis != ClockThresholdMillis ||
-		preflight.ClockOffsetMillis > preflight.ClockThresholdMillis ||
-		!preflight.RouteClockThresholdPassed || !preflight.TLSValid ||
-		!preflight.PinnedImageDigests || !preflight.NonRootExecution ||
-		!preflight.ResourceLimitsPassed || !preflight.DiskCapacityPassed ||
-		!preflight.RemoteBackupIndependent || preflight.BackupAgeSeconds > 24*60*60 ||
-		!preflight.CleanRestorePassed || preflight.CleanRestoreDurationSeconds > uint64(CleanRestoreRTO.Seconds()) ||
-		!preflight.MarketDataRecoveryPassed ||
-		!preflight.SchemaUpgradePassed || !preflight.RollbackForwardFixPassed ||
-		!preflight.SBOMPresent || !preflight.SecurityScanPassed ||
-		!preflight.ProductionPrivateSubmissionImpossible {
+	if len(preflightFailureReasons(preflight, mode)) > 0 {
 		return fmt.Errorf("operational_readiness_preflight_invalid")
-	}
-	if mode == ModeFormal && !preflight.ReferenceServerApproved {
-		return fmt.Errorf("operational_readiness_reference_server_unapproved")
 	}
 	return nil
 }
@@ -160,33 +146,8 @@ func newEvidence(configuration Config, preflight Preflight, started time.Time) E
 }
 
 func evaluateSample(evidence *Evidence, sample Sample) {
-	checks := []struct {
-		failed bool
-		reason string
-	}{
-		{sample.StaleDecisions > 0, "stale_decision"},
-		{sample.UninvalidatedGaps > 0, "uninvalidated_gap"},
-		{sample.DuplicateOrders > 0, "duplicate_order"},
-		{sample.LostFills > 0, "lost_fill"},
-		{sample.DoublePostedFills > 0, "double_posted_fill"},
-		{sample.UnbalancedJournals > 0, "unbalanced_journal"},
-		{sample.ReplayMismatches > 0, "replay_mismatch"},
-		{sample.DecodeBookP99Millis > 10 || sample.StrategyRiskP99Millis > 25 || sample.ResyncP95Millis > 15_000, "latency_slo"},
-		{sample.CriticalAlertMillis > uint64(CriticalAlertSLO.Milliseconds()) || sample.ExternalAlertP95Millis > uint64(ExternalAlertSLO.Milliseconds()), "alert_slo"},
-		{sample.GracefulShutdownMillis > uint64(GracefulShutdownSLO.Milliseconds()), "shutdown_slo"},
-		{sample.ShadowRecoveryMillis > uint64(ShadowRecoveryRTO.Milliseconds()) || sample.SandboxRecoveryMillis > uint64(SandboxRecoveryRTO.Milliseconds()), "recovery_rto"},
-		{!sample.DatabaseCommitRPOZero || !sample.RecorderWithinFlushRPO, "rpo_breach"},
-		{sample.MemoryLimitBytes == 0 || sample.ResidentMemoryBytes > sample.MemoryLimitBytes || !sample.AllDeclaredLoadHealthy, "resource_limit"},
-		{sample.DiskLevel != "NORMAL" && sample.DiskLevel != "HIGH" && sample.DiskLevel != "CRITICAL", "disk_pressure_unsafe"},
-		{sample.DiskLevel == "HIGH" && !sample.HeavyJobsRejectedAtHigh, "disk_pressure_unsafe"},
-		{sample.DiskLevel == "CRITICAL" && (!sample.RecordingPausedAtCritical || !sample.JournalAuditWritable), "disk_pressure_unsafe"},
-		{sample.ProductionTargetObserved, "production_target"},
-		{sample.ProhibitedCapabilityObserved, "prohibited_capability"},
-	}
-	for _, check := range checks {
-		if check.failed {
-			appendFailure(evidence, check.reason, sample.ObservedAt)
-		}
+	for _, reason := range sampleFailureReasons(sample) {
+		appendFailure(evidence, reason, sample.ObservedAt)
 	}
 }
 

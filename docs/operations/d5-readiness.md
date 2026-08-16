@@ -20,7 +20,8 @@ its base64 value in a root-readable secret file, and keep it outside Git.
 
 The formal process requires:
 
-- `AXIOM_D5_READINESS_ENABLED=1` and `AXIOM_D5_MODE=formal`;
+- `AXIOM_OPERATIONAL_READINESS_ENABLED=1` and
+  `AXIOM_OPERATIONAL_READINESS_MODE=formal`;
 - paths for the run file, test manifest, fault schedule, live preflight, live
   sample, terminal fault evidence, and signing-key secret;
 - an empty evidence root on durable storage;
@@ -28,30 +29,60 @@ The formal process requires:
   segment inventory recovered outside the active recorder filesystem;
 - the exact seven-day duration and one-to-five-minute sample interval.
 
-Copy the fail-closed templates in `deploy/config/d5-run.example.json`,
-`d5-preflight.example.json`, `d5-sample.example.json`, and
-`d5-fault-evidence.example.json` into the protected server evidence workspace.
-They are intentionally invalid or failing until the approved orchestrator
-replaces every `CHANGE_ME`, current time/revision, false preflight result, and
-failed drill outcome with measured evidence. Do not edit the checked-in test
-manifest or fault schedule on the server.
+Copy the fail-closed templates in
+`deploy/config/operational-readiness-run.example.json`,
+`deploy/config/operational-readiness-preflight.example.json`,
+`deploy/config/operational-readiness-sample.example.json`, and
+`deploy/config/operational-readiness-fault-evidence.example.json` into the
+protected server evidence workspace. They are intentionally invalid or
+failing until the approved orchestrator replaces every `CHANGE_ME`, current
+time/revision, false preflight result, and failed drill outcome with measured
+evidence. Do not edit the checked-in
+`operational-readiness-test-manifest-v1.json` or
+`operational-readiness-fault-schedule-v1.json` on the server.
 
 Every terminal fault event must carry the exact active `run_id`. Evidence from
 another run is rejected even when its scenario, timing, and hash otherwise
 match the approved schedule.
 
-Invoke `make d5-readiness` from the exact clean release build. The runner
-refuses a dirty/mismatched build, failed preflight, incomplete declared load,
-mutable image tags, an existing run ID, stale sample revisions, missed drills,
-threshold breaches, or prohibited capabilities.
+Invoke `make operational-readiness-formal` from the exact clean release build.
+The runner refuses a dirty/mismatched build, failed preflight, incomplete
+declared load, mutable image tags, an existing run ID, stale sample revisions,
+missed drills, threshold breaches, or prohibited capabilities.
 
 Set `market_data_recovery_passed=true` in the live preflight only after the
 restore evidence authenticates, `market_data_verified=true`, every ready
 segment is present exactly once, and the recovered inventory hash is recorded.
 
+## Non-qualifying preflight check
+
+Before scheduling the seven-day run, set the same exact identity, manifest,
+schedule, preflight, sample, and signing-key variables used by the formal
+command, then run:
+
+```text
+make operational-readiness-preflight-check
+```
+
+The command verifies the clean build identity, strict run configuration,
+checked-in manifest and schedule hashes, signing-key shape, preflight age and
+all hard gates, plus one fresh increasing live sample under the formal D5
+thresholds. It prints only stable redacted failure categories. It does not read
+fault outcomes, create a run directory, write formal evidence, execute a fault,
+or start the seven-day clock. Even a successful report has
+`formal_clock_started=false` and `qualified=false`. The fail-closed report
+shape is documented in
+`deploy/config/operational-readiness-preflight-report.example.json`.
+
+This checker validates measured inputs; it does not invent them. The approved
+credential-free observer remains responsible for atomically replacing the
+preflight and live-sample files from server, restore, deployment, database, and
+monitoring evidence. Never hand-edit a passing value or derive one from the
+checked-in fail-closed examples.
+
 ## During the run
 
-The approved sampler atomically replaces the bounded live-sample JSON before
+The approved observer atomically replaces the bounded live-sample JSON before
 each interval. The runner independently appends and fsyncs that observation to
 `samples.jsonl`; revision regression or staleness is terminal. Execute only the
 checked-in fault schedule. Do not restart, resume, reset the clock, waive a

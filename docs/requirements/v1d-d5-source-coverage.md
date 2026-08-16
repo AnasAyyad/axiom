@@ -14,7 +14,9 @@ The authoritative D5 scope is covered by these source-owned boundaries:
   schema upgrade, rollback, and forward-fix procedures.
 - Qualification: exact declared load, version-controlled drills, continuous
   hash-chained samples, terminal failure reasons, immutable evidence, and an
-  authenticated seven-day verdict.
+  authenticated seven-day verdict. A separate preflight command validates the
+  exact contract, measured preflight, and one fresh live sample without
+  creating evidence or starting the formal clock.
 
 B2, C6, and D5 are separate verdicts. A D5 sample may exercise market data and
 sandbox recovery, but cannot replace or relabel either dedicated qualification.

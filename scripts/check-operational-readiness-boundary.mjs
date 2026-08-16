@@ -94,7 +94,7 @@ requireTokens("internal/backup/market_recovery.go", [
 ]);
 requireTokens("internal/qualification/operationalreadiness/runner.go", [
   "validatePreflight",
-  "MarketDataRecoveryPassed",
+  "sampleFailureReasons",
   "sample_chain_invalid",
   "fault_schedule_incomplete",
   "StateSmokePassed",
@@ -106,8 +106,17 @@ requireTokens("internal/qualification/operationalreadiness/files.go", [
 ]);
 requireTokens("cmd/operational-readiness/main.go", [
   "AXIOM_OPERATIONAL_READINESS_ENABLED",
+  "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK",
   "formal build identity mismatch",
   "AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE",
+]);
+requireTokens("internal/qualification/operationalreadiness/checks.go", [
+  "axiom.operational_readiness.preflight-report.v1",
+  "FormalClockStarted:           false",
+  "Qualified:                    false",
+  "MarketDataRecoveryPassed",
+  "preflight_stale",
+  "sampleFailureReasons",
 ]);
 
 const schedule = read(
@@ -121,6 +130,8 @@ const exactSet = (actual, expected) =>
   actual.length === expected.length &&
   expected.every((value) => actual.includes(value));
 if (
+  manifest.schema_version !==
+    "axiom.operational_readiness.test-manifest.v1" ||
   manifest.duration_seconds !== 604800 ||
   manifest.sample_interval_seconds !== 60 ||
   manifest.clock_offset_threshold_ms !== 100 ||
@@ -152,9 +163,21 @@ for (const path of [
   }
 }
 
+const preflightReportExample = JSON.parse(
+  read("deploy/config/operational-readiness-preflight-report.example.json"),
+);
+if (
+  preflightReportExample.ready !== false ||
+  preflightReportExample.formal_clock_started !== false ||
+  preflightReportExample.qualified !== false
+) {
+  throw new Error("operational-readiness preflight report example can qualify");
+}
+
 for (const path of [
   "internal/qualification/operationalreadiness/model.go",
   "internal/qualification/operationalreadiness/runner.go",
+  "internal/qualification/operationalreadiness/checks.go",
   "cmd/operational-readiness/main.go",
 ]) {
   const source = read(path);
@@ -179,7 +202,9 @@ requireTokens("docs/requirements/v1d-d5-traceability.md", [
   "AX-V1D-D05-010",
 ]);
 requireTokens("docs/operations/d5-readiness.md", [
+  "make operational-readiness-preflight-check",
   "Do not restart, resume, reset the clock",
+  "formal_clock_started=false",
   "qualified=false",
 ]);
 

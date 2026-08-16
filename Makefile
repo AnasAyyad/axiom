@@ -17,7 +17,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify owner-experience
 .PHONY: run-lab-contract-qualify run-lab-api-qualify run-lab-postgres-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify run-lab
 .PHONY: operational-evidence-contract-qualify operational-evidence-api-qualify operational-evidence-postgres-qualify operational-evidence-frontend-qualify operational-evidence-browser-qualify operational-evidence-security-qualify operational-evidence
-.PHONY: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-formal operational-readiness
+.PHONY: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-preflight-check operational-readiness-formal operational-readiness
 .PHONY: evaluation-campaign-postgres-qualify
 .PHONY: release-certification-model-qualify release-certification-traceability-qualify release-certification-security-qualify release-certification-formal release-certify
 
@@ -444,6 +444,18 @@ operational-readiness-security-qualify: ## Prove observation-only operational re
 	@$(NODE) scripts/check-operational-readiness-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
+operational-readiness-preflight-check: ## MANUAL: validate exact D5 inputs and one fresh live sample without starting the seven-day clock.
+	@test "$(AXIOM_OPERATIONAL_READINESS_ENABLED)" = "1" || { echo "AXIOM_OPERATIONAL_READINESS_ENABLED=1 is required" >&2; exit 1; }
+	@test "$(AXIOM_OPERATIONAL_READINESS_MODE)" = "formal" || { echo "AXIOM_OPERATIONAL_READINESS_MODE=formal is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_RUN_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_RUN_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE is required" >&2; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "operational readiness preflight requires a clean exact source" >&2; exit 1; }
+	@AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK=1 $(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/operational-readiness
+
 operational-readiness-formal: ## MANUAL: run the default-off exact seven-day operational readiness observer on the approved server.
 	@test "$(AXIOM_OPERATIONAL_READINESS_ENABLED)" = "1" || { echo "AXIOM_OPERATIONAL_READINESS_ENABLED=1 is required" >&2; exit 1; }
 	@test "$(AXIOM_OPERATIONAL_READINESS_MODE)" = "formal" || { echo "AXIOM_OPERATIONAL_READINESS_MODE=formal is required" >&2; exit 1; }
@@ -455,7 +467,7 @@ operational-readiness-formal: ## MANUAL: run the default-off exact seven-day ope
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE is required" >&2; exit 1; }
 	@test -z "$$(git status --porcelain)" || { echo "formal operational readiness requires a clean exact source" >&2; exit 1; }
-	@$(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/operational-readiness
+	@AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK=0 $(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/operational-readiness
 
 operational-readiness: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify ## Pass local operational readiness implementation gates; the reference-server seven-day verdict remains separate.
 

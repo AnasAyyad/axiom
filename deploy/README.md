@@ -705,9 +705,12 @@ an approved clean database restore from the pre-upgrade artifact and explicit
 loss/RPO accounting; never restore over the active database. Preserve failed
 rollout evidence under an incident hold.
 
-Run local D5 logic and evidence smoke with `make operational-readiness-smoke`. The formal
-command is `make operational-readiness-formal` and is intentionally unusable without all exact
-identity and live-evidence inputs. Follow
+Run local D5 logic and evidence smoke with `make operational-readiness-smoke`.
+On the approved server, use `make operational-readiness-preflight-check` to
+validate the exact identity, manifest, schedule, preflight, and one fresh live
+sample without starting the clock or creating formal evidence. The formal
+command is `make operational-readiness-formal` and is intentionally unusable
+without all exact identity and live-evidence inputs. Follow
 [`docs/operations/d5-readiness.md`](../docs/operations/d5-readiness.md). The
 reference server has not been selected by repository configuration, so local
 success cannot pass the formal gate.

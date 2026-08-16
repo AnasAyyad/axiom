@@ -39,7 +39,7 @@ type testManifest struct {
 
 func main() {
 	if err := run(context.Background()); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "operational_readiness-readiness:", err)
+		_, _ = fmt.Fprintln(os.Stderr, "operational_readiness:", err)
 		os.Exit(1)
 	}
 }
@@ -52,10 +52,19 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	preflightSource := operationalReadiness.FilePreflight{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE")}
+	probe := &operationalReadiness.FileProbe{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE")}
+	preflightCheck, err := preflightCheckEnabled()
+	if err != nil {
+		return err
+	}
+	if preflightCheck {
+		return runPreflightCheck(ctx, configuration.Identity.Mode, preflightSource, probe, operationalReadiness.RealClock{})
+	}
 	store := &operationalReadiness.FileStore{Root: configuration.EvidenceRoot}
 	evidence, runErr := (operationalReadiness.Runner{Clock: operationalReadiness.RealClock{},
-		Preflight: operationalReadiness.FilePreflight{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE")},
-		Probe:     &operationalReadiness.FileProbe{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE")},
+		Preflight: preflightSource,
+		Probe:     probe,
 		Faults:    operationalReadiness.FileFaultSource{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE")},
 		Store:     store}).Run(ctx, configuration)
 	if evidence.EvidenceHash != "" {
@@ -63,6 +72,47 @@ func run(ctx context.Context) error {
 			evidence.Identity.RunID, evidence.State, evidence.Qualified, evidence.EvidenceHash)
 	}
 	return runErr
+}
+
+func preflightCheckEnabled() (bool, error) {
+	switch os.Getenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK") {
+	case "", "0":
+		return false, nil
+	case "1":
+		return true, nil
+	default:
+		return false, fmt.Errorf("preflight check mode invalid")
+	}
+}
+
+func runPreflightCheck(
+	ctx context.Context,
+	mode operationalReadiness.Mode,
+	preflightSource operationalReadiness.PreflightChecker,
+	probe operationalReadiness.Probe,
+	clock operationalReadiness.Clock,
+) error {
+	checkedAt := clock.Now()
+	preflight, preflightErr := preflightSource.Check(ctx)
+	sample, sampleErr := probe.Observe(ctx, 1, checkedAt)
+	var preflightInput *operationalReadiness.Preflight
+	var sampleInput *operationalReadiness.Sample
+	if preflightErr == nil {
+		preflightInput = &preflight
+	}
+	if sampleErr == nil {
+		sampleInput = &sample
+	}
+	report := operationalReadiness.CheckPreflightSources(preflightInput, sampleInput, mode, checkedAt)
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(report); err != nil {
+		return fmt.Errorf("preflight report write failed")
+	}
+	if !report.Ready {
+		return fmt.Errorf("operational_readiness_preflight_check_failed")
+	}
+	return nil
 }
 
 func loadConfiguration() (operationalReadiness.Config, error) {
@@ -129,7 +179,7 @@ func validateBuild(configuration operationalReadiness.Config) error {
 }
 
 func validateTestManifest(manifest testManifest, source runFile) error {
-	if manifest.SchemaVersion != "axiom.operationalReadiness.test-manifest.v1" ||
+	if manifest.SchemaVersion != "axiom.operational_readiness.test-manifest.v1" ||
 		manifest.DurationSeconds != source.DurationSeconds ||
 		manifest.SampleIntervalSeconds != source.SampleIntervalSeconds ||
 		manifest.ClockOffsetThresholdMillis != operationalReadiness.ClockThresholdMillis ||
@@ -142,7 +192,7 @@ func validateTestManifest(manifest testManifest, source runFile) error {
 		"double_posted_fill", "unbalanced_journal", "replay_mismatch",
 		"production_private_submission", "prohibited_capability",
 	}) || !exactStringSet(manifest.IndependentVerdicts, []string{
-		"coherent market data market-data qualification", "sandbox qualification sandbox order and reconciliation qualification",
+		"coherent market-data qualification", "sandbox order and reconciliation qualification",
 	}) {
 		return fmt.Errorf("test_manifest_invalid")
 	}

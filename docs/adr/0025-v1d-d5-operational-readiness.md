@@ -30,6 +30,9 @@ as a formal restore target.
 The D5 runner performs preflight before starting its clock, creates a unique
 run directory, fsyncs a hash chain of samples, and signs its terminal verdict.
 Formal runs are exactly seven continuous days. Smoke runs cannot qualify.
+A separate preflight-check path evaluates the exact configuration, preflight,
+and one fresh live sample without creating a run directory or starting a clock;
+its report is always non-qualifying.
 
 ## Consequences
 

@@ -8,7 +8,7 @@ import (
 
 func TestManifestContractCannotOmitOrDuplicateDeclaredCoverage(t *testing.T) {
 	source := runFile{DurationSeconds: 604800, SampleIntervalSeconds: 60}
-	manifest := testManifest{SchemaVersion: "axiom.operationalReadiness.test-manifest.v1",
+	manifest := testManifest{SchemaVersion: "axiom.operational_readiness.test-manifest.v1",
 		DurationSeconds: 604800, SampleIntervalSeconds: 60,
 		ClockOffsetThresholdMillis: operationalReadiness.ClockThresholdMillis,
 		DeclaredLoad: []string{
@@ -22,7 +22,7 @@ func TestManifestContractCannotOmitOrDuplicateDeclaredCoverage(t *testing.T) {
 			"production_private_submission", "prohibited_capability",
 		},
 		IndependentVerdicts: []string{
-			"coherent market data market-data qualification", "sandbox qualification sandbox order and reconciliation qualification",
+			"coherent market-data qualification", "sandbox order and reconciliation qualification",
 		},
 	}
 	if err := validateTestManifest(manifest, source); err != nil {
@@ -31,5 +31,37 @@ func TestManifestContractCannotOmitOrDuplicateDeclaredCoverage(t *testing.T) {
 	manifest.DeclaredLoad[len(manifest.DeclaredLoad)-1] = manifest.DeclaredLoad[0]
 	if err := validateTestManifest(manifest, source); err == nil {
 		t.Fatal("duplicated declared load accepted")
+	}
+}
+
+func TestCheckedInManifestMatchesRunnerContract(t *testing.T) {
+	const manifestPath = "../../deploy/config/operational-readiness-test-manifest-v1.json"
+	const schedulePath = "../../deploy/config/operational-readiness-fault-schedule-v1.json"
+	var manifest testManifest
+	if err := readJSON(manifestPath, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	source := runFile{DurationSeconds: 604800, SampleIntervalSeconds: 60}
+	if err := validateTestManifest(manifest, source); err != nil {
+		t.Fatal(err)
+	}
+	scheduleHash, err := fileHash(schedulePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.FaultScheduleSHA256 != scheduleHash {
+		t.Fatal("checked-in manifest does not bind the checked-in fault schedule")
+	}
+}
+
+func TestPreflightCheckModeIsExplicit(t *testing.T) {
+	t.Setenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK", "1")
+	enabled, err := preflightCheckEnabled()
+	if err != nil || !enabled {
+		t.Fatalf("enabled=%t error=%v", enabled, err)
+	}
+	t.Setenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK", "yes")
+	if _, err = preflightCheckEnabled(); err == nil {
+		t.Fatal("ambiguous preflight check mode accepted")
 	}
 }

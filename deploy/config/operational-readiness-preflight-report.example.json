@@ -1,0 +1,17 @@
+{
+  "schema_version": "axiom.operational_readiness.preflight-report.v1",
+  "checked_at": "1970-01-01T00:00:00Z",
+  "mode": "formal",
+  "configuration_contract_passed": true,
+  "preflight_passed": false,
+  "sample_passed": false,
+  "ready": false,
+  "formal_clock_started": false,
+  "qualified": false,
+  "preflight_failures": [
+    "preflight_source_unavailable"
+  ],
+  "sample_failures": [
+    "sample_unavailable"
+  ]
+}
