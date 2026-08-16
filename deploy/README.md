@@ -7,8 +7,10 @@ an explicit image reference and never pretends an unpublished image exists.
 The base Compose project starts PostgreSQL only. V1A application, recorder,
 worker, observability, and edge services are profile-gated. The encrypted
 backup service arrives in A4. V1C C4/C5 add two independent authenticated
-sandbox engines, two closed egress proxies, and inert-by-default one-shot
-canary coordinators. C6 adds the credential-free console/API and a separate
+sandbox engines, three closed egress proxies, and inert-by-default one-shot
+canary coordinators. The third proxy is credential-free and exposes only the
+reviewed Bybit production-public market hosts needed by cross-exchange sandbox
+strategy coordination. C6 adds the credential-free console/API and a separate
 least-privilege observer command; it does not add a Compose service or another
 credential owner. D5 replaces same-stack backup storage with a verified remote
 mount, adds current disk-pressure automation and a separate authenticated
@@ -256,7 +258,7 @@ The migration fails closed if both names exist or if the old login remains and
 the migrator lacks role-administration rights. Do not delete or recreate the
 login because its existing grants and ownership must remain attached.
 
-The `sandbox-foundation` profile starts only the two CONNECT-only proxies:
+The `sandbox-foundation` profile starts only the three CONNECT-only proxies:
 
 ```bash
 APP_IMAGE=axiom:local APP_PULL_POLICY=never \
@@ -269,9 +271,17 @@ each tunnel, rejects any private/link-local/loopback/multicast/mixed answer,
 and dials the validated address. Proxies receive no credentials. This profile
 alone performs no exchange order operation.
 
+The Binance engine uses its Testnet proxy for Binance public and private
+traffic. Both engines use a separate credential-free Bybit public proxy: Bybit
+for its own public market data and Binance for peer market snapshots. That
+public proxy cannot reach Bybit Demo private hosts and receives no Binance or
+Bybit credential. The Demo proxy cannot reach production-public Bybit hosts.
+
 The `sandbox` profile adds distinct Binance Testnet and Bybit Demo engine
 processes. Each engine receives only its own credential pair, database role,
-lease, internal network, and proxy. It has no direct external network. Startup
+lease, and exchange-private proxy. Both engines also receive only the internal
+side of the credential-free Bybit public proxy. Neither engine has a direct
+external network. Startup
 enters `LOCKED`, validates the live account/key generation, recovers durable
 inbox/outbox state, loads exchange-authoritative balances/history, reconciles,
 starts the private stream, and only then reaches `READY_PAUSED`.

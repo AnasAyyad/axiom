@@ -15,6 +15,20 @@ import (
 	"axiom/internal/sandbox"
 )
 
+func TestBybitSandboxMarketDataReusesClosedPublicTransport(t *testing.T) {
+	now := time.UnixMilli(1_700_000_001_000).UTC()
+	fixture := newBybitEmulatorFixture(t, now, sandboxemulator.Config{
+		Exchange: sandbox.ExchangeBybit, APIKey: "test-key", APISecret: "test-secret",
+	}, "cfg-market-transport")
+	market, ok := fixture.adapter.marketData.(*PublicClient)
+	if !ok {
+		t.Fatalf("market data type = %T", fixture.adapter.marketData)
+	}
+	if market.httpClient != fixture.emulator {
+		t.Fatalf("market transport = %T", market.httpClient)
+	}
+}
+
 func TestBybitAutomaticMeanReversionDispatchUsesOnlyFencedDemoSpotIOC(t *testing.T) {
 	now := time.UnixMilli(1_700_000_001_000).UTC()
 	fixture := newBybitEmulatorFixture(t, now, sandboxemulator.Config{

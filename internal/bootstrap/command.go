@@ -145,7 +145,7 @@ func parseEgressProxy(arguments []string) (Command, error) {
 	flags.SetOutput(io.Discard)
 	exchange := flags.String("exchange", "", "closed sandbox exchange policy")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 ||
-		(*exchange != "binance" && *exchange != "bybit") {
+		(*exchange != "binance" && *exchange != "bybit" && *exchange != "bybit-public") {
 		return Command{}, errUsage
 	}
 	return Command{Kind: commandEgressProxy, Exchange: *exchange}, nil
@@ -195,7 +195,7 @@ Usage:
   platform worker
   platform admin migrate
   platform healthcheck [--url http://127.0.0.1:8080/health/live]
-  platform egress-proxy --exchange binance|bybit
+  platform egress-proxy --exchange binance|bybit|bybit-public
   platform sandbox-engine --exchange binance|bybit
   platform sandbox-canary --exchange binance|bybit --phase prepare --input-file /absolute/request.json
   platform sandbox-canary --exchange binance|bybit --phase recover --canary-id ID

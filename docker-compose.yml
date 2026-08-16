@@ -493,6 +493,19 @@ services:
     mem_limit: ${SANDBOX_PROXY_MEMORY_LIMIT:-128m}
     cpus: ${SANDBOX_PROXY_CPU_LIMIT:-0.5}
 
+  bybit-public-egress:
+    <<: *app-base
+    profiles: [sandbox-foundation, sandbox, operational-readiness]
+    command: ["egress-proxy", "--exchange=bybit-public"]
+    environment: {}
+    networks:
+      - bybit_public_engine
+      - bybit_public_proxy_egress
+    healthcheck:
+      test: ["NONE"]
+    mem_limit: ${SANDBOX_PROXY_MEMORY_LIMIT:-128m}
+    cpus: ${SANDBOX_PROXY_CPU_LIMIT:-0.5}
+
   binance-sandbox-engine:
     <<: *app-base
     profiles: [sandbox, operational-readiness]
@@ -520,10 +533,13 @@ services:
         condition: service_completed_successfully
       binance-testnet-egress:
         condition: service_started
+      bybit-public-egress:
+        condition: service_started
     networks:
       - core
       - metrics
       - binance_engine
+      - bybit_public_engine
     healthcheck:
       test:
         [
@@ -566,10 +582,13 @@ services:
         condition: service_completed_successfully
       bybit-demo-egress:
         condition: service_started
+      bybit-public-egress:
+        condition: service_started
     networks:
       - core
       - metrics
       - bybit_engine
+      - bybit_public_engine
     healthcheck:
       test:
         [
@@ -793,8 +812,11 @@ networks:
     internal: true
   bybit_engine:
     internal: true
+  bybit_public_engine:
+    internal: true
   binance_proxy_egress: {}
   bybit_proxy_egress: {}
+  bybit_public_proxy_egress: {}
 
 volumes:
   postgres_data:

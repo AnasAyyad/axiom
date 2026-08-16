@@ -9,6 +9,7 @@ type Policy string
 const (
 	PolicyBinanceTestnet Policy = "binance_testnet"
 	PolicyBybitDemo      Policy = "bybit_demo"
+	PolicyBybitPublic    Policy = "bybit_public"
 )
 
 var policyHosts = map[Policy][]string{
@@ -19,8 +20,10 @@ var policyHosts = map[Policy][]string{
 	},
 	PolicyBybitDemo: {
 		"api-demo.bybit.com",
-		"api.bybit.com",
 		"stream-demo.bybit.com",
+	},
+	PolicyBybitPublic: {
+		"api.bybit.com",
 		"stream.bybit.com",
 	},
 }

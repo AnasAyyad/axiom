@@ -63,7 +63,7 @@ func newSandboxEngineSagaMarketRuntime(
 func newBybitSandboxSagaMarketCache(ctx context.Context, clock domain.Clock,
 	monotonic exchangecontracts.MonotonicSource, product config.Configuration,
 ) (*SandboxSagaMarketCache, error) {
-	peer, err := bybit.NewMarketPublicClient(clock)
+	peer, err := bybit.NewSandboxPeerMarketPublicClient(clock)
 	if err != nil {
 		return nil, fmt.Errorf("sandbox_engine_saga_peer_market_invalid")
 	}

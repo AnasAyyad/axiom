@@ -15,6 +15,20 @@ import (
 	"axiom/internal/sandbox"
 )
 
+func TestBinanceSandboxMarketDataReusesClosedTestnetTransport(t *testing.T) {
+	now := time.UnixMilli(1_700_000_001_000).UTC()
+	fixture := newBinanceEmulatorFixture(t, now, sandboxemulator.Config{
+		Exchange: sandbox.ExchangeBinance, APIKey: "test-key", APISecret: "test-secret",
+	}, "cfg-market-transport", true)
+	market, ok := fixture.adapter.marketData.(*PublicClient)
+	if !ok {
+		t.Fatalf("market data type = %T", fixture.adapter.marketData)
+	}
+	if market.httpClient != fixture.emulator {
+		t.Fatalf("market transport = %T", market.httpClient)
+	}
+}
+
 func TestBinanceAutomaticTrendDispatchUsesOnlyFencedSpotTestnetIOC(t *testing.T) {
 	now := time.UnixMilli(1_700_000_001_000).UTC()
 	fixture := newBinanceEmulatorFixture(t, now, sandboxemulator.Config{

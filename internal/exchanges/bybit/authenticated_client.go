@@ -80,6 +80,10 @@ func NewSandboxClient(
 	if err != nil {
 		return nil, ErrDemoRequest
 	}
+	publicProxyURL, err := url.Parse(sandboxPeerPublicProxyOrigin)
+	if err != nil {
+		return nil, ErrDemoRequest
+	}
 	transport := &http.Transport{
 		Proxy: http.ProxyURL(proxyURL),
 		TLSClientConfig: &tls.Config{
@@ -97,7 +101,7 @@ func NewSandboxClient(
 			return errors.New("redirect_rejected")
 		},
 	}
-	publicClient := newSandboxPublicHTTPClient(proxyURL)
+	publicClient := newSandboxPublicHTTPClient(publicProxyURL)
 	result, err := newSandboxClientForTest(
 		client,
 		credentials,

@@ -8,7 +8,27 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"axiom/internal/domain"
 )
+
+const sandboxPeerPublicProxyOrigin = "http://bybit-public-egress:8080"
+
+// NewSandboxPeerMarketPublicClient constructs the credential-free Bybit peer
+// market source used by the Binance sandbox strategy runtime. Its external
+// path is fixed to a separate production-public-only CONNECT proxy.
+func NewSandboxPeerMarketPublicClient(clock domain.Clock) (*PublicClient, error) {
+	client, err := NewMarketPublicClient(clock)
+	if err != nil {
+		return nil, err
+	}
+	proxyURL, err := url.Parse(sandboxPeerPublicProxyOrigin)
+	if err != nil {
+		return nil, ErrDemoRequest
+	}
+	client.httpClient = newSandboxPublicHTTPClient(proxyURL)
+	return client, nil
+}
 
 func newSandboxPublicHTTPClient(proxyURL *url.URL) sandboxDoer {
 	publicHost := strings.TrimPrefix(publicRESTOrigin, "https://")

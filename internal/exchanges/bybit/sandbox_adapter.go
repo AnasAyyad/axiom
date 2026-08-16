@@ -66,6 +66,9 @@ func NewSandboxAdapter(
 	if err != nil {
 		return nil, err
 	}
+	// The Demo engine has no direct external network. Reuse the fixed,
+	// credential-free public proxy transport already owned by the Demo client.
+	marketData.httpClient = client.publicDoer
 	adapter, err := newSandboxAdapterForTestWithMarketData(
 		client,
 		identity,

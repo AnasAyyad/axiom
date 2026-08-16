@@ -33,8 +33,12 @@ func TestPoliciesExposeOnlyExactReviewedHosts(t *testing.T) {
 	}
 	bybit, err := Hosts(PolicyBybitDemo)
 	if err != nil || strings.Join(bybit, ",") !=
-		"api-demo.bybit.com,api.bybit.com,stream-demo.bybit.com,stream.bybit.com" {
+		"api-demo.bybit.com,stream-demo.bybit.com" {
 		t.Fatalf("Bybit hosts = %#v, %v", bybit, err)
+	}
+	public, err := Hosts(PolicyBybitPublic)
+	if err != nil || strings.Join(public, ",") != "api.bybit.com,stream.bybit.com" {
+		t.Fatalf("Bybit public hosts = %#v, %v", public, err)
 	}
 }
 

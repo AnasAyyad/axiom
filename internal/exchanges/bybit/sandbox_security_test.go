@@ -152,6 +152,25 @@ func TestBybitProductionPublicMetadataPathIsCredentialFree(t *testing.T) {
 	}
 }
 
+func TestSandboxPeerMarketClientUsesFixedPublicOnlyProxy(t *testing.T) {
+	client, err := NewSandboxPeerMarketPublicClient(&domain.SystemClock{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpClient, ok := client.httpClient.(*http.Client)
+	if !ok {
+		t.Fatalf("HTTP client type = %T", client.httpClient)
+	}
+	transport, ok := httpClient.Transport.(*http.Transport)
+	if !ok || transport.Proxy == nil {
+		t.Fatalf("HTTP transport = %T", httpClient.Transport)
+	}
+	proxy, err := transport.Proxy(&http.Request{})
+	if err != nil || proxy == nil || proxy.String() != sandboxPeerPublicProxyOrigin {
+		t.Fatalf("proxy = %v, %v", proxy, err)
+	}
+}
+
 func TestBybitDemoRulesAcceptUTAMetadataWithoutEnablingLeverage(t *testing.T) {
 	now := time.UnixMilli(1_700_000_000_000).UTC()
 	body := []byte(`{

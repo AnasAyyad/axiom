@@ -100,7 +100,7 @@ fi
 
 for required in \
   testnet.binance.vision ws-api.testnet.binance.vision stream.testnet.binance.vision \
-  api-demo.bybit.com stream-demo.bybit.com; do
+  api-demo.bybit.com stream-demo.bybit.com api.bybit.com stream.bybit.com; do
   rg -q --fixed-strings "${required}" internal/egressproxy internal/exchanges ||
     fail "required compiled sandbox host is absent"
 done
@@ -127,7 +127,7 @@ if [[ "${api_block}" == *"binance_testnet_api_"* || "${api_block}" == *"bybit_de
   fail "API service receives exchange credentials"
 fi
 
-for service in binance-testnet-egress bybit-demo-egress; do
+for service in binance-testnet-egress bybit-demo-egress bybit-public-egress; do
   rg -q "^  ${service}:" docker-compose.yml ||
     fail "closed egress service is absent"
 done

@@ -31,7 +31,7 @@ type RateBudgetTelemetry struct {
 // PublicClient is the credential-free production-public Bybit Spot client.
 type PublicClient struct {
 	clock            domain.Clock
-	httpClient       *http.Client
+	httpClient       publicHTTPDoer
 	restOrigin       *url.URL
 	validateREST     func(string, *url.URL, http.Header) (publicRoute, error)
 	monotonic        func() time.Duration
@@ -45,6 +45,10 @@ type PublicClient struct {
 	telemetryMutex   sync.RWMutex
 	clockEstimator   *exchangecontracts.ClockEstimator
 	budgetTelemetry  RateBudgetTelemetry
+}
+
+type publicHTTPDoer interface {
+	Do(*http.Request) (*http.Response, error)
 }
 
 var (

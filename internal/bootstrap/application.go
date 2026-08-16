@@ -131,9 +131,16 @@ func runCommandRole(
 }
 
 func runEgressProxy(ctx context.Context, exchange string) error {
-	policy := egressproxy.PolicyBinanceTestnet
-	if exchange == "bybit" {
+	var policy egressproxy.Policy
+	switch exchange {
+	case "binance":
+		policy = egressproxy.PolicyBinanceTestnet
+	case "bybit":
 		policy = egressproxy.PolicyBybitDemo
+	case "bybit-public":
+		policy = egressproxy.PolicyBybitPublic
+	default:
+		return fmt.Errorf("egress_proxy_policy_invalid")
 	}
 	handler, err := egressproxy.New(policy)
 	if err != nil {

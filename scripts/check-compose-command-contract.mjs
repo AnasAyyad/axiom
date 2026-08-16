@@ -9,6 +9,7 @@ const expectedCommands = new Map([
   ["backtest-worker", ["worker"]],
   ["binance-testnet-egress", ["egress-proxy", "--exchange=binance"]],
   ["bybit-demo-egress", ["egress-proxy", "--exchange=bybit"]],
+  ["bybit-public-egress", ["egress-proxy", "--exchange=bybit-public"]],
   ["binance-sandbox-engine", ["sandbox-engine", "--exchange=binance"]],
   ["bybit-sandbox-engine", ["sandbox-engine", "--exchange=bybit"]],
   ["binance-sandbox-canary", ["help"]],
@@ -48,6 +49,7 @@ for (const [serviceName, expected] of expectedCommands) {
 for (const [serviceName, internalNetwork, externalNetwork] of [
   ["binance-testnet-egress", "binance_engine", "binance_proxy_egress"],
   ["bybit-demo-egress", "bybit_engine", "bybit_proxy_egress"],
+  ["bybit-public-egress", "bybit_public_engine", "bybit_public_proxy_egress"],
 ]) {
   const service = config.services[serviceName];
   const networks = Object.keys(service.networks ?? {});
@@ -192,9 +194,16 @@ for (const [
 ]) {
   const service = config.services[serviceName];
   const networks = Object.keys(service.networks ?? {}).sort();
+  const expectedNetworks = ["core", engineNetwork, "metrics"];
+  if (
+    serviceName === "binance-sandbox-engine" ||
+    serviceName === "bybit-sandbox-engine"
+  ) {
+    expectedNetworks.push("bybit_public_engine");
+  }
   if (
     JSON.stringify(networks) !==
-    JSON.stringify(["core", engineNetwork, "metrics"].sort())
+    JSON.stringify(expectedNetworks.sort())
   ) {
     throw new Error(`${serviceName} does not have its exact internal networks`);
   }
@@ -217,6 +226,7 @@ for (const [
         "exchange_egress",
         "binance_proxy_egress",
         "bybit_proxy_egress",
+        "bybit_public_proxy_egress",
       ].includes(name),
     )
   ) {

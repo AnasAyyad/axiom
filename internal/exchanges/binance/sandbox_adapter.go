@@ -65,6 +65,9 @@ func NewSandboxAdapter(
 	if err != nil {
 		return nil, err
 	}
+	// The sandbox engine has no direct external network. Reuse the fixed,
+	// credential-isolated Testnet proxy transport for unsigned public REST.
+	marketData.httpClient = client.doer
 	adapter, err := newSandboxAdapterForTestWithMarketData(
 		client, identity, epoch, lookup, expectations, rules, marketData,
 	)

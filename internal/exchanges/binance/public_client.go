@@ -22,7 +22,7 @@ const (
 // PublicClient is the credential-free Binance Spot market-data client.
 type PublicClient struct {
 	clock            domain.Clock
-	httpClient       *http.Client
+	httpClient       publicHTTPDoer
 	restOrigin       *url.URL
 	validateREST     func(string, *url.URL, http.Header) (publicRoute, error)
 	monotonic        func() time.Duration
@@ -34,6 +34,10 @@ type PublicClient struct {
 	wsOrigin         *url.URL
 	validateWS       func(*url.URL) (publicRoute, error)
 	connector        websocketConnector
+}
+
+type publicHTTPDoer interface {
+	Do(*http.Request) (*http.Response, error)
 }
 
 var (
