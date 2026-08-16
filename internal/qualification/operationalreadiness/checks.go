@@ -2,37 +2,72 @@ package operationalReadiness
 
 import "time"
 
+// PreflightProfile controls only the non-qualifying preflight report. It never
+// changes the formal runner's immutable D5 thresholds.
+type PreflightProfile string
+
+const (
+	// PreflightProfileStrict evaluates the exact formal D5 thresholds.
+	PreflightProfileStrict PreflightProfile = "strict"
+	// PreflightProfileViennaRehearsal permits the measured Vienna route-clock
+	// threshold breach as a warning while keeping every other gate strict.
+	PreflightProfileViennaRehearsal PreflightProfile = "vienna_rehearsal"
+)
+
 // PreflightReport is a redacted, non-qualifying readiness-input verdict.
 // It never represents a started formal clock or a D5 qualification result.
 type PreflightReport struct {
-	SchemaVersion               string    `json:"schema_version"`
-	CheckedAt                   time.Time `json:"checked_at"`
-	Mode                        Mode      `json:"mode"`
-	ConfigurationContractPassed bool      `json:"configuration_contract_passed"`
-	PreflightPassed             bool      `json:"preflight_passed"`
-	SamplePassed                bool      `json:"sample_passed"`
-	Ready                       bool      `json:"ready"`
-	FormalClockStarted          bool      `json:"formal_clock_started"`
-	Qualified                   bool      `json:"qualified"`
-	PreflightFailures           []string  `json:"preflight_failures"`
-	SampleFailures              []string  `json:"sample_failures"`
+	SchemaVersion               string           `json:"schema_version"`
+	CheckedAt                   time.Time        `json:"checked_at"`
+	Mode                        Mode             `json:"mode"`
+	Profile                     PreflightProfile `json:"profile"`
+	ConfigurationContractPassed bool             `json:"configuration_contract_passed"`
+	PreflightPassed             bool             `json:"preflight_passed"`
+	SamplePassed                bool             `json:"sample_passed"`
+	Ready                       bool             `json:"ready"`
+	FormalClockStarted          bool             `json:"formal_clock_started"`
+	Qualified                   bool             `json:"qualified"`
+	PreflightFailures           []string         `json:"preflight_failures"`
+	SampleFailures              []string         `json:"sample_failures"`
+	Warnings                    []string         `json:"warnings"`
 }
 
 // CheckPreflightInputs evaluates one pre-clock preflight and live sample using
 // the same thresholds as the formal runner. The result can never qualify D5.
 func CheckPreflightInputs(preflight Preflight, sample Sample, mode Mode, checkedAt time.Time) PreflightReport {
-	return CheckPreflightSources(&preflight, &sample, mode, checkedAt)
+	return CheckPreflightSourcesForProfile(&preflight, &sample, mode, PreflightProfileStrict, checkedAt)
 }
 
 // CheckPreflightSources evaluates each available source independently and
 // records bounded source-read failures without exposing payloads or raw errors.
 func CheckPreflightSources(preflight *Preflight, sample *Sample, mode Mode, checkedAt time.Time) PreflightReport {
+	return CheckPreflightSourcesForProfile(preflight, sample, mode, PreflightProfileStrict, checkedAt)
+}
+
+// CheckPreflightSourcesForProfile evaluates an explicit non-qualifying
+// preflight profile. Vienna rehearsal may warn on only the route-clock result;
+// the formal runner does not call this function and remains strict.
+func CheckPreflightSourcesForProfile(
+	preflight *Preflight,
+	sample *Sample,
+	mode Mode,
+	profile PreflightProfile,
+	checkedAt time.Time,
+) PreflightReport {
 	preflightFailures := []string{}
 	sampleFailures := []string{}
+	warnings := []string{}
+	if profile != PreflightProfileStrict && profile != PreflightProfileViennaRehearsal {
+		preflightFailures = append(preflightFailures, "preflight_profile_invalid")
+	}
 	if preflight == nil {
 		preflightFailures = append(preflightFailures, "preflight_source_unavailable")
 	} else {
-		preflightFailures = preflightFailureReasons(*preflight, mode)
+		preflightFailures = append(preflightFailures, preflightFailureReasons(*preflight, mode)...)
+		if profile == PreflightProfileViennaRehearsal && !preflight.RouteClockThresholdPassed {
+			preflightFailures = withoutReason(preflightFailures, "route_clock_threshold_failed")
+			warnings = append(warnings, "route_clock_threshold_exceeded")
+		}
 		preflightFailures = append(preflightFailures, preflightWindowFailureReasons(*preflight, checkedAt)...)
 	}
 	if sample == nil {
@@ -40,25 +75,42 @@ func CheckPreflightSources(preflight *Preflight, sample *Sample, mode Mode, chec
 	} else {
 		sampleFailures = sampleFailureReasons(*sample)
 	}
-	return newPreflightReport(mode, checkedAt, preflightFailures, sampleFailures)
+	return newPreflightReport(mode, profile, checkedAt, preflightFailures, sampleFailures, warnings)
 }
 
-func newPreflightReport(mode Mode, checkedAt time.Time, preflightFailures, sampleFailures []string) PreflightReport {
+func newPreflightReport(
+	mode Mode,
+	profile PreflightProfile,
+	checkedAt time.Time,
+	preflightFailures, sampleFailures, warnings []string,
+) PreflightReport {
 	preflightPassed := len(preflightFailures) == 0
 	samplePassed := len(sampleFailures) == 0
 	return PreflightReport{
-		SchemaVersion:                "axiom.operational_readiness.preflight-report.v1",
-		CheckedAt:                    checkedAt,
-		Mode:                         mode,
+		SchemaVersion:               "axiom.operational_readiness.preflight-report.v2",
+		CheckedAt:                   checkedAt,
+		Mode:                        mode,
+		Profile:                     profile,
 		ConfigurationContractPassed: true,
-		PreflightPassed:              preflightPassed,
-		SamplePassed:                 samplePassed,
-		Ready:                        preflightPassed && samplePassed,
-		FormalClockStarted:           false,
-		Qualified:                    false,
-		PreflightFailures:            preflightFailures,
-		SampleFailures:               sampleFailures,
+		PreflightPassed:             preflightPassed,
+		SamplePassed:                samplePassed,
+		Ready:                       preflightPassed && samplePassed,
+		FormalClockStarted:          false,
+		Qualified:                   false,
+		PreflightFailures:           preflightFailures,
+		SampleFailures:              sampleFailures,
+		Warnings:                    warnings,
 	}
+}
+
+func withoutReason(reasons []string, unwanted string) []string {
+	filtered := make([]string, 0, len(reasons))
+	for _, reason := range reasons {
+		if reason != unwanted {
+			filtered = append(filtered, reason)
+		}
+	}
+	return filtered
 }
 
 func preflightFailureReasons(preflight Preflight, mode Mode) []string {

@@ -65,3 +65,20 @@ func TestPreflightCheckModeIsExplicit(t *testing.T) {
 		t.Fatal("ambiguous preflight check mode accepted")
 	}
 }
+
+func TestPreflightProfileIsClosedAndDefaultsStrict(t *testing.T) {
+	t.Setenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE", "")
+	profile, err := preflightProfile()
+	if err != nil || profile != operationalReadiness.PreflightProfileStrict {
+		t.Fatalf("profile=%q error=%v", profile, err)
+	}
+	t.Setenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE", "vienna_rehearsal")
+	profile, err = preflightProfile()
+	if err != nil || profile != operationalReadiness.PreflightProfileViennaRehearsal {
+		t.Fatalf("profile=%q error=%v", profile, err)
+	}
+	t.Setenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE", "warning")
+	if _, err = preflightProfile(); err == nil {
+		t.Fatal("unknown preflight profile accepted")
+	}
+}

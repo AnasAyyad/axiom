@@ -59,7 +59,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 	if preflightCheck {
-		return runPreflightCheck(ctx, configuration.Identity.Mode, preflightSource, probe, operationalReadiness.RealClock{})
+		profile, profileErr := preflightProfile()
+		if profileErr != nil {
+			return profileErr
+		}
+		return runPreflightCheck(ctx, configuration.Identity.Mode, profile, preflightSource, probe, operationalReadiness.RealClock{})
 	}
 	store := &operationalReadiness.FileStore{Root: configuration.EvidenceRoot}
 	evidence, runErr := (operationalReadiness.Runner{Clock: operationalReadiness.RealClock{},
@@ -85,9 +89,21 @@ func preflightCheckEnabled() (bool, error) {
 	}
 }
 
+func preflightProfile() (operationalReadiness.PreflightProfile, error) {
+	switch os.Getenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE") {
+	case "", string(operationalReadiness.PreflightProfileStrict):
+		return operationalReadiness.PreflightProfileStrict, nil
+	case string(operationalReadiness.PreflightProfileViennaRehearsal):
+		return operationalReadiness.PreflightProfileViennaRehearsal, nil
+	default:
+		return "", fmt.Errorf("preflight profile invalid")
+	}
+}
+
 func runPreflightCheck(
 	ctx context.Context,
 	mode operationalReadiness.Mode,
+	profile operationalReadiness.PreflightProfile,
 	preflightSource operationalReadiness.PreflightChecker,
 	probe operationalReadiness.Probe,
 	clock operationalReadiness.Clock,
@@ -103,7 +119,7 @@ func runPreflightCheck(
 	if sampleErr == nil {
 		sampleInput = &sample
 	}
-	report := operationalReadiness.CheckPreflightSources(preflightInput, sampleInput, mode, checkedAt)
+	report := operationalReadiness.CheckPreflightSourcesForProfile(preflightInput, sampleInput, mode, profile, checkedAt)
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetEscapeHTML(false)
 	if err := encoder.Encode(report); err != nil {

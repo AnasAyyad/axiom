@@ -80,6 +80,24 @@ preflight and live-sample files from server, restore, deployment, database, and
 monitoring evidence. Never hand-edit a passing value or derive one from the
 checked-in fail-closed examples.
 
+### Vienna rehearsal profile
+
+Vienna may be approved only as a non-qualifying rehearsal server. Set
+`reference_server_approved=true` only in the protected Vienna rehearsal input,
+then run:
+
+```text
+make operational-readiness-preflight-vienna-rehearsal
+```
+
+This profile records a failed 100 ms route-clock measurement as
+`route_clock_threshold_exceeded` in `warnings` instead of failing the rehearsal.
+Every other preflight and sample requirement remains strict. The report always
+has `profile=vienna_rehearsal`, `formal_clock_started=false`, and
+`qualified=false`; it is not approval for the Japan reference server and it
+cannot start or qualify D5. The normal preflight command and formal runner
+continue to reject the same route-clock breach.
+
 ## During the run
 
 The approved observer atomically replaces the bounded live-sample JSON before

@@ -52,6 +52,60 @@ func TestUnavailablePreflightReportIsFailClosedAndRedacted(t *testing.T) {
 	}
 }
 
+func TestViennaRehearsalWarnsOnRouteClockButCannotQualify(t *testing.T) {
+	checkedAt := time.Date(2026, 8, 16, 8, 0, 0, 0, time.UTC)
+	preflight := testPreflight(checkedAt.Add(-time.Minute))
+	preflight.ReferenceServerApproved = true
+	preflight.RouteClockThresholdPassed = false
+	sample, err := (&safeProbe{}).Observe(context.Background(), 1, checkedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := CheckPreflightSourcesForProfile(
+		&preflight, &sample, ModeFormal, PreflightProfileViennaRehearsal, checkedAt,
+	)
+	if !report.Ready || !report.PreflightPassed || !report.SamplePassed ||
+		report.Qualified || report.FormalClockStarted ||
+		containsReason(report.PreflightFailures, "route_clock_threshold_failed") ||
+		!containsReason(report.Warnings, "route_clock_threshold_exceeded") {
+		t.Fatalf("unexpected rehearsal report: %+v", report)
+	}
+}
+
+func TestStrictPreflightStillRejectsRouteClockThreshold(t *testing.T) {
+	checkedAt := time.Date(2026, 8, 16, 8, 0, 0, 0, time.UTC)
+	preflight := testPreflight(checkedAt.Add(-time.Minute))
+	preflight.ReferenceServerApproved = true
+	preflight.RouteClockThresholdPassed = false
+	sample, err := (&safeProbe{}).Observe(context.Background(), 1, checkedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := CheckPreflightSourcesForProfile(
+		&preflight, &sample, ModeFormal, PreflightProfileStrict, checkedAt,
+	)
+	if report.Ready || !containsReason(report.PreflightFailures, "route_clock_threshold_failed") ||
+		len(report.Warnings) != 0 {
+		t.Fatalf("unexpected strict report: %+v", report)
+	}
+}
+
+func TestUnknownPreflightProfileFailsClosed(t *testing.T) {
+	checkedAt := time.Date(2026, 8, 16, 8, 0, 0, 0, time.UTC)
+	preflight := testPreflight(checkedAt.Add(-time.Minute))
+	preflight.ReferenceServerApproved = true
+	sample, err := (&safeProbe{}).Observe(context.Background(), 1, checkedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := CheckPreflightSourcesForProfile(
+		&preflight, &sample, ModeFormal, PreflightProfile("unknown"), checkedAt,
+	)
+	if report.Ready || !containsReason(report.PreflightFailures, "preflight_profile_invalid") {
+		t.Fatalf("unexpected invalid-profile report: %+v", report)
+	}
+}
+
 func TestCheckedInFaultScheduleMatchesRunnerContract(t *testing.T) {
 	var schedule FaultSchedule
 	if err := readStrictJSON("../../../deploy/config/operational-readiness-fault-schedule-v1.json", &schedule); err != nil {

@@ -85,6 +85,11 @@ func TestPreflightRejectsWeakClockThresholdMissingMarketRecoveryAndStaleness(t *
 		t.Fatal("weakened clock threshold accepted")
 	}
 	preflight = testPreflight(at.Add(-time.Second))
+	preflight.RouteClockThresholdPassed = false
+	if validatePreflight(preflight, ModeSmoke) == nil {
+		t.Fatal("route clock threshold breach accepted by runner")
+	}
+	preflight = testPreflight(at.Add(-time.Second))
 	preflight.MarketDataRecoveryPassed = false
 	if validatePreflight(preflight, ModeSmoke) == nil {
 		t.Fatal("missing market-data recovery accepted")

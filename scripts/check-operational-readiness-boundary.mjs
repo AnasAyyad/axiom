@@ -107,13 +107,18 @@ requireTokens("internal/qualification/operationalreadiness/files.go", [
 requireTokens("cmd/operational-readiness/main.go", [
   "AXIOM_OPERATIONAL_READINESS_ENABLED",
   "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK",
+  "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE",
+  "PreflightProfileViennaRehearsal",
   "formal build identity mismatch",
   "AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE",
 ]);
 requireTokens("internal/qualification/operationalreadiness/checks.go", [
-  "axiom.operational_readiness.preflight-report.v1",
-  "FormalClockStarted:           false",
-  "Qualified:                    false",
+  "axiom.operational_readiness.preflight-report.v2",
+  'PreflightProfileStrict PreflightProfile = "strict"',
+  'PreflightProfileViennaRehearsal PreflightProfile = "vienna_rehearsal"',
+  '"route_clock_threshold_exceeded"',
+  "FormalClockStarted:",
+  "Qualified:",
   "MarketDataRecoveryPassed",
   "preflight_stale",
   "sampleFailureReasons",
@@ -172,7 +177,9 @@ const preflightReportExample = JSON.parse(
 if (
   preflightReportExample.ready !== false ||
   preflightReportExample.formal_clock_started !== false ||
-  preflightReportExample.qualified !== false
+  preflightReportExample.qualified !== false ||
+  preflightReportExample.profile !== "strict" ||
+  !Array.isArray(preflightReportExample.warnings)
 ) {
   throw new Error("operational-readiness preflight report example can qualify");
 }
@@ -206,9 +213,15 @@ requireTokens("docs/requirements/v1d-d5-traceability.md", [
 ]);
 requireTokens("docs/operations/d5-readiness.md", [
   "make operational-readiness-preflight-check",
+  "make operational-readiness-preflight-vienna-rehearsal",
   "Do not restart, resume, reset the clock",
   "formal_clock_started=false",
   "qualified=false",
+]);
+
+requireTokens("Makefile", [
+  "operational-readiness-preflight-vienna-rehearsal",
+  "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE=strict",
 ]);
 
 console.log("Operational hardening, lifecycle, and readiness boundary passed");
