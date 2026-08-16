@@ -44,7 +44,7 @@ func (adapter *SandboxAdapter) StrategyEligibility(
 	items := make([]exchangecontracts.CollectorHealthSnapshot, 0, len(approvedInstruments()))
 	for _, instrument := range approvedInstruments() {
 		snapshot, err := adapter.marketData.Snapshot(ctx, exchangecontracts.SnapshotRequest{
-			Instrument: instrument, Depth: 100,
+			Instrument: instrument, Depth: 200,
 		})
 		if err != nil {
 			return nil, err

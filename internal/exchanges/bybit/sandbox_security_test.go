@@ -258,6 +258,11 @@ func TestBybitStartupEligibilityUsesCredentialFreePublicMarketData(
 			eligibilities,
 		)
 	}
+	for index, depth := range market.depths {
+		if depth != 200 || !validSnapshotDepth(depth) {
+			t.Fatalf("eligibility snapshot[%d] unsupported depth=%d", index, depth)
+		}
+	}
 	for index, instrument := range approvedInstruments() {
 		if !eligibilities[index].Eligible || eligibilities[index].Instrument != instrument.Symbol() {
 			t.Fatalf("eligibility[%d]=%#v", index, eligibilities[index])
@@ -291,6 +296,7 @@ func TestBybitStartupEligibilityRejectsMalformedCredentialFreeBook(t *testing.T)
 
 type bybitSandboxMarketData struct {
 	snapshots map[string]exchangecontracts.BookSnapshot
+	depths    []uint32
 	calls     int
 }
 
@@ -299,6 +305,10 @@ func (source *bybitSandboxMarketData) Snapshot(
 	request exchangecontracts.SnapshotRequest,
 ) (exchangecontracts.BookSnapshot, error) {
 	source.calls++
+	source.depths = append(source.depths, request.Depth)
+	if !validSnapshotDepth(request.Depth) {
+		return exchangecontracts.BookSnapshot{}, errors.New("bybit_sandbox_market_snapshot_depth_invalid")
+	}
 	snapshot, found := source.snapshots[request.Instrument.Symbol()]
 	if !found {
 		return exchangecontracts.BookSnapshot{}, errors.New("bybit_sandbox_market_snapshot_missing")
