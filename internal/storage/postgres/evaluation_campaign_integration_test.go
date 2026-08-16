@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"axiom/internal/domain"
+	"axiom/internal/recorder"
+	"axiom/internal/storage/segments"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -59,10 +61,89 @@ func assertEvaluationCampaignSchemaAndRecovery(t *testing.T, ctx context.Context
 	assertEvaluationCampaignRoleGrants(t, ctx, pool)
 	now := time.Date(2030, 8, 11, 12, 0, 0, 0, time.UTC)
 	assertNonCampaignRecorderObservationNoop(t, ctx, pool, now)
+	assertHistoricalDatasetRegistration(t, ctx, pool, now)
 	assertStandaloneEvaluationAudit(t, ctx, pool, now)
 	assertEvaluationCandidateLockAndShadowIsolation(t, ctx, pool, now)
 	assertEvaluationPartialReportEvidence(t, ctx, pool, now)
 	assertEvaluationRestartClaim(t, ctx, pool, now)
+}
+
+func assertHistoricalDatasetRegistration(t *testing.T, ctx context.Context,
+	pool *pgxpool.Pool, now time.Time) {
+	t.Helper()
+	insertEvaluationCampaignFixture(t, ctx, pool, "evaluation-history-catalog", "PARTIAL", now)
+	windowStart := time.Date(2023, 8, 1, 0, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := pool.Exec(ctx, `INSERT INTO evaluation_historical_imports(
+id,campaign_id,exchange_id,instrument,interval,window_start,window_end,state,checkpoint_time,
+session_id,recorder_dataset_id,created_at,updated_at)
+VALUES('historical-import-catalog','evaluation-history-catalog','binance','BTC/USDT','15m',$1,$2,
+'RUNNING',$1,'evalhist-catalog','evalhistdataset-catalog',$3,$3)`, windowStart, windowEnd, now); err != nil {
+		t.Fatal(err)
+	}
+	clock, _ := domain.NewReplayClock(now.Add(time.Second))
+	store, err := NewEvaluationHistoricalSegmentStore(pool, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := evaluationHistoricalSegmentManifest("evalhist-catalog-wire", "market-wire.v1", "wire", "wire", now)
+	canonical := evaluationHistoricalSegmentManifest("evalhist-catalog-canonical", "market-canonical.v1",
+		"binance-historical-candle.v1", "axiom-historical-candle-page.v1", now)
+	if err = store.CommitHistoricalSegment(ctx, "historical-import-catalog", windowStart, "wire", wire); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.CommitHistoricalSegment(ctx, "historical-import-catalog", windowStart, "canonical", canonical); err != nil {
+		t.Fatal(err)
+	}
+	// A recovered commit must prove the same immutable identity rather than
+	// creating a second catalogue row.
+	if err = store.CommitHistoricalSegment(ctx, "historical-import-catalog", windowStart, "wire", wire); err != nil {
+		t.Fatal(err)
+	}
+	manifest := recorder.DatasetManifest{SchemaVersion: "axiom.dataset.v1", DatasetID: "evalhistdataset-catalog",
+		SessionID: "evalhist-catalog", Exchange: "binance", Revision: 1, CreatedAt: now,
+		Segments:       []recorder.SegmentReference{{Kind: "wire", Manifest: wire}, {Kind: "canonical", Manifest: canonical}},
+		RawRecordCount: 1, CanonicalCount: 1, Complete: true, Hash: strings.Repeat("a", 64)}
+	catalog, err := NewRecordedDatasetCatalog(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datasetID, err := catalog.Register(ctx, manifest, strings.Repeat("b", 40))
+	if err != nil {
+		t.Fatalf("historical dataset registration failed: %v", err)
+	}
+	if repeated, repeatErr := catalog.Register(ctx, manifest, strings.Repeat("b", 40)); repeatErr != nil || repeated != datasetID {
+		t.Fatalf("historical dataset registration replay id=%s error=%v", repeated, repeatErr)
+	}
+	assertHistoricalDatasetRows(t, ctx, pool, datasetID)
+}
+
+func assertHistoricalDatasetRows(t *testing.T, ctx context.Context, pool *pgxpool.Pool, datasetID string) {
+	t.Helper()
+	var registeredSegments int
+	var instruments, eventTypes string
+	if err := pool.QueryRow(ctx, `SELECT count(*),string_agg(DISTINCT instrument_id,','),
+string_agg(event_type,',' ORDER BY event_type) FROM market_data_segments
+WHERE recorder_session='evalhist-catalog'`).Scan(&registeredSegments, &instruments, &eventTypes); err != nil ||
+		registeredSegments != 2 || instruments != "instrument-BTC-USDT" ||
+		eventTypes != "historical_candle_canonical,historical_candle_wire" {
+		t.Fatalf("historical market segments count=%d instruments=%s events=%s error=%v",
+			registeredSegments, instruments, eventTypes, err)
+	}
+	var datasetSegments int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM dataset_segments WHERE dataset_id=$1`, datasetID).
+		Scan(&datasetSegments); err != nil || datasetSegments != 2 {
+		t.Fatalf("historical dataset segments=%d error=%v", datasetSegments, err)
+	}
+}
+
+func evaluationHistoricalSegmentManifest(name, schema, parser, normalizer string,
+	now time.Time) segments.Manifest {
+	return segments.Manifest{Spec: segments.Spec{Name: name, SchemaVersion: schema, ParserVersion: parser,
+		NormalizationVersion: normalizer, OrderedContentHash: strings.Repeat("c", 64), FirstOrdinal: 1,
+		LastOrdinal: 1, RecordCount: 1, StartedAt: now, EndedAt: now}, Path: name + ".parquet",
+		Checksum: strings.Repeat("d", 64), OrderedContentHash: strings.Repeat("c", 64),
+		Size: 128, Format: "parquet", Compression: "zstd"}
 }
 
 func assertNonCampaignRecorderObservationNoop(t *testing.T, ctx context.Context,
