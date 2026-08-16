@@ -32,6 +32,56 @@ func TestOperationalReadinessPostgresOperationalReadinessQualification(t *testin
 	assertOperationalReadinessPressureLifecycle(t, ctx, pool)
 	assertOperationalReadinessArtifactLifecycle(t, ctx, pool)
 	assertOperationalReadinessObserverRoleBoundary(t, ctx, pool)
+	assertSandboxRuntimeEngineStrategyLifecycleRoleBoundary(t, ctx, pool)
+}
+
+func assertSandboxRuntimeEngineStrategyLifecycleRoleBoundary(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) {
+	t.Helper()
+	binanceRole := fmt.Sprintf("axiom_d5_binance_%d", time.Now().UnixNano())
+	bybitRole := fmt.Sprintf("axiom_d5_bybit_%d", time.Now().UnixNano())
+	for _, role := range []string{binanceRole, bybitRole} {
+		identifier := pgx.Identifier{role}.Sanitize()
+		if _, err := pool.Exec(ctx, "CREATE ROLE "+identifier+" NOLOGIN"); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(), "DROP OWNED BY "+identifier)
+			_, _ = pool.Exec(context.Background(), "DROP ROLE "+identifier)
+		})
+	}
+	if err := ApplySandboxRuntimeEngineRoleGrants(
+		ctx, pool, binanceRole, bybitRole,
+	); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range []string{binanceRole, bybitRole} {
+		var selectTable, updateTable, insertTable, deleteTable bool
+		var updateState, updateReason, updateRevision, updateStarted, updateStopped bool
+		if err := pool.QueryRow(ctx, `
+SELECT
+  has_table_privilege($1,'sandbox_strategy_sessions','SELECT'),
+  has_table_privilege($1,'sandbox_strategy_sessions','UPDATE'),
+  has_table_privilege($1,'sandbox_strategy_sessions','INSERT'),
+  has_table_privilege($1,'sandbox_strategy_sessions','DELETE'),
+  has_column_privilege($1,'sandbox_strategy_sessions','state','UPDATE'),
+  has_column_privilege($1,'sandbox_strategy_sessions','blocking_reason','UPDATE'),
+  has_column_privilege($1,'sandbox_strategy_sessions','revision','UPDATE'),
+  has_column_privilege($1,'sandbox_strategy_sessions','started_at','UPDATE'),
+  has_column_privilege($1,'sandbox_strategy_sessions','stopped_at','UPDATE')`, role).Scan(
+			&selectTable, &updateTable, &insertTable, &deleteTable,
+			&updateState, &updateReason, &updateRevision, &updateStarted, &updateStopped,
+		); err != nil {
+			t.Fatal(err)
+		}
+		if !selectTable || updateTable || insertTable || deleteTable ||
+			!updateState || !updateReason || !updateRevision || updateStarted || updateStopped {
+			t.Fatalf("engine strategy-session grants are broader or narrower than lifecycle policy")
+		}
+	}
 }
 
 func assertOperationalReadinessObserverRoleBoundary(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {

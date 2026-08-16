@@ -436,6 +436,26 @@ is_operational_evidence_literal() {
   esac
 }
 
+# Operational readiness reads the already-reviewed sandbox audit tables only to
+# prove duplicate-submit and non-production-target invariants. Accept only the
+# two exact deny-oriented SQL predicates; imports, clients, configurable
+# endpoints, and order methods remain forbidden by this scanner and the
+# dedicated operational-readiness boundary checker.
+is_operational_readiness_observer_literal() {
+  local rule_id="$1"
+  local file="${2#./}"
+  local line_text="$3"
+  case "${rule_id}:${file}" in
+    private-endpoint:internal/qualification/operationalreadiness/postgres_live_observer.go)
+      [[ "${line_text}" == *"AND path IN ('/api/v3/order','/v5/order/create')"* ]]
+      ;;
+    later-release-sandbox:internal/qualification/operationalreadiness/postgres_live_observer.go)
+      [[ "${line_text}" == *"WHERE environment NOT IN ('testnet','demo')"* ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 # Release certification names the exact already-reviewed signed destinations as
 # assertions. The allowlist accepts only literal host values in the validator
 # and fail-closed example; it cannot admit a configurable endpoint or runtime
@@ -530,6 +550,10 @@ run_rule() {
     fi
 
     if is_operational_evidence_literal "${rule_id}" "${file}" "${line_text}"; then
+      continue
+    fi
+
+    if is_operational_readiness_observer_literal "${rule_id}" "${file}" "${line_text}"; then
       continue
     fi
 

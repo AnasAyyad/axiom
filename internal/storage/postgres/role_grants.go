@@ -34,9 +34,35 @@ func ApplySandboxRuntimeEngineRoleGrants(
 		if err = applyTableGrants(ctx, tx, role, tables); err != nil {
 			return err
 		}
+		if err = applySandboxRuntimeEngineColumnGrants(ctx, tx, role, available); err != nil {
+			return err
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("sandbox_runtime_role_grant_commit_failed")
+	}
+	return nil
+}
+
+func applySandboxRuntimeEngineColumnGrants(
+	ctx context.Context,
+	tx pgx.Tx,
+	roleName string,
+	available map[string]struct{},
+) error {
+	const table = "sandbox_strategy_sessions"
+	if _, exists := available[table]; !exists {
+		return nil
+	}
+	columns := make([]string, 0, len(sandboxRuntimeEngineStrategySessionUpdateColumns))
+	for _, column := range sandboxRuntimeEngineStrategySessionUpdateColumns {
+		columns = append(columns, pgx.Identifier{column}.Sanitize())
+	}
+	statement := "GRANT UPDATE (" + strings.Join(columns, ", ") + ") ON " +
+		pgx.Identifier{"public", table}.Sanitize() + " TO " +
+		pgx.Identifier{roleName}.Sanitize()
+	if _, err := tx.Exec(ctx, statement); err != nil {
+		return fmt.Errorf("sandbox_runtime_role_column_grant_failed")
 	}
 	return nil
 }

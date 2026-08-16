@@ -113,6 +113,14 @@ requireTokens("internal/qualification/operationalreadiness/live_observer.go", [
   "DrillEvidenceHash",
   "WriteLiveSample",
 ]);
+requireTokens(
+  "internal/qualification/operationalreadiness/postgres_live_observer.go",
+  [
+    "AccessMode: pgx.ReadOnly",
+    "AND path IN ('/api/v3/order','/v5/order/create')",
+    "WHERE environment NOT IN ('testnet','demo')",
+  ],
+);
 requireTokens("cmd/operational-readiness-observer/main.go", [
   "PostgresTelemetrySource",
   "HTTPRuntimeTelemetrySource",

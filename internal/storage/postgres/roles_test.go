@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -497,6 +498,24 @@ func TestSandboxRuntimeEngineGrantIncludesClosedExecutionAndAlertTables(t *testi
 	}
 	assertSandboxRuntimeEngineReadOnlyGrants(t, role)
 	assertSandboxRuntimeEngineExcludedGrants(t, role, statement)
+}
+
+func TestSandboxRuntimeEngineStrategySessionMutationIsLifecycleOnly(t *testing.T) {
+	if !containsGrantTable(sandboxRuntimeEngineReadOnlyTables, "sandbox_strategy_sessions") ||
+		containsGrantTable(sandboxRuntimeEngineReadWriteTables, "sandbox_strategy_sessions") {
+		t.Fatal("strategy sessions must remain table-read-only for the engine role")
+	}
+	want := "state,blocking_reason,revision"
+	if got := strings.Join(sandboxRuntimeEngineStrategySessionUpdateColumns, ","); got != want {
+		t.Fatalf("strategy session lifecycle columns=%q want=%q", got, want)
+	}
+	for _, forbidden := range []string{
+		"started_at", "stopped_at", "created_by", "sandbox_session_id", "strategy_id",
+	} {
+		if slices.Contains(sandboxRuntimeEngineStrategySessionUpdateColumns, forbidden) {
+			t.Fatalf("engine lifecycle grant exposes %s", forbidden)
+		}
+	}
 }
 
 func TestSandboxQualificationRoleIsDedicatedAndLeastPrivilege(t *testing.T) {

@@ -150,6 +150,10 @@ var sandboxRuntimeEngineReadOnlyTables = []string{
 	"sandbox_strategy_sessions", "sandbox_strategy_session_accounts",
 }
 
+var sandboxRuntimeEngineStrategySessionUpdateColumns = []string{
+	"state", "blocking_reason", "revision",
+}
+
 var sandboxRuntimeEngineRiskStateAppendTables = []string{"risk_state_events"}
 
 var sandboxRuntimeEngineRiskStateUpdateTables = []string{"api_entity_revisions"}
