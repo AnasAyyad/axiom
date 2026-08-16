@@ -137,9 +137,10 @@ func (recorder *Recorder) finalizeWire(revision uint64, rows []segments.WireRow)
 	if err != nil {
 		return segments.Manifest{}, recorderError("wire_writer_failed")
 	}
+	started, ended := wireReceivedBounds(rows)
 	spec := segmentSpec(recorder.sessionID, "wire", revision, rows[0].IngestOrdinal,
-		rows[len(rows)-1].IngestOrdinal, uint64(len(rows)), rows[0].ReceivedAtUnixNano,
-		rows[len(rows)-1].ReceivedAtUnixNano, segments.WireSchemaVersion, "wire", "wire", hash)
+		rows[len(rows)-1].IngestOrdinal, uint64(len(rows)), started, ended,
+		segments.WireSchemaVersion, "wire", "wire", hash)
 	manifest, err := recorder.finalizer.Finalize(spec, writer, recorder.commit)
 	if err != nil {
 		return segments.Manifest{}, recorderFinalizeError("wire_finalize_failed", "wire_finalize", err)
@@ -159,15 +160,33 @@ func (recorder *Recorder) finalizeCanonical(
 	if err != nil {
 		return segments.Manifest{}, recorderError("canonical_writer_failed")
 	}
+	started, ended := canonicalReceivedBounds(rows)
 	spec := segmentSpec(recorder.sessionID, "canonical", revision, rows[0].IngestOrdinal,
-		rows[len(rows)-1].IngestOrdinal, uint64(len(rows)), rows[0].ReceivedAtUnixNano,
-		rows[len(rows)-1].ReceivedAtUnixNano, segments.CanonicalSchemaVersion,
+		rows[len(rows)-1].IngestOrdinal, uint64(len(rows)), started, ended, segments.CanonicalSchemaVersion,
 		rows[0].ParserVersion, rows[0].NormalizationVersion, hash)
 	manifest, err := recorder.finalizer.Finalize(spec, writer, recorder.commit)
 	if err != nil {
 		return segments.Manifest{}, recorderFinalizeError("canonical_finalize_failed", "canonical_finalize", err)
 	}
 	return manifest, nil
+}
+
+func wireReceivedBounds(rows []segments.WireRow) (int64, int64) {
+	started, ended := rows[0].ReceivedAtUnixNano, rows[0].ReceivedAtUnixNano
+	for _, row := range rows[1:] {
+		started = min(started, row.ReceivedAtUnixNano)
+		ended = max(ended, row.ReceivedAtUnixNano)
+	}
+	return started, ended
+}
+
+func canonicalReceivedBounds(rows []segments.CanonicalRow) (int64, int64) {
+	started, ended := rows[0].ReceivedAtUnixNano, rows[0].ReceivedAtUnixNano
+	for _, row := range rows[1:] {
+		started = min(started, row.ReceivedAtUnixNano)
+		ended = max(ended, row.ReceivedAtUnixNano)
+	}
+	return started, ended
 }
 
 func segmentSpec(

@@ -106,6 +106,39 @@ func TestCoherentMarketDataManifestAcceptsInterleavedConnectionGenerations(t *te
 	}
 }
 
+func TestCoherentMarketDataManifestUsesFullSegmentReceivedTimeBounds(t *testing.T) {
+	root := t.TempDir()
+	profile := CollectorProfile{Instance: "collector-1", Region: "test-region", MinimumReaderVersion: "dataset-reader.v2"}
+	stream, err := NewCoherentMarketData(root, "binance-time-bounds", "binance-time-bounds-session", "binance",
+		&runtimecore.IngestOrdinals{}, func(segments.Manifest) error { return nil }, nil, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Unix(1_700_000_000, 0).UTC()
+	peak := base.Add(4 * time.Nanosecond)
+	recordForExchangeAt(t, stream, "binance", "binance-time-bounds-session", 1, 1, base)
+	recordForExchangeAt(t, stream, "binance", "binance-time-bounds-session", 2, 2, peak)
+	recordForExchangeAt(t, stream, "binance", "binance-time-bounds-session", 1, 3, peak.Add(-time.Nanosecond))
+
+	manifest, err := stream.Flush()
+	if err != nil {
+		t.Fatalf("out-of-order receive timestamps rejected: %v", err)
+	}
+	coverage := manifest.ExchangeCoverage[0]
+	if !coverage.CoverageStart.Equal(base) || !coverage.CoverageEnd.Equal(peak) {
+		t.Fatalf("received-time coverage = %s..%s", coverage.CoverageStart, coverage.CoverageEnd)
+	}
+	for _, reference := range manifest.Segments {
+		if !reference.Manifest.Spec.StartedAt.Equal(base) || !reference.Manifest.Spec.EndedAt.Equal(peak) {
+			t.Fatalf("%s segment bounds = %s..%s", reference.Kind,
+				reference.Manifest.Spec.StartedAt, reference.Manifest.Spec.EndedAt)
+		}
+	}
+	if _, err = ValidateDataset(root, manifest); err != nil {
+		t.Fatalf("received-time manifest rejected: %v", err)
+	}
+}
+
 func assertStoredTierAManifest(t *testing.T, base string, tierA TierAManifest) {
 	t.Helper()
 	path, err := WriteTierAManifest(filepath.Join(base, "qualification"), tierA)
@@ -158,6 +191,17 @@ func recordForExchange(
 ) {
 	t.Helper()
 	now := time.Unix(1_700_000_000+int64(sequence), int64(generation)).UTC()
+	recordForExchangeAt(t, recorder, exchange, session, generation, sequence, now)
+}
+
+func recordForExchangeAt(
+	t *testing.T,
+	recorder *Recorder,
+	exchange, session string,
+	generation, sequence uint64,
+	now time.Time,
+) {
+	t.Helper()
 	payload := []byte(`{"kind":"depth"}`)
 	link, err := recorder.RecordRaw(RawInput{Exchange: exchange, EventType: EventDepth,
 		Instrument: recorderInstrument(t), SessionID: session, ConnectionID: "connection-1",
