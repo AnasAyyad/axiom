@@ -17,8 +17,11 @@ docker build --file deploy/docker/Dockerfile --tag "${rebuild_image}" \
   --build-arg "DIRTY=${dirty}" . >/dev/null
 
 runtime_descriptor() {
+  # RootFS DiffIDs hash the uncompressed runtime layers. Config covers the
+  # executable metadata. Docker's aggregate Size reflects compressed export
+  # representation and can vary without any runtime-byte difference.
   docker image inspect --format \
-    '{{json .Config}}|{{json .RootFS}}|{{.Size}}|{{.Architecture}}|{{.Os}}' "$1"
+    '{{json .Config}}|{{json .RootFS}}|{{.Architecture}}|{{.Os}}' "$1"
 }
 
 if ! cmp <(runtime_descriptor "${image}") <(runtime_descriptor "${rebuild_image}"); then
