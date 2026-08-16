@@ -28,6 +28,10 @@ const compose = requireTokens("docker-compose.yml", [
   "RECORDER_PRESSURE_SAMPLE_INTERVAL",
   "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}",
   "--storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-20GB}",
+  "cpus: ${PROMETHEUS_CPU_LIMIT:-1.0}",
+  "cpus: ${GRAFANA_CPU_LIMIT:-1.0}",
+  "mem_limit: ${CADDY_MEMORY_LIMIT:-256m}",
+  "cpus: ${CADDY_CPU_LIMIT:-1.0}",
   "operational-readiness-observer:",
   "POSTGRES_OPERATIONAL_READINESS_USER",
   "AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE",
@@ -37,6 +41,12 @@ if (compose.includes("backup_data:")) {
     "Compose-managed backup_data volume survived operational-readiness hardening",
   );
 }
+requireTokens(".env.example", [
+  "PROMETHEUS_CPU_LIMIT=1.0",
+  "GRAFANA_CPU_LIMIT=1.0",
+  "CADDY_CPU_LIMIT=1.0",
+  "CADDY_MEMORY_LIMIT=256m",
+]);
 
 requireTokens(
   "internal/storage/postgres/migrations/000027_v1d_d5_operational_readiness.sql",

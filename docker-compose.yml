@@ -732,6 +732,7 @@ services:
     networks:
       - metrics
     mem_limit: ${PROMETHEUS_MEMORY_LIMIT:-1g}
+    cpus: ${PROMETHEUS_CPU_LIMIT:-1.0}
     pids_limit: 128
     logging: *default-logging
 
@@ -769,6 +770,7 @@ services:
     ports:
       - "${HOST_BIND_IP:-127.0.0.1}:${GRAFANA_HOST_PORT:-3000}:3000"
     mem_limit: ${GRAFANA_MEMORY_LIMIT:-512m}
+    cpus: ${GRAFANA_CPU_LIMIT:-1.0}
     pids_limit: 128
     logging: *default-logging
 
@@ -798,6 +800,8 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+    mem_limit: ${CADDY_MEMORY_LIMIT:-256m}
+    cpus: ${CADDY_CPU_LIMIT:-1.0}
     pids_limit: 128
     logging: *default-logging
 
