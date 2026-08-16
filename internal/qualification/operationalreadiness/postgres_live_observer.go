@@ -13,6 +13,11 @@ import (
 // repeatable-read transaction. It never writes or returns row identifiers.
 type PostgresTelemetrySource struct{ Pool *pgxpool.Pool }
 
+const productionTargetPredicate = `NOT (
+  (exchange='binance' AND environment='spot_testnet') OR
+  (exchange='bybit' AND environment='demo')
+)`
+
 func (source PostgresTelemetrySource) Observe(
 	ctx context.Context,
 	windowStart time.Time,
@@ -70,7 +75,7 @@ SELECT count(*) FROM (
 	if err = tx.QueryRow(ctx, `
 SELECT count(*)
 FROM sandbox_runtime_exchange_accounts
-WHERE environment NOT IN ('testnet','demo')`).Scan(&production); err != nil {
+WHERE `+productionTargetPredicate).Scan(&production); err != nil {
 		return DatabaseTelemetry{}, fmt.Errorf("operational_readiness_database_source_unavailable")
 	}
 	if err = tx.QueryRow(ctx, `

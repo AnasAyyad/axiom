@@ -128,7 +128,8 @@ requireTokens(
   [
     "AccessMode: pgx.ReadOnly",
     "AND path IN ('/api/v3/order','/v5/order/create')",
-    "WHERE environment NOT IN ('testnet','demo')",
+    "(exchange='binance' AND environment='spot_testnet')",
+    "(exchange='bybit' AND environment='demo')",
   ],
 );
 requireTokens("cmd/operational-readiness-observer/main.go", [
