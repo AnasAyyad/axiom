@@ -2,7 +2,7 @@ module axiom
 
 go 1.26.0
 
-toolchain go1.26.5
+toolchain go1.26.6
 
 require (
 	github.com/cockroachdb/apd/v3 v3.2.3

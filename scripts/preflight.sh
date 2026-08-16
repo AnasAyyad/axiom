@@ -16,7 +16,7 @@ require_version() {
   fi
 }
 
-require_version go "$("${GO}" version | awk '{print $3}')" go1.26.5
+require_version go "$("${GO}" version | awk '{print $3}')" go1.26.6
 require_version node "$("${NODE}" --version)" v24.18.0
 require_version pnpm "$("${COREPACK}" pnpm --version)" 11.12.0
 
