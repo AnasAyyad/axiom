@@ -40,6 +40,10 @@ RUN --mount=type=cache,id=axiom-go-build,target=/root/.cache/go-build \
     go build -trimpath \
     -ldflags "-s -w -X axiom/internal/buildinfo.Version=${VERSION} -X axiom/internal/buildinfo.Commit=${COMMIT} -X axiom/internal/buildinfo.BuiltAt=${BUILT_AT} -X axiom/internal/buildinfo.Dirty=${DIRTY} -X axiom/internal/buildinfo.GoSumHash=${GO_SUM_HASH} -X axiom/internal/buildinfo.PNPMLockHash=${PNPM_LOCK_HASH}" \
     -o /out/platform ./cmd/platform
+RUN --mount=type=cache,id=axiom-go-build,target=/root/.cache/go-build \
+    go build -trimpath \
+    -ldflags "-s -w -X axiom/internal/buildinfo.Version=${VERSION} -X axiom/internal/buildinfo.Commit=${COMMIT} -X axiom/internal/buildinfo.BuiltAt=${BUILT_AT} -X axiom/internal/buildinfo.Dirty=${DIRTY}" \
+    -o /out/operational-readiness-observer ./cmd/operational-readiness-observer
 RUN go run ./scripts/generate_sandbox_runtime_canary_config.go \
       --exchange binance \
       --output /out/platform-binance-testnet.json && \
@@ -54,6 +58,7 @@ LABEL org.opencontainers.image.title="Axiom" \
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=go-build /usr/share/zoneinfo/UTC /usr/share/zoneinfo/UTC
 COPY --from=go-build --chown=10001:70 /out/platform /app/platform
+COPY --from=go-build --chown=10001:70 /out/operational-readiness-observer /app/operational-readiness-observer
 COPY --chown=10001:70 deploy/config/platform-shadow.json /etc/axiom/platform.json
 COPY --chown=10001:70 deploy/config/platform-research.json /etc/axiom/platform-research.json
 COPY --from=go-build --chown=10001:70 /out/platform-binance-testnet.json /etc/axiom/platform-binance-testnet.json

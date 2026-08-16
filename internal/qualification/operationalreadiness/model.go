@@ -66,6 +66,7 @@ var failureReasons = []string{
 	"shutdown_slo", "recovery_rto", "rpo_breach", "resource_limit",
 	"memory_leak", "disk_pressure_unsafe", "fault_schedule_incomplete",
 	"production_target", "prohibited_capability", "operator_abort", "evidence_failure",
+	"sample_source_evidence_invalid",
 }
 
 // Identity binds a readiness run to exact release and server inputs.
@@ -154,6 +155,9 @@ type Sample struct {
 	Ordinal                      uint64    `json:"ordinal"`
 	ObservedAt                   time.Time `json:"observed_at"`
 	SourceRevision               uint64    `json:"source_revision"`
+	DatabaseEvidenceHash         string    `json:"database_evidence_hash"`
+	RuntimeEvidenceHash          string    `json:"runtime_evidence_hash"`
+	DrillEvidenceHash            string    `json:"drill_evidence_hash"`
 	PriorSampleHash              string    `json:"prior_sample_hash,omitempty"`
 	SampleHash                   string    `json:"sample_hash"`
 	StaleDecisions               uint64    `json:"stale_decisions"`

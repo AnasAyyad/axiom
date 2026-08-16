@@ -14,6 +14,7 @@ import (
 	"axiom/internal/exchanges/binance"
 	"axiom/internal/exchanges/bybit"
 	exchangecontracts "axiom/internal/exchanges/contracts"
+	"axiom/internal/observability"
 	marketrecorder "axiom/internal/recorder"
 	runtimecore "axiom/internal/runtime"
 	postgresstore "axiom/internal/storage/postgres"
@@ -40,6 +41,7 @@ type recorderRoleWork struct {
 	session         string
 	rotationControl *postgresstore.EvaluationRecorderControlStore
 	startupRotation *postgresstore.EvaluationRecorderRotation
+	metrics         *observability.Metrics
 }
 
 type recorderRoleResumeState struct {

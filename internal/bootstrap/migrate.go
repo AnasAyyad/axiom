@@ -47,6 +47,16 @@ func runMigrate(ctx context.Context, runtimeConfig config.Runtime, product confi
 	); err != nil {
 		return err
 	}
+	observerRole := environmentOr(
+		"POSTGRES_OPERATIONAL_READINESS_USER",
+		"axiom_operational_readiness",
+	)
+	if err := postgresstore.ApplyOperationalReadinessObserverRoleGrants(
+		ctx, pool, observerRole,
+		runtimeRole, recorderRole, readOnlyRole, binanceRole, bybitRole, qualificationRole,
+	); err != nil {
+		return err
+	}
 	if err := postgresstore.EnsureTrendFoundationReferenceData(ctx, pool, product, time.Now().UTC()); err != nil {
 		return err
 	}

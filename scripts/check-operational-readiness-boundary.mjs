@@ -28,6 +28,9 @@ const compose = requireTokens("docker-compose.yml", [
   "RECORDER_PRESSURE_SAMPLE_INTERVAL",
   "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}",
   "--storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-20GB}",
+  "operational-readiness-observer:",
+  "POSTGRES_OPERATIONAL_READINESS_USER",
+  "AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE",
 ]);
 if (compose.includes("backup_data:")) {
   throw new Error(
@@ -104,6 +107,17 @@ requireTokens("internal/qualification/operationalreadiness/files.go", [
   "events[index].RunID != runID",
   "operational_readiness_fault_evidence_run_mismatch",
 ]);
+requireTokens("internal/qualification/operationalreadiness/live_observer.go", [
+  "DatabaseEvidenceHash",
+  "RuntimeEvidenceHash",
+  "DrillEvidenceHash",
+  "WriteLiveSample",
+]);
+requireTokens("cmd/operational-readiness-observer/main.go", [
+  "PostgresTelemetrySource",
+  "HTTPRuntimeTelemetrySource",
+  "postgres_operational_readiness_password",
+]);
 requireTokens("cmd/operational-readiness/main.go", [
   "AXIOM_OPERATIONAL_READINESS_ENABLED",
   "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK",
@@ -159,6 +173,7 @@ for (const path of [
   "deploy/config/operational-readiness-preflight.example.json",
   "deploy/config/operational-readiness-sample.example.json",
   "deploy/config/operational-readiness-fault-evidence.example.json",
+  "deploy/config/operational-readiness-drill-observation.example.json",
 ]) {
   const example = read(path);
   JSON.parse(example);
@@ -189,6 +204,10 @@ for (const path of [
   "internal/qualification/operationalreadiness/runner.go",
   "internal/qualification/operationalreadiness/checks.go",
   "cmd/operational-readiness/main.go",
+  "internal/qualification/operationalreadiness/live_observer.go",
+  "internal/qualification/operationalreadiness/postgres_live_observer.go",
+  "internal/qualification/operationalreadiness/http_live_observer.go",
+  "cmd/operational-readiness-observer/main.go",
 ]) {
   const source = read(path);
   for (const forbidden of [

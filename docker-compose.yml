@@ -111,6 +111,7 @@ services:
       POSTGRES_RECORDER_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
       POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER:-axiom_backup}
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
+      POSTGRES_OPERATIONAL_READINESS_USER: ${POSTGRES_OPERATIONAL_READINESS_USER:-axiom_operational_readiness}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
       POSTGRES_SANDBOX_QUALIFICATION_USER: ${POSTGRES_SANDBOX_QUALIFICATION_USER:-axiom_sandbox_qualification}
@@ -122,6 +123,7 @@ services:
       - postgres_recorder_password
       - postgres_backup_password
       - postgres_readonly_password
+      - postgres_operational_readiness_password
       - postgres_binance_engine_password
       - postgres_bybit_engine_password
       - postgres_sandbox_qualification_password
@@ -150,7 +152,7 @@ services:
 
   migrate:
     <<: *app-base
-    profiles: [app, record, workers, backup, sandbox, sandbox-canary]
+    profiles: [app, record, workers, backup, sandbox, sandbox-canary, operational-readiness]
     restart: "no"
     command: ["admin", "migrate"]
     environment:
@@ -160,6 +162,7 @@ services:
       POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-axiom_app}
       POSTGRES_RECORDER_USER: ${POSTGRES_RECORDER_USER:-axiom_recorder}
       POSTGRES_READONLY_USER: ${POSTGRES_READONLY_USER:-axiom_readonly}
+      POSTGRES_OPERATIONAL_READINESS_USER: ${POSTGRES_OPERATIONAL_READINESS_USER:-axiom_operational_readiness}
       POSTGRES_BINANCE_ENGINE_USER: ${POSTGRES_BINANCE_ENGINE_USER:-axiom_binance_engine}
       POSTGRES_BYBIT_ENGINE_USER: ${POSTGRES_BYBIT_ENGINE_USER:-axiom_bybit_engine}
       POSTGRES_SANDBOX_QUALIFICATION_USER: ${POSTGRES_SANDBOX_QUALIFICATION_USER:-axiom_sandbox_qualification}
@@ -175,7 +178,7 @@ services:
 
   api:
     <<: *app-base
-    profiles: [app]
+    profiles: [app, operational-readiness]
     command: ["api"]
     environment:
       <<: *runtime-environment
@@ -218,7 +221,7 @@ services:
 
   engine-shadow:
     <<: *app-base
-    profiles: [app]
+    profiles: [app, operational-readiness]
     command: ["trader", "--mode=shadow"]
     environment:
       <<: *runtime-environment
@@ -256,7 +259,7 @@ services:
 
   recorder:
     <<: *app-base
-    profiles: [app, record]
+    profiles: [app, record, operational-readiness]
     command: ["recorder"]
     environment:
       <<: *runtime-environment
@@ -315,7 +318,7 @@ services:
 
   backtest-worker:
     <<: *app-base
-    profiles: [app, workers]
+    profiles: [app, workers, operational-readiness]
     command: ["worker"]
     environment:
       <<: *runtime-environment
@@ -466,7 +469,7 @@ services:
 
   binance-testnet-egress:
     <<: *app-base
-    profiles: [sandbox-foundation, sandbox]
+    profiles: [sandbox-foundation, sandbox, operational-readiness]
     command: ["egress-proxy", "--exchange=binance"]
     environment: {}
     networks:
@@ -479,7 +482,7 @@ services:
 
   bybit-demo-egress:
     <<: *app-base
-    profiles: [sandbox-foundation, sandbox]
+    profiles: [sandbox-foundation, sandbox, operational-readiness]
     command: ["egress-proxy", "--exchange=bybit"]
     environment: {}
     networks:
@@ -492,7 +495,7 @@ services:
 
   binance-sandbox-engine:
     <<: *app-base
-    profiles: [sandbox]
+    profiles: [sandbox, operational-readiness]
     command: ["sandbox-engine", "--exchange=binance"]
     environment:
       <<: *runtime-environment
@@ -538,7 +541,7 @@ services:
 
   bybit-sandbox-engine:
     <<: *app-base
-    profiles: [sandbox]
+    profiles: [sandbox, operational-readiness]
     command: ["sandbox-engine", "--exchange=bybit"]
     environment:
       <<: *runtime-environment
@@ -636,9 +639,62 @@ services:
     mem_limit: ${SANDBOX_CANARY_MEMORY_LIMIT:-512m}
     cpus: ${SANDBOX_CANARY_CPU_LIMIT:-1.0}
 
+  operational-readiness-observer:
+    <<: *app-base
+    profiles: [operational-readiness]
+    entrypoint: ["/app/operational-readiness-observer"]
+    command: []
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-axiom}
+      DB_USER: ${POSTGRES_OPERATIONAL_READINESS_USER:-axiom_operational_readiness}
+      DB_PASSWORD_FILE: /run/secrets/postgres_operational_readiness_password
+      DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+      AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE: /var/lib/axiom/operational-readiness/sample.json
+      AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE: /var/lib/axiom/operational-readiness/drill-observation.json
+      AXIOM_OPERATIONAL_READINESS_OBSERVER_INTERVAL: ${AXIOM_OPERATIONAL_READINESS_OBSERVER_INTERVAL:-15s}
+      AXIOM_OPERATIONAL_READINESS_OBSERVER_WINDOW: ${AXIOM_OPERATIONAL_READINESS_OBSERVER_WINDOW:-1h}
+      AXIOM_D5_API_MEMORY_LIMIT: ${API_MEMORY_LIMIT:-1g}
+      AXIOM_D5_ENGINE_MEMORY_LIMIT: ${ENGINE_MEMORY_LIMIT:-2g}
+      AXIOM_D5_RECORDER_MEMORY_LIMIT: ${RECORDER_MEMORY_LIMIT:-2g}
+      AXIOM_D5_WORKER_MEMORY_LIMIT: ${WORKER_MEMORY_LIMIT:-4g}
+      AXIOM_D5_BINANCE_MEMORY_LIMIT: ${SANDBOX_ENGINE_MEMORY_LIMIT:-1g}
+      AXIOM_D5_BYBIT_MEMORY_LIMIT: ${SANDBOX_ENGINE_MEMORY_LIMIT:-1g}
+    secrets:
+      - postgres_operational_readiness_password
+    volumes:
+      - type: bind
+        source: ${OPERATIONAL_READINESS_HOST_PATH:-./.local/operational-readiness}
+        target: /var/lib/axiom/operational-readiness
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      engine-shadow:
+        condition: service_healthy
+      recorder:
+        condition: service_healthy
+      backtest-worker:
+        condition: service_healthy
+      binance-sandbox-engine:
+        condition: service_healthy
+      bybit-sandbox-engine:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+      grafana:
+        condition: service_started
+    networks:
+      - core
+      - metrics
+    mem_limit: ${OPERATIONAL_READINESS_OBSERVER_MEMORY_LIMIT:-256m}
+    cpus: ${OPERATIONAL_READINESS_OBSERVER_CPU_LIMIT:-0.5}
+
   prometheus:
     image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
-    profiles: [observability]
+    profiles: [observability, operational-readiness]
     read_only: true
     restart: ${CONTAINER_RESTART_POLICY:-unless-stopped}
     cap_drop:
@@ -662,7 +718,7 @@ services:
 
   grafana:
     image: ${GRAFANA_IMAGE:-grafana/grafana:12.0.2}
-    profiles: [observability]
+    profiles: [observability, operational-readiness]
     user: "472:0"
     read_only: true
     restart: ${CONTAINER_RESTART_POLICY:-unless-stopped}
@@ -762,6 +818,8 @@ secrets:
     file: ${SECRETS_DIR:-./.secrets}/backup_encryption_key
   postgres_readonly_password:
     file: ${SECRETS_DIR:-./.secrets}/postgres_readonly_password
+  postgres_operational_readiness_password:
+    file: ${SECRETS_DIR:-./.secrets}/postgres_operational_readiness_password
   grafana_admin_password:
     file: ${SECRETS_DIR:-./.secrets}/grafana_admin_password
   health_detail_token:

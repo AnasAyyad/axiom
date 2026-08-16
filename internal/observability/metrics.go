@@ -2,6 +2,8 @@ package observability
 
 import (
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -57,29 +59,36 @@ type Metrics struct {
 	registry *prometheus.Registry
 	catalog  MetricCatalog
 
-	wsMessages         *prometheus.CounterVec
-	wsFailures         *prometheus.CounterVec
-	bookAge            *prometheus.GaugeVec
-	queueDepth         *prometheus.GaugeVec
-	queueDropped       *prometheus.CounterVec
-	strategyRuns       *prometheus.CounterVec
-	strategyCandidates *prometheus.GaugeVec
-	strategyRejected   *prometheus.CounterVec
-	riskDuration       *prometheus.HistogramVec
-	simulationDuration *prometheus.HistogramVec
-	restDuration       *prometheus.HistogramVec
-	restFailures       *prometheus.CounterVec
-	wsLag              *prometheus.HistogramVec
-	shadowFills        *prometheus.CounterVec
-	reconciliation     *prometheus.CounterVec
-	journalFailures    *prometheus.CounterVec
-	virtualPnL         *prometheus.GaugeVec
-	virtualDrawdown    *prometheus.GaugeVec
-	databaseDuration   *prometheus.HistogramVec
-	databaseFailures   *prometheus.CounterVec
-	diskFreeBytes      *prometheus.GaugeVec
-	alerts             *prometheus.GaugeVec
-	ready              *prometheus.GaugeVec
+	wsMessages                          *prometheus.CounterVec
+	wsFailures                          *prometheus.CounterVec
+	bookAge                             *prometheus.GaugeVec
+	queueDepth                          *prometheus.GaugeVec
+	queueDropped                        *prometheus.CounterVec
+	strategyRuns                        *prometheus.CounterVec
+	strategyCandidates                  *prometheus.GaugeVec
+	strategyRejected                    *prometheus.CounterVec
+	riskDuration                        *prometheus.HistogramVec
+	simulationDuration                  *prometheus.HistogramVec
+	restDuration                        *prometheus.HistogramVec
+	restFailures                        *prometheus.CounterVec
+	wsLag                               *prometheus.HistogramVec
+	shadowFills                         *prometheus.CounterVec
+	reconciliation                      *prometheus.CounterVec
+	journalFailures                     *prometheus.CounterVec
+	virtualPnL                          *prometheus.GaugeVec
+	virtualDrawdown                     *prometheus.GaugeVec
+	databaseDuration                    *prometheus.HistogramVec
+	databaseFailures                    *prometheus.CounterVec
+	diskFreeBytes                       *prometheus.GaugeVec
+	alerts                              *prometheus.GaugeVec
+	ready                               *prometheus.GaugeVec
+	operationalReadinessDecodeBookP99   prometheus.Gauge
+	operationalReadinessStrategyRiskP99 prometheus.Gauge
+	operationalReadinessResyncP95       prometheus.Gauge
+	operationalReadinessObservedAt      *prometheus.GaugeVec
+	operationalReadinessMutex           sync.Mutex
+	operationalReadinessStrategyWindow  []time.Duration
+	operationalReadinessStrategyNext    int
 
 	sandboxOrders                         *prometheus.CounterVec
 	sandboxAnomalies                      *prometheus.CounterVec
@@ -165,6 +174,22 @@ func initializeObservabilityMetrics(metrics *Metrics, labels prometheus.Labels) 
 	metrics.diskFreeBytes = gauge("axiom_disk_free_bytes", "Free bytes on a configured storage class.", []string{"storage"}, labels)
 	metrics.alerts = gauge("axiom_alerts_open", "Open in-app alerts.", []string{"severity", "reason"}, labels)
 	metrics.ready = gauge("axiom_dependency_ready", "Dependency readiness state (1 ready, 0 unavailable).", []string{"dependency"}, labels)
+	metrics.operationalReadinessDecodeBookP99 = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "axiom_operational_readiness_decode_book_p99_milliseconds",
+		Help: "Measured recorder decode and order-book hot-path p99 in milliseconds.", ConstLabels: labels,
+	})
+	metrics.operationalReadinessStrategyRiskP99 = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "axiom_operational_readiness_strategy_risk_p99_milliseconds",
+		Help: "Measured shadow strategy through risk evaluation p99 in milliseconds.", ConstLabels: labels,
+	})
+	metrics.operationalReadinessResyncP95 = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "axiom_operational_readiness_resync_p95_milliseconds",
+		Help: "Measured recorder order-book resynchronization p95 in milliseconds.", ConstLabels: labels,
+	})
+	metrics.operationalReadinessObservedAt = gauge(
+		"axiom_operational_readiness_telemetry_observed_unixtime",
+		"Last successful D5 telemetry observation by fixed component.", []string{"component"}, labels,
+	)
 }
 
 func initializeSandboxQualificationMetrics(metrics *Metrics, labels prometheus.Labels) {
@@ -209,6 +234,8 @@ func (metrics *Metrics) register() {
 		metrics.journalFailures, metrics.virtualPnL, metrics.virtualDrawdown,
 		metrics.databaseDuration, metrics.databaseFailures, metrics.alerts, metrics.ready,
 		metrics.diskFreeBytes,
+		metrics.operationalReadinessDecodeBookP99, metrics.operationalReadinessStrategyRiskP99,
+		metrics.operationalReadinessResyncP95, metrics.operationalReadinessObservedAt,
 		metrics.sandboxOrders, metrics.sandboxAnomalies, metrics.sandboxUnknown,
 		metrics.sandboxReconciliation, metrics.sandboxArms,
 		metrics.sandboxCapUsage, metrics.sandboxCapRejections,

@@ -17,7 +17,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify owner-experience
 .PHONY: run-lab-contract-qualify run-lab-api-qualify run-lab-postgres-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify run-lab
 .PHONY: operational-evidence-contract-qualify operational-evidence-api-qualify operational-evidence-postgres-qualify operational-evidence-frontend-qualify operational-evidence-browser-qualify operational-evidence-security-qualify operational-evidence
-.PHONY: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-preflight-check operational-readiness-preflight-vienna-rehearsal operational-readiness-formal operational-readiness
+.PHONY: operational-readiness-model-qualify operational-readiness-observer-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-preflight-check operational-readiness-preflight-vienna-rehearsal operational-readiness-formal operational-readiness
 .PHONY: evaluation-campaign-postgres-qualify
 .PHONY: release-certification-model-qualify release-certification-traceability-qualify release-certification-security-qualify release-certification-formal release-certify
 
@@ -408,6 +408,9 @@ operational-readiness-model-qualify: ## Exercise operational readiness pressure,
 	@$(GO) test -race ./internal/storage/pressure ./internal/qualification/operationalreadiness \
 		./internal/bootstrap -count=1
 
+operational-readiness-observer-qualify: ## Prove the live D5 observer is source-bound, fresh, read-only, and fail-closed.
+	@$(GO) test ./internal/qualification/operationalreadiness ./cmd/operational-readiness-observer -count=1
+
 operational-readiness-backup-qualify: ## Prove independent mount rejection, encryption, retention, and authenticated restore evidence.
 	@$(GO) test ./internal/backup ./cmd/storage-backup -count=1
 	@$(GO) test -race ./internal/backup -count=1
@@ -457,7 +460,7 @@ operational-readiness-preflight-check: ## MANUAL: validate exact D5 inputs and o
 	@case "$${AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE:-strict}" in strict|vienna_rehearsal) ;; *) echo "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE is invalid" >&2; exit 1 ;; esac
 	@AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK=1 AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE="$${AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE:-strict}" $(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/operational-readiness
 
-operational-readiness-preflight-vienna-rehearsal: ## MANUAL: run the non-qualifying Vienna rehearsal; route clock is warning-only.
+operational-readiness-preflight-vienna-rehearsal: ## MANUAL: run Vienna rehearsal; final-host TLS/backup/restore/route checks are warning-only.
 	@AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE=vienna_rehearsal $(MAKE) operational-readiness-preflight-check
 
 operational-readiness-formal: ## MANUAL: run the default-off exact seven-day operational readiness observer on the approved server.
@@ -473,7 +476,7 @@ operational-readiness-formal: ## MANUAL: run the default-off exact seven-day ope
 	@test -z "$$(git status --porcelain)" || { echo "formal operational readiness requires a clean exact source" >&2; exit 1; }
 	@AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK=0 AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE=strict $(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/operational-readiness
 
-operational-readiness: operational-readiness-model-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify ## Pass local operational readiness implementation gates; the reference-server seven-day verdict remains separate.
+operational-readiness: operational-readiness-model-qualify operational-readiness-observer-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify ## Pass local operational readiness implementation gates; the reference-server seven-day verdict remains separate.
 
 release-certification-model-qualify: ## Exercise exact-identity, signature, expiry, tamper, duplicate, and fail-closed certification rules.
 	@$(GO) test ./internal/certification ./cmd/release-certify -count=1

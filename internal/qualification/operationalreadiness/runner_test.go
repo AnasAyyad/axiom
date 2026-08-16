@@ -174,7 +174,9 @@ type safeProbe struct {
 
 func (probe *safeProbe) Observe(_ context.Context, _ uint64, _ time.Time) (Sample, error) {
 	probe.revision++
-	sample := Sample{SourceRevision: probe.revision, DecodeBookP99Millis: 10, StrategyRiskP99Millis: 25,
+	digest := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	sample := Sample{SourceRevision: probe.revision, DatabaseEvidenceHash: digest, RuntimeEvidenceHash: digest,
+		DrillEvidenceHash: digest, DecodeBookP99Millis: 10, StrategyRiskP99Millis: 25,
 		ResyncP95Millis: 15_000, CriticalAlertMillis: 5_000, ExternalAlertP95Millis: 60_000,
 		GracefulShutdownMillis: 60_000, ShadowRecoveryMillis: 300_000, SandboxRecoveryMillis: 600_000,
 		DatabaseCommitRPOZero: true, RecorderWithinFlushRPO: true, ResidentMemoryBytes: 100 << 20,

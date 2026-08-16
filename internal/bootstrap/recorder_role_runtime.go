@@ -76,6 +76,8 @@ func (work *recorderRoleWork) runRecorderLoop(workContext context.Context, logge
 	defer pressureTicker.Stop()
 	rotationTicker := time.NewTicker(time.Second)
 	defer rotationTicker.Stop()
+	telemetryTicker := time.NewTicker(5 * time.Second)
+	defer telemetryTicker.Stop()
 	for {
 		select {
 		case <-workContext.Done():
@@ -96,6 +98,10 @@ func (work *recorderRoleWork) runRecorderLoop(workContext context.Context, logge
 			if terminal, err := work.handleRecorderRotation(workContext, cancel, group, logger); terminal || err != nil {
 				return err
 			}
+		case observedAt := <-telemetryTicker.C:
+			if err := work.publishOperationalReadinessMetrics(observedAt.UTC()); err != nil {
+				return err
+			}
 		case <-pressureTicker.C:
 			if err := work.handleStoragePressure(workContext, logger, cancel, group); err != nil {
 				return err
@@ -110,6 +116,32 @@ func (work *recorderRoleWork) runRecorderLoop(workContext context.Context, logge
 			}
 		}
 	}
+}
+
+func (work *recorderRoleWork) publishOperationalReadinessMetrics(observedAt time.Time) error {
+	if work.metrics == nil {
+		return nil
+	}
+	var decodeBookP99, resyncP95 time.Duration
+	for _, collector := range work.collectors {
+		stats := collector.Stats()
+		if stats.HotPathP99 > decodeBookP99 {
+			decodeBookP99 = stats.HotPathP99
+		}
+		if stats.ResyncP95 > resyncP95 {
+			resyncP95 = stats.ResyncP95
+		}
+	}
+	for _, collector := range work.bybitCollectors {
+		stats := collector.Stats()
+		if stats.HotPathP99 > decodeBookP99 {
+			decodeBookP99 = stats.HotPathP99
+		}
+		if stats.ResyncP95 > resyncP95 {
+			resyncP95 = stats.ResyncP95
+		}
+	}
+	return work.metrics.SetOperationalReadinessCollectorLatency(decodeBookP99, resyncP95, observedAt)
 }
 
 func (work *recorderRoleWork) handleRecorderFlushError(err error, cancel context.CancelFunc,

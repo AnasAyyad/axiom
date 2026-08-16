@@ -185,6 +185,15 @@ var sandboxQualificationAppendTables = []string{
 	"sandbox_qualification_chaos_events", "sandbox_qualification_recovery_events",
 }
 
+var operationalReadinessObserverTables = []string{
+	"sandbox_strategy_risk_observations",
+	"sandbox_qualification_order_observations",
+	"sandbox_runtime_authenticated_request_evidence",
+	"sandbox_runtime_exchange_accounts",
+	"ledger_entries",
+	"owner_console_storage_pressure_state",
+}
+
 var readOnlyTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "allocation_candidates", "allocation_reservations", "allocation_score_components", "asset_screening_versions", "assets", "audit_events",
 	"configuration_activations", "configuration_versions", "consumer_cursors", "data_quality_events",

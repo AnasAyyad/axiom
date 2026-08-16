@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-readonly -a profiles=(app record workers observability edge backup restore sandbox-foundation sandbox sandbox-canary)
+readonly -a profiles=(app record workers observability edge backup restore sandbox-foundation sandbox sandbox-canary operational-readiness)
 readonly combinations=$((1 << ${#profiles[@]}))
 
 for ((mask = 0; mask < combinations; mask++)); do
@@ -16,7 +16,7 @@ for ((mask = 0; mask < combinations; mask++)); do
 done
 
 actual="$(docker compose --env-file .env.example --profile '*' config --services | sort)"
-expected="$(printf '%s\n' api backup backtest-worker binance-sandbox-canary binance-sandbox-engine binance-testnet-egress bybit-demo-egress bybit-sandbox-canary bybit-sandbox-engine caddy engine-shadow grafana migrate postgres prometheus recorder restore | sort)"
+expected="$(printf '%s\n' api backup backtest-worker binance-sandbox-canary binance-sandbox-engine binance-testnet-egress bybit-demo-egress bybit-sandbox-canary bybit-sandbox-engine caddy engine-shadow grafana migrate operational-readiness-observer postgres prometheus recorder restore | sort)"
 if [[ "${actual}" != "${expected}" ]]; then
   printf 'ERROR [compose] rendered service set differs from the reviewed deployment profile set\n' >&2
   exit 1

@@ -433,6 +433,30 @@ func TestReadOnlyReportingExcludesCredentialTables(t *testing.T) {
 	}
 }
 
+func TestOperationalReadinessObserverGrantIncludesOnlyRequiredEvidenceTables(t *testing.T) {
+	statement := grantSQL("SELECT", operationalReadinessObserverTables, `"axiom_operational_readiness"`)
+	for _, required := range []string{
+		"sandbox_strategy_risk_observations",
+		"sandbox_qualification_order_observations",
+		"sandbox_runtime_authenticated_request_evidence",
+		"sandbox_runtime_exchange_accounts",
+		"ledger_entries",
+		"owner_console_storage_pressure_state",
+	} {
+		if !strings.Contains(statement, `"public"."`+required+`"`) {
+			t.Fatalf("D5 read-only observer grant omits %s", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"sandbox_runtime_sandbox_authorizations", "sandbox_runtime_private_inbox", "users", "sessions",
+		"sandbox_runtime_credential_generations", "sandbox_qualification_runs",
+	} {
+		if strings.Contains(statement, `"public"."`+forbidden+`"`) {
+			t.Fatalf("D5 read-only observer grant exposes %s", forbidden)
+		}
+	}
+}
+
 func TestSandboxRuntimeEngineGrantIncludesClosedExecutionAndAlertTables(t *testing.T) {
 	role := `"axiom_binance_testnet_engine"`
 	statement := grantSQL(

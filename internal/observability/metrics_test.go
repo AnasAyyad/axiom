@@ -36,6 +36,10 @@ func TestMetricsExposeBoundedContract(t *testing.T) {
 		"axiom_evaluation_recording_bytes", "axiom_evaluation_data_freshness_seconds",
 		"axiom_evaluation_members", "axiom_evaluation_financial_reporting_units",
 		"axiom_evaluation_order_funnel", "axiom_evaluation_failure",
+		"axiom_operational_readiness_decode_book_p99_milliseconds",
+		"axiom_operational_readiness_strategy_risk_p99_milliseconds",
+		"axiom_operational_readiness_resync_p95_milliseconds",
+		"axiom_operational_readiness_telemetry_observed_unixtime",
 		`service="engine-shadow"`, `instrument="BTCUSDT"`,
 	} {
 		if !strings.Contains(encoded, required) {
@@ -84,6 +88,14 @@ func recordBaseMetricFixtures(t *testing.T, metrics *Metrics) {
 		t.Fatal(err)
 	}
 	if err := metrics.SetDiskFree("market_data", 1024); err != nil {
+		t.Fatal(err)
+	}
+	if err := metrics.SetOperationalReadinessCollectorLatency(
+		9*time.Millisecond, 14*time.Second, time.Now().UTC(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := metrics.ObserveOperationalReadinessStrategyRisk(20*time.Millisecond, time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
 }

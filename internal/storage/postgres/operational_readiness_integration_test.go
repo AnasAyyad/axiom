@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"axiom/internal/domain"
 	"axiom/internal/storage/pressure"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -29,6 +31,47 @@ func TestOperationalReadinessPostgresOperationalReadinessQualification(t *testin
 	}
 	assertOperationalReadinessPressureLifecycle(t, ctx, pool)
 	assertOperationalReadinessArtifactLifecycle(t, ctx, pool)
+	assertOperationalReadinessObserverRoleBoundary(t, ctx, pool)
+}
+
+func assertOperationalReadinessObserverRoleBoundary(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	role := fmt.Sprintf("axiom_d5_observer_%d", time.Now().UnixNano())
+	identifier := pgx.Identifier{role}.Sanitize()
+	if _, err := pool.Exec(ctx, "CREATE ROLE "+identifier+" NOLOGIN"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "DROP OWNED BY "+identifier)
+		_, _ = pool.Exec(context.Background(), "DROP ROLE "+identifier)
+	})
+	if err := ApplyOperationalReadinessObserverRoleGrants(
+		ctx, pool, role,
+		"axiom_app", "axiom_recorder", "axiom_readonly", "axiom_binance_engine",
+		"axiom_bybit_engine", "axiom_sandbox_qualification",
+	); err != nil {
+		t.Fatal(err)
+	}
+	var granted int
+	if err := pool.QueryRow(ctx, `
+SELECT count(*)
+FROM information_schema.role_table_grants
+WHERE grantee=$1 AND privilege_type='SELECT'`, role).Scan(&granted); err != nil ||
+		granted != len(operationalReadinessObserverTables) {
+		t.Fatalf("observer SELECT grants=%d want=%d error=%v", granted, len(operationalReadinessObserverTables), err)
+	}
+	var unsafe int
+	if err := pool.QueryRow(ctx, `
+SELECT count(*)
+FROM information_schema.role_table_grants
+WHERE grantee=$1 AND (
+  privilege_type<>'SELECT' OR table_name IN (
+    'users','sessions','sandbox_runtime_private_inbox',
+    'sandbox_runtime_sandbox_authorizations','sandbox_runtime_credential_generations'
+  )
+)`, role).Scan(&unsafe); err != nil || unsafe != 0 {
+		t.Fatalf("observer unsafe grants=%d error=%v", unsafe, err)
+	}
 }
 
 func assertOperationalReadinessArtifactLifecycle(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {

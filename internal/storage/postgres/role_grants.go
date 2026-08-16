@@ -95,6 +95,53 @@ func ApplySandboxQualificationRoleGrants(
 	return nil
 }
 
+// ApplyOperationalReadinessObserverRoleGrants resets the dedicated D5 observer
+// role to six aggregate evidence sources. It has no private inbox, credential,
+// owner, journal-write, or qualification-write access.
+func ApplyOperationalReadinessObserverRoleGrants(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	roleName string,
+	protectedRoles ...string,
+) error {
+	roles := append([]string{roleName}, protectedRoles...)
+	if pool == nil || !validDistinctRoles(roles) {
+		return fmt.Errorf("operational_readiness_observer_role_invalid")
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("operational_readiness_observer_role_transaction_unavailable")
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	available, err := existingPublicTables(ctx, tx)
+	if err != nil {
+		return err
+	}
+	for _, table := range operationalReadinessObserverTables {
+		if _, exists := available[table]; !exists {
+			return fmt.Errorf("operational_readiness_observer_role_table_unavailable")
+		}
+	}
+	role := pgx.Identifier{roleName}.Sanitize()
+	for _, statement := range []string{
+		"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM " + role,
+		"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM " + role,
+	} {
+		if _, err = tx.Exec(ctx, statement); err != nil {
+			return fmt.Errorf("operational_readiness_observer_role_revoke_failed")
+		}
+	}
+	if err = applyTableGrants(ctx, tx, roleName, []tableGrant{{
+		privileges: "SELECT", tables: operationalReadinessObserverTables,
+	}}); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("operational_readiness_observer_role_commit_failed")
+	}
+	return nil
+}
+
 // ApplyRoleGrants applies the closed runtime, recorder, and reporting matrices.
 func ApplyRoleGrants(ctx context.Context, pool *pgxpool.Pool, runtimeRole, recorderRole, readOnlyRole string) error {
 	roles := []string{runtimeRole, recorderRole, readOnlyRole}

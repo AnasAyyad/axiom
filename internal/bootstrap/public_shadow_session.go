@@ -16,6 +16,7 @@ import (
 	"axiom/internal/exchanges/bybit"
 	exchangecontracts "axiom/internal/exchanges/contracts"
 	"axiom/internal/marketdata"
+	"axiom/internal/observability"
 	"axiom/internal/portfolio"
 	marketrecorder "axiom/internal/recorder"
 	runtimecore "axiom/internal/runtime"
@@ -63,6 +64,7 @@ type ownerConsoleLiveShadowSession struct {
 	balances                        portfolio.Snapshot
 	lastOrdinal                     uint64
 	datasetID                       string
+	metrics                         *observability.Metrics
 }
 
 type shadowPublicClient interface {
@@ -78,15 +80,29 @@ type shadowPublicCollector interface {
 }
 
 func newOwnerConsoleLiveShadowRoleWork(pool *pgxpool.Pool, runtimeConfig config.Runtime) (*shadowRoleWork, error) {
+	return newOwnerConsoleLiveShadowRoleWorkWithMetrics(pool, runtimeConfig, nil)
+}
+
+func newOwnerConsoleLiveShadowRoleWorkWithMetrics(pool *pgxpool.Pool, runtimeConfig config.Runtime,
+	metrics *observability.Metrics,
+) (*shadowRoleWork, error) {
 	store, err := postgresstore.NewPublicShadowStore(pool, runtimeConfig.InstanceID, &domain.SystemClock{})
 	if err != nil {
 		return nil, err
 	}
 	factory := func(ctx context.Context, claim postgresstore.PublicShadowClaim) (shadowSession, error) {
 		if claim.StrategyID == "cross-exchange-arbitrage-1-0-0" {
-			return newOwnerConsoleCrossExchangeShadowSession(ctx, pool, runtimeConfig, store, claim)
+			session, sessionErr := newOwnerConsoleCrossExchangeShadowSession(ctx, pool, runtimeConfig, store, claim)
+			if session != nil {
+				session.metrics = metrics
+			}
+			return session, sessionErr
 		}
-		return newOwnerConsoleLiveShadowSession(ctx, pool, runtimeConfig, store, claim)
+		session, sessionErr := newOwnerConsoleLiveShadowSession(ctx, pool, runtimeConfig, store, claim)
+		if session != nil {
+			session.metrics = metrics
+		}
+		return session, sessionErr
 	}
 	work, err := newShadowRoleWork(store, factory, time.Second)
 	if err != nil {

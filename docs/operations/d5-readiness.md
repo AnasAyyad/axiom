@@ -74,11 +74,27 @@ or start the seven-day clock. Even a successful report has
 shape is documented in
 `deploy/config/operational-readiness-preflight-report.example.json`.
 
-This checker validates measured inputs; it does not invent them. The approved
-credential-free observer remains responsible for atomically replacing the
-preflight and live-sample files from server, restore, deployment, database, and
-monitoring evidence. Never hand-edit a passing value or derive one from the
+This checker validates measured inputs; it does not invent them. The
+credential-free `operational-readiness-observer` reads PostgreSQL through the
+read-only role, private health endpoints, fixed-cardinality process/latency
+metrics, and a separately produced drill-observation file. It atomically
+replaces only the rolling live-sample file and binds every sample to hashes of
+all three source aggregates. Missing, stale, malformed, or decreasing source
+data fails closed. Never hand-edit a passing value or derive one from the
 checked-in fail-closed examples.
+
+The drill orchestrator must write
+`drill-observation.json` from measured replay, alert, shutdown, recovery, RPO,
+disk-pressure, and declared-load results. The checked-in example is deliberately
+failing. The `operational-readiness` profile selects the complete private
+rehearsal stack. Start it with:
+
+```text
+docker compose --profile operational-readiness up -d
+```
+
+The observer has no exchange credentials, no owner credentials, and no write
+grant in PostgreSQL. It may write only the bind-mounted rolling sample path.
 
 ### Vienna rehearsal profile
 
@@ -90,13 +106,19 @@ then run:
 make operational-readiness-preflight-vienna-rehearsal
 ```
 
-This profile records a failed 100 ms route-clock measurement as
-`route_clock_threshold_exceeded` in `warnings` instead of failing the rehearsal.
-Every other preflight and sample requirement remains strict. The report always
+This profile records final-host-only checks as warnings instead of failing the
+rehearsal: route-clock uncertainty, public TLS, independent remote backup,
+backup freshness, clean restore/RTO, and market-data recovery. These checks are
+deferred to the final Japan host; they are not accepted or silently marked as
+passing on Vienna.
+
+Immutable image identity, non-root execution, resource limits, disk capacity,
+schema upgrade and forward-fix drills, SBOM/security scanning, production-order
+impossibility, and every live-sample requirement remain strict. The report always
 has `profile=vienna_rehearsal`, `formal_clock_started=false`, and
 `qualified=false`; it is not approval for the Japan reference server and it
-cannot start or qualify D5. The normal preflight command and formal runner
-continue to reject the same route-clock breach.
+cannot start or qualify D5. The normal preflight command and formal runner still
+reject every deferred final-host check.
 
 ## During the run
 

@@ -1,0 +1,18 @@
+{
+  "schema_version": "axiom.operational_readiness.drill-observation.v1",
+  "observed_at": "CHANGE_ME_UTC_RFC3339",
+  "replay_mismatches": 1,
+  "critical_alert_ms": 5001,
+  "external_alert_p95_ms": 60001,
+  "graceful_shutdown_ms": 60001,
+  "shadow_recovery_ms": 300001,
+  "sandbox_recovery_ms": 600001,
+  "database_commit_rpo_zero": false,
+  "recorder_within_flush_rpo": false,
+  "heavy_jobs_rejected_at_high": false,
+  "recording_paused_at_critical": false,
+  "journal_audit_writable": false,
+  "declared_load_exercised": false,
+  "production_target_observed": false,
+  "prohibited_capability_observed": false
+}

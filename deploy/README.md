@@ -76,6 +76,7 @@ Required for PostgreSQL:
 - `.secrets/postgres_backup_password`
 - `.secrets/backup_encryption_key`
 - `.secrets/postgres_readonly_password`
+- `.secrets/postgres_operational_readiness_password`
 - `.secrets/postgres_binance_engine_password`
 - `.secrets/postgres_bybit_engine_password`
 - `.secrets/postgres_sandbox_qualification_password`
@@ -165,6 +166,7 @@ openssl rand -base64 48 > .secrets/postgres_recorder_password
 openssl rand -base64 48 > .secrets/postgres_backup_password
 openssl rand -base64 32 > .secrets/backup_encryption_key
 openssl rand -base64 48 > .secrets/postgres_readonly_password
+openssl rand -base64 48 > .secrets/postgres_operational_readiness_password
 openssl rand -base64 48 > .secrets/postgres_binance_engine_password
 openssl rand -base64 48 > .secrets/postgres_bybit_engine_password
 openssl rand -base64 48 > .secrets/postgres_sandbox_qualification_password
@@ -221,8 +223,9 @@ docker compose ps
 ```
 
 The PostgreSQL initialization script creates distinct owner, migrator, runtime,
-recorder, backup, read-only, Binance-engine, Bybit-engine, and sandbox-qualification
-roles only on an empty data volume. Later changes belong in migrations.
+recorder, backup, reporting read-only, operational-readiness observer,
+Binance-engine, Bybit-engine, and sandbox-qualification roles only on an empty
+data volume. Later changes belong in migrations.
 Authenticated engines share no database login, and neither engine can append
 or update sandbox-qualification records.
 
@@ -233,6 +236,13 @@ password files. Empty-volume initialization does not run again on an existing
 volume, and migration startup fails closed if a required role is absent. Do
 not reuse an existing application or authenticated-engine login for the sandbox
 observer.
+
+Before enabling the D5 observer on an existing database, a database
+administrator must provision the distinct `axiom_operational_readiness` login
+from `.secrets/postgres_operational_readiness_password`. The migrator then
+revokes any prior table/sequence privileges and grants SELECT on only the six
+bounded aggregate evidence sources required by the observer. Never reuse the
+broad reporting role or an application/engine role for this process.
 
 Before applying migration `000054` to an older volume, a database administrator
 must rename the historical `axiom_c6_qualification` login to

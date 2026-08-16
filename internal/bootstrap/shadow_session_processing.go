@@ -119,7 +119,16 @@ func (session *ownerConsoleLiveShadowSession) Run(ctx context.Context) error {
 		func(loop context.Context) error {
 			return session.recordShadowActivity(loop, session.currentShadowActivity(time.Now().UTC()))
 		}, func(loop context.Context, _ exchangecontracts.BookCommit) error {
-			return session.evaluateReadyInputs(loop)
+			started := time.Now()
+			evaluateErr := session.evaluateReadyInputs(loop)
+			if session.metrics != nil {
+				if metricErr := session.metrics.ObserveOperationalReadinessStrategyRisk(
+					time.Since(started), time.Now().UTC(),
+				); evaluateErr == nil {
+					evaluateErr = metricErr
+				}
+			}
+			return evaluateErr
 		}, session.FlushAvailable)
 }
 

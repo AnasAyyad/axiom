@@ -9,8 +9,9 @@ type PreflightProfile string
 const (
 	// PreflightProfileStrict evaluates the exact formal D5 thresholds.
 	PreflightProfileStrict PreflightProfile = "strict"
-	// PreflightProfileViennaRehearsal permits the measured Vienna route-clock
-	// threshold breach as a warning while keeping every other gate strict.
+	// PreflightProfileViennaRehearsal permits only final-host infrastructure
+	// checks to be reported as warnings on the disposable Vienna rehearsal host.
+	// Portable release and live-sample gates remain strict.
 	PreflightProfileViennaRehearsal PreflightProfile = "vienna_rehearsal"
 )
 
@@ -45,8 +46,8 @@ func CheckPreflightSources(preflight *Preflight, sample *Sample, mode Mode, chec
 }
 
 // CheckPreflightSourcesForProfile evaluates an explicit non-qualifying
-// preflight profile. Vienna rehearsal may warn on only the route-clock result;
-// the formal runner does not call this function and remains strict.
+// preflight profile. Vienna rehearsal may warn on final-host-only results; the
+// formal runner does not call this function and remains strict.
 func CheckPreflightSourcesForProfile(
 	preflight *Preflight,
 	sample *Sample,
@@ -64,9 +65,8 @@ func CheckPreflightSourcesForProfile(
 		preflightFailures = append(preflightFailures, "preflight_source_unavailable")
 	} else {
 		preflightFailures = append(preflightFailures, preflightFailureReasons(*preflight, mode)...)
-		if profile == PreflightProfileViennaRehearsal && !preflight.RouteClockThresholdPassed {
-			preflightFailures = withoutReason(preflightFailures, "route_clock_threshold_failed")
-			warnings = append(warnings, "route_clock_threshold_exceeded")
+		if profile == PreflightProfileViennaRehearsal {
+			preflightFailures, warnings = applyViennaRehearsalPolicy(*preflight, preflightFailures, warnings)
 		}
 		preflightFailures = append(preflightFailures, preflightWindowFailureReasons(*preflight, checkedAt)...)
 	}
@@ -76,6 +76,29 @@ func CheckPreflightSourcesForProfile(
 		sampleFailures = sampleFailureReasons(*sample)
 	}
 	return newPreflightReport(mode, profile, checkedAt, preflightFailures, sampleFailures, warnings)
+}
+
+func applyViennaRehearsalPolicy(preflight Preflight, failures, warnings []string) ([]string, []string) {
+	checks := []struct {
+		waive   bool
+		failure string
+		warning string
+	}{
+		{!preflight.RouteClockThresholdPassed, "route_clock_threshold_failed", "route_clock_threshold_exceeded"},
+		{!preflight.TLSValid, "tls_invalid", "tls_skipped_private_rehearsal"},
+		{!preflight.RemoteBackupIndependent, "remote_backup_not_independent", "remote_backup_skipped_disposable_rehearsal"},
+		{preflight.BackupAgeSeconds > 24*60*60, "backup_stale", "backup_freshness_skipped_disposable_rehearsal"},
+		{!preflight.CleanRestorePassed, "clean_restore_failed", "clean_restore_skipped_disposable_rehearsal"},
+		{preflight.CleanRestoreDurationSeconds > uint64(CleanRestoreRTO.Seconds()), "clean_restore_rto_exceeded", "clean_restore_rto_skipped_disposable_rehearsal"},
+		{!preflight.MarketDataRecoveryPassed, "market_data_recovery_failed", "market_data_recovery_skipped_disposable_rehearsal"},
+	}
+	for _, check := range checks {
+		if check.waive {
+			failures = withoutReason(failures, check.failure)
+			warnings = append(warnings, check.warning)
+		}
+	}
+	return failures, warnings
 }
 
 func newPreflightReport(
@@ -161,6 +184,9 @@ func sampleFailureReasons(sample Sample) []string {
 		failed bool
 		reason string
 	}{
+		{!shaPattern.MatchString(sample.DatabaseEvidenceHash) ||
+			!shaPattern.MatchString(sample.RuntimeEvidenceHash) ||
+			!shaPattern.MatchString(sample.DrillEvidenceHash), "sample_source_evidence_invalid"},
 		{sample.StaleDecisions > 0, "stale_decision"},
 		{sample.UninvalidatedGaps > 0, "uninvalidated_gap"},
 		{sample.DuplicateOrders > 0, "duplicate_order"},

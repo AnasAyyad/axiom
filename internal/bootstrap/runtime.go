@@ -85,11 +85,15 @@ func workForRole(
 ) (roleWork, error) {
 	switch role {
 	case "recorder":
-		return newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
+		work, err := newRecorderRoleWork(ctx, pool, runtimeConfig, product, &domain.SystemClock{})
+		if work != nil {
+			work.metrics = metrics
+		}
+		return work, err
 	case "worker":
 		return newOwnerConsoleWorkerRoleWork(pool, runtimeConfig, product, metrics)
 	case "engine-shadow":
-		return newOwnerConsoleLiveShadowRoleWork(pool, runtimeConfig)
+		return newOwnerConsoleLiveShadowRoleWorkWithMetrics(pool, runtimeConfig, metrics)
 	case "engine-binance-sandbox":
 		return newSandboxEngineRoleWork(
 			ctx,

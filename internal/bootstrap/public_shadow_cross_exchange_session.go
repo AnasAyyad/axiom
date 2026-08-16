@@ -17,6 +17,7 @@ import (
 	"axiom/internal/exchanges/binance"
 	"axiom/internal/exchanges/bybit"
 	exchangecontracts "axiom/internal/exchanges/contracts"
+	"axiom/internal/observability"
 	marketrecorder "axiom/internal/recorder"
 	runtimecore "axiom/internal/runtime"
 	postgresstore "axiom/internal/storage/postgres"
@@ -50,6 +51,7 @@ type ownerConsoleCrossExchangeShadowSession struct {
 	lastTrigger    map[string]exchangecontracts.BookCommit
 	coherenceStats crossExchangeCoherenceStatistics
 	datasetID      string
+	metrics        *observability.Metrics
 	lastOrdinal    uint64
 	metadata       map[runtimecore.MarketKey]domain.InstrumentMetadata
 	maximum        map[runtimecore.MarketKey]domain.Quantity
@@ -255,7 +257,18 @@ func (session *ownerConsoleCrossExchangeShadowSession) Run(ctx context.Context) 
 	return runPublicShadowCollectors(ctx, collectors, session.flushEvery,
 		func(loop context.Context) error {
 			return session.recordActivity(loop, session.currentActivity(time.Now().UTC()))
-		}, session.evaluateReadyInput, session.FlushAvailable)
+		}, func(loop context.Context, trigger exchangecontracts.BookCommit) error {
+			started := time.Now()
+			evaluateErr := session.evaluateReadyInput(loop, trigger)
+			if session.metrics != nil {
+				if metricErr := session.metrics.ObserveOperationalReadinessStrategyRisk(
+					time.Since(started), time.Now().UTC(),
+				); evaluateErr == nil {
+					evaluateErr = metricErr
+				}
+			}
+			return evaluateErr
+		}, session.FlushAvailable)
 }
 
 func (session *ownerConsoleCrossExchangeShadowSession) loadReferenceData(ctx context.Context) error {
