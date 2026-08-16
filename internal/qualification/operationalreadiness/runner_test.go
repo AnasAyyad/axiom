@@ -132,7 +132,7 @@ func testConfig(t *testing.T) Config {
 		ConfigurationHash: digest, ServerIdentity: digest, DatasetIdentity: digest, TestManifestHash: digest},
 		Duration: 5 * time.Second, SampleInterval: time.Second, EvidenceRoot: t.TempDir(), SigningKey: key,
 		DeclaredLoad: DeclaredLoad{true, true, true, true, true, true, true, true, true},
-		FaultSchedule: FaultSchedule{SchemaVersion: "axiom.operationalReadiness.fault-schedule.v1", Faults: []FaultSpec{
+		FaultSchedule: FaultSchedule{SchemaVersion: "axiom.operational_readiness.fault-schedule.v1", Faults: []FaultSpec{
 			{Scenario: "recorder-kill", OffsetSeconds: 0}, {Scenario: "database-restart", OffsetSeconds: 1},
 			{Scenario: "exchange-gap", OffsetSeconds: 2}, {Scenario: "backup-restore", OffsetSeconds: 3},
 			{Scenario: "disk-critical", OffsetSeconds: 4},

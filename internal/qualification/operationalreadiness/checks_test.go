@@ -51,3 +51,13 @@ func TestUnavailablePreflightReportIsFailClosedAndRedacted(t *testing.T) {
 		t.Fatalf("unexpected report: %+v", report)
 	}
 }
+
+func TestCheckedInFaultScheduleMatchesRunnerContract(t *testing.T) {
+	var schedule FaultSchedule
+	if err := readStrictJSON("../../../deploy/config/operational-readiness-fault-schedule-v1.json", &schedule); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateSchedule(schedule, FormalDuration); err != nil {
+		t.Fatal(err)
+	}
+}

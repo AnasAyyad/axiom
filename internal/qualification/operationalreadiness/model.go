@@ -267,7 +267,7 @@ func validateImages(images map[string]string) error {
 }
 
 func validateSchedule(schedule FaultSchedule, duration time.Duration) error {
-	if schedule.SchemaVersion != "axiom.operationalReadiness.fault-schedule.v1" || len(schedule.Faults) < 5 || duration <= 0 {
+	if schedule.SchemaVersion != "axiom.operational_readiness.fault-schedule.v1" || len(schedule.Faults) < 5 || duration <= 0 {
 		return fmt.Errorf("operational_readiness_fault_schedule_rejected")
 	}
 	seen := make(map[string]bool, len(schedule.Faults))

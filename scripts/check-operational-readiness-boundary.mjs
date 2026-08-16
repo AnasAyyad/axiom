@@ -122,6 +122,7 @@ requireTokens("internal/qualification/operationalreadiness/checks.go", [
 const schedule = read(
   "deploy/config/operational-readiness-fault-schedule-v1.json",
 );
+const scheduleContract = JSON.parse(schedule);
 const scheduleHash = createHash("sha256").update(schedule).digest("hex");
 const manifest = JSON.parse(
   read("deploy/config/operational-readiness-test-manifest-v1.json"),
@@ -130,6 +131,8 @@ const exactSet = (actual, expected) =>
   actual.length === expected.length &&
   expected.every((value) => actual.includes(value));
 if (
+  scheduleContract.schema_version !==
+    "axiom.operational_readiness.fault-schedule.v1" ||
   manifest.schema_version !==
     "axiom.operational_readiness.test-manifest.v1" ||
   manifest.duration_seconds !== 604800 ||
