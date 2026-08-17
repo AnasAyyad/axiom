@@ -796,6 +796,8 @@ services:
     restart: ${CONTAINER_RESTART_POLICY:-unless-stopped}
     cap_drop:
       - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
     environment:
