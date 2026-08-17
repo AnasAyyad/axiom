@@ -119,7 +119,7 @@ func (observer LiveObserver) Observe(ctx context.Context, revision uint64, obser
 		return Sample{}, fmt.Errorf("operational_readiness_drill_telemetry_unavailable")
 	}
 	return Sample{
-		SourceRevision: revision, DatabaseEvidenceHash: databaseHash,
+		ObservedAt: observedAt, SourceRevision: revision, DatabaseEvidenceHash: databaseHash,
 		RuntimeEvidenceHash: runtimeHash, DrillEvidenceHash: drillHash,
 		StaleDecisions: database.StaleDecisions, UninvalidatedGaps: database.UninvalidatedGaps,
 		DuplicateOrders: database.DuplicateOrders, LostFills: database.LostFills,

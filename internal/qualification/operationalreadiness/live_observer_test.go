@@ -56,12 +56,40 @@ func TestLiveObserverBindsIndependentRealSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sample.SourceRevision != 7 || sample.DecodeBookP99Millis != 9 ||
+	if !sample.ObservedAt.Equal(now) || sample.SourceRevision != 7 || sample.DecodeBookP99Millis != 9 ||
 		!sample.AllDeclaredLoadHealthy || !sample.DatabaseCommitRPOZero ||
 		!shaPattern.MatchString(sample.DatabaseEvidenceHash) ||
 		!shaPattern.MatchString(sample.RuntimeEvidenceHash) ||
 		!shaPattern.MatchString(sample.DrillEvidenceHash) || len(sampleFailureReasons(sample)) != 0 {
 		t.Fatalf("unexpected live sample: %+v failures=%v", sample, sampleFailureReasons(sample))
+	}
+}
+
+func TestLiveObserverSampleRoundTripsThroughFreshFileProbe(t *testing.T) {
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	observer := LiveObserver{
+		Database: databaseTelemetryStub{value: DatabaseTelemetry{
+			ObservedAt: now, DiskLevel: "NORMAL", DiskObservedAt: now,
+		}},
+		Runtime: runtimeTelemetryStub{value: RuntimeTelemetry{
+			ObservedAt: now, MemoryLimitBytes: 200, AllDeclaredLoadHealthy: true,
+		}},
+		Drill: drillObservationStub{value: passingDrillObservation(now)}, Window: time.Hour,
+	}
+	sample, err := observer.Observe(context.Background(), 9, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "sample.json")
+	if err = WriteLiveSample(path, sample); err != nil {
+		t.Fatal(err)
+	}
+	read, err := (&FileProbe{Path: path}).Observe(context.Background(), 1, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if read.SourceRevision != 9 || !read.ObservedAt.IsZero() || read.Ordinal != 0 {
+		t.Fatalf("unexpected normalized sample: %+v", read)
 	}
 }
 
