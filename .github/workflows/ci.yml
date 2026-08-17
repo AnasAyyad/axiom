@@ -522,7 +522,7 @@ jobs:
             "ghcr.io/anasayyad/axiom-backup@${BACKUP_DIGEST}" > artifacts/cosign-axiom-backup-verification.json
       - name: Attest application build provenance
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ghcr.io/anasayyad/axiom
           subject-digest: ${{ steps.publish.outputs.app_digest }}
@@ -530,7 +530,7 @@ jobs:
           create-storage-record: false
       - name: Attest backup build provenance
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ghcr.io/anasayyad/axiom-backup
           subject-digest: ${{ steps.publish.outputs.backup_digest }}
@@ -538,7 +538,7 @@ jobs:
           create-storage-record: false
       - name: Attest application SBOM
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ghcr.io/anasayyad/axiom
           subject-digest: ${{ steps.publish.outputs.app_digest }}
@@ -547,7 +547,7 @@ jobs:
           create-storage-record: false
       - name: Attest backup SBOM
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ghcr.io/anasayyad/axiom-backup
           subject-digest: ${{ steps.publish.outputs.backup_digest }}
