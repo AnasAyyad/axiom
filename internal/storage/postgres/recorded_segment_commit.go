@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -9,14 +10,24 @@ import (
 	"axiom/internal/storage/segments"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+const recordedSegmentCommitAttempts = 4
+
+type recordedSegmentCommitAttempt func(context.Context, string, string, segments.Manifest, time.Time) error
+type recordedSegmentRetryWait func(context.Context, time.Duration) error
 
 // RecordedSegmentCommitter atomically registers a finalized recorder segment
 // and, when the session belongs to an active evaluation campaign, charges its
 // immutable byte evidence to that campaign. Exact replays are idempotent;
 // conflicting segment identities fail closed.
-type RecordedSegmentCommitter struct{ pool *pgxpool.Pool }
+type RecordedSegmentCommitter struct {
+	pool    *pgxpool.Pool
+	attempt recordedSegmentCommitAttempt
+	wait    recordedSegmentRetryWait
+}
 
 // NewRecordedSegmentCommitter constructs the atomic recorder-segment registrar.
 func NewRecordedSegmentCommitter(pool *pgxpool.Pool) (*RecordedSegmentCommitter, error) {
@@ -35,6 +46,28 @@ func (store *RecordedSegmentCommitter) Commit(ctx context.Context, session, exch
 		manifest.Spec.FirstOrdinal > math.MaxInt64 || manifest.Spec.LastOrdinal > math.MaxInt64 {
 		return fmt.Errorf("recorded_segment_commit_invalid")
 	}
+	attempt := store.attempt
+	if attempt == nil {
+		attempt = store.commitOnce
+	}
+	wait := store.wait
+	if wait == nil {
+		wait = waitForRecordedSegmentRetry
+	}
+	for ordinal := 0; ordinal < recordedSegmentCommitAttempts; ordinal++ {
+		err := attempt(ctx, session, exchange, manifest, finalizedAt)
+		if err == nil || !isRetryableRecordedSegmentCommit(err) || ordinal == recordedSegmentCommitAttempts-1 {
+			return err
+		}
+		if err = wait(ctx, time.Duration(1<<ordinal)*25*time.Millisecond); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("recorded_segment_commit_retry_exhausted")
+}
+
+func (store *RecordedSegmentCommitter) commitOnce(ctx context.Context, session, exchange string,
+	manifest segments.Manifest, finalizedAt time.Time) error {
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return err
@@ -69,6 +102,22 @@ ON CONFLICT (id) DO NOTHING`, manifest.Spec.Name, session, exchange, manifest.Sp
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+func isRetryableRecordedSegmentCommit(err error) bool {
+	var postgresError *pgconn.PgError
+	return errors.As(err, &postgresError) && postgresError.Code == "40001"
+}
+
+func waitForRecordedSegmentRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func verifyRecordedSegmentIdentity(ctx context.Context, tx pgx.Tx, session, exchange string,
