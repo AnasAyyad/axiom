@@ -16,14 +16,15 @@ import (
 )
 
 type settings struct {
-	once     bool
-	output   string
-	drill    string
-	interval time.Duration
-	window   time.Duration
-	database config.Database
-	metrics  []operationalReadiness.RuntimeMetricTarget
-	health   []operationalReadiness.RuntimeHealthTarget
+	healthcheck bool
+	once        bool
+	output      string
+	drill       string
+	interval    time.Duration
+	window      time.Duration
+	database    config.Database
+	metrics     []operationalReadiness.RuntimeMetricTarget
+	health      []operationalReadiness.RuntimeHealthTarget
 }
 
 func main() {
@@ -39,6 +40,14 @@ func run(ctx context.Context, arguments []string) error {
 	configuration, err := loadSettings(arguments)
 	if err != nil {
 		return err
+	}
+	if configuration.healthcheck {
+		if _, err = (&operationalReadiness.FileProbe{Path: configuration.output}).Observe(
+			ctx, 0, time.Now().UTC(),
+		); err != nil {
+			return fmt.Errorf("observer_sample_unhealthy")
+		}
+		return nil
 	}
 	pool, err := postgresstore.Open(ctx, configuration.database)
 	if err != nil {
@@ -90,6 +99,7 @@ func run(ctx context.Context, arguments []string) error {
 func loadSettings(arguments []string) (settings, error) {
 	flags := flag.NewFlagSet("operational-readiness-observer", flag.ContinueOnError)
 	once := flags.Bool("once", false, "write exactly one fresh sample")
+	healthcheck := flags.Bool("healthcheck", false, "validate the latest sample without changing it")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
 		return settings{}, fmt.Errorf("observer_arguments_invalid")
 	}
@@ -106,7 +116,8 @@ func loadSettings(arguments []string) (settings, error) {
 		return settings{}, fmt.Errorf("observer_database_configuration_invalid")
 	}
 	configuration := settings{
-		once: *once, output: os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE"),
+		healthcheck: *healthcheck, once: *once,
+		output:   os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE"),
 		drill:    os.Getenv("AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE"),
 		interval: interval, window: window,
 		database: config.Database{
