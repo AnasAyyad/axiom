@@ -79,10 +79,6 @@ type shadowPublicCollector interface {
 	HealthSnapshot() exchangecontracts.CollectorHealthSnapshot
 }
 
-func newOwnerConsoleLiveShadowRoleWork(pool *pgxpool.Pool, runtimeConfig config.Runtime) (*shadowRoleWork, error) {
-	return newOwnerConsoleLiveShadowRoleWorkWithMetrics(pool, runtimeConfig, nil)
-}
-
 func newOwnerConsoleLiveShadowRoleWorkWithMetrics(pool *pgxpool.Pool, runtimeConfig config.Runtime,
 	metrics *observability.Metrics,
 ) (*shadowRoleWork, error) {
