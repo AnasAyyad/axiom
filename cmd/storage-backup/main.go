@@ -19,8 +19,8 @@ import (
 const commandTimeout = 4 * time.Hour
 
 const (
-	archiveValidationAttempts   = 30
-	archiveValidationRetryDelay = time.Second
+	archiveValidationAttempts   = 120
+	archiveValidationRetryDelay = 2 * time.Second
 )
 
 func main() {
@@ -174,10 +174,13 @@ func artifactSpec(ctx context.Context, settings settings, passfile string, start
 }
 
 func validateArchive(ctx context.Context, root string, manifest backup.ArtifactManifest, key [32]byte) error {
-	return validateArchiveWithRetry(ctx, archiveValidationAttempts, archiveValidationRetryDelay, func() error {
-		command := exec.CommandContext(ctx, "pg_restore", "--list")
-		return validateArchiveWithCommand(root, manifest, key, command)
-	})
+	if err := validateArchiveWithRetry(ctx, archiveValidationAttempts, archiveValidationRetryDelay, func() error {
+		return backup.RestoreArtifact(root, manifest, io.Discard, key)
+	}); err != nil {
+		return fmt.Errorf("backup_archive_validation_failed")
+	}
+	command := exec.CommandContext(ctx, "pg_restore", "--list")
+	return validateArchiveWithCommand(root, manifest, key, command)
 }
 
 func validateArchiveWithRetry(
