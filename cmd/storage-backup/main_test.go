@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -132,6 +133,33 @@ func TestArchiveValidationStreamsAuthenticatedPlaintextToLister(t *testing.T) {
 	}
 	if _, err = os.Stat(filepath.Join(root, manifest.Path)); err != nil {
 		t.Fatal("validation unexpectedly modified artifact")
+	}
+}
+
+func TestArchiveValidationRetryIsBoundedAndFailClosed(t *testing.T) {
+	attempts := 0
+	err := validateArchiveWithRetry(context.Background(), 3, 0, func() error {
+		attempts++
+		if attempts < 3 {
+			return fmt.Errorf("backup_archive_validation_failed")
+		}
+		return nil
+	})
+	if err != nil || attempts != 3 {
+		t.Fatalf("eventual validation = attempts %d, error %v", attempts, err)
+	}
+
+	attempts = 0
+	err = validateArchiveWithRetry(context.Background(), 2, 0, func() error {
+		attempts++
+		return fmt.Errorf("backup_archive_validation_failed")
+	})
+	if err == nil || attempts != 2 {
+		t.Fatalf("permanent failure = attempts %d, error %v", attempts, err)
+	}
+
+	if err = validateArchiveWithRetry(context.Background(), 0, 0, func() error { return nil }); err == nil {
+		t.Fatal("invalid retry policy accepted")
 	}
 }
 

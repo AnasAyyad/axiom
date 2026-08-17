@@ -18,6 +18,11 @@ import (
 
 const commandTimeout = 4 * time.Hour
 
+const (
+	archiveValidationAttempts   = 30
+	archiveValidationRetryDelay = time.Second
+)
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
@@ -169,8 +174,40 @@ func artifactSpec(ctx context.Context, settings settings, passfile string, start
 }
 
 func validateArchive(ctx context.Context, root string, manifest backup.ArtifactManifest, key [32]byte) error {
-	command := exec.CommandContext(ctx, "pg_restore", "--list")
-	return validateArchiveWithCommand(root, manifest, key, command)
+	return validateArchiveWithRetry(ctx, archiveValidationAttempts, archiveValidationRetryDelay, func() error {
+		command := exec.CommandContext(ctx, "pg_restore", "--list")
+		return validateArchiveWithCommand(root, manifest, key, command)
+	})
+}
+
+func validateArchiveWithRetry(
+	ctx context.Context,
+	attempts int,
+	delay time.Duration,
+	validate func() error,
+) error {
+	if ctx == nil || attempts <= 0 || delay < 0 || validate == nil {
+		return fmt.Errorf("backup_archive_validation_unavailable")
+	}
+	var err error
+	for attempt := 0; attempt < attempts; attempt++ {
+		if err = validate(); err == nil {
+			return nil
+		}
+		if attempt == attempts-1 {
+			break
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return fmt.Errorf("backup_archive_validation_failed")
+		case <-timer.C:
+		}
+	}
+	return err
 }
 
 func validateArchiveWithCommand(root string, manifest backup.ArtifactManifest, key [32]byte, command *exec.Cmd) error {
