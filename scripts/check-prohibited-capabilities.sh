@@ -450,7 +450,7 @@ is_operational_readiness_observer_literal() {
       [[ "${line_text}" == *"AND path IN ('/api/v3/order','/v5/order/create')"* ]]
       ;;
     later-release-sandbox:internal/qualification/operationalreadiness/postgres_live_observer.go)
-      [[ "${line_text}" == *"WHERE environment NOT IN ('testnet','demo')"* ]]
+      [[ "${line_text}" == *"(exchange='bybit' AND environment='demo')"* ]]
       ;;
     *) return 1 ;;
   esac
