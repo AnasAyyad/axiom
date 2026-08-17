@@ -170,15 +170,40 @@ func evaluationResultsEqual(left, right backtest.CanonicalResult) bool {
 
 func evaluationDatasetCorrect(ctx context.Context, tx pgx.Tx, campaignID string,
 	strategy evaluation.Strategy) (bool, error) {
-	var gaps, rejected int
+	var publicGaps, otherGaps, rejected int
 	err := tx.QueryRow(ctx, `SELECT
-  count(gap.id),count(*) FILTER (WHERE manifest.state IN ('rejected','deleted'))
+	  count(gap.id) FILTER (WHERE selected.evidence_role='public_market'),
+	  count(gap.id) FILTER (WHERE selected.evidence_role<>'public_market'),
+	  count(*) FILTER (WHERE manifest.state IN ('rejected','deleted'))
 FROM evaluation_campaign_dataset_members selected
 JOIN dataset_manifests manifest ON manifest.id=selected.dataset_id
 LEFT JOIN dataset_gaps gap ON gap.dataset_id=manifest.id
 WHERE selected.campaign_id=$1 AND selected.strategy_id=$2`, campaignID, string(strategy)).
-		Scan(&gaps, &rejected)
-	return gaps == 0 && rejected == 0, err
+		Scan(&publicGaps, &otherGaps, &rejected)
+	if err != nil || otherGaps != 0 || rejected != 0 {
+		return false, err
+	}
+	if publicGaps == 0 {
+		return true, nil
+	}
+	return evaluationRecoveredPublicDatasetQualified(ctx, tx, campaignID)
+}
+
+// A public recording may retain explicit source gaps and still be correct for
+// evaluation only when the campaign proved a later fully healthy interval and
+// completed the 72-valid-hour qualification. Historical candle gaps and
+// unrecovered public gaps remain ineligible.
+func evaluationRecoveredPublicDatasetQualified(ctx context.Context, tx pgx.Tx,
+	campaignID string) (bool, error) {
+	var qualified bool
+	err := tx.QueryRow(ctx, `SELECT
+	  'RECORDER_QUALIFICATION'=ANY(campaign.completed_stages) AND
+	  campaign.valid_recording_seconds>=$2 AND
+	  request.state IN ('ACTIVE','PAUSED','FINALIZING','COMPLETED')
+FROM evaluation_campaigns campaign
+JOIN evaluation_recorder_requests request ON request.campaign_id=campaign.id
+WHERE campaign.id=$1`, campaignID, int64(evaluation.RequiredRecordingValidTime/time.Second)).Scan(&qualified)
+	return qualified, err
 }
 
 func insertSelectedShadowMembers(ctx context.Context, tx pgx.Tx, campaignID string, now time.Time) error {

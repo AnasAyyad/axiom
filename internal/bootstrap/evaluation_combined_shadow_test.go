@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,6 +102,44 @@ func TestCombinedShadowLiquidityIsScopedToTheExactExchange(t *testing.T) {
 	if err = validateCombinedLiquidity(processor, map[string]domain.Quantity{"BTCUSDT:buy": one}); err == nil ||
 		err.Error() != "evaluation_shadow_liquidity_key_invalid" {
 		t.Fatalf("malformed liquidity key error=%v", err)
+	}
+}
+
+func TestEvaluationReplayGapInvalidatesOnlyAffectedBookUntilFreshSnapshot(t *testing.T) {
+	instruments, err := evaluationInstruments()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument := instruments["ETHUSDT"]
+	processor := &evaluationMarketProcessor{books: map[string]*evaluationBook{
+		evaluationBookKey("binance", instrument): {exchange: "binance", instrument: instrument, valid: true, sequence: 100},
+		evaluationBookKey("bybit", instrument):   {exchange: "bybit", instrument: instrument, valid: true, sequence: 200},
+	}}
+	now := time.Date(2030, 8, 11, 12, 0, 0, 0, time.UTC)
+	gapPayload, _ := json.Marshal(exchangecontracts.SourceGap{Exchange: "binance", Instrument: instrument,
+		ConnectionGeneration: 2, FirstSequence: 101, LastSequence: 104,
+		StartedAt: now, EndedAt: now, Reason: "sequence_gap"})
+	if _, err = processor.reducePublicEvidence(replay.Event{Ordinal: 1, LogicalTime: 1, Canonical: gapPayload}); err != nil {
+		t.Fatal(err)
+	}
+	if processor.books[evaluationBookKey("binance", instrument)].valid ||
+		!processor.books[evaluationBookKey("bybit", instrument)].valid {
+		t.Fatal("gap did not isolate the affected replay book")
+	}
+
+	bid, _ := domain.ParsePrice("100")
+	ask, _ := domain.ParsePrice("101")
+	quantity, _ := domain.ParseQuantity("1")
+	snapshotPayload, _ := json.Marshal(exchangecontracts.BookSnapshot{Exchange: "binance", Instrument: instrument,
+		LastSequence: 500, ReceivedAt: domain.EventTime{UTC: now.Add(time.Second), Sequence: 1},
+		Bids: []exchangecontracts.PriceLevel{{Price: bid, Quantity: quantity}},
+		Asks: []exchangecontracts.PriceLevel{{Price: ask, Quantity: quantity}}, RawPayloadHash: strings.Repeat("a", 64)})
+	if _, err = processor.reducePublicEvidence(replay.Event{Ordinal: 2, LogicalTime: 2, Canonical: snapshotPayload}); err != nil {
+		t.Fatal(err)
+	}
+	book := processor.books[evaluationBookKey("binance", instrument)]
+	if !book.valid || book.sequence != 500 {
+		t.Fatalf("fresh snapshot did not restore replay book: %#v", book)
 	}
 }
 

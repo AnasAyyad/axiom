@@ -30,6 +30,15 @@ in PostgreSQL. Claims and checkpoints make work restart-safe. Recoverable feed
 interruptions pause valid-time accounting; elapsed wall time never substitutes
 for valid evidence time.
 
+A source-sequence gap invalidates only the affected local book generation and
+the observation interval containing it. The collector records the gap, stops
+decisions from that book, reconnects, obtains a fresh snapshot, and rebuilds
+the book automatically. Qualification remains `PAUSED_RECOVERABLE` until a
+subsequent observation proves that all six books, clocks, and persistence are
+healthy, then the same campaign resumes its existing valid-time total. Three
+consecutive observations without a validated recovery block with
+`DATA_CORRUPT`; the gap and recovery evidence are never deleted or rewritten.
+
 Only the owner can start or emergency-cancel a campaign. A member-level
 strategy failure preserves the evidence and allows unaffected members to
 continue. A shared data, storage, accounting, safety, or persistence failure

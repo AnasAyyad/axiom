@@ -216,13 +216,38 @@ func (processor *evaluationMarketProcessor) reducePublicEvidence(event replay.Ev
 		}
 		return nil, nil
 	}
+	var gap exchangecontracts.SourceGap
+	if json.Unmarshal(event.Canonical, &gap) == nil && gap.Instrument.Base != "" &&
+		gap.FirstSequence > 0 && gap.LastSequence >= gap.FirstSequence && gap.Reason != "" {
+		processor.invalidateGapBooks(gap)
+		return nil, nil
+	}
 	var snapshot exchangecontracts.BookSnapshot
-	if json.Unmarshal(event.Canonical, &snapshot) == nil && snapshot.Exchange != "" && snapshot.Instrument.Base != "" {
+	if json.Unmarshal(event.Canonical, &snapshot) == nil && snapshot.Exchange != "" &&
+		snapshot.Instrument.Base != "" && snapshot.LastSequence > 0 &&
+		len(snapshot.Bids) > 0 && len(snapshot.Asks) > 0 {
 		return nil, processor.replaceBook(snapshot, event.Ordinal, event.LogicalTime)
 	}
-	// Lifecycle, subscription, heartbeat, and bounded decoder evidence are
-	// retained as no-op inputs. Qualification has already blocked any loss.
+	// Lifecycle, subscription, heartbeat, rebuild, and bounded decoder evidence
+	// remain audit inputs. A declared gap invalidates its local replay book above;
+	// only a later full snapshot makes that book eligible again.
 	return nil, nil
+}
+
+func (processor *evaluationMarketProcessor) invalidateGapBooks(gap exchangecontracts.SourceGap) {
+	if gap.Exchange != "" {
+		if book := processor.books[evaluationBookKey(string(gap.Exchange), gap.Instrument)]; book != nil {
+			book.valid = false
+		}
+		return
+	}
+	// Older manifests did not embed the exchange in the canonical gap fact.
+	// Conservatively invalidate every matching venue rather than guessing.
+	for _, book := range processor.books {
+		if book.instrument == gap.Instrument {
+			book.valid = false
+		}
+	}
 }
 
 func (processor *evaluationMarketProcessor) addCandle(candle exchangecontracts.Candle) {

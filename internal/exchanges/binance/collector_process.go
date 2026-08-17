@@ -357,7 +357,7 @@ func (collector *InstrumentCollector) recordSequenceGap(
 		last = first
 	}
 	now := collector.clock.Now().UTC
-	gap := SourceGap{Instrument: collector.config.Instrument, ConnectionGeneration: generation,
+	gap := SourceGap{Exchange: exchangecontracts.ExchangeID("binance"), Instrument: collector.config.Instrument, ConnectionGeneration: generation,
 		FirstSequence: first, LastSequence: last, StartedAt: now, EndedAt: now, Reason: reason}
 	if err := collector.recorder.RecordSourceGap(ctx, gap); err != nil {
 		return err

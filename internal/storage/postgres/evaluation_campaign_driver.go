@@ -53,6 +53,8 @@ type EvaluationCampaignDriver struct {
 	base       config.Configuration
 }
 
+const evaluationRecorderMaxUnresolvedObservations int64 = 3
+
 // NewEvaluationCampaignDriver constructs the durable campaign-stage adapter.
 func NewEvaluationCampaignDriver(pool *pgxpool.Pool, root string, clock domain.Clock, base config.Configuration,
 	historical, audit, shadow evaluationStageAdvancer) (*EvaluationCampaignDriver, error) {
@@ -139,36 +141,56 @@ func (driver *EvaluationCampaignDriver) QualifyRecorder(ctx context.Context,
 
 func (driver *EvaluationCampaignDriver) preReserveQualification(ctx context.Context, campaignID string,
 	qualification EvaluationRecorderQualification, checkpoint []byte) (evaluation.StageProgress, bool, error) {
+	progress, terminal, block := evaluationRecorderQualificationPolicy(driver.clock.Now().UTC, qualification, checkpoint)
+	if block {
+		if err := driver.recorder.Block(ctx, campaignID, evaluation.ReasonDataCorrupt); err != nil {
+			return evaluation.StageProgress{}, true, err
+		}
+	}
+	return progress, terminal, nil
+}
+
+func evaluationRecorderQualificationPolicy(now time.Time, qualification EvaluationRecorderQualification,
+	checkpoint []byte) (evaluation.StageProgress, bool, bool) {
 	if qualification.State == "BLOCKED" {
 		reason := qualification.Reason
 		if reason == "" {
 			reason = evaluation.ReasonPersistenceFailed
 		}
 		return evaluation.StageProgress{State: evaluation.ProgressBlock, Reason: reason,
-			Summary: "Fresh recorder qualification is blocked with preserved evidence.", Checkpoint: checkpoint}, true, nil
+			Summary: "Fresh recorder qualification is blocked with preserved evidence.", Checkpoint: checkpoint}, true, false
 	}
-	if qualification.LossObserved {
-		if err := driver.recorder.Block(ctx, campaignID, evaluation.ReasonDataCorrupt); err != nil {
-			return evaluation.StageProgress{}, true, err
-		}
+	if qualification.UnresolvedObservations >= evaluationRecorderMaxUnresolvedObservations {
 		return evaluation.StageProgress{State: evaluation.ProgressBlock, Reason: evaluation.ReasonDataCorrupt,
-			Summary:    "Queue loss, a source gap, or a decoder failure invalidated recorder qualification.",
-			Checkpoint: checkpoint}, true, nil
+			Summary: "Recorder resynchronization could not be validated after three consecutive observations; " +
+				"the affected evidence remains preserved.", Checkpoint: checkpoint}, true, true
 	}
-	now := driver.clock.Now().UTC
+	observationAge := now.Sub(qualification.LastObservedAt)
 	healthy := qualification.LatestAllEligible && qualification.LatestPersistence &&
-		!qualification.LastObservedAt.IsZero() && now.Sub(qualification.LastObservedAt) <= 2*time.Minute
+		!qualification.LastObservedAt.IsZero() && observationAge >= 0 &&
+		observationAge <= evaluationRecorderMaxObservationInterval
+	if qualification.UnresolvedObservations > 0 {
+		return evaluation.StageProgress{State: evaluation.ProgressPause, Reason: evaluation.ReasonDataUnavailable,
+			Summary: "A recorded feed gap invalidated the affected book interval; automatic snapshot " +
+				"resynchronization is being validated before valid-time accounting resumes.",
+			Checkpoint: checkpoint}, true, false
+	}
 	if qualification.ObservationCount == 0 || !healthy {
 		return evaluation.StageProgress{State: evaluation.ProgressPause, Reason: evaluation.ReasonDataUnavailable,
 			Summary:    "Valid-time clock is paused until all six public feeds, clocks, and persistence recover.",
-			Checkpoint: checkpoint}, true, nil
+			Checkpoint: checkpoint}, true, false
+	}
+	if qualification.ObservationCount > 1 && !qualification.LatestIntervalValid {
+		return evaluation.StageProgress{State: evaluation.ProgressPause, Reason: evaluation.ReasonDataUnavailable,
+			Summary: "Valid-time clock is paused until one complete healthy observation proves continuous " +
+				"post-recovery recording.", Checkpoint: checkpoint}, true, false
 	}
 	if qualification.ValidSeconds < int64(evaluation.RequiredRecordingValidTime/time.Second) {
 		return evaluation.StageProgress{State: evaluation.ProgressWaiting,
 			Summary:    "Fresh simultaneous Binance and Bybit evidence is accumulating valid time.",
-			Checkpoint: checkpoint}, true, nil
+			Checkpoint: checkpoint}, true, false
 	}
-	return evaluation.StageProgress{}, false, nil
+	return evaluation.StageProgress{}, false, false
 }
 
 func (driver *EvaluationCampaignDriver) shadowReserveFailure(ctx context.Context, campaignID string,
@@ -188,7 +210,10 @@ func recorderQualificationCheckpoint(value EvaluationRecorderQualification) []by
 		"recorded_bytes": value.RecordedBytes, "measured_bytes_per_hour": value.MeasuredBytesPerHour,
 		"shadow_reserved_bytes": value.ShadowReservedBytes, "observation_count": value.ObservationCount,
 		"last_observed_at": value.LastObservedAt, "all_feeds_eligible": value.LatestAllEligible,
-		"persistence_healthy": value.LatestPersistence, "loss_observed": value.LossObserved})
+		"persistence_healthy": value.LatestPersistence, "latest_interval_valid": value.LatestIntervalValid,
+		"loss_observed": value.LossObserved, "last_loss_observed_at": value.LastLossObservedAt,
+		"unresolved_observations": value.UnresolvedObservations,
+		"recovering":              value.UnresolvedObservations > 0})
 	return payload
 }
 
