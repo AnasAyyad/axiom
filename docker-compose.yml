@@ -380,6 +380,7 @@ services:
       BACKUP_DATABASE_FILESYSTEM: /verify/postgres
       BACKUP_MARKET_DATA_FILESYSTEM: /verify/market-data
       BACKUP_LOCAL_FILESYSTEM: /verify/local-backup
+      BACKUP_VALIDATION_FILESYSTEM: /validation
     secrets:
       - postgres_backup_password
       - backup_encryption_key
@@ -399,6 +400,9 @@ services:
         source: ${BACKUP_LOCAL_STAGING_HOST_PATH:-./.local/backup-staging}
         target: /verify/local-backup
         read_only: true
+      - type: bind
+        source: ${BACKUP_LOCAL_STAGING_HOST_PATH:-./.local/backup-staging}
+        target: /validation
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m,mode=0700,uid=10002,gid=70
     depends_on:
@@ -436,6 +440,7 @@ services:
       BACKUP_DATABASE_FILESYSTEM: /verify/postgres
       BACKUP_MARKET_DATA_FILESYSTEM: /verify/market-data
       BACKUP_LOCAL_FILESYSTEM: /verify/local-backup
+      BACKUP_VALIDATION_FILESYSTEM: /validation
     secrets:
       - postgres_migrator_password
       - backup_encryption_key
@@ -455,6 +460,9 @@ services:
         source: ${BACKUP_LOCAL_STAGING_HOST_PATH:-./.local/backup-staging}
         target: /verify/local-backup
         read_only: true
+      - type: bind
+        source: ${BACKUP_LOCAL_STAGING_HOST_PATH:-./.local/backup-staging}
+        target: /validation
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m,mode=0700,uid=10002,gid=70
     depends_on:

@@ -63,6 +63,7 @@ type settings struct {
 	retain                int
 	protected             []string
 	marketRoot            string
+	validationRoot        string
 	requireMarketRecovery bool
 }
 
@@ -94,13 +95,15 @@ func loadSettings() (settings, error) {
 	databaseFilesystem := environment("BACKUP_DATABASE_FILESYSTEM", "/verify/postgres")
 	marketFilesystem := environment("BACKUP_MARKET_DATA_FILESYSTEM", "/verify/market-data")
 	localFilesystem := environment("BACKUP_LOCAL_FILESYSTEM", "/verify/local-backup")
+	validationFilesystem := environment("BACKUP_VALIDATION_FILESYSTEM", "/validation")
 	value := settings{
 		host: environment("DB_HOST", "postgres"), port: uint16(port),
 		database: environment("DB_NAME", "axiom"), user: environment("DB_USER", "axiom_backup"),
 		password: password, destination: environment("BACKUP_DESTINATION", "/backups"), key: key,
 		manifest: os.Getenv("BACKUP_RESTORE_MANIFEST"), retain: retention,
-		protected:  []string{databaseFilesystem, marketFilesystem, localFilesystem},
-		marketRoot: marketFilesystem, requireMarketRecovery: requireMarketRecovery,
+		protected:  []string{databaseFilesystem, marketFilesystem, localFilesystem, validationFilesystem},
+		marketRoot: marketFilesystem, validationRoot: validationFilesystem,
+		requireMarketRecovery: requireMarketRecovery,
 	}
 	if !safePGPassField(value.host) || !safePGPassField(value.database) || !safePGPassField(value.user) ||
 		!safePGPassField(value.password) || !filepath.IsAbs(value.destination) {
@@ -135,7 +138,7 @@ func create(ctx context.Context, settings settings, passfile string) error {
 		_ = command.Wait()
 		return err
 	}
-	if err = validateArchive(ctx, settings.destination, manifest, settings.key); err != nil {
+	if err = validateArchive(ctx, settings.destination, settings.validationRoot, manifest, settings.key); err != nil {
 		if quarantineErr := backup.QuarantineArtifact(settings.destination, manifest, settings.key); quarantineErr != nil {
 			return fmt.Errorf("backup_archive_validation_and_quarantine_failed")
 		}
@@ -173,14 +176,45 @@ func artifactSpec(ctx context.Context, settings settings, passfile string, start
 	}, nil
 }
 
-func validateArchive(ctx context.Context, root string, manifest backup.ArtifactManifest, key [32]byte) error {
+func validateArchive(
+	ctx context.Context,
+	root string,
+	validationRoot string,
+	manifest backup.ArtifactManifest,
+	key [32]byte,
+) error {
+	var plaintextPath string
 	if err := validateArchiveWithRetry(ctx, archiveValidationAttempts, archiveValidationRetryDelay, func() error {
-		return backup.RestoreArtifact(root, manifest, io.Discard, key)
+		file, err := os.CreateTemp(validationRoot, ".axiom-backup-validation-*")
+		if err != nil {
+			return fmt.Errorf("backup_archive_validation_unavailable")
+		}
+		path := file.Name()
+		if err = file.Chmod(0o600); err == nil {
+			err = backup.RestoreArtifact(root, manifest, file, key)
+		}
+		if err == nil {
+			err = file.Sync()
+		}
+		if closeErr := file.Close(); err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			_ = os.Remove(path)
+			return err
+		}
+		plaintextPath = path
+		return nil
 	}); err != nil {
 		return fmt.Errorf("backup_archive_validation_failed")
 	}
-	command := exec.CommandContext(ctx, "pg_restore", "--list")
-	return validateArchiveWithCommand(root, manifest, key, command)
+	defer os.Remove(plaintextPath)
+	command := exec.CommandContext(ctx, "pg_restore", "--list", plaintextPath)
+	command.Stdout, command.Stderr = io.Discard, io.Discard
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("backup_archive_validation_failed")
+	}
+	return nil
 }
 
 func validateArchiveWithRetry(

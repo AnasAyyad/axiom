@@ -136,6 +136,29 @@ func TestArchiveValidationStreamsAuthenticatedPlaintextToLister(t *testing.T) {
 	}
 }
 
+func TestArchiveValidationSpoolsPrivatelyAndRemovesPlaintext(t *testing.T) {
+	root := t.TempDir()
+	validationRoot := t.TempDir()
+	key := [32]byte{1, 2, 3}
+	spec := backup.ArtifactSpec{
+		Name: "axiom-validation-file", Database: "axiom", SchemaVersion: "000003",
+		ToolVersion: "pg_dump (PostgreSQL) 18.4", ValidatorVersion: "pg_restore (PostgreSQL) 18.4",
+		WALBoundary: "0/16B6A50", StartedAt: time.Now().Add(-time.Second).UTC(),
+	}
+	manifest, err := backup.CreateArtifact(root, spec, bytes.NewReader([]byte("not-a-postgres-archive")), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = validateArchive(context.Background(), root, validationRoot, manifest, key)
+	if err == nil {
+		t.Fatal("invalid PostgreSQL archive accepted")
+	}
+	entries, readErr := os.ReadDir(validationRoot)
+	if readErr != nil || len(entries) != 0 {
+		t.Fatalf("plaintext staging survived validation: %d entries, %v", len(entries), readErr)
+	}
+}
+
 func TestArchiveValidationRetryIsBoundedAndFailClosed(t *testing.T) {
 	attempts := 0
 	err := validateArchiveWithRetry(context.Background(), 3, 0, func() error {

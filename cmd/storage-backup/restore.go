@@ -30,7 +30,7 @@ func restore(ctx context.Context, settings settings, passfile string) error {
 	if err = backup.RestoreArtifact(root, manifest, io.Discard, settings.key); err != nil {
 		return err
 	}
-	if err = validateArchive(ctx, root, manifest, settings.key); err != nil {
+	if err = validateArchive(ctx, root, settings.validationRoot, manifest, settings.key); err != nil {
 		return err
 	}
 	empty, err := targetIsEmpty(ctx, settings, passfile)

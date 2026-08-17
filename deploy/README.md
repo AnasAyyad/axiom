@@ -672,8 +672,12 @@ rejected. The authenticated manifest records start/completion UTC,
 database and schema identity, `pg_dump` version, WAL boundary, encryption format,
 object size, and checksum. After a successful backup, the job authenticates and
 decrypts the new object through `pg_restore --list`; a structurally invalid
-archive is durably quarantined outside the ready inventory. It then authenticates
-and fully verifies every completed restore point, safely resumes any interrupted
+archive is durably quarantined outside the ready inventory. The archive
+validator decrypts one authenticated copy into the private local
+staging mount with owner-only permissions, runs `pg_restore --list` on that
+seekable temporary file, and removes the plaintext on every exit. The staging
+mount is never accepted as the remote destination. It then authenticates and
+fully verifies every completed restore point, safely resumes any interrupted
 deletion, and retains the newest 14 generations (or the larger configured
 `BACKUP_RETENTION_GENERATIONS` value). Invalid inventory fails pruning closed.
 Schedule the reviewed command daily and retain the encrypted objects and
