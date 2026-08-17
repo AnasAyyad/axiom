@@ -19,23 +19,11 @@ func (store *EvaluationRecorderControlStore) Qualification(ctx context.Context,
 	var value EvaluationRecorderQualification
 	var reason *string
 	var rate, reserve *int64
-	var observed *time.Time
-	err := store.pool.QueryRow(ctx, `SELECT request.state,request.reason_code,
-	  request.valid_recording_seconds,request.recorded_bytes,request.measured_bytes_per_hour,
-	  request.shadow_reserved_bytes,
-	  (SELECT count(*) FROM evaluation_recorder_observations observation WHERE observation.campaign_id=request.campaign_id),
-	  (SELECT observation.observed_at FROM evaluation_recorder_observations observation
-	    WHERE observation.campaign_id=request.campaign_id ORDER BY observation.ordinal DESC LIMIT 1),
-	  COALESCE((SELECT observation.all_collectors_eligible FROM evaluation_recorder_observations observation
-	    WHERE observation.campaign_id=request.campaign_id ORDER BY observation.ordinal DESC LIMIT 1),false),
-	  COALESCE((SELECT observation.persistence_healthy FROM evaluation_recorder_observations observation
-	    WHERE observation.campaign_id=request.campaign_id ORDER BY observation.ordinal DESC LIMIT 1),false),
-	  EXISTS(SELECT 1 FROM evaluation_recorder_observations observation
-	    WHERE observation.campaign_id=request.campaign_id AND
-	      (observation.queue_drop_count>0 OR observation.gap_count>0 OR observation.decoder_error_count>0))
-	  FROM evaluation_recorder_requests request WHERE request.campaign_id=$1`, campaignID).Scan(&value.State,
+	var observed, lastLoss *time.Time
+	err := store.pool.QueryRow(ctx, evaluationRecorderQualificationQuery, campaignID).Scan(&value.State,
 		&reason, &value.ValidSeconds, &value.RecordedBytes, &rate, &reserve, &value.ObservationCount,
-		&observed, &value.LatestAllEligible, &value.LatestPersistence, &value.LossObserved)
+		&observed, &value.LatestAllEligible, &value.LatestPersistence, &value.LatestIntervalValid,
+		&value.LossObserved, &lastLoss, &value.UnresolvedObservations)
 	if err != nil {
 		return EvaluationRecorderQualification{}, err
 	}
@@ -50,6 +38,9 @@ func (store *EvaluationRecorderControlStore) Qualification(ctx context.Context,
 	}
 	if observed != nil {
 		value.LastObservedAt = observed.UTC()
+	}
+	if lastLoss != nil {
+		value.LastLossObservedAt = lastLoss.UTC()
 	}
 	return value, nil
 }
@@ -215,7 +206,7 @@ func calculateEvaluationRecorderInterval(prior evaluationPriorRecorderObservatio
 		freshFacts = freshFacts && !item.LatestEventAt.Before(prior.at.UTC()) &&
 			!item.LatestEventAt.After(observedAt) && observedAt.Sub(item.LatestEventAt) <= 30*time.Second
 	}
-	valid := prior.session == session && elapsed > 0 && elapsed <= 15*time.Minute && countersMonotonic &&
+	valid := prior.session == session && elapsed > 0 && elapsed <= evaluationRecorderMaxObservationInterval && countersMonotonic &&
 		messages > prior.messages && noNewLoss && allEligible && persistenceHealthy && freshFacts
 	result := evaluationRecorderInterval{valid: valid, start: prior.at.UTC()}
 	if valid {

@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	evaluationRecordingLimitBytes       int64 = 200 * 1024 * 1024 * 1024
-	evaluationRecorderFinalizeAllowance int64 = 1 * 1024 * 1024 * 1024
+	evaluationRecordingLimitBytes            int64 = 200 * 1024 * 1024 * 1024
+	evaluationRecorderFinalizeAllowance      int64 = 1 * 1024 * 1024 * 1024
+	evaluationRecorderMaxObservationInterval       = 15 * time.Minute
 )
 
 // EvaluationRecorderRotation is the safe recorder-role handshake.
@@ -32,17 +33,20 @@ type EvaluationRecorderRotation struct {
 // EvaluationRecorderQualification is the durable, low-cardinality recorder
 // gate consumed by campaign orchestration.
 type EvaluationRecorderQualification struct {
-	State                string
-	Reason               evaluation.ReasonCode
-	ValidSeconds         int64
-	RecordedBytes        int64
-	MeasuredBytesPerHour int64
-	ShadowReservedBytes  int64
-	ObservationCount     int64
-	LastObservedAt       time.Time
-	LatestAllEligible    bool
-	LatestPersistence    bool
-	LossObserved         bool
+	State                  string
+	Reason                 evaluation.ReasonCode
+	ValidSeconds           int64
+	RecordedBytes          int64
+	MeasuredBytesPerHour   int64
+	ShadowReservedBytes    int64
+	ObservationCount       int64
+	LastObservedAt         time.Time
+	LastLossObservedAt     time.Time
+	LatestAllEligible      bool
+	LatestPersistence      bool
+	LatestIntervalValid    bool
+	LossObserved           bool
+	UnresolvedObservations int64
 }
 
 // EvaluationRecorderInstrumentObservation is one of the fixed six public

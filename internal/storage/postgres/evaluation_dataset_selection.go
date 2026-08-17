@@ -57,12 +57,18 @@ func loadEvaluationPublicDatasets(ctx context.Context, tx pgx.Tx,
 
 func evaluationRecorderDatasetIDs(ctx context.Context, tx pgx.Tx, campaignID string) ([]string, error) {
 	var binanceSession, bybitSession string
-	if err := tx.QueryRow(ctx, `SELECT binance_session_id,bybit_session_id
-FROM evaluation_recorder_requests WHERE campaign_id=$1 AND state IN ('ACTIVE','PAUSED','COMPLETED')`,
-		campaignID).Scan(&binanceSession, &bybitSession); errors.Is(err, pgx.ErrNoRows) {
+	var recoveryReady bool
+	if err := tx.QueryRow(ctx, `SELECT binance_session_id,bybit_session_id,
+	COALESCE((SELECT observation.interval_valid FROM evaluation_recorder_observations observation
+	  WHERE observation.campaign_id=request.campaign_id ORDER BY observation.ordinal DESC LIMIT 1),false)
+FROM evaluation_recorder_requests request WHERE campaign_id=$1 AND state IN ('ACTIVE','PAUSED','COMPLETED')`,
+		campaignID).Scan(&binanceSession, &bybitSession, &recoveryReady); errors.Is(err, pgx.ErrNoRows) {
 		return nil, errEvaluationInputsPending
 	} else if err != nil {
 		return nil, err
+	}
+	if !recoveryReady {
+		return nil, errEvaluationInputsPending
 	}
 	return []string{"binance-public-recording-" + binanceSession,
 		"bybit-public-recording-" + stringsTrimSuffix(bybitSession, "-bybit")}, nil

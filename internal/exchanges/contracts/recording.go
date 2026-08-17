@@ -61,6 +61,7 @@ type PublicRecorder interface {
 
 // SourceGap is a bounded exact-or-conservative missing source interval.
 type SourceGap struct {
+	Exchange             ExchangeID
 	Instrument           domain.Instrument
 	ConnectionGeneration uint64
 	FirstSequence        uint64

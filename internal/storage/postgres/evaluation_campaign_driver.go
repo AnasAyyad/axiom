@@ -139,36 +139,13 @@ func (driver *EvaluationCampaignDriver) QualifyRecorder(ctx context.Context,
 
 func (driver *EvaluationCampaignDriver) preReserveQualification(ctx context.Context, campaignID string,
 	qualification EvaluationRecorderQualification, checkpoint []byte) (evaluation.StageProgress, bool, error) {
-	if qualification.State == "BLOCKED" {
-		reason := qualification.Reason
-		if reason == "" {
-			reason = evaluation.ReasonPersistenceFailed
-		}
-		return evaluation.StageProgress{State: evaluation.ProgressBlock, Reason: reason,
-			Summary: "Fresh recorder qualification is blocked with preserved evidence.", Checkpoint: checkpoint}, true, nil
-	}
-	if qualification.LossObserved {
+	progress, terminal, block := evaluationRecorderQualificationPolicy(driver.clock.Now().UTC, qualification, checkpoint)
+	if block {
 		if err := driver.recorder.Block(ctx, campaignID, evaluation.ReasonDataCorrupt); err != nil {
 			return evaluation.StageProgress{}, true, err
 		}
-		return evaluation.StageProgress{State: evaluation.ProgressBlock, Reason: evaluation.ReasonDataCorrupt,
-			Summary:    "Queue loss, a source gap, or a decoder failure invalidated recorder qualification.",
-			Checkpoint: checkpoint}, true, nil
 	}
-	now := driver.clock.Now().UTC
-	healthy := qualification.LatestAllEligible && qualification.LatestPersistence &&
-		!qualification.LastObservedAt.IsZero() && now.Sub(qualification.LastObservedAt) <= 2*time.Minute
-	if qualification.ObservationCount == 0 || !healthy {
-		return evaluation.StageProgress{State: evaluation.ProgressPause, Reason: evaluation.ReasonDataUnavailable,
-			Summary:    "Valid-time clock is paused until all six public feeds, clocks, and persistence recover.",
-			Checkpoint: checkpoint}, true, nil
-	}
-	if qualification.ValidSeconds < int64(evaluation.RequiredRecordingValidTime/time.Second) {
-		return evaluation.StageProgress{State: evaluation.ProgressWaiting,
-			Summary:    "Fresh simultaneous Binance and Bybit evidence is accumulating valid time.",
-			Checkpoint: checkpoint}, true, nil
-	}
-	return evaluation.StageProgress{}, false, nil
+	return progress, terminal, nil
 }
 
 func (driver *EvaluationCampaignDriver) shadowReserveFailure(ctx context.Context, campaignID string,
@@ -188,7 +165,10 @@ func recorderQualificationCheckpoint(value EvaluationRecorderQualification) []by
 		"recorded_bytes": value.RecordedBytes, "measured_bytes_per_hour": value.MeasuredBytesPerHour,
 		"shadow_reserved_bytes": value.ShadowReservedBytes, "observation_count": value.ObservationCount,
 		"last_observed_at": value.LastObservedAt, "all_feeds_eligible": value.LatestAllEligible,
-		"persistence_healthy": value.LatestPersistence, "loss_observed": value.LossObserved})
+		"persistence_healthy": value.LatestPersistence, "latest_interval_valid": value.LatestIntervalValid,
+		"loss_observed": value.LossObserved, "last_loss_observed_at": value.LastLossObservedAt,
+		"unresolved_observations": value.UnresolvedObservations,
+		"recovering":              value.UnresolvedObservations > 0})
 	return payload
 }
 

@@ -189,42 +189,6 @@ func (processor *evaluationMarketProcessor) Metrics() backtest.Metrics {
 	return metrics
 }
 
-func (processor *evaluationMarketProcessor) reducePublicEvidence(event replay.Event) ([]exchangecontracts.Candle, error) {
-	var historical exchangecontracts.Candle
-	if json.Unmarshal(event.Canonical, &historical) == nil && historical.Interval != "" && historical.Instrument.Base != "" {
-		if !historical.Closed || historical.RawPayloadHash == "" {
-			return nil, fmt.Errorf("evaluation_historical_candle_invalid")
-		}
-		processor.addCandle(historical)
-		return []exchangecontracts.Candle{historical}, nil
-	}
-	var stream exchangecontracts.StreamEvent
-	if json.Unmarshal(event.Canonical, &stream) == nil && stream.Kind != "" {
-		if stream.Snapshot != nil {
-			if err := processor.replaceBook(*stream.Snapshot, event.Ordinal, event.LogicalTime); err != nil {
-				return nil, err
-			}
-		}
-		if stream.Depth != nil {
-			if err := processor.applyDepth(*stream.Depth, event.Ordinal, event.LogicalTime); err != nil {
-				return nil, err
-			}
-		}
-		if stream.Candle != nil && stream.Candle.Closed {
-			processor.addCandle(*stream.Candle)
-			return []exchangecontracts.Candle{*stream.Candle}, nil
-		}
-		return nil, nil
-	}
-	var snapshot exchangecontracts.BookSnapshot
-	if json.Unmarshal(event.Canonical, &snapshot) == nil && snapshot.Exchange != "" && snapshot.Instrument.Base != "" {
-		return nil, processor.replaceBook(snapshot, event.Ordinal, event.LogicalTime)
-	}
-	// Lifecycle, subscription, heartbeat, and bounded decoder evidence are
-	// retained as no-op inputs. Qualification has already blocked any loss.
-	return nil, nil
-}
-
 func (processor *evaluationMarketProcessor) addCandle(candle exchangecontracts.Candle) {
 	key := evaluationCandleKey(candle.Exchange, candle.Instrument, candle.Interval)
 	values := processor.candles[key]
