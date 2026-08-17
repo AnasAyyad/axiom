@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -249,6 +251,52 @@ func TestAlertDeliveryServiceObjectivesAtDeclaredLocalLoad(t *testing.T) {
 	}
 	if externalP95 > 60*time.Second {
 		t.Fatalf("external p95 %s exceeds 60s objective", externalP95)
+	}
+}
+
+func TestAlertDeliveryServiceObjectivesAtLoopbackTLSLoad(t *testing.T) {
+	durations := &objectiveDurations{}
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		durations.record(&durations.external)
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	endpoint, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sink, err := NewWebhookSink(
+		server.URL, "fixture-bearer-token", []string{endpoint.Host}, server.Client(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &objectiveStore{record: func() { durations.record(&durations.inApp) }}
+	service, err := NewService(store, sink, &testGate{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < 100; index++ {
+		durations.begin()
+		_, err = service.Trigger(context.Background(), Fault{
+			Severity: SeverityCritical, Reason: ReasonPersistenceFailure,
+			Component: "postgres", CorrelationID: "objective-loopback-tls",
+			OccurredAt: time.Now().UTC(),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(durations.inApp) != 100 || len(durations.external) != 100 {
+		t.Fatalf("incomplete measurements: in-app=%d external=%d", len(durations.inApp), len(durations.external))
+	}
+	inAppP95, externalP95 := percentile95(durations.inApp), percentile95(durations.external)
+	t.Logf("loopback TLS load: samples=100 in_app_p95=%s external_https_p95=%s", inAppP95, externalP95)
+	if inAppP95 > 5*time.Second {
+		t.Fatalf("in-app p95 %s exceeds 5s objective", inAppP95)
+	}
+	if externalP95 > 60*time.Second {
+		t.Fatalf("external HTTPS p95 %s exceeds 60s objective", externalP95)
 	}
 }
 

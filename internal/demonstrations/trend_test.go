@@ -6,6 +6,24 @@ import (
 	"testing"
 )
 
+func TestDeclaredReplayProducesTenIdenticalHashes(t *testing.T) {
+	const runs = 10
+	hashes := make([]string, 0, runs)
+	for range runs {
+		result, err := RunTrendFollowing(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		hashes = append(hashes, result.ResultHash)
+	}
+	for index := 1; index < len(hashes); index++ {
+		if hashes[index] == "" || hashes[index] != hashes[0] {
+			t.Fatalf("declared replay hash mismatch at run %d", index+1)
+		}
+	}
+	t.Logf("declared replay: runs=%d canonical_result_hash=%s", runs, hashes[0])
+}
+
 func TestTrendFollowingWalkthroughUsesTheSharedPipelineDeterministically(t *testing.T) {
 	first, err := RunTrendFollowing(context.Background())
 	if err != nil {
