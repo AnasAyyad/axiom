@@ -1,5 +1,18 @@
 # Axiom implementation status
 
+## Recorder segment transaction recovery — 2026-08-17
+
+**Status:** Implemented on `fix/recorder-segment-commit-recovery`; validation,
+review, merge, immutable publication, deployment, and campaign recovery remain
+separate gates.
+
+Recorder segment registration now retries PostgreSQL serialization failures as
+one complete idempotent transaction with bounded deterministic backoff and
+context cancellation. The change preserves atomic segment catalogue and
+campaign-byte accounting, does not retry permanent failures, and does not
+weaken the recorder's fail-closed behavior. It adds no credentials, private
+exchange access, order capability, or real-money behavior.
+
 ## Cross-exchange exact event binding and dual coherence probe — 2026-08-13
 
 **Status:** Implemented on `feature/cross-exchange-actionable-coherence`; local
