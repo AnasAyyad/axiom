@@ -41,8 +41,8 @@ func assertSandboxRuntimeEngineStrategyLifecycleRoleBoundary(
 	pool *pgxpool.Pool,
 ) {
 	t.Helper()
-	binanceRole := fmt.Sprintf("axiom_d5_binance_%d", time.Now().UnixNano())
-	bybitRole := fmt.Sprintf("axiom_d5_bybit_%d", time.Now().UnixNano())
+	binanceRole := fmt.Sprintf("axiom_readiness_binance_%d", time.Now().UnixNano())
+	bybitRole := fmt.Sprintf("axiom_readiness_bybit_%d", time.Now().UnixNano())
 	for _, role := range []string{binanceRole, bybitRole} {
 		identifier := pgx.Identifier{role}.Sanitize()
 		if _, err := pool.Exec(ctx, "CREATE ROLE "+identifier+" NOLOGIN"); err != nil {
@@ -86,7 +86,7 @@ SELECT
 
 func assertOperationalReadinessObserverRoleBoundary(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
-	role := fmt.Sprintf("axiom_d5_observer_%d", time.Now().UnixNano())
+	role := fmt.Sprintf("axiom_readiness_observer_%d", time.Now().UnixNano())
 	identifier := pgx.Identifier{role}.Sanitize()
 	if _, err := pool.Exec(ctx, "CREATE ROLE "+identifier+" NOLOGIN"); err != nil {
 		t.Fatal(err)

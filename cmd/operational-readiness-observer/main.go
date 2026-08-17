@@ -144,12 +144,12 @@ func metricTargets() ([]operationalReadiness.RuntimeMetricTarget, error) {
 	definitions := []struct {
 		role, host, limitEnvironment, defaultLimit string
 	}{
-		{"api", "api", "AXIOM_D5_API_MEMORY_LIMIT", "1g"},
-		{"engine-shadow", "engine-shadow", "AXIOM_D5_ENGINE_MEMORY_LIMIT", "2g"},
-		{"recorder", "recorder", "AXIOM_D5_RECORDER_MEMORY_LIMIT", "2g"},
-		{"backtest-worker", "backtest-worker", "AXIOM_D5_WORKER_MEMORY_LIMIT", "4g"},
-		{"binance-sandbox-engine", "binance-sandbox-engine", "AXIOM_D5_BINANCE_MEMORY_LIMIT", "1g"},
-		{"bybit-sandbox-engine", "bybit-sandbox-engine", "AXIOM_D5_BYBIT_MEMORY_LIMIT", "1g"},
+		{"api", "api", "AXIOM_OPERATIONAL_READINESS_API_MEMORY_LIMIT", "1g"},
+		{"engine-shadow", "engine-shadow", "AXIOM_OPERATIONAL_READINESS_ENGINE_MEMORY_LIMIT", "2g"},
+		{"recorder", "recorder", "AXIOM_OPERATIONAL_READINESS_RECORDER_MEMORY_LIMIT", "2g"},
+		{"backtest-worker", "backtest-worker", "AXIOM_OPERATIONAL_READINESS_WORKER_MEMORY_LIMIT", "4g"},
+		{"binance-sandbox-engine", "binance-sandbox-engine", "AXIOM_OPERATIONAL_READINESS_BINANCE_MEMORY_LIMIT", "1g"},
+		{"bybit-sandbox-engine", "bybit-sandbox-engine", "AXIOM_OPERATIONAL_READINESS_BYBIT_MEMORY_LIMIT", "1g"},
 	}
 	result := make([]operationalReadiness.RuntimeMetricTarget, 0, len(definitions))
 	for _, definition := range definitions {

@@ -408,7 +408,7 @@ operational-readiness-model-qualify: ## Exercise operational readiness pressure,
 	@$(GO) test -race ./internal/storage/pressure ./internal/qualification/operationalreadiness \
 		./internal/bootstrap -count=1
 
-operational-readiness-observer-qualify: ## Prove the live D5 observer is source-bound, fresh, read-only, and fail-closed.
+operational-readiness-observer-qualify: ## Prove the live operational-readiness observer is source-bound, fresh, read-only, and fail-closed.
 	@$(GO) test ./internal/qualification/operationalreadiness ./cmd/operational-readiness-observer -count=1
 
 operational-readiness-backup-qualify: ## Prove independent mount rejection, encryption, retention, and authenticated restore evidence.
@@ -447,7 +447,7 @@ operational-readiness-security-qualify: ## Prove observation-only operational re
 	@$(NODE) scripts/check-operational-readiness-boundary.mjs
 	@$(MAKE) security-static GO="$(GO)" NODE="$(NODE)" COREPACK="$(COREPACK)"
 
-operational-readiness-preflight-check: ## MANUAL: validate exact D5 inputs and one fresh live sample without starting the seven-day clock.
+operational-readiness-preflight-check: ## MANUAL: validate exact operational-readiness inputs and one fresh live sample without starting the seven-day clock.
 	@test "$(AXIOM_OPERATIONAL_READINESS_ENABLED)" = "1" || { echo "AXIOM_OPERATIONAL_READINESS_ENABLED=1 is required" >&2; exit 1; }
 	@test "$(AXIOM_OPERATIONAL_READINESS_MODE)" = "formal" || { echo "AXIOM_OPERATIONAL_READINESS_MODE=formal is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_RUN_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_RUN_FILE is required" >&2; exit 1; }

@@ -3,11 +3,11 @@ package operationalReadiness
 import "time"
 
 // PreflightProfile controls only the non-qualifying preflight report. It never
-// changes the formal runner's immutable D5 thresholds.
+// changes the formal runner's immutable operational-readiness thresholds.
 type PreflightProfile string
 
 const (
-	// PreflightProfileStrict evaluates the exact formal D5 thresholds.
+	// PreflightProfileStrict evaluates the exact formal operational-readiness thresholds.
 	PreflightProfileStrict PreflightProfile = "strict"
 	// PreflightProfileViennaRehearsal permits only final-host infrastructure
 	// checks to be reported as warnings on the disposable Vienna rehearsal host.
@@ -16,7 +16,7 @@ const (
 )
 
 // PreflightReport is a redacted, non-qualifying readiness-input verdict.
-// It never represents a started formal clock or a D5 qualification result.
+// It never represents a started formal clock or an operational-readiness qualification result.
 type PreflightReport struct {
 	SchemaVersion               string           `json:"schema_version"`
 	CheckedAt                   time.Time        `json:"checked_at"`
@@ -34,7 +34,7 @@ type PreflightReport struct {
 }
 
 // CheckPreflightInputs evaluates one pre-clock preflight and live sample using
-// the same thresholds as the formal runner. The result can never qualify D5.
+// the same thresholds as the formal runner. The result can never qualify operational readiness.
 func CheckPreflightInputs(preflight Preflight, sample Sample, mode Mode, checkedAt time.Time) PreflightReport {
 	return CheckPreflightSourcesForProfile(&preflight, &sample, mode, PreflightProfileStrict, checkedAt)
 }

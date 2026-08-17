@@ -188,7 +188,7 @@ func initializeObservabilityMetrics(metrics *Metrics, labels prometheus.Labels) 
 	})
 	metrics.operationalReadinessObservedAt = gauge(
 		"axiom_operational_readiness_telemetry_observed_unixtime",
-		"Last successful D5 telemetry observation by fixed component.", []string{"component"}, labels,
+		"Last successful operational-readiness telemetry observation by fixed component.", []string{"component"}, labels,
 	)
 }
 

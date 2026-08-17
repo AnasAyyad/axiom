@@ -445,7 +445,7 @@ func TestOperationalReadinessObserverGrantIncludesOnlyRequiredEvidenceTables(t *
 		"owner_console_storage_pressure_state",
 	} {
 		if !strings.Contains(statement, `"public"."`+required+`"`) {
-			t.Fatalf("D5 read-only observer grant omits %s", required)
+			t.Fatalf("operational-readiness read-only observer grant omits %s", required)
 		}
 	}
 	for _, forbidden := range []string{
@@ -453,7 +453,7 @@ func TestOperationalReadinessObserverGrantIncludesOnlyRequiredEvidenceTables(t *
 		"sandbox_runtime_credential_generations", "sandbox_qualification_runs",
 	} {
 		if strings.Contains(statement, `"public"."`+forbidden+`"`) {
-			t.Fatalf("D5 read-only observer grant exposes %s", forbidden)
+			t.Fatalf("operational-readiness read-only observer grant exposes %s", forbidden)
 		}
 	}
 }

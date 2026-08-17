@@ -121,7 +121,7 @@ func ApplySandboxQualificationRoleGrants(
 	return nil
 }
 
-// ApplyOperationalReadinessObserverRoleGrants resets the dedicated D5 observer
+// ApplyOperationalReadinessObserverRoleGrants resets the dedicated operational-readiness observer
 // role to six aggregate evidence sources. It has no private inbox, credential,
 // owner, journal-write, or qualification-write access.
 func ApplyOperationalReadinessObserverRoleGrants(
