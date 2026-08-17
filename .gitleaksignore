@@ -1,2 +1,11 @@
 # Binance's public HMAC documentation golden; this is not a credential.
 912892161d0b5f6c24fc8c1b035ffdb99847aaa5:internal/exchanges/binance/authenticated_client_test.go:generic-api-key:113
+
+# Historical false positives: deterministic test idempotency keys and long
+# database table-name fixtures, not credentials.
+ccc605a53ad0d32a3161e6ddc3d46bb60b39a007:internal/storage/postgres/operational_evidence_integration_test.go:generic-api-key:347
+69f648c8d5483ef7da6b2b10a6972cdc8624db26:internal/storage/postgres/d1_integration_test.go:generic-api-key:116
+69f648c8d5483ef7da6b2b10a6972cdc8624db26:internal/storage/postgres/d1_integration_test.go:generic-api-key:302
+69f648c8d5483ef7da6b2b10a6972cdc8624db26:internal/storage/postgres/roles.go:generic-api-key:22
+69f648c8d5483ef7da6b2b10a6972cdc8624db26:internal/storage/postgres/roles.go:generic-api-key:175
+69f648c8d5483ef7da6b2b10a6972cdc8624db26:internal/storage/postgres/roles_test.go:generic-api-key:62

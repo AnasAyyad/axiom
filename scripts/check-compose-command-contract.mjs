@@ -201,10 +201,7 @@ for (const [
   ) {
     expectedNetworks.push("bybit_public_engine");
   }
-  if (
-    JSON.stringify(networks) !==
-    JSON.stringify(expectedNetworks.sort())
-  ) {
+  if (JSON.stringify(networks) !== JSON.stringify(expectedNetworks.sort())) {
     throw new Error(`${serviceName} does not have its exact internal networks`);
   }
   const secrets = (service.secrets ?? []).map((item) => item.source ?? item);

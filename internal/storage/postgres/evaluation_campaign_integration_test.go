@@ -38,14 +38,15 @@ func TestEvaluationCampaignPostgresSemanticRuntimeToCampaignUpgradeQualification
 	assertPostgres18(t, ctx, pool)
 	assertEmptyTestDatabase(t, ctx, pool)
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 57 || migrations[53].Version != "000054" ||
+	if err != nil || len(migrations) != 58 || migrations[53].Version != "000054" ||
 		migrations[54].Version != "000055" ||
 		migrations[55].Version != "000056" ||
-		migrations[56].Version != "000057" {
+		migrations[56].Version != "000057" ||
+		migrations[57].Version != "000058" {
 		t.Fatalf("evaluation campaign migration catalog=%d error=%v", len(migrations), err)
 	}
 	applyTriangularArbitrageMigrationPrefix(t, ctx, pool, 54)
-	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 3 {
+	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 4 {
 		t.Fatalf("migration-54-to-evaluation-campaign applied=%d error=%v", applied, applyErr)
 	}
 	assertEvaluationCampaignSchemaAndRecovery(t, ctx, pool)

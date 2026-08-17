@@ -171,8 +171,7 @@ const exactSet = (actual, expected) =>
 if (
   scheduleContract.schema_version !==
     "axiom.operational_readiness.fault-schedule.v1" ||
-  manifest.schema_version !==
-    "axiom.operational_readiness.test-manifest.v1" ||
+  manifest.schema_version !== "axiom.operational_readiness.test-manifest.v1" ||
   manifest.duration_seconds !== 604800 ||
   manifest.sample_interval_seconds !== 60 ||
   manifest.clock_offset_threshold_ms !== 100 ||
