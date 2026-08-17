@@ -98,15 +98,7 @@ VALUES('evaluation-gap-recovery','evaluation-gap-session','ACTIVE','evaluation-g
 		qualification.LatestIntervalValid {
 		t.Fatalf("initial gap qualification=%#v error=%v", qualification, err)
 	}
-	selectionTx, err := pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, selectionErr := evaluationRecorderDatasetIDs(ctx, selectionTx, "evaluation-gap-recovery"); !errors.Is(selectionErr, errEvaluationInputsPending) {
-		_ = selectionTx.Rollback(ctx)
-		t.Fatalf("unrecovered dataset selection error=%v", selectionErr)
-	}
-	_ = selectionTx.Rollback(ctx)
+	assertEvaluationRecorderDatasetPending(t, ctx, pool)
 	second := evaluationRecorderIntegrationObservations(now.Add(5*time.Minute), 200, 4)
 	if err = store.Observe(ctx, "evaluation-gap-session", now.Add(5*time.Minute), true, second); err != nil {
 		t.Fatal(err)
@@ -116,17 +108,7 @@ VALUES('evaluation-gap-recovery','evaluation-gap-session','ACTIVE','evaluation-g
 		!qualification.LatestIntervalValid || qualification.ValidSeconds != 300 {
 		t.Fatalf("recovered gap qualification=%#v error=%v", qualification, err)
 	}
-	selectionTx, err = pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	datasetIDs, selectionErr := evaluationRecorderDatasetIDs(ctx, selectionTx, "evaluation-gap-recovery")
-	_ = selectionTx.Rollback(ctx)
-	if selectionErr != nil || len(datasetIDs) != 2 ||
-		datasetIDs[0] != "binance-public-recording-evaluation-gap-session" ||
-		datasetIDs[1] != "bybit-public-recording-evaluation-gap-session" {
-		t.Fatalf("recovered dataset selection ids=%v error=%v", datasetIDs, selectionErr)
-	}
+	assertEvaluationRecorderDatasetRecovered(t, ctx, pool)
 	if _, err = pool.Exec(ctx, `UPDATE evaluation_recorder_requests SET state='COMPLETED',completed_at=$2,
 updated_at=$2 WHERE campaign_id=$1`, "evaluation-gap-recovery", now.Add(5*time.Minute)); err != nil {
 		t.Fatal(err)
@@ -134,6 +116,34 @@ updated_at=$2 WHERE campaign_id=$1`, "evaluation-gap-recovery", now.Add(5*time.M
 	if _, err = pool.Exec(ctx, `UPDATE evaluation_campaigns SET state='PARTIAL',current_stage=NULL,
 reason_code='TEST_COMPLETE',updated_at=$2 WHERE id=$1`, "evaluation-gap-recovery", now.Add(5*time.Minute)); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func assertEvaluationRecorderDatasetPending(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	selectionTx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = selectionTx.Rollback(ctx) }()
+	_, selectionErr := evaluationRecorderDatasetIDs(ctx, selectionTx, "evaluation-gap-recovery")
+	if !errors.Is(selectionErr, errEvaluationInputsPending) {
+		t.Fatalf("unrecovered dataset selection error=%v", selectionErr)
+	}
+}
+
+func assertEvaluationRecorderDatasetRecovered(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	selectionTx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = selectionTx.Rollback(ctx) }()
+	datasetIDs, selectionErr := evaluationRecorderDatasetIDs(ctx, selectionTx, "evaluation-gap-recovery")
+	if selectionErr != nil || len(datasetIDs) != 2 ||
+		datasetIDs[0] != "binance-public-recording-evaluation-gap-session" ||
+		datasetIDs[1] != "bybit-public-recording-evaluation-gap-session" {
+		t.Fatalf("recovered dataset selection ids=%v error=%v", datasetIDs, selectionErr)
 	}
 }
 

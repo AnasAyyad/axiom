@@ -20,7 +20,32 @@ func (store *EvaluationRecorderControlStore) Qualification(ctx context.Context,
 	var reason *string
 	var rate, reserve *int64
 	var observed, lastLoss *time.Time
-	err := store.pool.QueryRow(ctx, `WITH ordered_observations AS (
+	err := store.pool.QueryRow(ctx, evaluationRecorderQualificationQuery, campaignID).Scan(&value.State,
+		&reason, &value.ValidSeconds, &value.RecordedBytes, &rate, &reserve, &value.ObservationCount,
+		&observed, &value.LatestAllEligible, &value.LatestPersistence, &value.LatestIntervalValid,
+		&value.LossObserved, &lastLoss, &value.UnresolvedObservations)
+	if err != nil {
+		return EvaluationRecorderQualification{}, err
+	}
+	if reason != nil {
+		value.Reason = evaluation.ReasonCode(*reason)
+	}
+	if rate != nil {
+		value.MeasuredBytesPerHour = *rate
+	}
+	if reserve != nil {
+		value.ShadowReservedBytes = *reserve
+	}
+	if observed != nil {
+		value.LastObservedAt = observed.UTC()
+	}
+	if lastLoss != nil {
+		value.LastLossObservedAt = lastLoss.UTC()
+	}
+	return value, nil
+}
+
+const evaluationRecorderQualificationQuery = `WITH ordered_observations AS (
 	  SELECT observation.ordinal,observation.observed_at,observation.interval_valid,
 	    observation.queue_drop_count>COALESCE(lag(observation.queue_drop_count)
 	      OVER (ORDER BY observation.ordinal),0) OR
@@ -58,30 +83,7 @@ func (store *EvaluationRecorderControlStore) Qualification(ctx context.Context,
 	  recovery_summary.loss_observed,recovery_summary.last_loss_at,
 	  recovery_summary.unresolved_observations
 	FROM evaluation_recorder_requests request CROSS JOIN recovery_summary
-	WHERE request.campaign_id=$1`, campaignID).Scan(&value.State,
-		&reason, &value.ValidSeconds, &value.RecordedBytes, &rate, &reserve, &value.ObservationCount,
-		&observed, &value.LatestAllEligible, &value.LatestPersistence, &value.LatestIntervalValid,
-		&value.LossObserved, &lastLoss, &value.UnresolvedObservations)
-	if err != nil {
-		return EvaluationRecorderQualification{}, err
-	}
-	if reason != nil {
-		value.Reason = evaluation.ReasonCode(*reason)
-	}
-	if rate != nil {
-		value.MeasuredBytesPerHour = *rate
-	}
-	if reserve != nil {
-		value.ShadowReservedBytes = *reserve
-	}
-	if observed != nil {
-		value.LastObservedAt = observed.UTC()
-	}
-	if lastLoss != nil {
-		value.LastLossObservedAt = lastLoss.UTC()
-	}
-	return value, nil
-}
+	WHERE request.campaign_id=$1`
 
 // ProtectShadowReserve freezes a 20 percent buffered seven-day projection.
 // It also leaves one aggregate in-memory recorder allowance outside that
