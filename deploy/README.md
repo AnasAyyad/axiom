@@ -208,6 +208,21 @@ file with a deployment override and set its in-container absolute path as
 `ALERT_WEBHOOK_TOKEN_FILE`. The token must never be embedded in the URL or
 environment. Redirects are always rejected.
 
+Caddy runs as its non-root `1000:1000` image identity and listens on
+unprivileged container ports `8080` and `8443`; Docker publishes those as host
+ports `80` and `443`. Before the first start, or when migrating older Caddy
+volumes created by a root-running container, provision `caddy_data` and
+`caddy_config` for that identity without deleting their certificate state:
+
+```bash
+docker run --rm --user 0:0 -v axiom_caddy_data:/data \
+  -v axiom_caddy_config:/config caddy:2.10.0-alpine \
+  chown -R 1000:1000 /data /config
+```
+
+Use the actual Compose project prefix when it is not `axiom`. Verify the
+container process UID, HTTPS service, and renewal configuration after restart.
+
 OpenTelemetry tracing is optional and disabled by default. To enable bounded
 OTLP/HTTP export, set `OTEL_TRACING_ENABLED=true` and provide a full HTTPS
 `OTEL_EXPORTER_OTLP_ENDPOINT` with no userinfo, query, or fragment. Do not put

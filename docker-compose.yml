@@ -791,12 +791,11 @@ services:
   caddy:
     image: ${CADDY_IMAGE:-caddy:2.10.0-alpine}
     profiles: [edge]
+    user: "1000:1000"
     read_only: true
     restart: ${CONTAINER_RESTART_POLICY:-unless-stopped}
     cap_drop:
       - ALL
-    cap_add:
-      - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
     environment:
@@ -811,9 +810,9 @@ services:
     networks:
       - edge
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "80:8080"
+      - "443:8443"
+      - "443:8443/udp"
     mem_limit: ${CADDY_MEMORY_LIMIT:-256m}
     cpus: ${CADDY_CPU_LIMIT:-1.0}
     pids_limit: 128

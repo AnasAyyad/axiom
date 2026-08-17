@@ -1,6 +1,8 @@
 {
 	email {$ACME_EMAIL}
 	admin off
+	http_port 8080
+	https_port 8443
 }
 
 {$APP_DOMAIN} {
