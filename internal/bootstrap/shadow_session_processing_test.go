@@ -57,6 +57,47 @@ func TestPublicShadowEvaluationIsTriggeredByCollectorMarketUpdate(t *testing.T) 
 	}
 }
 
+func TestPublicShadowFlushesOnRecorderCapacitySignal(t *testing.T) {
+	collector := &eventDrivenShadowCollector{updates: make(chan struct{}, 1), running: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	capacity := make(chan struct{}, 1)
+	flushed := make(chan struct{}, 1)
+	go func() {
+		done <- runPublicShadowCollectors(ctx, []shadowPublicCollector{collector}, time.Hour,
+			func(context.Context) error { return nil },
+			func(context.Context, exchangecontracts.BookCommit) error { return nil },
+			func(context.Context) error {
+				select {
+				case flushed <- struct{}{}:
+				default:
+				}
+				return nil
+			}, capacity)
+	}()
+	select {
+	case <-collector.running:
+	case <-time.After(time.Second):
+		t.Fatal("collector did not start")
+	}
+	capacity <- struct{}{}
+	select {
+	case <-flushed:
+	case <-time.After(time.Second):
+		t.Fatal("capacity signal did not flush before the periodic interval")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("public shadow loop did not stop")
+	}
+}
+
 type eventDrivenShadowCollector struct {
 	updates chan struct{}
 	running chan struct{}

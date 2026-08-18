@@ -129,16 +129,18 @@ func (session *ownerConsoleLiveShadowSession) Run(ctx context.Context) error {
 				}
 			}
 			return evaluateErr
-		}, session.FlushAvailable)
+		}, session.FlushAvailable, session.public.FlushRequired(), session.decisions.FlushRequired())
 }
 
 func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCollector,
 	flushEvery time.Duration, activity func(context.Context) error,
 	evaluate func(context.Context, exchangecontracts.BookCommit) error, flush func(context.Context) error,
+	capacitySignals ...<-chan struct{},
 ) error {
 	workContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	marketUpdates := mergePublicShadowMarketUpdates(workContext, collectors)
+	capacityRequired := mergePublicShadowCapacitySignals(workContext, capacitySignals)
 	errorsChannel, group := startPublicShadowCollectorGroup(workContext, collectors)
 	evaluateTicker := time.NewTicker(500 * time.Millisecond)
 	flushTicker := time.NewTicker(flushEvery)
@@ -178,8 +180,44 @@ func runPublicShadowCollectors(ctx context.Context, collectors []shadowPublicCol
 				group.Wait()
 				return err
 			}
+		case <-capacityRequired:
+			if err := flush(workContext); err != nil {
+				cancel()
+				group.Wait()
+				return err
+			}
 		}
 	}
+}
+
+// mergePublicShadowCapacitySignals turns each recorder's edge-coalesced
+// capacity notification into one session-level flush request. The recorder
+// keeps its own hard memory bound; this path persists a complete prefix well
+// before that bound is reached instead of waiting for the periodic RPO tick.
+func mergePublicShadowCapacitySignals(ctx context.Context, signals []<-chan struct{}) <-chan struct{} {
+	merged := make(chan struct{}, 1)
+	for _, signal := range signals {
+		if signal == nil {
+			continue
+		}
+		go func(source <-chan struct{}) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case _, open := <-source:
+					if !open {
+						return
+					}
+					select {
+					case merged <- struct{}{}:
+					default:
+					}
+				}
+			}
+		}(signal)
+	}
+	return merged
 }
 
 func startPublicShadowCollectorGroup(ctx context.Context,

@@ -268,7 +268,9 @@ func (session *ownerConsoleCrossExchangeShadowSession) Run(ctx context.Context) 
 				}
 			}
 			return evaluateErr
-		}, session.FlushAvailable)
+		}, session.FlushAvailable,
+		session.public["binance"].FlushRequired(), session.public["bybit"].FlushRequired(),
+		session.decisions.FlushRequired())
 }
 
 func (session *ownerConsoleCrossExchangeShadowSession) loadReferenceData(ctx context.Context) error {
