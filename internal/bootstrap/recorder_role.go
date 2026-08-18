@@ -40,12 +40,15 @@ type recorderRoleWork struct {
 	session         string
 	rotationControl *postgresstore.EvaluationRecorderControlStore
 	startupRotation *postgresstore.EvaluationRecorderRotation
+	recoveredFiles  int
 }
 
 type recorderRoleResumeState struct {
 	binanceRoot, bybitRoot                          string
 	lastOrdinal, binanceGeneration, bybitGeneration uint64
 	binanceFound, bybitFound                        bool
+	binanceManifest, bybitManifest                  marketrecorder.DatasetManifest
+	recoveredFiles                                  int
 }
 
 func newRecorderRoleWork(ctx context.Context, pool *pgxpool.Pool, runtimeConfig config.Runtime,
@@ -63,6 +66,10 @@ func newRecorderRoleWork(ctx context.Context, pool *pgxpool.Pool, runtimeConfig 
 	if err != nil {
 		return nil, err
 	}
+	resume, err = reconcileRecorderRoleResume(ctx, pool, session, resume)
+	if err != nil {
+		return nil, err
+	}
 	if campaignSession && rotation.State == "ACTIVE" && rotation.ValidSeconds > 0 &&
 		(!resume.binanceFound || (len(exchanges) == 2 && !resume.bybitFound)) {
 		_ = rotationControl.Block(ctx, rotation.CampaignID, evaluation.ReasonPersistenceFailed)
@@ -73,6 +80,7 @@ func newRecorderRoleWork(ctx context.Context, pool *pgxpool.Pool, runtimeConfig 
 		return nil, err
 	}
 	work.rotationControl = rotationControl
+	work.recoveredFiles = resume.recoveredFiles
 	if err = configureRecorderPressure(work, pool, runtimeConfig.InstanceID); err != nil {
 		return nil, err
 	}
@@ -114,11 +122,15 @@ func evaluationRecorderStartup(ctx context.Context, pool *pgxpool.Pool, instance
 func loadRecorderRoleResume(root, session string, exchangeCount int) (recorderRoleResumeState, error) {
 	state := recorderRoleResumeState{binanceRoot: recorderExchangeRoot(root, "binance", exchangeCount),
 		bybitRoot: recorderExchangeRoot(root, "bybit", exchangeCount)}
-	var err error
-	state.lastOrdinal, state.binanceGeneration, state.bybitGeneration, state.binanceFound,
-		state.bybitFound, err = recorderResumeHighWater(state.binanceRoot, state.bybitRoot, session,
-		exchangeCount == 2)
-	return state, err
+	highWater, err := recorderResumeHighWater(state.binanceRoot, state.bybitRoot, session, exchangeCount == 2)
+	if err != nil {
+		return recorderRoleResumeState{}, err
+	}
+	state.lastOrdinal, state.binanceGeneration, state.bybitGeneration = highWater.lastOrdinal,
+		highWater.binanceGeneration, highWater.bybitGeneration
+	state.binanceFound, state.bybitFound = highWater.binanceFound, highWater.bybitFound
+	state.binanceManifest, state.bybitManifest = highWater.binanceManifest, highWater.bybitManifest
+	return state, nil
 }
 
 func newPrimaryRecorderRole(pool *pgxpool.Pool, runtimeConfig config.Runtime,
@@ -138,8 +150,13 @@ func newPrimaryRecorderRole(pool *pgxpool.Pool, runtimeConfig config.Runtime,
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	commit := buildinfo.Current().Commit
+	sourceCommit := commit
+	if !marketrecorder.ValidSourceCommit(sourceCommit) {
+		sourceCommit = ""
+	}
 	streamRecorder, err := newBinanceStreamRecorder(resume.binanceRoot, session, runtimeConfig,
-		len(exchanges), ordinals, pool, resume.binanceFound)
+		len(exchanges), ordinals, pool, resume.binanceFound, sourceCommit)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -156,7 +173,7 @@ func newPrimaryRecorderRole(pool *pgxpool.Pool, runtimeConfig config.Runtime,
 		return nil, nil, nil, err
 	}
 	work := &recorderRoleWork{client: client, collectors: collectors, recorder: streamRecorder,
-		catalog: catalog, metadata: metadataStore, commit: buildinfo.Current().Commit,
+		catalog: catalog, metadata: metadataStore, commit: commit,
 		flush: runtimeConfig.Recorder.FlushInterval, root: runtimeConfig.Recorder.Root, session: session,
 		pressurePolicy: pressure.Policy{HighFreeBytes: runtimeConfig.Recorder.HighFreeBytes,
 			CriticalFreeBytes: runtimeConfig.Recorder.CriticalFreeBytes,
@@ -201,8 +218,7 @@ func (work *recorderRoleWork) addBybit(
 			return err
 		}
 	}
-	profile := marketrecorder.CollectorProfile{Instance: instance,
-		Region: runtimeConfig.CollectorRegion, MinimumReaderVersion: "dataset-reader.v2"}
+	profile := recorderCollectorProfile(instance, runtimeConfig.CollectorRegion, work.commit)
 	var recorder *marketrecorder.Recorder
 	if resume {
 		recorder, _, err = marketrecorder.ResumeCoherentMarketData(filepath.Join(runtimeConfig.Root, "bybit"),
@@ -227,6 +243,15 @@ func (work *recorderRoleWork) addBybit(
 	}
 	work.bybitClient, work.bybitRecorder, work.bybitCollectors = client, recorder, collectors
 	return nil
+}
+
+func recorderCollectorProfile(instance, region, sourceCommit string) marketrecorder.CollectorProfile {
+	profile := marketrecorder.CollectorProfile{Instance: instance, Region: region,
+		MinimumReaderVersion: "dataset-reader.v2", SourceCommit: sourceCommit}
+	if !marketrecorder.ValidSourceCommit(profile.SourceCommit) {
+		profile.SourceCommit = ""
+	}
+	return profile
 }
 
 func newBinanceCollectors(exchange config.ExchangeConfiguration, runtimeConfig config.RecorderRuntime,

@@ -1,5 +1,21 @@
 # Axiom implementation status
 
+## Recorder transaction and artifact reconciliation — 2026-08-18
+
+**Status:** Implemented on `agent/recorder-transaction-recovery`; targeted
+validation, PostgreSQL contention qualification, review, merge, immutable
+publication, deployment, and live campaign recovery remain separate gates.
+
+The recorder now uses request-row serialization under `READ COMMITTED`, bounded
+full-transaction retries for serialization/deadlock errors, content-addressed
+segment identities, and startup reconciliation against the last complete
+dataset manifest. Proof-backed orphan evidence is charged and quarantined
+idempotently before files leave the live root; incomplete files are preserved
+without being advertised. New cumulative manifests retain exact build
+provenance so catalogue recovery never borrows a later deployment identity.
+This changes no spot-only, public-data, simulation, credential, or order
+boundary.
+
 ## Recorder segment transaction recovery — 2026-08-17
 
 **Status:** Implemented on `fix/recorder-segment-commit-recovery`; validation,

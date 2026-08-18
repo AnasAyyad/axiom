@@ -215,7 +215,8 @@ func validateManifest(manifest DatasetManifest) error {
 		manifest.Revision == 0 || manifest.CreatedAt.IsZero() || manifest.CreatedAt.Location() != time.UTC ||
 		len(manifest.Segments) == 0 || manifest.Hash == "" || manifest.Hash != manifestHash(manifest) ||
 		(manifest.Revision == 1 && manifest.PreviousHash != "") ||
-		(manifest.Revision > 1 && !validDigest(manifest.PreviousHash)) || manifest.Complete != (len(manifest.Gaps) == 0) {
+		(manifest.Revision > 1 && !validDigest(manifest.PreviousHash)) || manifest.Complete != (len(manifest.Gaps) == 0) ||
+		(manifest.SourceCommit != "" && !ValidSourceCommit(manifest.SourceCommit)) {
 		return recorderError("manifest_invalid")
 	}
 	for _, gap := range manifest.Gaps {
@@ -235,6 +236,15 @@ func validateManifest(manifest DatasetManifest) error {
 		return recorderError("manifest_invalid")
 	}
 	return nil
+}
+
+// ValidSourceCommit accepts the reviewed Git commit encodings used by build provenance.
+func ValidSourceCommit(value string) bool {
+	if len(value) != 40 && len(value) != 64 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func validateExchangeCoverage(manifest DatasetManifest, coverage ExchangeCoverage) error {

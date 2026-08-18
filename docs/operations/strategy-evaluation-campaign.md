@@ -39,6 +39,20 @@ healthy, then the same campaign resumes its existing valid-time total. Three
 consecutive observations without a validated recovery block with
 `DATA_CORRUPT`; the gap and recovery evidence are never deleted or rewritten.
 
+Recorder segment finalization also recovers fail-closed. Campaign byte
+accounting serializes on the recorder-request row and safely proceeds or waits
+through concurrent campaign updates; serialization/deadlock retries replay the complete idempotent
+transaction with bounded deterministic jitter. Segment identities include the
+revision, first ordinal, and content hash, so a quarantined half-revision can
+never collide with fresh data. At startup the recorder verifies the last
+complete cumulative manifest and its durable catalogue entry, registers a
+proof-backed orphan only as quarantined evidence, and moves every uncommitted
+final, proof, partial, or manifest-partial file under the session quarantine
+directory. It never overwrites, advertises, or silently deletes those files.
+New manifests embed their exact source commit so a crash after the filesystem
+manifest but before catalogue registration can be recovered without assigning
+the replacement build's identity to older evidence.
+
 Only the owner can start or emergency-cancel a campaign. A member-level
 strategy failure preserves the evidence and allows unaffected members to
 continue. A shared data, storage, accounting, safety, or persistence failure

@@ -12,6 +12,7 @@ import (
 	"axiom/internal/recorder"
 	"axiom/internal/storage/segments"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -63,11 +64,126 @@ func assertEvaluationCampaignSchemaAndRecovery(t *testing.T, ctx context.Context
 	now := time.Date(2030, 8, 11, 12, 0, 0, 0, time.UTC)
 	assertNonCampaignRecorderObservationNoop(t, ctx, pool, now)
 	assertEvaluationRecorderGapRecovery(t, ctx, pool, now)
+	assertRecordedSegmentCommitSurvivesCampaignUpdate(t, ctx, pool, now.Add(10*time.Minute))
 	assertHistoricalDatasetRegistration(t, ctx, pool, now)
 	assertStandaloneEvaluationAudit(t, ctx, pool, now)
 	assertEvaluationCandidateLockAndShadowIsolation(t, ctx, pool, now)
 	assertEvaluationPartialReportEvidence(t, ctx, pool, now)
 	assertEvaluationRestartClaim(t, ctx, pool, now)
+}
+
+func assertRecordedSegmentCommitSurvivesCampaignUpdate(t *testing.T, ctx context.Context,
+	pool *pgxpool.Pool, now time.Time) {
+	t.Helper()
+	const campaignID = "evaluation-segment-contention"
+	const sessionID = "evaluation-segment-contention-session"
+	prepareRecordedSegmentContention(t, ctx, pool, campaignID, sessionID, now)
+	committer, manifest := commitRecordedSegmentDuringCampaignUpdate(t, ctx, pool, campaignID, sessionID, now)
+	assertRecordedSegmentQuarantine(t, ctx, pool, committer, campaignID, sessionID, manifest, now)
+	if _, err := pool.Exec(ctx, `UPDATE evaluation_recorder_requests SET state='BLOCKED',reason_code='TEST_COMPLETE',updated_at=$2
+WHERE campaign_id=$1`, campaignID, now.Add(4*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE evaluation_campaigns SET state='PARTIAL',current_stage=NULL,
+reason_code='TEST_COMPLETE',updated_at=$2 WHERE id=$1`, campaignID, now.Add(4*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func prepareRecordedSegmentContention(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	campaignID, sessionID string, now time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `INSERT INTO evaluation_campaigns(
+id,preset,state,current_stage,created_at,updated_at)
+VALUES($1,'balanced_full_v1','RUNNING','RECORDER_QUALIFICATION',$2,$2)`, campaignID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO evaluation_recorder_requests(campaign_id,desired_session_id,
+state,binance_session_id,bybit_session_id,storage_baseline_bytes,requested_at,activated_at,updated_at)
+VALUES($1,$2,'ACTIVE',$2,$2||'-bybit',0,$3,$3,$3)`, campaignID, sessionID, now); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func commitRecordedSegmentDuringCampaignUpdate(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	campaignID, sessionID string, now time.Time) (*RecordedSegmentCommitter, segments.Manifest) {
+	t.Helper()
+	blocker, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = blocker.Rollback(context.Background()) }()
+	if _, err = blocker.Exec(ctx, `UPDATE evaluation_campaigns SET updated_at=$2 WHERE id=$1`,
+		campaignID, now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	committer, err := NewRecordedSegmentCommitter(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, finalizedAt := recordedSegmentCommitFixture()
+	manifest.Spec.Name = sessionID + "-000001-wire-content"
+	manifest.Path = manifest.Spec.Name + ".parquet"
+	result := make(chan error, 1)
+	commitContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	go func() {
+		result <- committer.Commit(commitContext, sessionID, "binance", manifest, finalizedAt)
+	}()
+	waitForContendedSegmentCommit(t, ctx, blocker, result)
+	return committer, manifest
+}
+
+func waitForContendedSegmentCommit(t *testing.T, ctx context.Context, blocker pgx.Tx, result <-chan error) {
+	t.Helper()
+	var commitErr error
+	commitReturned := false
+	select {
+	case commitErr = <-result:
+		commitReturned = true
+		if commitErr != nil {
+			t.Fatalf("segment commit failed during campaign update: %v", commitErr)
+		}
+	case <-time.After(200 * time.Millisecond):
+	}
+	if err := blocker.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !commitReturned {
+		select {
+		case commitErr = <-result:
+			commitReturned = true
+		case <-time.After(2 * time.Second):
+			t.Fatal("segment commit remained blocked after campaign update completed")
+		}
+	}
+	if commitErr != nil {
+		t.Fatalf("segment commit failed after campaign update completed: %v", commitErr)
+	}
+}
+
+func assertRecordedSegmentQuarantine(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	committer *RecordedSegmentCommitter, campaignID, sessionID string, manifest segments.Manifest, now time.Time) {
+	t.Helper()
+	if err := committer.QuarantineRecorderArtifacts(ctx, sessionID, "binance",
+		[]string{manifest.Spec.Name}, []segments.Manifest{manifest}, now.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := committer.QuarantineRecorderArtifacts(ctx, sessionID, "binance",
+		[]string{manifest.Spec.Name}, []segments.Manifest{manifest}, now.Add(3*time.Second)); err != nil {
+		t.Fatalf("quarantine replay failed: %v", err)
+	}
+	var state string
+	var charged, recorded int64
+	if err := pool.QueryRow(ctx, `SELECT segment.state,evidence.byte_count,request.recorded_bytes
+FROM market_data_segments segment
+JOIN evaluation_campaign_recording_segments evidence ON evidence.segment_id=segment.id
+JOIN evaluation_recorder_requests request ON request.campaign_id=evidence.campaign_id
+WHERE segment.id=$1 AND evidence.campaign_id=$2`, manifest.Spec.Name, campaignID).
+		Scan(&state, &charged, &recorded); err != nil || state != "quarantined" ||
+		charged != manifest.Size || recorded != manifest.Size {
+		t.Fatalf("state=%s charged=%d recorded=%d error=%v", state, charged, recorded, err)
+	}
 }
 
 func assertEvaluationRecorderGapRecovery(t *testing.T, ctx context.Context,

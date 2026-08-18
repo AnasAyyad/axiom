@@ -1,7 +1,6 @@
 package segments
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,30 +53,8 @@ func (finalizer *Finalizer) QuarantineInvalidProofs() ([]string, error) {
 }
 
 func (finalizer *Finalizer) proofIsValid(proofPath string) bool {
-	info, err := os.Lstat(proofPath)
-	if err != nil || !info.Mode().IsRegular() {
-		return false
-	}
-	encoded, err := os.ReadFile(proofPath)
-	if err != nil {
-		return false
-	}
-	var value proof
-	if json.Unmarshal(encoded, &value) != nil || validateSpec(value.Manifest.Spec) != nil {
-		return false
-	}
-	partial, final, expectedProof := finalizer.paths(value.Manifest.Spec.Name)
-	if proofPath != expectedProof {
-		return false
-	}
-	path := final
-	if _, err = os.Lstat(final); os.IsNotExist(err) {
-		path = partial
-	} else if err != nil {
-		return false
-	}
-	actual, err := inspectFile(value.Manifest.Spec, path, filepath.Base(final))
-	return err == nil && actual == value.Manifest
+	_, err := finalizer.inspectProof(proofPath)
+	return err == nil
 }
 
 func moveToQuarantine(source, quarantine string) (string, error) {
