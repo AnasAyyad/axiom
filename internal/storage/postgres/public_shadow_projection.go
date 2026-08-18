@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -30,11 +31,26 @@ func nullableOwnerConsoleText(value string) any {
 
 func verifyPublicShadowEvidenceLease(ctx context.Context, tx pgx.Tx, owner, id string) error {
 	var active bool
-	if err := tx.QueryRow(ctx, `SELECT state IN ('PAUSED','RUNNING') AND claim_expires_at>CURRENT_TIMESTAMP
-      FROM shadow_sessions WHERE id=$1 AND claim_owner=$2 FOR UPDATE`, id, owner).Scan(&active); err != nil || !active {
+	err := tx.QueryRow(ctx, `SELECT state IN ('PAUSED','RUNNING') AND claim_expires_at>CURRENT_TIMESTAMP
+	      FROM shadow_sessions WHERE id=$1 AND claim_owner=$2 FOR UPDATE`, id, owner).Scan(&active)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("owner_console_shadow_evidence_lease_lost")
+	}
+	if err != nil {
+		return fmt.Errorf("owner_console_shadow_evidence_verification_failed")
+	}
+	if !active {
 		return fmt.Errorf("owner_console_shadow_evidence_lease_lost")
 	}
 	return nil
+}
+
+// Evidence writes explicitly lock the leased shadow row before touching any
+// projections. Read committed makes that lock the serialization boundary and
+// avoids false SSI aborts when the independent lease-renewal loop updates the
+// same row while an evidence transaction is beginning.
+func publicShadowEvidenceTxOptions() pgx.TxOptions {
+	return pgx.TxOptions{IsoLevel: pgx.ReadCommitted}
 }
 
 func insertOwnerConsoleTrendDecision(ctx context.Context, tx pgx.Tx, input trend.Input, decision trend.Decision,

@@ -54,7 +54,7 @@ func (store *PublicShadowStore) RecordTriangularShadowDecision(
 	evidence := newOwnerConsoleTriangularDecisionEvidence(claim, input, accepted, reasonCode,
 		inputPayload, decisionPayload)
 
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := store.pool.BeginTx(ctx, publicShadowEvidenceTxOptions())
 	if err != nil {
 		return nil, err
 	}

@@ -36,7 +36,7 @@ func (store *PublicShadowStore) InitializeCrossExchangeShadowInventory(
 		len(projected) != 2 || len(initializations) != 2 {
 		return nil, fmt.Errorf("owner_console_shadow_cross_exchange_initialization_invalid")
 	}
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := store.pool.BeginTx(ctx, publicShadowEvidenceTxOptions())
 	if err != nil {
 		return nil, err
 	}

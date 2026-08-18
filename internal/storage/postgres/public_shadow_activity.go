@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 var publicShadowActivityReasonPattern = regexp.MustCompile(`^[a-z0-9_]{1,96}$`)
@@ -45,7 +43,7 @@ func (store *PublicShadowStore) RecordActivity(
 	if !validPublicShadowActivity(claim, activity) {
 		return fmt.Errorf("owner_console_shadow_activity_invalid")
 	}
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := store.pool.BeginTx(ctx, publicShadowEvidenceTxOptions())
 	if err != nil {
 		return err
 	}

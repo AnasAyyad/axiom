@@ -4,7 +4,16 @@ import (
 	"testing"
 
 	"axiom/internal/config"
+
+	"github.com/jackc/pgx/v5"
 )
+
+func TestPublicShadowEvidenceUsesLeaseRowAsSerializationBoundary(t *testing.T) {
+	options := publicShadowEvidenceTxOptions()
+	if options.IsoLevel != pgx.ReadCommitted {
+		t.Fatalf("evidence isolation=%q want read committed", options.IsoLevel)
+	}
+}
 
 func TestPublicShadowSelectionRequiresConfiguredPublicVenueAndInstrument(t *testing.T) {
 	configuration := config.DefaultMultiStrategyConfiguration()

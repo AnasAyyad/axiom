@@ -102,7 +102,7 @@ func (store *PublicShadowStore) recordShadowStrategyDecision(ctx context.Context
 	if err != nil {
 		return err
 	}
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := store.pool.BeginTx(ctx, publicShadowEvidenceTxOptions())
 	if err != nil {
 		return err
 	}

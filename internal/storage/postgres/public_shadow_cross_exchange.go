@@ -45,7 +45,7 @@ func (store *PublicShadowStore) RecordCrossExchangeShadowDecision(
 	if err != nil {
 		return nil, fmt.Errorf("owner_console_shadow_cross_exchange_input_invalid")
 	}
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := store.pool.BeginTx(ctx, publicShadowEvidenceTxOptions())
 	if err != nil {
 		return nil, err
 	}
