@@ -108,6 +108,13 @@ The lease is released only after safe shutdown completes. If state is uncertain
 or the database is unavailable, do not assert release; let the lease expire and
 require the next owner to acquire a higher token and perform full recovery.
 
+For an owner-console shadow worker restart, safe release means entries are
+disabled, recorder evidence is flushed, and a canonical run/account checkpoint
+is committed before the session returns to the claim queue. The next worker
+must acquire a higher claim epoch, restore that exact checkpoint, and remain
+`PAUSED`; restart recovery never restores entry permission. An unclean exit
+without this handoff still expires as a terminal lease failure.
+
 ## Graceful shutdown
 
 `SIGTERM` or `SIGINT` starts one idempotent shutdown with a maximum 60-second

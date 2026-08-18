@@ -15,6 +15,7 @@ type shadowRuntimeStore interface {
 	Posture(context.Context, string) (postgresstore.PublicShadowPosture, error)
 	Activate(context.Context, string) error
 	Pause(context.Context, string) error
+	ReleaseForRestart(context.Context, string) error
 	CompleteStop(context.Context, string) error
 	Fail(context.Context, string, string) error
 }
@@ -106,7 +107,7 @@ func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.Pu
 			}
 			return
 		case <-ticker.C:
-			if work.controlClaim(ctx, claim.ID, session, cancel) {
+			if work.controlClaim(ctx, claim, session, cancel) {
 				<-result
 				work.finishClaim(claim.ID, session, logger)
 				return
@@ -116,15 +117,23 @@ func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.Pu
 			cancel()
 			<-result
 			flushContext, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
-			_ = session.Flush(flushContext)
+			if err := session.Flush(flushContext); err == nil {
+				if err = session.Checkpoint(flushContext); err == nil {
+					err = work.store.ReleaseForRestart(flushContext, claim.ID)
+				}
+				if err != nil {
+					logger.Warn("shadow restart handoff failed", "event_code", "shadow_restart_handoff_failed", "cause", err)
+				}
+			}
 			flushCancel()
 			return
 		}
 	}
 }
 
-func (work *shadowRoleWork) controlClaim(ctx context.Context, id string, session shadowSession,
+func (work *shadowRoleWork) controlClaim(ctx context.Context, claim postgresstore.PublicShadowClaim, session shadowSession,
 	cancel context.CancelFunc) bool {
+	id := claim.ID
 	if err := work.store.Renew(ctx, id); err != nil {
 		session.SetEntriesEnabled(false)
 		cancel()
@@ -145,7 +154,7 @@ func (work *shadowRoleWork) controlClaim(ctx context.Context, id string, session
 		if posture.State == "RUNNING" {
 			_ = work.store.Pause(ctx, id)
 		}
-	case posture.State == "PAUSED" && posture.RiskState == "NORMAL" && posture.StoragePressure == "NORMAL":
+	case posture.State == "PAUSED" && posture.RiskState == "NORMAL" && posture.StoragePressure == "NORMAL" && !claim.Recovery:
 		if work.store.Activate(ctx, id) == nil {
 			session.SetEntriesEnabled(true)
 		}

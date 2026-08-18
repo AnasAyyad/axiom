@@ -100,6 +100,25 @@ func (session *ownerConsoleCrossExchangeShadowSession) Checkpoint(ctx context.Co
 		CursorLogicalTime: session.clients["binance"].MonotonicOffset(), Canonical: payload})
 }
 
+func (session *ownerConsoleCrossExchangeShadowSession) restoreCheckpoint(
+	checkpoint postgresstore.PublicShadowCheckpoint,
+) error {
+	var state struct {
+		Balances          map[string]map[domain.AssetSymbol]accounting.BalanceSnapshot `json:"balances"`
+		DecisionDatasetID string                                                       `json:"decision_dataset_id,omitempty"`
+		LastMarketViewID  string                                                       `json:"last_market_view_id,omitempty"`
+	}
+	if len(checkpoint.Canonical) == 0 || checkpoint.CursorLogicalTime == 0 ||
+		json.Unmarshal(checkpoint.Canonical, &state) != nil || len(state.Balances) != 2 {
+		return fmt.Errorf("shadow_cross_exchange_recovery_checkpoint_invalid")
+	}
+	session.balances = cloneOwnerConsoleCrossExchangeSnapshots(state.Balances)
+	session.datasetID = state.DecisionDatasetID
+	session.lastViewID = state.LastMarketViewID
+	session.lastOrdinal = checkpoint.InputOrdinal
+	return nil
+}
+
 func (session *ownerConsoleCrossExchangeShadowSession) currentInputHealth(now time.Time) []postgresstore.PublicShadowInputHealth {
 	keys := make([]runtimecore.MarketKey, 0, len(session.collectors))
 	for key := range session.collectors {

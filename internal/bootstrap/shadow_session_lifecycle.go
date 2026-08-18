@@ -14,6 +14,7 @@ import (
 	"axiom/internal/portfolio"
 	marketrecorder "axiom/internal/recorder"
 	postgresstore "axiom/internal/storage/postgres"
+	"axiom/internal/strategies/meanreversion"
 	"axiom/internal/strategies/trend"
 )
 
@@ -94,10 +95,11 @@ type publicShadowCheckpointState struct {
 }
 
 type publicShadowInstrumentState struct {
-	Instrument domain.Instrument   `json:"instrument"`
-	Position   trend.PositionState `json:"position"`
-	Cooldown   uint64              `json:"cooldown"`
-	LastCandle time.Time           `json:"last_candle,omitempty"`
+	Instrument   domain.Instrument           `json:"instrument"`
+	Position     trend.PositionState         `json:"position"`
+	MeanPosition meanreversion.PositionState `json:"mean_position"`
+	Cooldown     uint64                      `json:"cooldown"`
+	LastCandle   time.Time                   `json:"last_candle,omitempty"`
 }
 
 // Checkpoint captures state only after Run has stopped mutating the session.
@@ -107,7 +109,8 @@ func (session *ownerConsoleLiveShadowSession) Checkpoint(ctx context.Context) er
 		LastMarketViewID: session.lastMarketViewID}
 	for instrument, position := range session.positions {
 		state.Instruments = append(state.Instruments, publicShadowInstrumentState{Instrument: instrument,
-			Position: position, Cooldown: session.cooldowns[instrument], LastCandle: session.seen[instrument]})
+			Position: position, MeanPosition: session.meanPositions[instrument],
+			Cooldown: session.cooldowns[instrument], LastCandle: session.seen[instrument]})
 	}
 	lastOrdinal := session.lastOrdinal
 	session.stateMutex.Unlock()
@@ -120,6 +123,28 @@ func (session *ownerConsoleLiveShadowSession) Checkpoint(ctx context.Context) er
 	}
 	return session.store.Checkpoint(ctx, session.claim, postgresstore.PublicShadowCheckpoint{
 		InputOrdinal: lastOrdinal, CursorLogicalTime: session.client.MonotonicOffset(), Canonical: payload})
+}
+
+func (session *ownerConsoleLiveShadowSession) restoreCheckpoint(checkpoint postgresstore.PublicShadowCheckpoint) error {
+	var state publicShadowCheckpointState
+	if len(checkpoint.Canonical) == 0 || checkpoint.CursorLogicalTime == 0 ||
+		json.Unmarshal(checkpoint.Canonical, &state) != nil {
+		return fmt.Errorf("shadow_recovery_checkpoint_invalid")
+	}
+	for _, item := range state.Instruments {
+		if item.Instrument.Symbol() == "" {
+			return fmt.Errorf("shadow_recovery_checkpoint_invalid")
+		}
+		session.positions[item.Instrument] = item.Position
+		session.meanPositions[item.Instrument] = item.MeanPosition
+		session.cooldowns[item.Instrument] = item.Cooldown
+		session.seen[item.Instrument] = item.LastCandle
+	}
+	session.balances = state.Balances
+	session.datasetID = state.DecisionDatasetID
+	session.lastMarketViewID = state.LastMarketViewID
+	session.lastOrdinal = checkpoint.InputOrdinal
+	return nil
 }
 
 func claimConfigurationCommit() string {

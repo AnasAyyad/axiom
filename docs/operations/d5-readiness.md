@@ -45,6 +45,13 @@ Every terminal fault event must carry the exact active `run_id`. Evidence from
 another run is rejected even when its scenario, timing, and hash otherwise
 match the approved schedule.
 
+The scheduled `shadow_worker_restart_and_checkpoint_recovery` drill is a
+graceful worker restart. Its evidence must show the same shadow session, a
+higher claim epoch, an increased durable checkpoint count, and a recovered
+`PAUSED` state with entries disabled. Recorder crash recovery remains covered by
+the separate kill-during-finalize scenario; do not replace the shadow restart
+with `SIGKILL` and call the resulting lease expiry a checkpoint recovery.
+
 Invoke `make operational-readiness-formal` from the exact clean release build.
 The runner refuses a dirty/mismatched build, failed preflight, incomplete
 declared load, mutable image tags, an existing run ID, stale sample revisions,

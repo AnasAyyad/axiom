@@ -36,6 +36,8 @@ type PublicShadowClaim struct {
 	Models              backtest.ModelNamespace
 	SlippageModelID     string
 	GapModelID          string
+	Recovery            bool
+	RecoveryCheckpoint  PublicShadowCheckpoint
 }
 
 // PublicShadowMarketScope is one immutable production-public book selected for a
@@ -109,6 +111,12 @@ func (store *PublicShadowStore) Claim(ctx context.Context) (PublicShadowClaim, b
 	if claim.GapModelID, err = resolvePublicShadowModel(ctx, tx, "gap"); err != nil {
 		return PublicShadowClaim{}, false, err
 	}
+	if claim.Recovery {
+		claim.RecoveryCheckpoint, err = loadPublicShadowCheckpoint(ctx, tx, claim.RunID)
+		if err != nil {
+			return PublicShadowClaim{}, false, err
+		}
+	}
 	if err = store.startPublicShadowClaim(ctx, tx, &claim, now); err != nil {
 		return PublicShadowClaim{}, false, err
 	}
@@ -130,7 +138,7 @@ func expirePublicShadowClaims(ctx context.Context, tx pgx.Tx, now time.Time) err
 func selectPublicShadowClaim(ctx context.Context, tx pgx.Tx) (PublicShadowClaim, bool, error) {
 	var claim PublicShadowClaim
 	var canonical []byte
-	err := tx.QueryRow(ctx, `SELECT ss.id,ss.portfolio_id,ss.configuration_id,ss.strategy_version_id,
+	err := tx.QueryRow(ctx, `SELECT ss.id,coalesce(ss.run_id,''),ss.portfolio_id,ss.configuration_id,ss.strategy_version_id,
       CASE sv.id WHEN 'trend-following-1-0-0' THEN 'trend-following@1.0.0'
                  WHEN 'mean-reversion-1-0-0' THEN 'mean-reversion@1.0.0'
 				 WHEN 'triangular-arbitrage-1-0-0' THEN 'triangular-arbitrage@1.0.0'
@@ -148,7 +156,7 @@ func selectPublicShadowClaim(ctx context.Context, tx pgx.Tx) (PublicShadowClaim,
 	          AND pressure.source_instance<>'migration-bootstrap'
 	          AND pressure.observed_at>=CURRENT_TIMESTAMP-interval '2 minutes'
 	      ) ORDER BY ss.created_at,ss.id FOR UPDATE OF ss SKIP LOCKED LIMIT 1`).
-		Scan(&claim.ID, &claim.PortfolioID, &claim.ConfigurationID, &claim.StrategyID,
+		Scan(&claim.ID, &claim.RunID, &claim.PortfolioID, &claim.ConfigurationID, &claim.StrategyID,
 			&claim.StrategyVersion, &claim.ExchangeID, &claim.InstrumentID, &claim.MarketScopeRequired,
 			&claim.ConfigurationHash, &canonical)
 	if err == pgx.ErrNoRows {
@@ -160,7 +168,20 @@ func selectPublicShadowClaim(ctx context.Context, tx pgx.Tx) (PublicShadowClaim,
 		!publicShadowSelectionConfigured(claim.Configuration, claim.ExchangeID, claim.InstrumentID) {
 		return PublicShadowClaim{}, false, fmt.Errorf("owner_console_shadow_claim_invalid")
 	}
+	claim.Recovery = claim.RunID != ""
 	return claim, true, nil
+}
+
+func loadPublicShadowCheckpoint(ctx context.Context, tx pgx.Tx, runID string) (PublicShadowCheckpoint, error) {
+	var checkpoint PublicShadowCheckpoint
+	var ordinal, logical int64
+	err := tx.QueryRow(ctx, `SELECT input_ordinal,cursor_logical_time,payload FROM run_checkpoints
+	  WHERE run_id=$1 ORDER BY revision DESC LIMIT 1`, runID).Scan(&ordinal, &logical, &checkpoint.Canonical)
+	if err != nil || ordinal < 0 || logical <= 0 || !json.Valid(checkpoint.Canonical) {
+		return PublicShadowCheckpoint{}, fmt.Errorf("owner_console_shadow_recovery_checkpoint_invalid")
+	}
+	checkpoint.InputOrdinal, checkpoint.CursorLogicalTime = uint64(ordinal), uint64(logical)
+	return checkpoint, nil
 }
 
 func loadPublicShadowMarketScopes(ctx context.Context, tx pgx.Tx, sessionID string) ([]PublicShadowMarketScope, error) {

@@ -118,7 +118,7 @@ func newOwnerConsoleLiveShadowSession(ctx context.Context, pool *pgxpool.Pool, r
 		return nil, fmt.Errorf("shadow_recorder_root_unavailable")
 	}
 	publicRecorder, decisionRecorder, catalog, err := newPublicShadowRecorders(pool,
-		runtimeConfig.Recorder.Root, claim.ID, claim.ExchangeID)
+		runtimeConfig.Recorder.Root, claim.ID, claim.ExchangeID, claim.ClaimEpoch)
 	if err != nil {
 		return nil, err
 	}
@@ -148,11 +148,16 @@ func newOwnerConsoleLiveShadowSession(ctx context.Context, pool *pgxpool.Pool, r
 	if session.commit == "" {
 		return nil, fmt.Errorf("shadow_build_identity_invalid")
 	}
+	if claim.Recovery {
+		if err = session.restoreCheckpoint(claim.RecoveryCheckpoint); err != nil {
+			return nil, err
+		}
+	}
 	_ = ctx
 	return session, nil
 }
 
-func newPublicShadowRecorders(pool *pgxpool.Pool, root, id, exchange string) (*marketrecorder.Recorder,
+func newPublicShadowRecorders(pool *pgxpool.Pool, root, id, exchange string, epochs ...int64) (*marketrecorder.Recorder,
 	*marketrecorder.Recorder, *postgresstore.RecordedDatasetCatalog, error) {
 	if exchange != "binance" && exchange != "bybit" {
 		return nil, nil, nil, fmt.Errorf("shadow_exchange_invalid")
@@ -161,13 +166,18 @@ func newPublicShadowRecorders(pool *pgxpool.Pool, root, id, exchange string) (*m
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	publicSession, decisionSession := id+"-public", id+"-decisions"
-	publicRecorder, err := marketrecorder.New(root, id+"-public-evidence", publicSession, exchange,
+	epoch := int64(1)
+	if len(epochs) == 1 && epochs[0] > 0 {
+		epoch = epochs[0]
+	}
+	recorderID := fmt.Sprintf("%s-epoch-%d", id, epoch)
+	publicSession, decisionSession := recorderID+"-public", recorderID+"-decisions"
+	publicRecorder, err := marketrecorder.New(root, recorderID+"-public-evidence", publicSession, exchange,
 		&runtimecore.IngestOrdinals{}, segmentCommitter(pool, publicSession, exchange), nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	decisionRecorder, err := marketrecorder.New(root, id+"-decision-inputs", decisionSession, exchange,
+	decisionRecorder, err := marketrecorder.New(root, recorderID+"-decision-inputs", decisionSession, exchange,
 		&runtimecore.IngestOrdinals{}, segmentCommitter(pool, decisionSession, exchange), nil)
 	if err != nil {
 		return nil, nil, nil, err

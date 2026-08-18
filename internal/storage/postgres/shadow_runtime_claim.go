@@ -13,6 +13,7 @@ import (
 
 func (store *PublicShadowStore) startPublicShadowClaim(ctx context.Context, tx pgx.Tx,
 	claim *PublicShadowClaim, now time.Time) error {
+	recovery := claim.Recovery
 	err := tx.QueryRow(ctx, `UPDATE shadow_sessions SET state='PAUSED',revision=revision+1,entries_enabled=false,
       claim_owner=$1,claim_epoch=coalesce(claim_epoch,0)+1,claim_expires_at=$2,started_at=coalesce(started_at,$3)
 	  WHERE id=$4 AND state='QUEUED' RETURNING claim_epoch`, store.owner, now.Add(publicShadowLease), now, claim.ID).
@@ -20,13 +21,19 @@ func (store *PublicShadowStore) startPublicShadowClaim(ctx context.Context, tx p
 	if err != nil || claim.ClaimEpoch <= 0 {
 		return fmt.Errorf("owner_console_shadow_claim_conflict")
 	}
-	claim.RunID, claim.AccountID = claim.ID, "shadow-account-"+claim.ID
+	if !recovery {
+		claim.RunID = claim.ID
+	}
+	claim.AccountID = "shadow-account-" + claim.ID
 	if claim.StrategyID == "cross-exchange-arbitrage-1-0-0" {
 		claim.VenueAccountIDs = map[string]string{
 			"binance": claim.AccountID + "-binance",
 			"bybit":   claim.AccountID + "-bybit",
 		}
 		claim.AccountID = claim.VenueAccountIDs["binance"]
+	}
+	if recovery {
+		return nil
 	}
 	seed := ownerConsoleSHA256([]byte("shadow-seed:" + claim.ID))
 	if _, err = tx.Exec(ctx, `INSERT INTO runs(id,mode,configuration_id,strategy_version_id,root_seed_hash,
@@ -123,7 +130,7 @@ func (store *PublicShadowStore) LinkDecisionDataset(ctx context.Context, id, dat
 }
 
 // Checkpoint atomically appends a run checkpoint and an account snapshot while
-// the canceled runtime is still fenced by its live claim.
+// the stopped runtime is still fenced by its live claim.
 func (store *PublicShadowStore) Checkpoint(ctx context.Context, claim PublicShadowClaim,
 	checkpoint PublicShadowCheckpoint) error {
 	if checkpoint.CursorLogicalTime == 0 || len(checkpoint.Canonical) == 0 ||
@@ -169,11 +176,31 @@ func (store *PublicShadowStore) Checkpoint(ctx context.Context, claim PublicShad
 
 func verifyPublicShadowCheckpointLease(ctx context.Context, tx pgx.Tx, owner, id string, now time.Time) error {
 	var active bool
-	if err := tx.QueryRow(ctx, `SELECT state='CANCEL_REQUESTED' AND claim_expires_at>$3
+	if err := tx.QueryRow(ctx, `SELECT state IN ('PAUSED','RUNNING','CANCEL_REQUESTED') AND claim_expires_at>$3
       FROM shadow_sessions WHERE id=$1 AND claim_owner=$2 FOR UPDATE`, id, owner, now).Scan(&active); err != nil || !active {
 		return fmt.Errorf("owner_console_shadow_checkpoint_lease_lost")
 	}
 	return nil
+}
+
+// ReleaseForRestart returns a checkpointed session to the claim queue with
+// entries disabled. The next worker must recover it in a paused hold.
+func (store *PublicShadowStore) ReleaseForRestart(ctx context.Context, id string) error {
+	now := store.clock.Now().UTC
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	tag, err := tx.Exec(ctx, `UPDATE shadow_sessions session SET state='QUEUED',revision=revision+1,
+	  entries_enabled=false,claim_owner=NULL,claim_expires_at=NULL
+	  WHERE session.id=$1 AND session.state IN ('PAUSED','RUNNING') AND session.claim_owner=$2
+	    AND session.claim_expires_at>$3 AND EXISTS(
+	      SELECT 1 FROM run_checkpoints checkpoint WHERE checkpoint.run_id=session.run_id)`, id, store.owner, now)
+	if err != nil || tag.RowsAffected() != 1 {
+		return fmt.Errorf("owner_console_shadow_restart_release_failed")
+	}
+	return tx.Commit(ctx)
 }
 
 // CompleteStop terminates a requested session after evidence is flushed.

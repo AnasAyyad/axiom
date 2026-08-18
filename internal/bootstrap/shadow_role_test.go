@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+	"time"
 
 	postgresstore "axiom/internal/storage/postgres"
 )
@@ -24,10 +25,11 @@ func TestShadowRoleActivatesOnlyNormalRiskAndFlushesStop(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	if work.controlClaim(ctx, "shadow-owner_console", session, cancel) {
+	claim := postgresstore.PublicShadowClaim{ID: "shadow-owner_console"}
+	if work.controlClaim(ctx, claim, session, cancel) {
 		t.Fatal("normal activation terminated session")
 	}
-	if !work.controlClaim(ctx, "shadow-owner_console", session, cancel) {
+	if !work.controlClaim(ctx, claim, session, cancel) {
 		t.Fatal("stop request did not terminate session")
 	}
 	work.finishClaim("shadow-owner_console", session, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -47,9 +49,26 @@ func TestShadowRoleDoesNotActivatePausedSessionAtHighPressure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if work.controlClaim(context.Background(), "shadow-owner_console", session, func() {}) ||
+	if work.controlClaim(context.Background(), postgresstore.PublicShadowClaim{ID: "shadow-owner_console"}, session, func() {}) ||
 		store.activations != 0 || session.entries {
 		t.Fatalf("high pressure resumed paused session: store=%#v session=%#v", store, session)
+	}
+}
+
+func TestShadowRoleKeepsRecoveredSessionPaused(t *testing.T) {
+	store := &shadowStoreStub{postures: []postgresstore.PublicShadowPosture{
+		{State: "PAUSED", RiskState: "NORMAL", StoragePressure: "NORMAL"},
+	}}
+	session := &shadowSessionStub{}
+	work, err := newShadowRoleWork(store, func(context.Context, postgresstore.PublicShadowClaim) (shadowSession, error) {
+		return session, nil
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim := postgresstore.PublicShadowClaim{ID: "shadow-recovered", Recovery: true}
+	if work.controlClaim(context.Background(), claim, session, func() {}) || store.activations != 0 || session.entries {
+		t.Fatalf("recovered session left paused hold: store=%#v session=%#v", store, session)
 	}
 }
 
@@ -68,10 +87,35 @@ func TestShadowRoleFailsClosedWhenStopFlushFails(t *testing.T) {
 	}
 }
 
+func TestShadowRoleGracefulShutdownCheckpointsBeforeLeaseRelease(t *testing.T) {
+	store := &shadowStoreStub{}
+	session := &shadowSessionStub{started: make(chan struct{})}
+	work, err := newShadowRoleWork(store, func(context.Context, postgresstore.PublicShadowClaim) (shadowSession, error) {
+		return session, nil
+	}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		work.runClaim(ctx, postgresstore.PublicShadowClaim{ID: "shadow-restart"},
+			slog.New(slog.NewTextHandler(io.Discard, nil)))
+		close(done)
+	}()
+	<-session.started
+	cancel()
+	<-done
+	if !session.flushed || !session.checkpointed || store.releases != 1 || session.entries {
+		t.Fatalf("graceful restart handoff = %#v %#v", store, session)
+	}
+}
+
 type shadowStoreStub struct {
 	mutex         sync.Mutex
 	postures      []postgresstore.PublicShadowPosture
 	activations   int
+	releases      int
 	completions   int
 	failures      int
 	failureReason string
@@ -93,6 +137,10 @@ func (store *shadowStoreStub) Activate(context.Context, string) error {
 	return nil
 }
 func (*shadowStoreStub) Pause(context.Context, string) error { return nil }
+func (store *shadowStoreStub) ReleaseForRestart(context.Context, string) error {
+	store.releases++
+	return nil
+}
 func (store *shadowStoreStub) CompleteStop(context.Context, string) error {
 	store.completions++
 	return nil
@@ -108,9 +156,13 @@ type shadowSessionStub struct {
 	flushed      bool
 	checkpointed bool
 	flushErr     error
+	started      chan struct{}
 }
 
-func (*shadowSessionStub) Run(ctx context.Context) error {
+func (session *shadowSessionStub) Run(ctx context.Context) error {
+	if session.started != nil {
+		close(session.started)
+	}
 	<-ctx.Done()
 	return nil
 }

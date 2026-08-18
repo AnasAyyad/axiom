@@ -100,6 +100,11 @@ func newOwnerConsoleCrossExchangeShadowSession(
 	if session.commit == "" || session.flushEvery <= 0 {
 		return nil, fmt.Errorf("shadow_cross_exchange_build_identity_invalid")
 	}
+	if claim.Recovery {
+		if err = session.restoreCheckpoint(claim.RecoveryCheckpoint); err != nil {
+			return nil, err
+		}
+	}
 	_ = ctx
 	return session, nil
 }
