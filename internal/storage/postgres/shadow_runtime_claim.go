@@ -195,7 +195,7 @@ func (store *PublicShadowStore) ReleaseForRestart(ctx context.Context, id string
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	tag, err := tx.Exec(ctx, `UPDATE shadow_sessions session SET state='QUEUED',revision=revision+1,
-	  entries_enabled=false,claim_owner=NULL,claim_expires_at=NULL
+	  entries_enabled=false
 	  WHERE session.id=$1 AND session.state IN ('PAUSED','RUNNING') AND session.claim_owner=$2
 	    AND session.claim_epoch=$3 AND EXISTS(
 	      SELECT 1 FROM run_checkpoints checkpoint WHERE checkpoint.run_id=session.run_id)`,

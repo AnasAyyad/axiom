@@ -988,6 +988,25 @@ func TestStrategyEvaluationMigrationIsFailClosedAndEvidencePreserving(t *testing
 	}
 }
 
+func TestShadowGracefulRestartMigrationKeepsHandoffFenced(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restartMigration := migrationForVersion(migrations, "000059")
+	if restartMigration.SQL == "" {
+		t.Fatal("shadow graceful-restart migration is missing")
+	}
+	assertMigrationContains(t, restartMigration, "shadow graceful restart", []string{
+		"old.state in ('paused','running') and new.state='queued'",
+		"not new.entries_enabled",
+		"new.claim_owner=old.claim_owner",
+		"new.claim_epoch=old.claim_epoch",
+		"new.claim_expires_at=old.claim_expires_at",
+		"exists (select 1 from run_checkpoints",
+	})
+}
+
 func migrationForVersion(migrations []Migration, version string) Migration {
 	for _, migration := range migrations {
 		if migration.Version == version {
