@@ -29,12 +29,18 @@ func NewRecordedDatasetCatalog(pool *pgxpool.Pool) (*RecordedDatasetCatalog, err
 
 // Register records one cumulative recorder manifest and all referenced evidence.
 func (catalog *RecordedDatasetCatalog) Register(ctx context.Context, manifest recorder.DatasetManifest, sourceCommit string) (string, error) {
+	if manifest.SourceCommit != "" {
+		sourceCommit = manifest.SourceCommit
+	}
 	return catalog.register(ctx, manifest, sourceCommit, "public_market")
 }
 
 // RegisterDecisionInputs records a dataset that is safe to feed directly to
 // the Trend operational processor.
 func (catalog *RecordedDatasetCatalog) RegisterDecisionInputs(ctx context.Context, manifest recorder.DatasetManifest, sourceCommit string) (string, error) {
+	if manifest.SourceCommit != "" {
+		sourceCommit = manifest.SourceCommit
+	}
 	return catalog.register(ctx, manifest, sourceCommit, "decision_inputs")
 }
 
@@ -365,14 +371,14 @@ func recordedDatasetGapID(datasetID string, gap recorder.Gap) string {
 }
 
 func verifyRecordedDatasetRegistration(ctx context.Context, tx pgx.Tx, id string, manifest recorder.DatasetManifest, kind string) error {
-	var hash, recorderID, storedKind string
+	var hash, recorderID, storedKind, state string
 	var revision int64
 	var segments int
-	err := tx.QueryRow(ctx, `SELECT dm.dataset_hash,dm.recorder_dataset_id,dm.manifest_revision,dm.dataset_kind,count(ds.segment_id)
+	err := tx.QueryRow(ctx, `SELECT dm.dataset_hash,dm.recorder_dataset_id,dm.manifest_revision,dm.dataset_kind,dm.state,count(ds.segment_id)
       FROM dataset_manifests dm LEFT JOIN dataset_segments ds ON ds.dataset_id=dm.id WHERE dm.id=$1
-	  GROUP BY dm.id`, id).Scan(&hash, &recorderID, &revision, &storedKind, &segments)
+	  GROUP BY dm.id`, id).Scan(&hash, &recorderID, &revision, &storedKind, &state, &segments)
 	if err != nil || hash != manifest.Hash || recorderID != manifest.DatasetID || revision != int64(manifest.Revision) ||
-		storedKind != kind || segments != len(manifest.Segments) {
+		storedKind != kind || (state != "ready" && state != "qualified") || segments != len(manifest.Segments) {
 		return fmt.Errorf("owner_console_dataset_registration_conflict")
 	}
 	if len(manifest.ExchangeCoverage) > 0 {

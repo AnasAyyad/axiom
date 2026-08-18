@@ -36,8 +36,39 @@ func TestRecordedSegmentCommitRetriesSerializationFailure(t *testing.T) {
 	if err := committer.Commit(context.Background(), "evaluation-session", "binance", manifest, finalizedAt); err != nil {
 		t.Fatal(err)
 	}
-	if attempts != 3 || len(delays) != 2 || delays[0] != 25*time.Millisecond || delays[1] != 50*time.Millisecond {
+	wantDelays := []time.Duration{
+		recordedSegmentRetryDelay("evaluation-session", "binance", manifest.Spec.Name, 0),
+		recordedSegmentRetryDelay("evaluation-session", "binance", manifest.Spec.Name, 1),
+	}
+	if attempts != 3 || len(delays) != len(wantDelays) || delays[0] != wantDelays[0] || delays[1] != wantDelays[1] {
 		t.Fatalf("attempts=%d delays=%v", attempts, delays)
+	}
+}
+
+func TestRecordedSegmentCommitRetriesDeadlockFailure(t *testing.T) {
+	manifest, finalizedAt := recordedSegmentCommitFixture()
+	attempts := 0
+	committer := &RecordedSegmentCommitter{
+		attempt: func(context.Context, string, string, segments.Manifest, time.Time) error {
+			attempts++
+			if attempts == 1 {
+				return &pgconn.PgError{Code: "40P01", Message: "deadlock detected"}
+			}
+			return nil
+		},
+		wait: func(context.Context, time.Duration) error { return nil },
+	}
+	if err := committer.Commit(context.Background(), "evaluation-session", "binance", manifest, finalizedAt); err != nil || attempts != 2 {
+		t.Fatalf("error=%v attempts=%d", err, attempts)
+	}
+}
+
+func TestRecorderArtifactQuarantineRejectsForeignSessionNameBeforeDatabaseAccess(t *testing.T) {
+	committer := &RecordedSegmentCommitter{}
+	err := committer.QuarantineRecorderArtifacts(context.Background(), "evaluation-session", "binance",
+		[]string{"another-session-000001-wire"}, nil, time.Now().UTC())
+	if err == nil {
+		t.Fatal("foreign-session artifact name accepted")
 	}
 }
 

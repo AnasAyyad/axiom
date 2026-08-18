@@ -91,7 +91,8 @@ func NewCoherentMarketData(
 	profile CollectorProfile,
 ) (*Recorder, error) {
 	if !identifierPattern.MatchString(profile.Instance) || !identifierPattern.MatchString(profile.Region) ||
-		!identifierPattern.MatchString(profile.MinimumReaderVersion) {
+		!identifierPattern.MatchString(profile.MinimumReaderVersion) ||
+		(profile.SourceCommit != "" && !ValidSourceCommit(profile.SourceCommit)) {
 		return nil, recorderError("collector_profile_invalid")
 	}
 	return newRecorder(root, datasetID, sessionID, exchange, ordinals, commit, kill, &profile)

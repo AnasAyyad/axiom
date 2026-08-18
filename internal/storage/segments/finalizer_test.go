@@ -105,6 +105,31 @@ func TestRecoveryFinalizesOnlyHashProvedPartial(t *testing.T) {
 	}
 }
 
+func TestInspectProofVerifiesWithoutMutation(t *testing.T) {
+	root := t.TempDir()
+	finalizer, _ := NewFinalizer(root, func(stage Stage) error {
+		if stage == StageDirectorySynced {
+			return errors.New("crash")
+		}
+		return nil
+	})
+	_, _ = finalizer.Finalize(segmentSpec(), parquetFixture, func(Manifest) error {
+		t.Fatal("commit reached after injected crash")
+		return nil
+	})
+	recovery, _ := NewFinalizer(root, nil)
+	manifest, found, err := recovery.InspectProof(segmentSpec().Name)
+	if err != nil || !found || manifest.Spec != segmentSpec() {
+		t.Fatalf("manifest=%#v found=%t error=%v", manifest, found, err)
+	}
+	if _, err = os.Stat(filepath.Join(root, segmentSpec().Name+".proof")); err != nil {
+		t.Fatal("inspection mutated proof")
+	}
+	if _, err = os.Stat(filepath.Join(root, segmentSpec().Name+".parquet")); err != nil {
+		t.Fatal("inspection mutated final file")
+	}
+}
+
 func TestRecoveryPrefixLeavesOtherRecorderProofsUntouched(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{"evaluation-a-page-wire", "recorder-b-page-wire"} {

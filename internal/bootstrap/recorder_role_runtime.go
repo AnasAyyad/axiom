@@ -45,6 +45,10 @@ func (work *recorderRoleWork) Run(ctx context.Context, logger *slog.Logger) erro
 }
 
 func (work *recorderRoleWork) prepareRecorderRun(ctx context.Context, logger *slog.Logger) error {
+	if work.recoveredFiles > 0 {
+		logger.Warn("recorder startup artifacts quarantined",
+			"event_code", "recorder_startup_artifacts_quarantined", "artifact_count", work.recoveredFiles)
+	}
 	if critical, err := work.observeStoragePressure(ctx, logger); err != nil {
 		return err
 	} else if critical {
@@ -306,7 +310,7 @@ func segmentCommitter(
 		if store == nil {
 			return fmt.Errorf("segment_committer_unavailable")
 		}
-		commitContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		commitContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		return store.Commit(commitContext, session, exchange, manifest, time.Now().UTC())
 	}

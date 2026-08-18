@@ -24,11 +24,13 @@ func newBinanceStreamRecorder(
 	ordinals *runtimecore.IngestOrdinals,
 	pool *pgxpool.Pool,
 	resume bool,
+	sourceCommit string,
 ) (*marketrecorder.Recorder, error) {
 	commit := segmentCommitter(pool, session, "binance")
 	if exchangeCount == 2 {
 		profile := marketrecorder.CollectorProfile{Instance: runtimeConfig.InstanceID,
-			Region: runtimeConfig.Recorder.CollectorRegion, MinimumReaderVersion: "dataset-reader.v2"}
+			Region: runtimeConfig.Recorder.CollectorRegion, MinimumReaderVersion: "dataset-reader.v2",
+			SourceCommit: sourceCommit}
 		if resume {
 			recorder, _, err := marketrecorder.ResumeCoherentMarketData(root, recorderDatasetID(session), session,
 				"binance", ordinals, commit, nil, profile)
@@ -40,35 +42,41 @@ func newBinanceStreamRecorder(
 	return marketrecorder.New(root, recorderDatasetID(session), session, "binance", ordinals, commit, nil)
 }
 
+type recorderResumeHighWaterResult struct {
+	lastOrdinal, binanceGeneration, bybitGeneration uint64
+	binanceFound, bybitFound                        bool
+	binanceManifest, bybitManifest                  marketrecorder.DatasetManifest
+}
+
 func recorderResumeHighWater(binanceRoot, bybitRoot, session string, dual bool) (
-	lastOrdinal, binanceGeneration, bybitGeneration uint64, binanceFound, bybitFound bool, err error) {
-	binanceManifest, binanceFound, err := marketrecorder.LatestManifest(binanceRoot, session)
+	result recorderResumeHighWaterResult, err error) {
+	result.binanceManifest, result.binanceFound, err = marketrecorder.LatestManifest(binanceRoot, session)
 	if err != nil {
-		return 0, 0, 0, false, false, err
+		return recorderResumeHighWaterResult{}, err
 	}
-	if binanceFound {
-		lastOrdinal, err = marketrecorder.ManifestLastOrdinal(binanceManifest)
+	if result.binanceFound {
+		result.lastOrdinal, err = marketrecorder.ManifestLastOrdinal(result.binanceManifest)
 		if err != nil {
-			return 0, 0, 0, false, false, err
+			return recorderResumeHighWaterResult{}, err
 		}
-		binanceGeneration = marketrecorder.ManifestLastGeneration(binanceManifest)
+		result.binanceGeneration = marketrecorder.ManifestLastGeneration(result.binanceManifest)
 	}
 	if !dual {
-		return lastOrdinal, binanceGeneration, 0, binanceFound, false, nil
+		return result, nil
 	}
-	bybitManifest, bybitFound, err := marketrecorder.LatestManifest(bybitRoot, session+"-bybit")
+	result.bybitManifest, result.bybitFound, err = marketrecorder.LatestManifest(bybitRoot, session+"-bybit")
 	if err != nil {
-		return 0, 0, 0, false, false, err
+		return recorderResumeHighWaterResult{}, err
 	}
-	if bybitFound {
-		bybitLast, lastErr := marketrecorder.ManifestLastOrdinal(bybitManifest)
+	if result.bybitFound {
+		bybitLast, lastErr := marketrecorder.ManifestLastOrdinal(result.bybitManifest)
 		if lastErr != nil {
-			return 0, 0, 0, false, false, lastErr
+			return recorderResumeHighWaterResult{}, lastErr
 		}
-		if bybitLast > lastOrdinal {
-			lastOrdinal = bybitLast
+		if bybitLast > result.lastOrdinal {
+			result.lastOrdinal = bybitLast
 		}
-		bybitGeneration = marketrecorder.ManifestLastGeneration(bybitManifest)
+		result.bybitGeneration = marketrecorder.ManifestLastGeneration(result.bybitManifest)
 	}
-	return lastOrdinal, binanceGeneration, bybitGeneration, binanceFound, bybitFound, nil
+	return result, nil
 }

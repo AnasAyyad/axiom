@@ -195,7 +195,9 @@ func segmentSpec(
 	started, ended int64,
 	schema, parser, normalizer, hash string,
 ) segments.Spec {
-	name := fmt.Sprintf("%s-%06d-%s", session, revision, kind)
+	// Content-addressed suffixes prevent a quarantined, database-visible half
+	// revision from ever colliding with fresh data after a restart.
+	name := fmt.Sprintf("%s-%06d-%s-%016x-%s", session, revision, kind, first, hash[:12])
 	return segments.Spec{Name: name, SchemaVersion: schema, ParserVersion: parser,
 		NormalizationVersion: normalizer, OrderedContentHash: hash, FirstOrdinal: first,
 		LastOrdinal: last, RecordCount: count, StartedAt: time.Unix(0, started).UTC(), EndedAt: time.Unix(0, ended).UTC()}
@@ -247,6 +249,7 @@ func (recorder *Recorder) newManifest(
 			SchemaVersions:        append([]string(nil), coverage.SchemaVersions...),
 			ParserVersions:        append([]string(nil), coverage.ParserVersions...),
 			NormalizationVersions: append([]string(nil), coverage.NormalizationVersions...)}
+		manifest.SourceCommit = recorder.profile.SourceCommit
 	}
 	manifest.Hash = manifestHash(manifest)
 	return manifest

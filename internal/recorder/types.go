@@ -120,6 +120,7 @@ type CollectorProfile struct {
 	Instance             string `json:"instance"`
 	Region               string `json:"region"`
 	MinimumReaderVersion string `json:"minimum_reader_version"`
+	SourceCommit         string `json:"source_commit,omitempty"`
 }
 
 // GenerationCoverage records the exact flushed extent of one connection generation.
@@ -178,6 +179,7 @@ type DatasetManifest struct {
 	QualityTier      string                     `json:"quality_tier,omitempty"`
 	ExchangeCoverage []ExchangeCoverage         `json:"exchange_coverage,omitempty"`
 	Compatibility    *CompatibilityRequirements `json:"compatibility_requirements,omitempty"`
+	SourceCommit     string                     `json:"source_commit,omitempty"`
 }
 
 // Error is a bounded recorder failure without paths, payloads, or arbitrary
