@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"axiom/internal/domain"
+	"axiom/internal/evaluation"
 	"axiom/internal/recorder"
 	"axiom/internal/storage/segments"
 
@@ -64,6 +65,7 @@ func assertEvaluationCampaignSchemaAndRecovery(t *testing.T, ctx context.Context
 	now := time.Date(2030, 8, 11, 12, 0, 0, 0, time.UTC)
 	assertNonCampaignRecorderObservationNoop(t, ctx, pool, now)
 	assertEvaluationRecorderGapRecovery(t, ctx, pool, now)
+	assertEvaluationRecorderRestartBaselineRecovery(t, ctx, pool, now.Add(6*time.Minute))
 	assertRecordedSegmentCommitSurvivesCampaignUpdate(t, ctx, pool, now.Add(10*time.Minute))
 	assertHistoricalDatasetRegistration(t, ctx, pool, now)
 	assertStandaloneEvaluationAudit(t, ctx, pool, now)
@@ -261,6 +263,73 @@ func assertEvaluationRecorderDatasetRecovered(t *testing.T, ctx context.Context,
 		datasetIDs[1] != "bybit-public-recording-evaluation-gap-session" {
 		t.Fatalf("recovered dataset selection ids=%v error=%v", datasetIDs, selectionErr)
 	}
+}
+
+func assertEvaluationRecorderRestartBaselineRecovery(t *testing.T, ctx context.Context,
+	pool *pgxpool.Pool, now time.Time) {
+	t.Helper()
+	const campaignID = "evaluation-restart-baseline"
+	const sessionID = "evaluation-restart-baseline-session"
+	store := prepareEvaluationRecorderRestartBaseline(t, ctx, pool, campaignID, sessionID, now)
+	if err := store.Observe(ctx, sessionID, now, true,
+		evaluationRecorderIntegrationObservations(now, 100, 1)); err != nil {
+		t.Fatal(err)
+	}
+	baselineAt := now.Add(evaluationRecorderMaxObservationInterval + time.Minute)
+	if err := store.Observe(ctx, sessionID, baselineAt, true,
+		evaluationRecorderIntegrationObservations(baselineAt, 200, 1)); err != nil {
+		t.Fatal(err)
+	}
+	qualification, err := store.Qualification(ctx, campaignID)
+	if err != nil || qualification.UnresolvedObservations != 0 || qualification.LatestIntervalValid ||
+		!qualification.LatestAllEligible || !qualification.LatestPersistence {
+		t.Fatalf("healthy restart baseline qualification=%#v error=%v", qualification, err)
+	}
+	unhealthyAt := baselineAt.Add(5 * time.Minute)
+	unhealthy := evaluationRecorderIntegrationObservations(unhealthyAt, 300, 1)
+	unhealthy[4].Eligible, unhealthy[4].BookFresh = false, false
+	if err = store.Observe(ctx, sessionID, unhealthyAt, true, unhealthy); err != nil {
+		t.Fatal(err)
+	}
+	qualification, err = store.Qualification(ctx, campaignID)
+	if err != nil || qualification.UnresolvedObservations != 1 || qualification.LatestIntervalValid ||
+		qualification.LatestAllEligible {
+		t.Fatalf("post-baseline transient qualification=%#v error=%v", qualification, err)
+	}
+	progress, terminal, blocked := evaluationRecorderQualificationPolicy(unhealthyAt, qualification, nil)
+	if !terminal || blocked || progress.State != evaluation.ProgressPause ||
+		progress.Reason != evaluation.ReasonDataUnavailable {
+		t.Fatalf("post-baseline transient policy=%#v terminal=%t blocked=%t", progress, terminal, blocked)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE evaluation_recorder_requests SET state='COMPLETED',completed_at=$2,
+updated_at=$2 WHERE campaign_id=$1`, campaignID, unhealthyAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE evaluation_campaigns SET state='PARTIAL',current_stage=NULL,
+reason_code='TEST_COMPLETE',updated_at=$2 WHERE id=$1`, campaignID, unhealthyAt); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func prepareEvaluationRecorderRestartBaseline(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	campaignID, sessionID string, now time.Time) *EvaluationRecorderControlStore {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `INSERT INTO evaluation_campaigns(
+id,preset,state,current_stage,created_at,updated_at)
+VALUES($1,'balanced_full_v1','RUNNING','RECORDER_QUALIFICATION',$2,$2)`, campaignID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO evaluation_recorder_requests(campaign_id,desired_session_id,
+state,binance_session_id,bybit_session_id,storage_baseline_bytes,requested_at,activated_at,updated_at)
+VALUES($1,$2,'ACTIVE',$2,$3,0,$4,$4,$4)`, campaignID, sessionID, sessionID+"-bybit", now); err != nil {
+		t.Fatal(err)
+	}
+	clock, _ := domain.NewReplayClock(now)
+	store, err := NewEvaluationRecorderControlStore(pool, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
 }
 
 func evaluationRecorderIntegrationObservations(at time.Time, messages, binanceETHUSDTGaps uint64,

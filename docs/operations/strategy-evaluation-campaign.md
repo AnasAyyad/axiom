@@ -38,6 +38,10 @@ subsequent observation proves that all six books, clocks, and persistence are
 healthy, then the same campaign resumes its existing valid-time total. Three
 consecutive observations without a validated recovery block with
 `DATA_CORRUPT`; the gap and recovery evidence are never deleted or rewritten.
+A healthy observation after a process restart or observation-window outage is
+the new recovery baseline: it does not count valid time, and it resets the
+bounded unresolved-attempt counter. Only subsequent unresolved observations
+count toward the three-observation block threshold.
 
 Recorder segment finalization also recovers fail-closed. Campaign byte
 accounting serializes on the recorder-request row and safely proceeds or waits

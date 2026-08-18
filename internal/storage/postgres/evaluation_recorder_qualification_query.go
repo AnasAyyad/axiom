@@ -2,6 +2,7 @@ package postgres
 
 const evaluationRecorderQualificationQuery = `WITH ordered_observations AS (
 	  SELECT observation.ordinal,observation.observed_at,observation.interval_valid,
+	    observation.all_collectors_eligible,observation.persistence_healthy,
 	    observation.queue_drop_count>COALESCE(lag(observation.queue_drop_count)
 	      OVER (ORDER BY observation.ordinal),0) OR
 	    observation.gap_count>COALESCE(lag(observation.gap_count)
@@ -13,13 +14,18 @@ const evaluationRecorderQualificationQuery = `WITH ordered_observations AS (
 	  SELECT COALESCE(bool_or(new_loss),false) AS loss_observed,
 	    max(observed_at) FILTER (WHERE new_loss) AS last_loss_at,
 	    max(ordinal) FILTER (WHERE new_loss) AS last_loss_ordinal,
-	    max(ordinal) FILTER (WHERE interval_valid) AS last_valid_ordinal
+	    max(ordinal) FILTER (WHERE interval_valid) AS last_valid_ordinal,
+	    max(ordinal) FILTER (WHERE all_collectors_eligible AND persistence_healthy
+	      AND NOT interval_valid AND NOT new_loss) AS last_healthy_baseline_ordinal
 	  FROM ordered_observations
 	), recovery_summary AS (
 	  SELECT recovery.*,
 	    CASE WHEN last_loss_ordinal IS NOT NULL AND
 	      COALESCE(last_valid_ordinal,0)<=last_loss_ordinal THEN
-	      (SELECT count(*) FROM ordered_observations WHERE ordinal>=last_loss_ordinal)
+	      (SELECT count(*) FROM ordered_observations WHERE
+	        CASE WHEN COALESCE(last_healthy_baseline_ordinal,0)>last_loss_ordinal
+	          THEN ordinal>last_healthy_baseline_ordinal
+	          ELSE ordinal>=last_loss_ordinal END)
 	    ELSE 0 END AS unresolved_observations
 	  FROM recovery
 	)
