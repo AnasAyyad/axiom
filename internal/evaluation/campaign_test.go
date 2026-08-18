@@ -3,6 +3,7 @@ package evaluation
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestCampaignLifecyclePreservesCheckpointAndEndsOnlyAfterReport(t *testing.T) {
@@ -26,6 +27,19 @@ func TestCampaignLifecyclePreservesCheckpointAndEndsOnlyAfterReport(t *testing.T
 	}
 	if campaign.State != StateCompleted || len(campaign.CompletedStages) != len(Stages()) {
 		t.Fatalf("campaign = %#v", campaign)
+	}
+}
+
+func TestDeferredRecoveryPreservesStageAndCompletedEvidence(t *testing.T) {
+	campaign := Campaign{ID: "campaign-1", Preset: BalancedFullV1, State: StatePausedRecoverable,
+		CurrentStage: StageRecorderQualify, CompletedStages: []Stage{StageHistoricalImport, StageExistingDataAudit},
+		ValidRecording: time.Hour, Revision: 4}
+	if err := DeferRecovery(&campaign, ReasonPersistenceFailed); err != nil {
+		t.Fatal(err)
+	}
+	if campaign.State != StatePausedRecoverable || campaign.CurrentStage != StageRecorderQualify ||
+		len(campaign.CompletedStages) != 2 || campaign.ValidRecording != time.Hour || campaign.Revision != 5 {
+		t.Fatalf("campaign=%#v", campaign)
 	}
 }
 

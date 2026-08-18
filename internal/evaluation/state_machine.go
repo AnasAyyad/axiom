@@ -61,9 +61,20 @@ func Resume(value *Campaign) error {
 	return nil
 }
 
+// DeferRecovery preserves the exact paused checkpoint while recording another
+// bounded retry decision. It never resets valid time or completed stages.
+func DeferRecovery(value *Campaign, reason ReasonCode) error {
+	if value == nil || value.State != StatePausedRecoverable || reason == "" {
+		return ErrInvalidTransition
+	}
+	value.Reason = reason
+	value.Revision++
+	return nil
+}
+
 // Block terminates automatic work while retaining all evidence for a partial
-// report. It is reserved for shared data, accounting, safety, persistence, or
-// storage failures.
+// report. It is reserved for proven non-recoverable shared data, accounting,
+// safety, persistence, or storage failures.
 func Block(value *Campaign, reason ReasonCode) error {
 	if value == nil || (value.State != StateRunning && value.State != StatePausedRecoverable) || reason == "" {
 		return ErrInvalidTransition

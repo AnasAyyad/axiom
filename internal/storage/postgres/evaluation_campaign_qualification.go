@@ -19,9 +19,9 @@ func evaluationRecorderQualificationPolicy(now time.Time, qualification Evaluati
 			Summary: "Fresh recorder qualification is blocked with preserved evidence.", Checkpoint: checkpoint}, true, false
 	}
 	if qualification.UnresolvedObservations >= evaluationRecorderMaxUnresolvedObservations {
-		return evaluation.StageProgress{State: evaluation.ProgressBlock, Reason: evaluation.ReasonDataCorrupt,
-			Summary: "Recorder resynchronization could not be validated after three consecutive observations; " +
-				"the affected evidence remains preserved.", Checkpoint: checkpoint}, true, true
+		return evaluation.StageProgress{State: evaluation.ProgressPause, Reason: evaluation.ReasonDataUnavailable,
+			Summary: "Recorder resynchronization remains unresolved; the same qualification stage will keep " +
+				"retrying from its durable checkpoint while affected intervals remain excluded.", Checkpoint: checkpoint}, true, false
 	}
 	observationAge := now.Sub(qualification.LastObservedAt)
 	healthy := qualification.LatestAllEligible && qualification.LatestPersistence &&

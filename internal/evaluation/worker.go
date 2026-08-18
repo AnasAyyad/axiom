@@ -23,6 +23,7 @@ const (
 	OutcomePaused          OutcomeKind = "PAUSED_RECOVERABLE"
 	OutcomeBlocked         OutcomeKind = "BLOCKED"
 	OutcomeResumed         OutcomeKind = "RESUMED"
+	OutcomeRetryDeferred   OutcomeKind = "RETRY_DEFERRED"
 	OutcomePartialReported OutcomeKind = "PARTIAL_REPORTED"
 )
 
@@ -31,6 +32,7 @@ type Outcome struct {
 	Kind                OutcomeKind
 	Reason              ReasonCode
 	Summary             string
+	RetryAfter          time.Duration
 	ValidRecordingDelta time.Duration
 	ValidShadowDelta    time.Duration
 	Checkpoint          []byte
@@ -83,8 +85,12 @@ func (worker *Worker) RunOne(ctx context.Context) (bool, error) {
 			err.Error() == "evaluation_campaign_claim_lost" {
 			return true, err
 		}
-		outcome = Outcome{Kind: OutcomeBlocked, Reason: ReasonPersistenceFailed,
-			Summary: "Campaign stage failed before a safe checkpoint."}
+		kind := OutcomePaused
+		if claim.Campaign.State == StatePausedRecoverable {
+			kind = OutcomeRetryDeferred
+		}
+		outcome = Outcome{Kind: kind, Reason: ReasonPersistenceFailed,
+			Summary: "Campaign stage failed before a safe checkpoint; the same stage will retry."}
 	}
 	if !validOutcome(claim.Campaign, outcome) {
 		outcome = Outcome{Kind: OutcomeBlocked, Reason: ReasonSafetyFailed,
@@ -126,7 +132,7 @@ func (worker *Worker) executeWithLease(ctx context.Context, claim Claim) (Outcom
 }
 
 func validOutcome(campaign Campaign, outcome Outcome) bool {
-	if outcome.ValidRecordingDelta < 0 || outcome.ValidShadowDelta < 0 {
+	if outcome.ValidRecordingDelta < 0 || outcome.ValidShadowDelta < 0 || outcome.RetryAfter < 0 {
 		return false
 	}
 	if len(outcome.Checkpoint) > 1<<20 || (outcome.LinkedResourceType == "") != (outcome.LinkedResourceID == "") {
@@ -145,6 +151,8 @@ func validOutcome(campaign Campaign, outcome Outcome) bool {
 		return outcome.Reason == "" && outcome.Report == nil
 	case OutcomePaused, OutcomeBlocked:
 		return outcome.Reason != ""
+	case OutcomeRetryDeferred:
+		return campaign.State == StatePausedRecoverable && outcome.Reason != "" && outcome.Report == nil
 	default:
 		return false
 	}

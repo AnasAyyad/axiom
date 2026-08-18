@@ -41,14 +41,14 @@ func TestEvaluationCampaignPostgresSemanticRuntimeToCampaignUpgradeQualification
 	assertPostgres18(t, ctx, pool)
 	assertEmptyTestDatabase(t, ctx, pool)
 	migrations, err := Migrations()
-	if err != nil || len(migrations) != 57 || migrations[53].Version != "000054" ||
+	if err != nil || len(migrations) != 58 || migrations[53].Version != "000054" ||
 		migrations[54].Version != "000055" ||
 		migrations[55].Version != "000056" ||
-		migrations[56].Version != "000057" {
+		migrations[56].Version != "000057" || migrations[57].Version != "000058" {
 		t.Fatalf("evaluation campaign migration catalog=%d error=%v", len(migrations), err)
 	}
 	applyTriangularArbitrageMigrationPrefix(t, ctx, pool, 54)
-	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 3 {
+	if applied, applyErr := ApplyMigrations(ctx, pool); applyErr != nil || applied != 4 {
 		t.Fatalf("migration-54-to-evaluation-campaign applied=%d error=%v", applied, applyErr)
 	}
 	assertEvaluationCampaignSchemaAndRecovery(t, ctx, pool)
@@ -66,12 +66,137 @@ func assertEvaluationCampaignSchemaAndRecovery(t *testing.T, ctx context.Context
 	assertNonCampaignRecorderObservationNoop(t, ctx, pool, now)
 	assertEvaluationRecorderGapRecovery(t, ctx, pool, now)
 	assertEvaluationRecorderRestartBaselineRecovery(t, ctx, pool, now.Add(6*time.Minute))
+	assertEvaluationStageRetryPreservesCampaign(t, ctx, pool, now.Add(8*time.Minute))
 	assertRecordedSegmentCommitSurvivesCampaignUpdate(t, ctx, pool, now.Add(10*time.Minute))
 	assertHistoricalDatasetRegistration(t, ctx, pool, now)
 	assertStandaloneEvaluationAudit(t, ctx, pool, now)
 	assertEvaluationCandidateLockAndShadowIsolation(t, ctx, pool, now)
 	assertEvaluationPartialReportEvidence(t, ctx, pool, now)
 	assertEvaluationRestartClaim(t, ctx, pool, now)
+}
+
+func assertEvaluationStageRetryPreservesCampaign(t *testing.T, ctx context.Context,
+	pool *pgxpool.Pool, now time.Time) {
+	t.Helper()
+	const campaignID = "evaluation-stage-retry"
+	completed := []string{"HISTORICAL_IMPORT", "EXISTING_DATA_AUDIT", "RECORDER_ROTATION"}
+	prepareEvaluationStageRetryCampaign(t, ctx, pool, campaignID, completed, now)
+	clock, _ := domain.NewReplayClock(now)
+	store, err := NewEvaluationWorkerStore(pool, "evaluation-retry-test", clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, found, err := store.Claim(ctx)
+	if err != nil || !found || claim.Campaign.ID != campaignID {
+		t.Fatalf("initial claim=%#v found=%t error=%v", claim, found, err)
+	}
+	paused := evaluation.Outcome{Kind: evaluation.OutcomePaused, Reason: evaluation.ReasonDataUnavailable,
+		Summary: "Feed recovery is pending.", Checkpoint: []byte(`{"valid_seconds":3600}`)}
+	if err = store.Apply(ctx, claim, paused); err != nil {
+		t.Fatal(err)
+	}
+	assertEvaluationStageRetryState(t, ctx, pool, campaignID, "PAUSED_RECOVERABLE", 1, completed)
+	assertEvaluationStageAttemptImmutable(t, ctx, pool, campaignID)
+	if _, found, err = store.Claim(ctx); err != nil || found {
+		t.Fatalf("retry claimed before due found=%t error=%v", found, err)
+	}
+	if err = clock.Advance(evaluationStageRetryDelay(1) + time.Second); err != nil {
+		t.Fatal(err)
+	}
+	claim, found, err = store.Claim(ctx)
+	if err != nil || !found {
+		t.Fatalf("deferred retry claim found=%t error=%v", found, err)
+	}
+	if err = store.Apply(ctx, claim, evaluation.Outcome{Kind: evaluation.OutcomeRetryDeferred,
+		Reason: evaluation.ReasonDataUnavailable, Summary: "Feed recovery remains pending."}); err != nil {
+		t.Fatal(err)
+	}
+	assertEvaluationStageRetryState(t, ctx, pool, campaignID, "PAUSED_RECOVERABLE", 1, completed)
+	if err = clock.Advance(evaluationStageRetryDelay(2) + time.Second); err != nil {
+		t.Fatal(err)
+	}
+	completeEvaluationStageRetry(t, ctx, pool, store, campaignID, completed)
+	if _, err = pool.Exec(ctx, `UPDATE evaluation_campaigns SET state='PARTIAL',current_stage=NULL,
+reason_code='TEST_COMPLETE',updated_at=$2 WHERE id=$1`, campaignID, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertEvaluationStageAttemptImmutable(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	campaignID string) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `UPDATE evaluation_campaign_stage_attempts SET summary='rewritten'
+WHERE campaign_id=$1`, campaignID); err == nil {
+		t.Fatal("evaluation stage attempt update unexpectedly succeeded")
+	}
+}
+
+func prepareEvaluationStageRetryCampaign(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	campaignID string, completed []string, now time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `INSERT INTO evaluation_campaigns(id,preset,state,current_stage,
+completed_stages,created_at,updated_at) VALUES($1,'balanced_full_v1','RUNNING',
+'RECORDER_QUALIFICATION',$2,$3,$3)`, campaignID, completed, now); err != nil {
+		t.Fatal(err)
+	}
+	for index, stage := range evaluation.Stages() {
+		state, attempt := "PENDING", 0
+		var started any
+		if index < 3 {
+			state, attempt, started = "COMPLETED", 1, now.Add(-time.Hour)
+		} else if stage == evaluation.StageRecorderQualify {
+			state, attempt, started = "RUNNING", 1, now
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO evaluation_campaign_stages(campaign_id,stage,ordinal,
+state,attempt,started_at,attempt_started_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$6,$7)`,
+			campaignID, string(stage), index+1, state, attempt, started, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func completeEvaluationStageRetry(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	store *EvaluationWorkerStore, campaignID string, completed []string) {
+	t.Helper()
+	claim, found, err := store.Claim(ctx)
+	if err != nil || !found || claim.Campaign.ID != campaignID {
+		t.Fatalf("due retry claim=%#v found=%t error=%v", claim, found, err)
+	}
+	if err = store.Apply(ctx, claim, evaluation.Outcome{Kind: evaluation.OutcomeResumed,
+		Summary: "Feed recovery validated."}); err != nil {
+		t.Fatal(err)
+	}
+	claim, found, err = store.Claim(ctx)
+	if err != nil || !found {
+		t.Fatalf("resumed claim found=%t error=%v", found, err)
+	}
+	if err = store.Apply(ctx, claim, evaluation.Outcome{Kind: evaluation.OutcomeCompleted,
+		Summary: "Recorder qualification completed.", Checkpoint: []byte(`{"valid_seconds":259200}`)}); err != nil {
+		t.Fatal(err)
+	}
+	assertEvaluationStageRetryState(t, ctx, pool, campaignID, "RUNNING", 2,
+		append(completed, "RECORDER_QUALIFICATION"))
+}
+
+func assertEvaluationStageRetryState(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
+	campaignID, state string, attempts int, completed []string) {
+	t.Helper()
+	var actualState, stage string
+	var actualCompleted []string
+	var reportCount, attemptCount, completedStageCount int
+	if err := pool.QueryRow(ctx, `SELECT state,current_stage,completed_stages,
+(SELECT count(*) FROM evaluation_campaign_reports WHERE campaign_id=$1),
+(SELECT count(*) FROM evaluation_campaign_stage_attempts WHERE campaign_id=$1),
+(SELECT count(*) FROM evaluation_campaign_stages WHERE campaign_id=$1 AND state='COMPLETED')
+FROM evaluation_campaigns WHERE id=$1`, campaignID).Scan(&actualState, &stage, &actualCompleted,
+		&reportCount, &attemptCount, &completedStageCount); err != nil {
+		t.Fatal(err)
+	}
+	if actualState != state || reportCount != 0 || attemptCount != attempts || completedStageCount != len(completed) ||
+		strings.Join(actualCompleted, ",") != strings.Join(completed, ",") {
+		t.Fatalf("state=%s stage=%s completed=%v reports=%d attempts=%d sealed=%d", actualState,
+			stage, actualCompleted, reportCount, attemptCount, completedStageCount)
+	}
 }
 
 func assertRecordedSegmentCommitSurvivesCampaignUpdate(t *testing.T, ctx context.Context,

@@ -9,7 +9,7 @@ var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 var runtimeReadInsertTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "asset_screening_versions", "assets", "audit_events",
 	"api_entity_revisions", "authentication_failures", "owner_accounts",
-	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_stage_attempts", "evaluation_campaign_members",
 	"evaluation_campaign_commands", "evaluation_data_audits", "evaluation_historical_imports",
 	"evaluation_recorder_requests",
 	"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results", "evaluation_data_audit_findings",
@@ -188,7 +188,7 @@ var sandboxQualificationAppendTables = []string{
 var readOnlyTables = []string{
 	"account_snapshots", "alert_acknowledgements", "alert_deliveries", "alerts", "allocation_candidates", "allocation_reservations", "allocation_score_components", "asset_screening_versions", "assets", "audit_events",
 	"configuration_activations", "configuration_versions", "consumer_cursors", "data_quality_events",
-	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_members",
+	"evaluation_campaigns", "evaluation_campaign_stages", "evaluation_campaign_stage_attempts", "evaluation_campaign_members",
 	"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results", "evaluation_data_audits",
 	"evaluation_data_audit_findings", "evaluation_historical_imports", "evaluation_historical_import_segments",
 	"evaluation_recorder_requests", "evaluation_campaign_datasets", "evaluation_campaign_dataset_members",

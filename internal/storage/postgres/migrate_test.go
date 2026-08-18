@@ -986,6 +986,15 @@ func TestStrategyEvaluationMigrationIsFailClosedAndEvidencePreserving(t *testing
 	if strings.Contains(strings.ToLower(evaluationMigration.SQL), " to axiom_") {
 		t.Fatal("strategy evaluation migration bypasses the deployment role reconciler")
 	}
+	recoveryMigration := migrationForVersion(migrations, "000058")
+	assertMigrationContains(t, recoveryMigration, "strategy evaluation stage recovery", []string{
+		"add column attempt_started_at",
+		"add column next_retry_at",
+		"add column recoverable_failure_count",
+		"create table evaluation_campaign_stage_attempts",
+		"evaluation_campaign_stage_attempts_immutable",
+		"outcome in ('paused_recoverable','completed','blocked')",
+	})
 }
 
 func migrationForVersion(migrations []Migration, version string) Migration {

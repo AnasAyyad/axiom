@@ -30,18 +30,28 @@ in PostgreSQL. Claims and checkpoints make work restart-safe. Recoverable feed
 interruptions pause valid-time accounting; elapsed wall time never substitutes
 for valid evidence time.
 
+Every stage is an independent durable checkpoint. A recoverable source,
+process, or persistence interruption closes an immutable attempt, leaves the
+campaign on the same stage, and schedules an automatic retry with bounded
+backoff. A healthy retry opens the next attempt from the preserved checkpoint;
+it never reruns or rewrites an earlier completed stage. Container and server
+restarts use the same fencing and checkpoint path. The console exposes the
+current attempt, next retry time, consecutive recovery checks, and most recent
+closed attempt; the detail API returns up to the latest 100 closed attempts per
+stage. No partial report is created while recovery remains possible.
+
 A source-sequence gap invalidates only the affected local book generation and
 the observation interval containing it. The collector records the gap, stops
 decisions from that book, reconnects, obtains a fresh snapshot, and rebuilds
 the book automatically. Qualification remains `PAUSED_RECOVERABLE` until a
 subsequent observation proves that all six books, clocks, and persistence are
 healthy, then the same campaign resumes its existing valid-time total. Three
-consecutive observations without a validated recovery block with
-`DATA_CORRUPT`; the gap and recovery evidence are never deleted or rewritten.
-A healthy observation after a process restart or observation-window outage is
-the new recovery baseline: it does not count valid time, and it resets the
-bounded unresolved-attempt counter. Only subsequent unresolved observations
-count toward the three-observation block threshold.
+or more consecutive observations without a validated recovery remain paused;
+they do not terminate the campaign merely because a retry count was reached.
+The gap and recovery evidence are never deleted or rewritten. A healthy
+observation after a process restart or observation-window outage is the new
+recovery baseline: it does not count valid time, resets the consecutive
+recovery counter, and lets the same campaign continue.
 
 Recorder segment finalization also recovers fail-closed. Campaign byte
 accounting serializes on the recorder-request row and safely proceeds or waits
@@ -57,11 +67,15 @@ New manifests embed their exact source commit so a crash after the filesystem
 manifest but before catalogue registration can be recovered without assigning
 the replacement build's identity to older evidence.
 
-Only the owner can start or emergency-cancel a campaign. A member-level
-strategy failure preserves the evidence and allows unaffected members to
-continue. A shared data, storage, accounting, safety, or persistence failure
-blocks the campaign. Every terminal path produces an immutable report that
-states completed work, the stable reason code, and the next action.
+Only the owner can start or emergency-cancel a campaign. Recoverable failures
+retry indefinitely with a maximum ten-minute stage backoff. Proven corrupt or
+incompatible evidence, exhausted storage, unsafe accounting, or a failed
+shared safety invariant still blocks fail-closed and requires a new campaign
+after the evidence is reviewed. A member-level strategy failure preserves the
+evidence and allows unaffected members to continue. A proven non-recoverable
+shared data, storage, accounting, safety, or persistence failure blocks the
+campaign. Every terminal path produces an immutable report that states
+completed work, the stable reason code, and the next action.
 
 ## Data and storage policy
 

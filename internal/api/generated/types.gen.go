@@ -1031,6 +1031,27 @@ func (e EvaluationShadowProgressState) Valid() bool {
 	}
 }
 
+// Defines values for EvaluationStageAttemptOutcome.
+const (
+	EvaluationStageAttemptOutcomeBLOCKED           EvaluationStageAttemptOutcome = "BLOCKED"
+	EvaluationStageAttemptOutcomeCOMPLETED         EvaluationStageAttemptOutcome = "COMPLETED"
+	EvaluationStageAttemptOutcomePAUSEDRECOVERABLE EvaluationStageAttemptOutcome = "PAUSED_RECOVERABLE"
+)
+
+// Valid indicates whether the value is a known member of the EvaluationStageAttemptOutcome enum.
+func (e EvaluationStageAttemptOutcome) Valid() bool {
+	switch e {
+	case EvaluationStageAttemptOutcomeBLOCKED:
+		return true
+	case EvaluationStageAttemptOutcomeCOMPLETED:
+		return true
+	case EvaluationStageAttemptOutcomePAUSEDRECOVERABLE:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EvaluationStageProgressStage.
 const (
 	BACKTESTMATRIX        EvaluationStageProgressStage = "BACKTEST_MATRIX"
@@ -4795,19 +4816,19 @@ func (e SystemStatusRealTradingEnabled) Valid() bool {
 
 // Defines values for SystemStatusRiskState.
 const (
-	SystemStatusRiskStateLOCKED  SystemStatusRiskState = "LOCKED"
-	SystemStatusRiskStatePAUSED  SystemStatusRiskState = "PAUSED"
-	SystemStatusRiskStateRESUMED SystemStatusRiskState = "RESUMED"
+	LOCKED  SystemStatusRiskState = "LOCKED"
+	PAUSED  SystemStatusRiskState = "PAUSED"
+	RESUMED SystemStatusRiskState = "RESUMED"
 )
 
 // Valid indicates whether the value is a known member of the SystemStatusRiskState enum.
 func (e SystemStatusRiskState) Valid() bool {
 	switch e {
-	case SystemStatusRiskStateLOCKED:
+	case LOCKED:
 		return true
-	case SystemStatusRiskStatePAUSED:
+	case PAUSED:
 		return true
-	case SystemStatusRiskStateRESUMED:
+	case RESUMED:
 		return true
 	default:
 		return false
@@ -5758,14 +5779,49 @@ type EvaluationShadowProgress struct {
 // EvaluationShadowProgressState defines model for EvaluationShadowProgress.State.
 type EvaluationShadowProgressState string
 
+// EvaluationStageAttempt defines model for EvaluationStageAttempt.
+type EvaluationStageAttempt struct {
+	Attempt        int     `json:"attempt"`
+	CheckpointHash *string `json:"checkpoint_hash,omitempty"`
+
+	// FinishedAt RFC 3339 timestamp with an explicit UTC offset.
+	FinishedAt         Timestamp                     `json:"finished_at"`
+	LinkedResourceId   *string                       `json:"linked_resource_id,omitempty"`
+	LinkedResourceType *string                       `json:"linked_resource_type,omitempty"`
+	Outcome            EvaluationStageAttemptOutcome `json:"outcome"`
+	ReasonCode         *string                       `json:"reason_code,omitempty"`
+
+	// RetryAt RFC 3339 timestamp with an explicit UTC offset.
+	RetryAt *Timestamp `json:"retry_at,omitempty"`
+
+	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
+	StartedAt Timestamp `json:"started_at"`
+	Summary   string    `json:"summary"`
+}
+
+// EvaluationStageAttemptOutcome defines model for EvaluationStageAttempt.Outcome.
+type EvaluationStageAttemptOutcome string
+
 // EvaluationStageProgress defines model for EvaluationStageProgress.
 type EvaluationStageProgress struct {
 	Attempt int `json:"attempt"`
 
+	// AttemptStartedAt RFC 3339 timestamp with an explicit UTC offset.
+	AttemptStartedAt *Timestamp `json:"attempt_started_at,omitempty"`
+
+	// Attempts Up to the latest 100 immutable closed attempts, oldest first.
+	Attempts *[]EvaluationStageAttempt `json:"attempts,omitempty"`
+
 	// CompletedAt RFC 3339 timestamp with an explicit UTC offset.
-	CompletedAt *Timestamp                   `json:"completed_at,omitempty"`
-	ReasonCode  *string                      `json:"reason_code,omitempty"`
-	Stage       EvaluationStageProgressStage `json:"stage"`
+	CompletedAt *Timestamp `json:"completed_at,omitempty"`
+
+	// NextRetryAt RFC 3339 timestamp with an explicit UTC offset.
+	NextRetryAt *Timestamp `json:"next_retry_at,omitempty"`
+	ReasonCode  *string    `json:"reason_code,omitempty"`
+
+	// RecoverableFailures Consecutive recovery checks since the latest healthy resume.
+	RecoverableFailures int                          `json:"recoverable_failures"`
+	Stage               EvaluationStageProgressStage `json:"stage"`
 
 	// StartedAt RFC 3339 timestamp with an explicit UTC offset.
 	StartedAt *Timestamp                   `json:"started_at,omitempty"`

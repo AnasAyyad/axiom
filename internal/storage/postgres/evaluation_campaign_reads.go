@@ -205,17 +205,27 @@ func (store *OwnerConsoleStore) decorateEvaluationCampaign(campaign *generated.E
 		campaign.EstimatedRemainingSeconds = &remaining
 	}
 	if campaign.ReasonCode != nil {
-		action := evaluationCampaignSuggestedAction(*campaign.ReasonCode)
+		action := evaluationCampaignSuggestedAction(string(campaign.State), *campaign.ReasonCode)
 		campaign.SuggestedAction = &action
 	}
 }
 
-func evaluationCampaignSuggestedAction(reason string) string {
+func evaluationCampaignSuggestedAction(state, reason string) string {
+	if state == "PAUSED_RECOVERABLE" {
+		switch reason {
+		case "DATA_UNAVAILABLE", "FEED_UNHEALTHY", "CLOCK_UNSAFE":
+			return "The same stage will retry automatically. Restore both public feeds and stable clocks; preserved valid time will resume when evidence is healthy."
+		case "PERSISTENCE_FAILED":
+			return "The same stage will retry automatically. Restore PostgreSQL and storage health; completed stages and the current checkpoint are preserved."
+		default:
+			return "The same stage will retry automatically from its preserved checkpoint when the shared prerequisite recovers."
+		}
+	}
 	switch reason {
 	case "STORAGE_INSUFFICIENT":
 		return "Provide additional storage or reduce the reviewed recording universe before starting a new campaign."
 	case "DATA_UNAVAILABLE", "FEED_UNHEALTHY", "CLOCK_UNSAFE":
-		return "Restore both public feeds and stable clocks; valid time will resume automatically when evidence is healthy."
+		return "Restore both public feeds and stable clocks, then review the preserved terminal evidence."
 	case "DATA_CORRUPT":
 		return "Inspect the preserved data audit and recorder evidence; do not repair immutable evidence in place."
 	case "CANCELED_BY_OWNER":

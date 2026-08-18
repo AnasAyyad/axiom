@@ -82,7 +82,7 @@ func TestOrchestratorKeepsRecoverablePauseUntilDependencyRetry(t *testing.T) {
 	claim := Claim{Campaign: Campaign{ID: "campaign", Preset: BalancedFullV1,
 		State: StatePausedRecoverable, CurrentStage: StageHistoricalImport, Revision: 2}, ClaimEpoch: 1}
 	outcome, err := orchestrator.Execute(context.Background(), claim)
-	if err != nil || outcome.Kind != OutcomeWaiting || outcome.Reason != "" {
+	if err != nil || outcome.Kind != OutcomeRetryDeferred || outcome.Reason != ReasonDataUnavailable {
 		t.Fatalf("outcome=%#v err=%v", outcome, err)
 	}
 }

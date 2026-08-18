@@ -31,6 +31,7 @@ const campaign = {
       stage: "HISTORICAL_IMPORT",
       state: "COMPLETED",
       attempt: 1,
+      recoverable_failures: 0,
       completed_at: "2026-08-11T01:00:00Z",
       updated_at: "2026-08-11T01:00:00Z",
     },
@@ -38,7 +39,20 @@ const campaign = {
       stage: "RECORDER_QUALIFICATION",
       state: "PAUSED_RECOVERABLE",
       attempt: 1,
+      recoverable_failures: 1,
       reason_code: "FEED_UNHEALTHY",
+      next_retry_at: "2026-08-11T02:01:00Z",
+      attempts: [
+        {
+          attempt: 1,
+          outcome: "PAUSED_RECOVERABLE",
+          reason_code: "FEED_UNHEALTHY",
+          summary: "The feed will retry from the same checkpoint.",
+          started_at: "2026-08-11T01:00:00Z",
+          finished_at: "2026-08-11T02:00:00Z",
+          retry_at: "2026-08-11T02:01:00Z",
+        },
+      ],
       started_at: "2026-08-11T01:00:00Z",
       updated_at: "2026-08-11T02:00:00Z",
     },
@@ -122,6 +136,8 @@ describe("StrategyEvaluationPage", () => {
     expect(await screen.findByText("Current campaign")).toBeInTheDocument();
     expect(screen.getByText(/1.00 GiB of 200.0 GiB/)).toBeInTheDocument();
     expect(screen.getByText(/Restore both public feeds/)).toBeInTheDocument();
+    expect(await screen.findByText(/Automatic retry/)).toBeInTheDocument();
+    expect(screen.getByText(/Previous attempt preserved/)).toBeInTheDocument();
     expect(
       await screen.findByText(/durable timeline is temporarily unavailable/i),
     ).toBeInTheDocument();

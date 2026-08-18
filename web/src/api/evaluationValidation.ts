@@ -53,6 +53,21 @@ const member = z.object({
     .optional(),
   metrics: z.record(z.string(), z.unknown()).optional(),
 });
+const stageAttempt = z.object({
+  attempt: z.number().int().positive(),
+  outcome: z.enum(["PAUSED_RECOVERABLE", "COMPLETED", "BLOCKED"]),
+  reason_code: z.string().min(1).optional(),
+  summary: z.string().min(1).max(500),
+  checkpoint_hash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+  linked_resource_type: z.string().min(1).optional(),
+  linked_resource_id: z.string().min(1).optional(),
+  started_at: timestamp,
+  finished_at: timestamp,
+  retry_at: timestamp.optional(),
+});
 const campaign = z.object({
   id: z.string().min(1),
   preset: z.literal("balanced_full_v1"),
@@ -82,10 +97,14 @@ const campaign = z.object({
           "CANCELED",
         ]),
         attempt: z.number().int().nonnegative(),
+        recoverable_failures: z.number().int().nonnegative(),
         reason_code: z.string().min(1).optional(),
         started_at: timestamp.optional(),
+        attempt_started_at: timestamp.optional(),
+        next_retry_at: timestamp.optional(),
         completed_at: timestamp.optional(),
         updated_at: timestamp,
+        attempts: z.array(stageAttempt).max(100).optional(),
       }),
     )
     .max(9)

@@ -12,6 +12,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const (
+	evaluationStagePollDelay     = 5 * time.Second
+	evaluationStageMaxRetryDelay = 10 * time.Minute
+)
+
 func persistEvaluationOutcomeReport(ctx context.Context, tx pgx.Tx, campaign evaluation.Campaign,
 	priorStage evaluation.Stage, outcome evaluation.Outcome) error {
 	if outcome.Kind == evaluation.OutcomePartialReported {
@@ -29,46 +34,78 @@ func persistEvaluationOutcomeReport(ctx context.Context, tx pgx.Tx, campaign eva
 
 func updateEvaluationStage(ctx context.Context, tx pgx.Tx, campaign evaluation.Campaign,
 	priorStage evaluation.Stage, outcome evaluation.Outcome, now time.Time, changed bool) error {
-	if !changed {
+	if !changed && outcome.Kind != evaluation.OutcomeWaiting {
 		return nil
+	}
+	retryAt, err := evaluationStageRetryAt(ctx, tx, campaign.ID, priorStage, outcome, now)
+	if err != nil {
+		return err
 	}
 	checkpoint, checkpointHash := nullableCheckpoint(outcome.Checkpoint)
 	linkType, linkID := evaluationNullableText(outcome.LinkedResourceType), evaluationNullableText(outcome.LinkedResourceID)
 	switch outcome.Kind {
 	case evaluation.OutcomeStarted:
-		_, err := tx.Exec(ctx, `UPDATE evaluation_campaign_stages SET state='RUNNING',attempt=attempt+1,
-		  started_at=COALESCE(started_at,$3),updated_at=$3 WHERE campaign_id=$1 AND stage=$2`,
-			campaign.ID, string(evaluation.StageHistoricalImport), now)
-		return err
+		return startEvaluationCampaignStage(ctx, tx, campaign.ID, now)
 	case evaluation.OutcomeWaiting:
 		return updateEvaluationStageCheckpoint(ctx, tx, campaign, priorStage, outcome, now,
-			linkType, linkID, checkpoint, checkpointHash)
+			linkType, linkID, checkpoint, checkpointHash, retryAt)
 	case evaluation.OutcomePaused:
+		if err = insertEvaluationStageAttempt(ctx, tx, campaign.ID, priorStage, outcome, now,
+			checkpoint, checkpointHash, linkType, linkID, retryAt); err != nil {
+			return err
+		}
 		return updateEvaluationStageCheckpoint(ctx, tx, campaign, priorStage, outcome, now,
-			linkType, linkID, checkpoint, checkpointHash)
+			linkType, linkID, checkpoint, checkpointHash, retryAt)
+	case evaluation.OutcomeRetryDeferred:
+		return updateEvaluationStageCheckpoint(ctx, tx, campaign, priorStage, outcome, now,
+			linkType, linkID, checkpoint, checkpointHash, retryAt)
 	case evaluation.OutcomeResumed:
-		_, err := tx.Exec(ctx, `UPDATE evaluation_campaign_stages SET state='RUNNING',reason_code=NULL,
-		  updated_at=$3 WHERE campaign_id=$1 AND stage=$2`, campaign.ID, string(priorStage), now)
-		return err
+		return resumeEvaluationCampaignStage(ctx, tx, campaign.ID, priorStage, now)
 	case evaluation.OutcomeBlocked:
+		if err = insertEvaluationStageAttempt(ctx, tx, campaign.ID, priorStage, outcome, now,
+			checkpoint, checkpointHash, linkType, linkID, nil); err != nil {
+			return err
+		}
 		return updateEvaluationStageCheckpoint(ctx, tx, campaign, priorStage, outcome, now,
-			linkType, linkID, checkpoint, checkpointHash)
+			linkType, linkID, checkpoint, checkpointHash, nil)
 	case evaluation.OutcomeCompleted:
+		if err = insertEvaluationStageAttempt(ctx, tx, campaign.ID, priorStage, outcome, now,
+			checkpoint, checkpointHash, linkType, linkID, nil); err != nil {
+			return err
+		}
 		return completeEvaluationStage(ctx, tx, campaign, priorStage, now, linkType, linkID,
 			checkpoint, checkpointHash)
 	}
 	return nil
 }
 
+func startEvaluationCampaignStage(ctx context.Context, tx pgx.Tx, campaignID string, now time.Time) error {
+	_, err := tx.Exec(ctx, `UPDATE evaluation_campaign_stages SET state='RUNNING',attempt=attempt+1,
+attempt_started_at=$3,next_retry_at=NULL,recoverable_failure_count=0,
+started_at=COALESCE(started_at,$3),updated_at=$3 WHERE campaign_id=$1 AND stage=$2`,
+		campaignID, string(evaluation.StageHistoricalImport), now)
+	return err
+}
+
+func resumeEvaluationCampaignStage(ctx context.Context, tx pgx.Tx, campaignID string,
+	stage evaluation.Stage, now time.Time) error {
+	_, err := tx.Exec(ctx, `UPDATE evaluation_campaign_stages SET state='RUNNING',reason_code=NULL,
+attempt=attempt+1,attempt_started_at=$3,next_retry_at=NULL,recoverable_failure_count=0,
+updated_at=$3 WHERE campaign_id=$1 AND stage=$2`, campaignID, string(stage), now)
+	return err
+}
+
 func updateEvaluationStageCheckpoint(ctx context.Context, tx pgx.Tx, campaign evaluation.Campaign,
 	priorStage evaluation.Stage, outcome evaluation.Outcome, now time.Time,
-	linkType, linkID, checkpoint, checkpointHash any) error {
+	linkType, linkID, checkpoint, checkpointHash, retryAt any) error {
 	if priorStage == "" {
 		return nil
 	}
 	state := "RUNNING"
 	var reason any
 	if outcome.Kind == evaluation.OutcomePaused {
+		state, reason = "PAUSED_RECOVERABLE", string(outcome.Reason)
+	} else if outcome.Kind == evaluation.OutcomeRetryDeferred {
 		state, reason = "PAUSED_RECOVERABLE", string(outcome.Reason)
 	} else if outcome.Kind == evaluation.OutcomeBlocked {
 		state, reason = "BLOCKED", string(outcome.Reason)
@@ -78,8 +115,10 @@ func updateEvaluationStageCheckpoint(ctx context.Context, tx pgx.Tx, campaign ev
 	_, err := tx.Exec(ctx, `UPDATE evaluation_campaign_stages SET state=$3,reason_code=COALESCE($4,reason_code),
 linked_resource_type=COALESCE($5,linked_resource_type),linked_resource_id=COALESCE($6,linked_resource_id),
 checkpoint_payload=COALESCE($7,checkpoint_payload),checkpoint_hash=COALESCE($8,checkpoint_hash),
-updated_at=$9 WHERE campaign_id=$1 AND stage=$2`, campaign.ID, string(priorStage), state, reason,
-		linkType, linkID, checkpoint, checkpointHash, now)
+next_retry_at=$9,recoverable_failure_count=recoverable_failure_count+
+  CASE WHEN $10 IN ('PAUSED_RECOVERABLE','RETRY_DEFERRED') THEN 1 ELSE 0 END,
+updated_at=$11 WHERE campaign_id=$1 AND stage=$2`, campaign.ID, string(priorStage), state, reason,
+		linkType, linkID, checkpoint, checkpointHash, retryAt, string(outcome.Kind), now)
 	return err
 }
 
@@ -88,7 +127,8 @@ func completeEvaluationStage(ctx context.Context, tx pgx.Tx, campaign evaluation
 	if _, err := tx.Exec(ctx, `UPDATE evaluation_campaign_stages SET state='COMPLETED',reason_code=NULL,
 linked_resource_type=COALESCE($3,linked_resource_type),linked_resource_id=COALESCE($4,linked_resource_id),
 checkpoint_payload=COALESCE($5,checkpoint_payload),checkpoint_hash=COALESCE($6,checkpoint_hash),
-completed_at=$7,updated_at=$7 WHERE campaign_id=$1 AND stage=$2`, campaign.ID, string(priorStage),
+next_retry_at=NULL,recoverable_failure_count=0,completed_at=$7,updated_at=$7
+WHERE campaign_id=$1 AND stage=$2`, campaign.ID, string(priorStage),
 		linkType, linkID, checkpoint, checkpointHash, now); err != nil {
 		return err
 	}
@@ -96,6 +136,7 @@ completed_at=$7,updated_at=$7 WHERE campaign_id=$1 AND stage=$2`, campaign.ID, s
 		return nil
 	}
 	_, err := tx.Exec(ctx, `UPDATE evaluation_campaign_stages SET state='RUNNING',attempt=attempt+1,
+attempt_started_at=$3,next_retry_at=NULL,recoverable_failure_count=0,
 started_at=COALESCE(started_at,$3),updated_at=$3 WHERE campaign_id=$1 AND stage=$2`,
 		campaign.ID, string(campaign.CurrentStage), now)
 	return err
@@ -113,6 +154,8 @@ func recordEvaluationOutcome(ctx context.Context, tx pgx.Tx, campaign evaluation
 		eventType = "campaign_paused"
 	case evaluation.OutcomeResumed:
 		eventType = "campaign_resumed"
+	case evaluation.OutcomeRetryDeferred:
+		eventType = "stage_retry_deferred"
 	case evaluation.OutcomeBlocked:
 		eventType = "campaign_blocked"
 	case evaluation.OutcomePartialReported:
@@ -122,6 +165,59 @@ func recordEvaluationOutcome(ctx context.Context, tx pgx.Tx, campaign evaluation
 	  stage,reason_code,summary,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, campaign.ID,
 		campaign.Revision, eventType, nullableStage(priorStage), nullableReason(outcome.Reason),
 		outcome.Summary, now)
+	return err
+}
+
+func evaluationStageRetryAt(ctx context.Context, tx pgx.Tx, campaignID string, stage evaluation.Stage,
+	outcome evaluation.Outcome, now time.Time) (any, error) {
+	if stage == "" || (outcome.Kind != evaluation.OutcomeWaiting && outcome.Kind != evaluation.OutcomePaused &&
+		outcome.Kind != evaluation.OutcomeRetryDeferred) {
+		return nil, nil
+	}
+	delay := outcome.RetryAfter
+	if delay <= 0 && outcome.Kind == evaluation.OutcomeWaiting {
+		delay = evaluationStagePollDelay
+	}
+	if delay <= 0 {
+		var failures int
+		if err := tx.QueryRow(ctx, `SELECT recoverable_failure_count FROM evaluation_campaign_stages
+WHERE campaign_id=$1 AND stage=$2`, campaignID, string(stage)).Scan(&failures); err != nil {
+			return nil, err
+		}
+		delay = evaluationStageRetryDelay(failures + 1)
+	}
+	if delay > evaluationStageMaxRetryDelay {
+		delay = evaluationStageMaxRetryDelay
+	}
+	return now.Add(delay), nil
+}
+
+func evaluationStageRetryDelay(attempt int) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+	shift := min(attempt-1, 6)
+	return min(15*time.Second*time.Duration(1<<shift), evaluationStageMaxRetryDelay)
+}
+
+func insertEvaluationStageAttempt(ctx context.Context, tx pgx.Tx, campaignID string,
+	stage evaluation.Stage, outcome evaluation.Outcome, now time.Time,
+	checkpoint, checkpointHash, linkType, linkID, retryAt any) error {
+	if stage == "" {
+		return fmt.Errorf("evaluation_stage_attempt_missing")
+	}
+	summary := outcome.Summary
+	if summary == "" {
+		summary = "Stage attempt reached a durable boundary."
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO evaluation_campaign_stage_attempts(campaign_id,stage,attempt,
+outcome,reason_code,summary,checkpoint_payload,checkpoint_hash,linked_resource_type,linked_resource_id,
+started_at,finished_at,retry_at)
+SELECT campaign_id,stage,attempt,$3,$4,$5,COALESCE($6,checkpoint_payload),
+COALESCE($7,checkpoint_hash),COALESCE($8,linked_resource_type),COALESCE($9,linked_resource_id),
+attempt_started_at,$10,$11 FROM evaluation_campaign_stages
+WHERE campaign_id=$1 AND stage=$2 AND attempt>0`, campaignID, string(stage), string(outcome.Kind),
+		nullableReason(outcome.Reason), summary, checkpoint, checkpointHash, linkType, linkID, now, retryAt)
 	return err
 }
 

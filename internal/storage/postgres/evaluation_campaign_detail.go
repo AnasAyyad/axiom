@@ -34,7 +34,12 @@ func (store *OwnerConsoleStore) loadEvaluationCampaignDetail(ctx context.Context
 
 func (store *OwnerConsoleStore) loadEvaluationStages(ctx context.Context,
 	campaign *generated.EvaluationCampaign) error {
-	rows, err := store.pool.Query(ctx, `SELECT stage,state,attempt,reason_code,started_at,completed_at,updated_at
+	attempts, err := store.loadEvaluationStageAttempts(ctx, campaign.Id)
+	if err != nil {
+		return err
+	}
+	rows, err := store.pool.Query(ctx, `SELECT stage,state,attempt,recoverable_failure_count,reason_code,
+started_at,attempt_started_at,next_retry_at,completed_at,updated_at
 FROM evaluation_campaign_stages WHERE campaign_id=$1 ORDER BY ordinal`, campaign.Id)
 	if err != nil {
 		return err
@@ -43,19 +48,55 @@ FROM evaluation_campaign_stages WHERE campaign_id=$1 ORDER BY ordinal`, campaign
 	items := make([]generated.EvaluationStageProgress, 0, len(evaluation.Stages()))
 	for rows.Next() {
 		var stage, state string
-		var attempt int
+		var attempt, failures int
 		var reason *string
-		var started, completed *generated.Timestamp
+		var started, attemptStarted, retryAt, completed *generated.Timestamp
 		var updated generated.Timestamp
-		if err = rows.Scan(&stage, &state, &attempt, &reason, &started, &completed, &updated); err != nil {
+		if err = rows.Scan(&stage, &state, &attempt, &failures, &reason, &started, &attemptStarted,
+			&retryAt, &completed, &updated); err != nil {
 			return err
 		}
-		items = append(items, generated.EvaluationStageProgress{Stage: generated.EvaluationStageProgressStage(stage),
-			State: generated.EvaluationStageProgressState(state), Attempt: attempt, ReasonCode: reason,
-			StartedAt: started, CompletedAt: completed, UpdatedAt: updated})
+		item := generated.EvaluationStageProgress{Stage: generated.EvaluationStageProgressStage(stage),
+			State: generated.EvaluationStageProgressState(state), Attempt: attempt,
+			RecoverableFailures: failures, ReasonCode: reason, StartedAt: started,
+			AttemptStartedAt: attemptStarted, NextRetryAt: retryAt, CompletedAt: completed, UpdatedAt: updated}
+		if values := attempts[stage]; len(values) > 0 {
+			item.Attempts = &values
+		}
+		items = append(items, item)
 	}
 	campaign.Stages = &items
 	return rows.Err()
+}
+
+func (store *OwnerConsoleStore) loadEvaluationStageAttempts(ctx context.Context,
+	campaignID string) (map[string][]generated.EvaluationStageAttempt, error) {
+	rows, err := store.pool.Query(ctx, `SELECT stage,attempt,outcome,reason_code,summary,
+COALESCE(encode(checkpoint_hash,'hex'),''),linked_resource_type,linked_resource_id,
+started_at,finished_at,retry_at FROM (
+  SELECT attempt.*,row_number() OVER (PARTITION BY stage ORDER BY attempt DESC) AS history_ordinal
+  FROM evaluation_campaign_stage_attempts attempt WHERE campaign_id=$1
+) bounded WHERE history_ordinal<=100 ORDER BY stage,attempt`, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[string][]generated.EvaluationStageAttempt)
+	for rows.Next() {
+		var stage, outcome, hash string
+		var item generated.EvaluationStageAttempt
+		if err = rows.Scan(&stage, &item.Attempt, &outcome, &item.ReasonCode, &item.Summary, &hash,
+			&item.LinkedResourceType, &item.LinkedResourceId, &item.StartedAt, &item.FinishedAt,
+			&item.RetryAt); err != nil {
+			return nil, err
+		}
+		item.Outcome = generated.EvaluationStageAttemptOutcome(outcome)
+		if hash != "" {
+			item.CheckpointHash = &hash
+		}
+		result[stage] = append(result[stage], item)
+	}
+	return result, rows.Err()
 }
 
 func (store *OwnerConsoleStore) loadEvaluationImports(ctx context.Context,

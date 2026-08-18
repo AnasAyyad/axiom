@@ -81,7 +81,7 @@ func TestEvaluationRecorderGapPausesOneIntervalThenResumesValidTime(t *testing.T
 	}
 }
 
-func TestEvaluationRecorderQualificationPolicyRecoversBeforeBlocking(t *testing.T) {
+func TestEvaluationRecorderQualificationPolicyRetriesWithoutTerminatingCampaign(t *testing.T) {
 	now := time.Date(2030, 8, 11, 12, 0, 0, 0, time.UTC)
 	base := EvaluationRecorderQualification{State: "ACTIVE", ObservationCount: 2,
 		LastObservedAt: now, LatestAllEligible: true, LatestPersistence: true,
@@ -103,8 +103,8 @@ func TestEvaluationRecorderQualificationPolicyRecoversBeforeBlocking(t *testing.
 	base.UnresolvedObservations = evaluationRecorderMaxUnresolvedObservations
 	base.LatestIntervalValid = false
 	progress, terminal, block = evaluationRecorderQualificationPolicy(now, base, nil)
-	if !terminal || !block || progress.State != evaluation.ProgressBlock ||
-		progress.Reason != evaluation.ReasonDataCorrupt {
+	if !terminal || block || progress.State != evaluation.ProgressPause ||
+		progress.Reason != evaluation.ReasonDataUnavailable {
 		t.Fatalf("bounded unresolved recovery progress=%#v terminal=%t block=%t", progress, terminal, block)
 	}
 }

@@ -22,6 +22,7 @@ type StageProgress struct {
 	State               ProgressState
 	Reason              ReasonCode
 	Summary             string
+	RetryAfter          time.Duration
 	ValidRecordingDelta time.Duration
 	ValidShadowDelta    time.Duration
 	Checkpoint          []byte
@@ -44,7 +45,8 @@ type Driver interface {
 }
 
 // Orchestrator maps stage-specific progress to the one durable campaign state
-// machine. A driver error is returned to Worker, which blocks fail-closed.
+// machine. A driver error is returned to Worker, which pauses the same stage
+// for checkpoint-preserving recovery.
 type Orchestrator struct{ driver Driver }
 
 // NewOrchestrator constructs a complete automatic stage executor.
@@ -77,9 +79,12 @@ func (orchestrator *Orchestrator) Execute(ctx context.Context, claim Claim) (Out
 		return Outcome{Kind: OutcomeResumed, Summary: "Stage prerequisites recovered."}, nil
 	}
 	if campaign.State == StatePausedRecoverable && progress.State == ProgressPause {
-		return Outcome{Kind: OutcomeWaiting, Summary: progress.Summary}, nil
+		return Outcome{Kind: OutcomeRetryDeferred, Reason: progress.Reason, Summary: progress.Summary,
+			RetryAfter: progress.RetryAfter, Checkpoint: progress.Checkpoint,
+			LinkedResourceType: progress.LinkedResourceType, LinkedResourceID: progress.LinkedResourceID}, nil
 	}
 	outcome := Outcome{Reason: progress.Reason, Summary: progress.Summary,
+		RetryAfter:          progress.RetryAfter,
 		ValidRecordingDelta: progress.ValidRecordingDelta, ValidShadowDelta: progress.ValidShadowDelta,
 		Checkpoint: progress.Checkpoint, LinkedResourceType: progress.LinkedResourceType,
 		LinkedResourceID: progress.LinkedResourceID}

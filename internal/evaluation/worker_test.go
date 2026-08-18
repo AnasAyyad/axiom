@@ -28,7 +28,7 @@ func (value workerExecutor) Execute(context.Context, Claim) (Outcome, error) {
 	return value.outcome, value.err
 }
 
-func TestWorkerBlocksInvalidOrFailedStage(t *testing.T) {
+func TestWorkerPausesFailedStageForSameCampaignRetry(t *testing.T) {
 	campaign := Campaign{ID: "campaign-1", Preset: BalancedFullV1, State: StateRunning,
 		CurrentStage: StageBacktestMatrix, Revision: 4}
 	store := &workerStore{claim: Claim{Campaign: campaign, ClaimEpoch: 1}}
@@ -39,7 +39,20 @@ func TestWorkerBlocksInvalidOrFailedStage(t *testing.T) {
 	if worked, runErr := worker.RunOne(context.Background()); runErr != nil || !worked {
 		t.Fatalf("worked=%t err=%v", worked, runErr)
 	}
-	if store.result.Kind != OutcomeBlocked || store.result.Reason != ReasonPersistenceFailed {
+	if store.result.Kind != OutcomePaused || store.result.Reason != ReasonPersistenceFailed {
+		t.Fatalf("result=%#v", store.result)
+	}
+}
+
+func TestWorkerDefersRetryWhenPausedStageStillFails(t *testing.T) {
+	campaign := Campaign{ID: "campaign-1", Preset: BalancedFullV1, State: StatePausedRecoverable,
+		CurrentStage: StageRecorderQualify, Revision: 5}
+	store := &workerStore{claim: Claim{Campaign: campaign, ClaimEpoch: 1}}
+	worker, _ := NewWorker(store, workerExecutor{err: errors.New("database unavailable")})
+	if worked, runErr := worker.RunOne(context.Background()); runErr != nil || !worked {
+		t.Fatalf("worked=%t err=%v", worked, runErr)
+	}
+	if store.result.Kind != OutcomeRetryDeferred || store.result.Reason != ReasonPersistenceFailed {
 		t.Fatalf("result=%#v", store.result)
 	}
 }
