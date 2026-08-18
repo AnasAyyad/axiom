@@ -116,19 +116,31 @@ func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.Pu
 			session.SetEntriesEnabled(false)
 			cancel()
 			<-result
-			flushContext, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
-			if err := session.Flush(flushContext); err == nil {
-				if err = session.Checkpoint(flushContext); err == nil {
-					err = work.store.ReleaseForRestart(flushContext, claim.ID, claim.ClaimEpoch)
-				}
-				if err != nil {
-					logger.Warn("shadow restart handoff failed", "event_code", "shadow_restart_handoff_failed", "cause", err)
-				}
+			if err = work.handoffRestart(claim, session); err != nil {
+				logger.Warn("shadow restart handoff failed", "event_code", "shadow_restart_handoff_failed", "cause", err)
 			}
-			flushCancel()
 			return
 		}
 	}
+}
+
+func (work *shadowRoleWork) handoffRestart(claim postgresstore.PublicShadowClaim, session shadowSession) error {
+	flushContext, flushCancel := context.WithTimeout(context.Background(), 20*time.Second)
+	err := session.Flush(flushContext)
+	flushCancel()
+	if err != nil {
+		return err
+	}
+	checkpointContext, checkpointCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	err = session.Checkpoint(checkpointContext)
+	checkpointCancel()
+	if err != nil {
+		return err
+	}
+	releaseContext, releaseCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	err = work.store.ReleaseForRestart(releaseContext, claim.ID, claim.ClaimEpoch)
+	releaseCancel()
+	return err
 }
 
 func (work *shadowRoleWork) controlClaim(ctx context.Context, claim postgresstore.PublicShadowClaim, session shadowSession,
