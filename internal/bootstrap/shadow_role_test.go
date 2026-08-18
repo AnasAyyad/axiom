@@ -99,14 +99,14 @@ func TestShadowRoleGracefulShutdownCheckpointsBeforeLeaseRelease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		work.runClaim(ctx, postgresstore.PublicShadowClaim{ID: "shadow-restart"},
+		work.runClaim(ctx, postgresstore.PublicShadowClaim{ID: "shadow-restart", ClaimEpoch: 7},
 			slog.New(slog.NewTextHandler(io.Discard, nil)))
 		close(done)
 	}()
 	<-session.started
 	cancel()
 	<-done
-	if !session.flushed || !session.checkpointed || store.releases != 1 || session.entries {
+	if !session.flushed || !session.checkpointed || store.releases != 1 || store.releaseEpoch != 7 || session.entries {
 		t.Fatalf("graceful restart handoff = %#v %#v", store, session)
 	}
 }
@@ -116,6 +116,7 @@ type shadowStoreStub struct {
 	postures      []postgresstore.PublicShadowPosture
 	activations   int
 	releases      int
+	releaseEpoch  int64
 	completions   int
 	failures      int
 	failureReason string
@@ -137,8 +138,9 @@ func (store *shadowStoreStub) Activate(context.Context, string) error {
 	return nil
 }
 func (*shadowStoreStub) Pause(context.Context, string) error { return nil }
-func (store *shadowStoreStub) ReleaseForRestart(context.Context, string) error {
+func (store *shadowStoreStub) ReleaseForRestart(_ context.Context, _ string, epoch int64) error {
 	store.releases++
+	store.releaseEpoch = epoch
 	return nil
 }
 func (store *shadowStoreStub) CompleteStop(context.Context, string) error {

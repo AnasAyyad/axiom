@@ -185,8 +185,10 @@ func verifyPublicShadowCheckpointLease(ctx context.Context, tx pgx.Tx, owner, id
 
 // ReleaseForRestart returns a checkpointed session to the claim queue with
 // entries disabled. The next worker must recover it in a paused hold.
-func (store *PublicShadowStore) ReleaseForRestart(ctx context.Context, id string) error {
-	now := store.clock.Now().UTC
+func (store *PublicShadowStore) ReleaseForRestart(ctx context.Context, id string, claimEpoch int64) error {
+	if claimEpoch <= 0 {
+		return fmt.Errorf("owner_console_shadow_restart_release_invalid")
+	}
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return err
@@ -195,8 +197,9 @@ func (store *PublicShadowStore) ReleaseForRestart(ctx context.Context, id string
 	tag, err := tx.Exec(ctx, `UPDATE shadow_sessions session SET state='QUEUED',revision=revision+1,
 	  entries_enabled=false,claim_owner=NULL,claim_expires_at=NULL
 	  WHERE session.id=$1 AND session.state IN ('PAUSED','RUNNING') AND session.claim_owner=$2
-	    AND session.claim_expires_at>$3 AND EXISTS(
-	      SELECT 1 FROM run_checkpoints checkpoint WHERE checkpoint.run_id=session.run_id)`, id, store.owner, now)
+	    AND session.claim_epoch=$3 AND EXISTS(
+	      SELECT 1 FROM run_checkpoints checkpoint WHERE checkpoint.run_id=session.run_id)`,
+		id, store.owner, claimEpoch)
 	if err != nil || tag.RowsAffected() != 1 {
 		return fmt.Errorf("owner_console_shadow_restart_release_failed")
 	}

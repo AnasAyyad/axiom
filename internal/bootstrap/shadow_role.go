@@ -15,7 +15,7 @@ type shadowRuntimeStore interface {
 	Posture(context.Context, string) (postgresstore.PublicShadowPosture, error)
 	Activate(context.Context, string) error
 	Pause(context.Context, string) error
-	ReleaseForRestart(context.Context, string) error
+	ReleaseForRestart(context.Context, string, int64) error
 	CompleteStop(context.Context, string) error
 	Fail(context.Context, string, string) error
 }
@@ -119,7 +119,7 @@ func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.Pu
 			flushContext, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
 			if err := session.Flush(flushContext); err == nil {
 				if err = session.Checkpoint(flushContext); err == nil {
-					err = work.store.ReleaseForRestart(flushContext, claim.ID)
+					err = work.store.ReleaseForRestart(flushContext, claim.ID, claim.ClaimEpoch)
 				}
 				if err != nil {
 					logger.Warn("shadow restart handoff failed", "event_code", "shadow_restart_handoff_failed", "cause", err)
