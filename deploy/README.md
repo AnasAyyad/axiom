@@ -805,7 +805,7 @@ retain the outputs with the deployment record:
 
 - every application container runs the expected registry digest and the API
   build/config identities match the merged commit and research graph;
-- migration `000055` is applied and rerunning the migrator is idempotent;
+- migration `000058` is applied and rerunning the migrator is idempotent;
 - PostgreSQL and the existing owner identity are preserved;
 - the recorder has healthy Binance and Bybit production-public streams for
   `BTC/USDT`, `ETH/USDT`, and `ETH/BTC`, with no credential files;

@@ -324,10 +324,26 @@ export interface components {
       "state": "PENDING" | "RUNNING" | "PAUSED_RECOVERABLE" | "COMPLETED" | "BLOCKED" | "CANCELED";
       "valid_seconds": number;
     };
+    "EvaluationStageAttempt": {
+      "attempt": number;
+      "checkpoint_hash"?: string;
+      "finished_at": components["schemas"]["Timestamp"];
+      "linked_resource_id"?: string;
+      "linked_resource_type"?: string;
+      "outcome": "PAUSED_RECOVERABLE" | "COMPLETED" | "BLOCKED";
+      "reason_code"?: string;
+      "retry_at"?: components["schemas"]["Timestamp"];
+      "started_at": components["schemas"]["Timestamp"];
+      "summary": string;
+    };
     "EvaluationStageProgress": {
       "attempt": number;
+      "attempt_started_at"?: components["schemas"]["Timestamp"];
+      "attempts"?: Array<components["schemas"]["EvaluationStageAttempt"]>;
       "completed_at"?: components["schemas"]["Timestamp"];
+      "next_retry_at"?: components["schemas"]["Timestamp"];
       "reason_code"?: string;
+      "recoverable_failures": number;
       "stage": "HISTORICAL_IMPORT" | "EXISTING_DATA_AUDIT" | "RECORDER_ROTATION" | "RECORDER_QUALIFICATION" | "BACKTEST_MATRIX" | "REPLAY_MATRIX" | "CANDIDATE_SELECTION" | "COMBINED_SHADOW" | "FINAL_REPORT";
       "started_at"?: components["schemas"]["Timestamp"];
       "state": "PENDING" | "RUNNING" | "PAUSED_RECOVERABLE" | "COMPLETED" | "BLOCKED" | "CANCELED";

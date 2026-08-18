@@ -115,20 +115,39 @@ export function StageTimeline({ campaign }: { readonly campaign: Campaign }) {
         tabIndex={0}
         aria-label="Automatic evaluation stages"
       >
-        {(campaign.stages ?? []).map((stage) => (
-          <li key={stage.stage} data-state={stage.state}>
-            <span>{formatLabel(stage.stage)}</span>
-            <StatusBadge value={stage.state} />
-            <small>
-              {stage.reason_code ??
-                (stage.completed_at
-                  ? `Completed ${formatTime(stage.completed_at)}`
-                  : stage.started_at
-                    ? `Started ${formatTime(stage.started_at)}`
-                    : "Waiting for the preceding gate")}
-            </small>
-          </li>
-        ))}
+        {(campaign.stages ?? []).map((stage) => {
+          const lastAttempt = stage.attempts?.at(-1);
+          return (
+            <li key={stage.stage} data-state={stage.state}>
+              <span>{formatLabel(stage.stage)}</span>
+              <StatusBadge value={stage.state} />
+              <small>
+                {stage.reason_code ??
+                  (stage.completed_at
+                    ? `Completed ${formatTime(stage.completed_at)}`
+                    : stage.started_at
+                      ? `Started ${formatTime(stage.started_at)}`
+                      : "Waiting for the preceding gate")}
+              </small>
+              {stage.attempt > 0 && (
+                <small>
+                  Attempt {stage.attempt}
+                  {stage.recoverable_failures > 0
+                    ? ` · ${stage.recoverable_failures} consecutive recovery check${stage.recoverable_failures === 1 ? "" : "s"}`
+                    : ""}
+                </small>
+              )}
+              {stage.next_retry_at && (
+                <small>Automatic retry {formatTime(stage.next_retry_at)}</small>
+              )}
+              {lastAttempt && lastAttempt.outcome !== "COMPLETED" && (
+                <small>
+                  Previous attempt preserved: {formatLabel(lastAttempt.outcome)}
+                </small>
+              )}
+            </li>
+          );
+        })}
       </ol>
     </section>
   );

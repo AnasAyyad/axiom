@@ -118,7 +118,7 @@ func (importer *HistoricalImporter) resumeHistoricalPage(ctx context.Context,
 	}
 	artifact, found, err := resumable.LoadHistoricalPage(ctx, spec)
 	if err != nil {
-		return HistoricalImportProgress{}, true, newHistoricalImportError(ReasonPersistenceFailed, false,
+		return HistoricalImportProgress{}, true, newHistoricalImportError(ReasonPersistenceFailed, true,
 			"historical_import_recovery_failed", err)
 	}
 	if !found {
@@ -139,7 +139,7 @@ func (importer *HistoricalImporter) persistHistoricalPage(ctx context.Context, s
 	page exchangecontracts.HistoricalCandlePage, duration time.Duration) (HistoricalImportProgress, error) {
 	artifact, err := importer.sink.PersistHistoricalPage(ctx, spec, page)
 	if err != nil {
-		return HistoricalImportProgress{}, newHistoricalImportError(ReasonPersistenceFailed, false,
+		return HistoricalImportProgress{}, newHistoricalImportError(ReasonPersistenceFailed, true,
 			"historical_import_persist_failed", err)
 	}
 	last := page.Candles[len(page.Candles)-1]
@@ -155,7 +155,7 @@ func (importer *HistoricalImporter) persistHistoricalPage(ctx context.Context, s
 		artifact.RowCount = uint64(len(page.Candles))
 	}
 	if !artifact.NextCheckpoint.Equal(next) || artifact.RowCount != uint64(len(page.Candles)) {
-		return HistoricalImportProgress{}, newHistoricalImportError(ReasonPersistenceFailed, false,
+		return HistoricalImportProgress{}, newHistoricalImportError(ReasonDataCorrupt, false,
 			"historical_import_artifact_mismatch", nil)
 	}
 	return HistoricalImportProgress{Artifact: artifact, PageStart: spec.Checkpoint,

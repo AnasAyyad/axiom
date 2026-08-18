@@ -211,6 +211,7 @@ func TestRuntimeMigrationLedgerGrantIsReadOnly(t *testing.T) {
 func TestEvaluationCampaignRoleMatricesRemainLeastPrivilege(t *testing.T) {
 	for _, table := range []string{
 		"evaluation_campaign_events", "evaluation_campaign_reports", "evaluation_campaign_stress_results",
+		"evaluation_campaign_stage_attempts",
 		"evaluation_data_audit_findings", "evaluation_historical_import_segments",
 		"evaluation_campaign_recording_segments", "evaluation_recorder_observations",
 		"evaluation_recorder_instrument_observations", "evaluation_shadow_decisions",

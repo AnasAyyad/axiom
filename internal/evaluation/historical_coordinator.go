@@ -128,6 +128,7 @@ func (coordinator *HistoricalCoordinator) historicalSummaryState(campaign Campai
 		if !summary.RetryAt.IsZero() && coordinator.clock.Now().UTC.Before(summary.RetryAt) {
 			progress, _ := historicalSummaryProgress(ProgressPause, ReasonDataUnavailable,
 				"Official candle source retry is pending.", summary)
+			progress.RetryAfter = summary.RetryAt.Sub(coordinator.clock.Now().UTC)
 			return progress, true
 		}
 		progress, _ := historicalSummaryProgress(ProgressWaiting, "", "Official candle source is ready to retry.", summary)
@@ -139,8 +140,10 @@ func (coordinator *HistoricalCoordinator) historicalSummaryState(campaign Campai
 func (coordinator *HistoricalCoordinator) historicalWaitProgress(
 	summary HistoricalImportSummary) (StageProgress, error) {
 	if !summary.RetryAt.IsZero() && coordinator.clock.Now().UTC.Before(summary.RetryAt) {
-		return historicalSummaryProgress(ProgressPause, ReasonDataUnavailable,
+		progress, err := historicalSummaryProgress(ProgressPause, ReasonDataUnavailable,
 			"Official candle source retry is pending.", summary)
+		progress.RetryAfter = summary.RetryAt.Sub(coordinator.clock.Now().UTC)
+		return progress, err
 	}
 	return historicalSummaryProgress(ProgressWaiting, "", "Historical import worker is waiting.", summary)
 }
@@ -151,7 +154,8 @@ func (coordinator *HistoricalCoordinator) advanceHistoricalTask(ctx context.Cont
 	if err != nil {
 		failure, classified := HistoricalFailure(err)
 		if !classified {
-			failure = HistoricalImportError{Reason: ReasonPersistenceFailed, Code: "historical_import_unknown", cause: err}
+			failure = HistoricalImportError{Reason: ReasonPersistenceFailed, Code: "historical_import_unknown",
+				Recoverable: true, cause: err}
 		}
 		blocked, failErr := coordinator.tasks.FailHistoricalImport(ctx, task, failure)
 		if failErr != nil {
@@ -169,10 +173,10 @@ func (coordinator *HistoricalCoordinator) advanceHistoricalTask(ctx context.Cont
 		completion, err = coordinator.completeTask(ctx, task)
 		if err != nil {
 			failure := HistoricalImportError{Reason: ReasonPersistenceFailed,
-				Code: "historical_import_manifest_failed", cause: err}
+				Code: "historical_import_manifest_failed", Recoverable: true, cause: err}
 			_, _ = coordinator.tasks.FailHistoricalImport(ctx, task, failure)
-			return StageProgress{State: ProgressBlock, Reason: ReasonPersistenceFailed,
-				Summary: "Historical import manifest could not be finalized."}, true, nil
+			return StageProgress{State: ProgressPause, Reason: ReasonPersistenceFailed,
+				Summary: "Historical import manifest finalization will retry from the preserved page checkpoint."}, true, nil
 		}
 	}
 	if err = coordinator.tasks.CommitHistoricalImport(ctx, task, progress, completion); err != nil {

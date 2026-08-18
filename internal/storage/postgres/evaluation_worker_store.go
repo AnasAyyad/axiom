@@ -46,6 +46,10 @@ func (store *EvaluationWorkerStore) Claim(ctx context.Context) (evaluation.Claim
 	WHERE (campaign.state IN ('PENDING','RUNNING','PAUSED_RECOVERABLE')
 	    OR (campaign.state IN ('BLOCKED','CANCELED') AND NOT EXISTS (
 	      SELECT 1 FROM evaluation_campaign_reports report WHERE report.campaign_id=campaign.id)))
+	  AND (campaign.current_stage IS NULL OR EXISTS (
+	    SELECT 1 FROM evaluation_campaign_stages stage
+	    WHERE stage.campaign_id=campaign.id AND stage.stage=campaign.current_stage
+	      AND (stage.next_retry_at IS NULL OR stage.next_retry_at<=$1)))
 	  AND (campaign.claim_owner IS NULL OR campaign.claim_expires_at<=$1)
 	ORDER BY campaign.created_at,campaign.id
 	FOR UPDATE OF campaign SKIP LOCKED LIMIT 1`, now)
@@ -156,6 +160,10 @@ func transitionEvaluationCampaign(campaign *evaluation.Campaign, outcome evaluat
 		}
 	case evaluation.OutcomeResumed:
 		if err := evaluation.Resume(campaign); err != nil {
+			return err
+		}
+	case evaluation.OutcomeRetryDeferred:
+		if err := evaluation.DeferRecovery(campaign, outcome.Reason); err != nil {
 			return err
 		}
 	case evaluation.OutcomePaused:

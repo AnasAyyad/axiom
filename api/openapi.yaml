@@ -2897,7 +2897,7 @@ components:
     EvaluationStageProgress:
       type: object
       additionalProperties: false
-      required: [stage, state, attempt, updated_at]
+      required: [stage, state, attempt, recoverable_failures, updated_at]
       properties:
         stage:
           type: string
@@ -2927,10 +2927,37 @@ components:
               ],
           }
         attempt: { type: integer, minimum: 0 }
+        recoverable_failures:
+          type: integer
+          minimum: 0
+          description: Consecutive recovery checks since the latest healthy resume.
         reason_code: { type: string, maxLength: 80 }
         started_at: { $ref: "#/components/schemas/Timestamp" }
+        attempt_started_at: { $ref: "#/components/schemas/Timestamp" }
+        next_retry_at: { $ref: "#/components/schemas/Timestamp" }
         completed_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+        attempts:
+          type: array
+          maxItems: 100
+          description: Up to the latest 100 immutable closed attempts, oldest first.
+          items: { $ref: "#/components/schemas/EvaluationStageAttempt" }
+    EvaluationStageAttempt:
+      type: object
+      additionalProperties: false
+      required: [attempt, outcome, summary, started_at, finished_at]
+      properties:
+        attempt: { type: integer, minimum: 1 }
+        outcome:
+          { type: string, enum: [PAUSED_RECOVERABLE, COMPLETED, BLOCKED] }
+        reason_code: { type: string, maxLength: 80 }
+        summary: { type: string, minLength: 1, maxLength: 500 }
+        checkpoint_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        linked_resource_type: { type: string, maxLength: 80 }
+        linked_resource_id: { type: string, maxLength: 200 }
+        started_at: { $ref: "#/components/schemas/Timestamp" }
+        finished_at: { $ref: "#/components/schemas/Timestamp" }
+        retry_at: { $ref: "#/components/schemas/Timestamp" }
     EvaluationHistoricalImportProgress:
       type: object
       additionalProperties: false

@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	evaluationHistoricalLease      = 2 * time.Minute
-	evaluationHistoricalMaxRetries = 8
+	evaluationHistoricalLease = 2 * time.Minute
 )
 
 // EvaluationHistoricalTaskStore owns fenced import checkpoints and bounded
@@ -181,6 +180,7 @@ func historicalCompletionValues(task evaluation.HistoricalImportTask, progress e
 }
 
 // FailHistoricalImport records retryable or terminal import failure evidence.
+// Recoverable failures have no attempt-count terminal cutoff.
 func (store *EvaluationHistoricalTaskStore) FailHistoricalImport(ctx context.Context,
 	task evaluation.HistoricalImportTask, failure evaluation.HistoricalImportError) (bool, error) {
 	if task.ClaimEpoch <= 0 || failure.Reason == "" || failure.Code == "" {
@@ -200,7 +200,7 @@ func (store *EvaluationHistoricalTaskStore) FailHistoricalImport(ctx context.Con
 	if err != nil || epoch != task.ClaimEpoch {
 		return true, fmt.Errorf("evaluation_historical_claim_conflict")
 	}
-	blocked := !failure.Recoverable || retries+1 >= evaluationHistoricalMaxRetries
+	blocked := !failure.Recoverable
 	state := "RUNNING"
 	var retryAt any
 	if blocked {
@@ -258,7 +258,7 @@ func historicalRetryDelay(attempt int) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
-	delay := 15 * time.Second * time.Duration(1<<min(attempt-1, 5))
+	delay := 15 * time.Second * time.Duration(1<<min(attempt-1, 6))
 	if delay > 10*time.Minute {
 		return 10 * time.Minute
 	}
