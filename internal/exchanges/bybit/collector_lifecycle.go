@@ -141,7 +141,14 @@ func (collector *InstrumentCollector) recordResynchronization(started time.Time,
 }
 
 func (collector *InstrumentCollector) recordClockResynchronization(started time.Time, generation uint64) {
-	collector.recordRecovery(started, generation, exchangecontracts.RecoveryClockResample)
+	if started.IsZero() {
+		return
+	}
+	duration := maxDuration(collector.lifecycle.Now().Sub(started), 0)
+	diagnostic := collector.outcomeDiagnostic(generationOutcome{reachedHealthy: true,
+		generation: generation, stage: "healthy", cause: "healthy"}, "health_restored", duration, 0, 0)
+	diagnostic.Action = exchangecontracts.RecoveryClockResample
+	collector.recordDiagnostic(diagnostic)
 }
 
 func (collector *InstrumentCollector) recordRecovery(

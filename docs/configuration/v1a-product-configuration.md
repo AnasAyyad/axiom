@@ -35,7 +35,7 @@ trailing documents, zero revisions, and incomplete graphs are rejected.
 | `mode` | `paper`; also `backtest`, `replay`, `shadow` | Exact lower-case closed enum; no aliases. |
 | `product` | `spot` | Every other product fails. |
 | `safety` | fail closed, initial state `PAUSED`, automatic unpause false | Any deviation fails. |
-| `endpoint` | `market-data-only-v1` | Exact REST `https://data-api.binance.vision` and WebSocket `wss://data-stream.binance.vision`; no arbitrary host or URL. |
+| `endpoint` | `market-data-only-v1` | Exact REST `https://data-api.binance.vision` and primary WebSocket `wss://data-stream.binance.vision`; the transport has one code-owned, same-route public recovery host and accepts no arbitrary host or URL. |
 | `assets` | approved `USDT`, `BTC`, `ETH` | Closed status enum, canonical symbols, no duplicates. |
 | `instruments` | `BTC-USDT`, `ETH-USDT` spot | Both assets must be approved; duplicate, self, unknown, or non-spot pairs fail. |
 | `portfolio` | `500` USDT virtual starting capital | Settlement asset must be approved; value follows the financial contract below. |

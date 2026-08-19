@@ -230,6 +230,26 @@ func TestBybitResynchronizationThresholdIsStrictlyAbove15Seconds(t *testing.T) {
 	}
 }
 
+func TestBybitClockRecoveryDoesNotPolluteBookResynchronizationSLO(t *testing.T) {
+	collector, lifecycle := newLifecycleTestCollector(t)
+	started := lifecycle.now
+	lifecycle.now = lifecycle.now.Add(45 * time.Second)
+	collector.recordClockResynchronization(started, 7)
+	stats := collector.Stats()
+	if stats.ResyncSamples != 0 || stats.ResyncOver15Seconds != 0 ||
+		stats.ResyncP95 != 0 || stats.ResyncMax != 0 {
+		t.Fatalf("clock recovery entered book resynchronization SLO: %#v", stats)
+	}
+	if stats.RecoveryActions.ClockResample != 1 || len(stats.ReconnectDiagnostics) != 1 {
+		t.Fatalf("clock recovery evidence missing: %#v", stats)
+	}
+	diagnostic := stats.ReconnectDiagnostics[0]
+	if diagnostic.Action != exchangecontracts.RecoveryClockResample ||
+		diagnostic.AttemptDuration != 45*time.Second || diagnostic.ResyncElapsed != 0 {
+		t.Fatalf("clock recovery diagnostic=%#v", diagnostic)
+	}
+}
+
 func TestBybitInitialHealthIsDiagnosedWithoutCreatingResyncSample(t *testing.T) {
 	collector, _ := newLifecycleTestCollector(t)
 	collector.recordResynchronization(time.Time{}, 7)

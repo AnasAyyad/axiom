@@ -56,7 +56,16 @@ reviewed compiled policy change with negative tests.
 
 ### WebSocket market streams
 
-Exact origin: `wss://data-stream.binance.vision:443`
+Primary origin: `wss://data-stream.binance.vision:443`
+
+Compiled recovery origin: `wss://stream.binance.com:443`
+
+The recovery origin is not user-selectable. The public client first constructs
+and validates the primary market-only target. Its transport may replace only
+the exact host with the compiled recovery host while preserving and
+revalidating the same bounded public path and query. Both attempts share one
+five-second setup deadline; a failed primary attempt cannot extend the
+qualification recovery window.
 
 Allowed connection paths:
 
@@ -82,11 +91,14 @@ The WebSocket client treats only a final/closed candle as eligible for strategy
 input. Stream messages remain untrusted data and must pass schema, symbol,
 sequence, timestamp, size, and generation validation.
 
-The official Binance Spot documentation also identifies public market-stream
-origins such as `stream.binance.com`. V1A deliberately selects the market-data-
-only origin above as the narrower boundary. Official references reviewed for
-this policy are the Binance Spot REST general information, REST general/market
-endpoints, and Spot WebSocket market-stream documentation.
+The official Binance Spot documentation identifies both origins as supported
+public market-stream endpoints. The primary remains the narrower market-data-
+only origin. The recovery host is accepted only inside the transport after the
+primary target passes the same public stream-name policy; it cannot access a
+user-data path, accept credentials, or become arbitrary configuration.
+Official references reviewed for this policy are the Binance Spot REST general
+information, REST general/market endpoints, and Spot WebSocket market-stream
+documentation.
 
 ## Transport and redirect rules
 

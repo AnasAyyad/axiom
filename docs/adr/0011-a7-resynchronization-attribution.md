@@ -74,6 +74,14 @@ losing connections. Bybit subscription and heartbeat writes have a two-second
 deadline. Typed failures survive every wrapper and expose only bounded stage
 facts; deterministic backoff yields to a larger valid `Retry-After`.
 
+Binance production-public WebSocket setup may fail over from the compiled
+market-data-only host to Binance's compiled standard public market-stream host.
+The caller still supplies only the primary endpoint-set identifier. The
+transport preserves and revalidates the exact public path/query, has no
+credential input, and divides the same five-second setup deadline across both
+hosts. It never treats the recovery host as an arbitrary URL or authenticated
+route.
+
 Binance recorder clients reserve 768 request-weight units for recovery so three
 simultaneous 5,000-level snapshots plus clock samples cannot be starved by
 unrelated public work. Snapshot depth remains 5,000 to preserve the internal
@@ -86,6 +94,12 @@ stream/book/subscription defects. Combined health is immutable and includes
 book freshness, book health, per-instrument clock validity, and degraded-since
 time. Production recorder readiness, A11 shadow input, and A7/B1 qualification
 all use combined health.
+
+Clock-only recovery remains visible as a bounded `clock_resample` lifecycle
+action and duration, but it does not enter the order-book resynchronization
+histogram. The 15-second p95 therefore continues to measure loss of book health
+through a later healthy generation, as defined above, rather than an unrelated
+clock retry.
 
 Recovery evidence has fixed action counts (`reconnect`, `clock_resample`,
 `scheduled_renewal`, `terminate`) and evidence-derived attribution (`internal`,
@@ -139,6 +153,9 @@ roots, status files, journals, terminal reports, and service logs.
 - The bounded in-memory diagnostic ring can roll over during an extreme event;
   the dropped count makes that visible and the service log remains the detailed
   immediate record.
+- A single Binance WebSocket hostname or route failure can recover through the
+  second official public endpoint without broadening configuration or private
+  capabilities; loss of both endpoints still fails closed and remains measured.
 
 ## Rejected alternatives
 
@@ -147,6 +164,10 @@ roots, status files, journals, terminal reports, and service logs.
   post-hoc classification and hides observed unavailability.
 - Infer Binance fault from duration alone: the evidence does not support that
   conclusion.
+- Let operators configure fallback URLs: broadens the outbound boundary and
+  makes qualification dependent on mutable deployment input.
+- Count clock-only retry time as book resynchronization: contradicts the
+  independently healthy stream/book contract and measures the wrong SLO.
 - Retain raw errors or response bodies: creates unbounded, potentially
   sensitive qualification data.
 
@@ -162,6 +183,12 @@ in-flight raw/canonical flush interleaving and bounded filesystem causes.
 Qualification tests cover atomic status replacement, hash-chain tampering, and
 fail-closed flush, status, and journal failures. Targeted race tests and both
 public harness smokes must pass before formal runs.
+
+The Binance transport suite also forces primary-host failure and proves that
+only the compiled public recovery host is attempted inside the original setup
+budget, while user-data and arbitrary targets fail before network I/O. Binance
+and Bybit lifecycle tests prove that clock recovery retains diagnostics without
+changing book resynchronization sample counts or percentiles.
 
 ## Revisit when
 

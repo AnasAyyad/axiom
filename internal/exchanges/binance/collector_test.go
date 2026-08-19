@@ -185,8 +185,8 @@ func assertInitialClockRecoveryEvidence(
 	minimumBackoff time.Duration,
 ) {
 	t.Helper()
-	if stats.ResyncSamples != 1 || stats.ResyncOver15Seconds != 0 ||
-		stats.ResyncMax <= 0 || stats.ResyncMax >= time.Second {
+	if stats.ResyncSamples != 0 || stats.ResyncOver15Seconds != 0 ||
+		stats.ResyncP95 != 0 || stats.ResyncMax != 0 {
 		t.Fatalf("initial clock recovery timing=%#v", stats)
 	}
 	if stats.RecoveryActions.ClockResample < 3 || stats.RecoveryActions.Reconnect != 0 {

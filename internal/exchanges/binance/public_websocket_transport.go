@@ -21,37 +21,103 @@ type websocketConnector interface {
 	Connect(context.Context, *url.URL) (websocketConnection, error)
 }
 
-type secureWebsocketConnector struct{ dialer *publicDialer }
-
-func newSecureWebsocketConnector() *secureWebsocketConnector {
-	return &secureWebsocketConnector{dialer: &publicDialer{host: "data-stream.binance.vision", resolver: net.DefaultResolver,
-		dialer: net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}}}
+type publicWebsocketEndpoint struct {
+	host   string
+	origin string
 }
 
-// Connect opens one validated TLS WebSocket to the compiled public host.
+type websocketEndpointConnector func(
+	context.Context,
+	*url.URL,
+	publicWebsocketEndpoint,
+) (websocketConnection, error)
+
+type secureWebsocketConnector struct {
+	endpoints []publicWebsocketEndpoint
+	connect   websocketEndpointConnector
+}
+
+func newSecureWebsocketConnector() *secureWebsocketConnector {
+	return &secureWebsocketConnector{
+		endpoints: []publicWebsocketEndpoint{
+			{host: "data-stream.binance.vision", origin: "https://data-stream.binance.vision"},
+			{host: "stream.binance.com", origin: "https://stream.binance.com"},
+		},
+		connect: connectPublicWebsocketEndpoint,
+	}
+}
+
+// Connect opens one validated public-market WebSocket. The two code-owned
+// endpoints expose the same public streams, and share one five-second setup
+// budget so failover cannot extend the qualification recovery deadline.
 func (connector *secureWebsocketConnector) Connect(ctx context.Context, target *url.URL) (websocketConnection, error) {
 	if _, err := validateWebSocketTarget(target); err != nil {
 		return nil, err
 	}
+	if connector == nil || len(connector.endpoints) == 0 || connector.connect == nil {
+		return nil, policyError(exchangecontracts.OperationStream)
+	}
 	setupContext, cancel := context.WithTimeout(ctx, publicSetupDeadline)
 	defer cancel()
-	raw, metadata, err := connector.dialer.dialValidated(setupContext, "tcp", "data-stream.binance.vision:443")
+	var lastErr error
+	for index, endpoint := range connector.endpoints {
+		candidate := *target
+		candidate.Host = endpoint.host
+		if _, err := validateWebSocketTargetForHost(endpoint.host, &candidate); err != nil {
+			return nil, err
+		}
+		remaining := time.Until(deadlineOf(setupContext))
+		if remaining <= 0 {
+			break
+		}
+		attemptBudget := remaining / time.Duration(len(connector.endpoints)-index)
+		attemptContext, attemptCancel := context.WithTimeout(setupContext, attemptBudget)
+		connection, err := connector.connect(attemptContext, &candidate, endpoint)
+		attemptCancel()
+		if err == nil && connection != nil {
+			return connection, nil
+		}
+		if connection != nil {
+			_ = connection.Close()
+		}
+		if err != nil {
+			lastErr = err
+		}
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
+		exchangecontracts.OperationStream, 0, 0, "websocket_endpoints_unavailable")
+}
+
+func connectPublicWebsocketEndpoint(
+	ctx context.Context,
+	target *url.URL,
+	endpoint publicWebsocketEndpoint,
+) (websocketConnection, error) {
+	dialer := &publicDialer{host: endpoint.host, resolver: net.DefaultResolver,
+		dialer: net.Dialer{Timeout: publicSetupDeadline, KeepAlive: 30 * time.Second}}
+	raw, metadata, err := dialer.dialValidated(ctx, "tcp", net.JoinHostPort(endpoint.host, "443"))
 	if err != nil {
 		return nil, remapTransportError(exchangecontracts.OperationStream, err, metadata)
 	}
-	tlsConnection := tls.Client(raw, &tls.Config{MinVersion: tls.VersionTLS12, ServerName: "data-stream.binance.vision"})
+	tlsConnection := tls.Client(raw, &tls.Config{MinVersion: tls.VersionTLS12, ServerName: endpoint.host})
 	tlsStarted := time.Now()
-	if err = tlsConnection.HandshakeContext(setupContext); err != nil {
+	if err = tlsConnection.HandshakeContext(ctx); err != nil {
 		_ = raw.Close()
 		metadata.TLSDuration, metadata.SetupStage = time.Since(tlsStarted), "tls"
 		return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
 			exchangecontracts.OperationStream, 0, 0, "tls_handshake_failure", metadata)
 	}
 	metadata.TLSDuration = time.Since(tlsStarted)
-	configuration, err := websocket.NewConfig(target.String(), "https://data-stream.binance.vision")
+	configuration, err := websocket.NewConfig(target.String(), endpoint.origin)
 	if err != nil {
 		_ = tlsConnection.Close()
 		return nil, policyError(exchangecontracts.OperationStream)
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = tlsConnection.SetDeadline(deadline)
 	}
 	upgradeStarted := time.Now()
 	connection, err := websocket.NewClient(configuration, tlsConnection)
@@ -61,6 +127,7 @@ func (connector *secureWebsocketConnector) Connect(ctx context.Context, target *
 		return nil, exchangecontracts.NewDetailedError(exchangecontracts.ErrorTransient,
 			exchangecontracts.OperationStream, 0, 0, "websocket_upgrade_failure", metadata)
 	}
+	_ = tlsConnection.SetDeadline(time.Time{})
 	metadata.UpgradeDuration, metadata.SetupStage = time.Since(upgradeStarted), "upgrade"
 	connection.MaxPayloadBytes = publicBodyLimit
 	return &xNetConnection{connection: connection, metadata: metadata}, nil

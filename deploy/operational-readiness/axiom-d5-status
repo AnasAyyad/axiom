@@ -535,7 +535,7 @@ render() {
   if [[ -s "${verdict_file}" && ${verdict_state} != pending ]]; then
     section 'Terminal failure details'
     if jq -e '.failures | length > 0' "${verdict_file}" >/dev/null 2>&1; then
-      jq -r '.failures[] | "  - reason=\(.reason) cause=\(.cause_code // \"none\") source=\(.source // \"none\") stage=\(.stage // \"none\") role=\(.role // \"none\") detail=\(.detail // \"none\")"' "${verdict_file}"
+      jq -r '.failures[] | "  - reason=\(.reason) cause=\(.cause_code // "none") source=\(.source // "none") stage=\(.stage // "none") role=\(.role // "none") detail=\(.detail // "none")"' "${verdict_file}"
     else
       printf '  No terminal failure records are present.\n'
     fi

@@ -1,5 +1,26 @@
 # Axiom implementation status
 
+## D5 public-stream recovery correction — 2026-08-19
+
+**Status:** Implemented on `d5-preflight-readiness`; validation, immutable image
+publication, deployment, rehearsal, and a new formal D5 run remain separate
+gates until completed and reported.
+
+The preserved formal D5 run failed terminally when a Binance ETH/BTC public
+stream reconnect needed six attempts and restored book health after about 95
+seconds, exceeding the unchanged 15-second p95 gate. The correction keeps the
+failed evidence immutable. Binance production-public WebSocket setup now uses
+the two official, code-owned public market-stream hosts within the existing
+single five-second setup budget, preserving exact route validation and the
+credential-free boundary. Arbitrary origins, user-data streams, credentials,
+private routes, and production order capability remain rejected.
+
+Binance and Bybit clock-only recovery remains fail-closed and fully diagnosed
+but no longer enters the order-book resynchronization histogram. This aligns
+runtime telemetry with the accepted gap-to-healthy SLO while retaining clock
+recovery actions and durations. The read-only D5 status command also renders
+terminal failure fields without a `jq` parse error.
+
 ## Recorder segment transaction recovery — 2026-08-17
 
 **Status:** Implemented on `fix/recorder-segment-commit-recovery`; validation,

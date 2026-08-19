@@ -20,6 +20,7 @@ const (
 	testnetPublicEndpointSet = "testnet-market-data-only-v1"
 	publicRESTOrigin         = "https://data-api.binance.vision"
 	publicWSOrigin           = "wss://data-stream.binance.vision"
+	publicWSFallbackOrigin   = "wss://stream.binance.com"
 	testnetPublicRESTOrigin  = "https://testnet.binance.vision"
 	testnetPublicWSOrigin    = "wss://stream.testnet.binance.vision"
 )
