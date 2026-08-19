@@ -58,7 +58,10 @@ The later `database_restart_and_outbox_recovery` drill reuses that checkpointed
 snapshot evidence, and no uncertain order, reservation, or execution-plan state
 may be reclaimed. The same session must return `PAUSED` under a higher fencing
 epoch; it is never armed automatically. Any running, uncheckpointed, or unsafe
-session expires terminally, and the drill fails.
+session expires terminally, and the drill fails. The controller stops
+PostgreSQL, holds it unavailable for three seconds, and starts it again so at
+least one one-second lease-renewal poll must observe the outage; a sub-poll
+restart is not accepted as fault evidence.
 
 Invoke `make operational-readiness-formal` from the exact clean release build.
 The runner refuses a dirty/mismatched build, failed preflight, incomplete

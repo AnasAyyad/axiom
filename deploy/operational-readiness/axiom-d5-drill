@@ -334,7 +334,12 @@ prior_revision="$(jq -r .source_revision "${workspace}/sample.json")"
 	  test "${database_shadow_state}" = PAUSED
 	  test "${database_shadow_entries}" = f
 	  test "${database_shadow_checkpoints}" -gt 0
-      docker restart --time 30 axiom-postgres-1 >/dev/null
+	  # A fast local restart can complete between one-second lease polls and fail
+	  # to inject any outage at all. Hold PostgreSQL down long enough to guarantee
+	  # one renewal failure while remaining far below the 30-second lease window.
+	  docker stop --time 30 axiom-postgres-1 >/dev/null
+	  sleep 3
+	  docker start axiom-postgres-1 >/dev/null
       wait_healthy postgres
       for service in api recorder engine-shadow backtest-worker binance-sandbox-engine bybit-sandbox-engine operational-readiness-observer; do
         wait_healthy "${service}"
