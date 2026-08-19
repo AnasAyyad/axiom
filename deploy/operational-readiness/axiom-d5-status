@@ -136,7 +136,7 @@ warn_text() { printf '%sWARN%s' "${YELLOW}" "${RESET}"; }
 bad_text() { printf '%sFAIL%s' "${RED}" "${RESET}"; }
 
 verify_lifecycle_chain() {
-  local path=$1 expected_sequence=1 prior='' line sequence linked declared calculated
+  local path=$1 expected_sequence=1 prior='' line sequence linked declared canonical calculated
   [[ -s ${path} ]] || return 1
   while IFS= read -r line; do
     jq -e . >/dev/null 2>&1 <<<"${line}" || return 1
@@ -144,13 +144,38 @@ verify_lifecycle_chain() {
     linked=$(jq -r '.prior_event_hash // ""' <<<"${line}") || return 1
     declared=$(jq -er '.event_hash | select(test("^[0-9a-f]{64}$"))' <<<"${line}") || return 1
     if [[ $(jq -r '.schema_version' <<<"${line}") == axiom.operational_readiness.observer-lifecycle.v1 ]]; then
-      calculated=$(jq -c '.event_hash=""' <<<"${line}" | sha256sum | cut -d' ' -f1)
+      canonical=$(jq -c '.event_hash=""' <<<"${line}") || return 1
     else
-      calculated=$(jq -c 'del(.event_hash)' <<<"${line}" | sha256sum | cut -d' ' -f1)
+      canonical=$(jq -c 'del(.event_hash)' <<<"${line}") || return 1
     fi
+    calculated=$(printf '%s' "${canonical}" | sha256sum | cut -d' ' -f1)
     [[ ${sequence} == "${expected_sequence}" && ${linked} == "${prior}" && ${declared} == "${calculated}" ]] || return 1
     prior=${declared}
     expected_sequence=$((expected_sequence + 1))
+  done < "${path}"
+}
+
+verify_sample_chain() {
+  local path=$1 run_id=$2 expected_ordinal=1 prior='' previous_revision=0
+  local line ordinal revision linked declared canonical calculated
+  [[ -s ${path} ]] || return 1
+  while IFS= read -r line; do
+    jq -e . >/dev/null 2>&1 <<<"${line}" || return 1
+    ordinal=$(jq -er '.ordinal' <<<"${line}") || return 1
+    revision=$(jq -er '.source_revision' <<<"${line}") || return 1
+    linked=$(jq -r '.prior_sample_hash // ""' <<<"${line}") || return 1
+    declared=$(jq -er '.sample_hash | select(test("^[0-9a-f]{64}$"))' <<<"${line}") || return 1
+    canonical=$(jq -c --arg run_id "${run_id}" \
+      '.sample_hash="" | {run_id:$run_id,sample:.}' <<<"${line}") || return 1
+    calculated=$(printf '%s' "${canonical}" | sha256sum | cut -d' ' -f1)
+    [[ ${ordinal} == "${expected_ordinal}" && ${linked} == "${prior}" && \
+       ${declared} == "${calculated}" ]] || return 1
+    if ((expected_ordinal > 1 && revision <= previous_revision)); then
+      return 1
+    fi
+    prior=${declared}
+    previous_revision=${revision}
+    expected_ordinal=$((expected_ordinal + 1))
   done < "${path}"
 }
 
@@ -248,15 +273,7 @@ render() {
     sample_epoch=$(date -u -d "${sample_time}" +%s 2>/dev/null || printf '0')
     sample_age=$((now_epoch - sample_epoch))
     source_revision=$(jq -r '.source_revision // 0' <<<"${latest}")
-    chain_ok=$(jq -s '
-      length > 0 and
-      . as $all | all(range(0; length); . as $index | $all[$index] as $sample |
-        ($sample.ordinal == $index + 1) and
-        ($sample.sample_hash | test("^[0-9a-f]{64}$")) and
-        (if $index == 0 then ($sample.prior_sample_hash // "") == ""
-         else $sample.prior_sample_hash == $all[$index-1].sample_hash and
-              $sample.source_revision > $all[$index-1].source_revision end))
-    ' "${sample_file}" 2>/dev/null || printf 'false')
+    verify_sample_chain "${sample_file}" "${run_id}" && chain_ok=true || chain_ok=false
   fi
 
   stale=$(jq -r '.stale_decisions // -1' <<<"${latest}")
