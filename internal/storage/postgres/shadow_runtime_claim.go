@@ -15,6 +15,7 @@ func (store *PublicShadowStore) startPublicShadowClaim(ctx context.Context, tx p
 	claim *PublicShadowClaim, now time.Time) error {
 	recovery := claim.Recovery
 	err := tx.QueryRow(ctx, `UPDATE shadow_sessions SET state='PAUSED',revision=revision+1,entries_enabled=false,
+      failure_code=NULL,
       claim_owner=$1,claim_epoch=coalesce(claim_epoch,0)+1,claim_expires_at=$2,started_at=coalesce(started_at,$3)
 	  WHERE id=$4 AND state='QUEUED' RETURNING claim_epoch`, store.owner, now.Add(publicShadowLease), now, claim.ID).
 		Scan(&claim.ClaimEpoch)

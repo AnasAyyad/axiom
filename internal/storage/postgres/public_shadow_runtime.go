@@ -37,6 +37,7 @@ type PublicShadowClaim struct {
 	SlippageModelID     string
 	GapModelID          string
 	Recovery            bool
+	RecoveryCause       string
 	RecoveryCheckpoint  PublicShadowCheckpoint
 }
 
@@ -124,6 +125,29 @@ func (store *PublicShadowStore) Claim(ctx context.Context) (PublicShadowClaim, b
 }
 
 func expirePublicShadowClaims(ctx context.Context, tx pgx.Tx, now time.Time) error {
+	// A lease lost while an already-recovered session is durably paused may be
+	// reclaimed only when its checkpoint exists and no uncertain execution state
+	// remains. Keep the expired lease tuple as fencing evidence until Claim
+	// atomically advances the epoch. Running, uncheckpointed, or otherwise unsafe
+	// sessions continue through the terminal failure path below.
+	if _, err := tx.Exec(ctx, `UPDATE shadow_sessions session SET state='QUEUED',revision=revision+1,
+      entries_enabled=false,failure_code='shadow_lease_recovery_pending'
+      WHERE session.state='PAUSED' AND NOT session.entries_enabled AND session.claim_expires_at<=$1
+        AND session.run_id IS NOT NULL
+        AND EXISTS(SELECT 1 FROM run_checkpoints checkpoint WHERE checkpoint.run_id=session.run_id)
+        AND EXISTS(SELECT 1 FROM account_snapshots snapshot JOIN virtual_accounts account
+          ON account.id=snapshot.account_id WHERE account.run_id=session.run_id)
+        AND NOT EXISTS(SELECT 1 FROM orders order_row JOIN virtual_accounts account
+          ON account.id=order_row.account_id WHERE account.run_id=session.run_id
+          AND order_row.state IN ('created','scheduled','open','partially_filled','cancel_pending','unknown','recovery_required'))
+        AND NOT EXISTS(SELECT 1 FROM reservations reservation JOIN virtual_accounts account
+          ON account.id=reservation.account_id WHERE account.run_id=session.run_id
+          AND reservation.state IN ('active','quarantined'))
+        AND NOT EXISTS(SELECT 1 FROM execution_plans plan JOIN decisions decision
+          ON decision.id=plan.decision_id WHERE decision.run_id=session.run_id
+          AND plan.state IN ('planned','active','recovery_required','quarantined'))`, now); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `UPDATE shadow_sessions SET state='FAILED',revision=revision+1,entries_enabled=false,
       failure_code='shadow_lease_expired',stopped_at=$1,claim_owner=NULL,claim_epoch=NULL,claim_expires_at=NULL
       WHERE state IN ('PAUSED','RUNNING','CANCEL_REQUESTED') AND claim_expires_at<=$1`, now); err != nil {
@@ -146,7 +170,7 @@ func selectPublicShadowClaim(ctx context.Context, tx pgx.Tx) (PublicShadowClaim,
                  ELSE sv.version::text END,
 	  ss.exchange_id,
 	  CASE WHEN instrument.id IS NULL THEN '' ELSE instrument.base_asset || instrument.quote_asset END,
-	  ss.market_scope_required,cv.configuration_hash,cv.canonical_payload
+	  ss.market_scope_required,cv.configuration_hash,cv.canonical_payload,coalesce(ss.failure_code,'')
 	  FROM shadow_sessions ss JOIN configuration_versions cv ON cv.id=ss.configuration_id
 	  JOIN strategy_versions sv ON sv.id=ss.strategy_version_id
 	  LEFT JOIN instruments instrument ON instrument.id=ss.instrument_id
@@ -158,7 +182,7 @@ func selectPublicShadowClaim(ctx context.Context, tx pgx.Tx) (PublicShadowClaim,
 	      ) ORDER BY ss.created_at,ss.id FOR UPDATE OF ss SKIP LOCKED LIMIT 1`).
 		Scan(&claim.ID, &claim.RunID, &claim.PortfolioID, &claim.ConfigurationID, &claim.StrategyID,
 			&claim.StrategyVersion, &claim.ExchangeID, &claim.InstrumentID, &claim.MarketScopeRequired,
-			&claim.ConfigurationHash, &canonical)
+			&claim.ConfigurationHash, &canonical, &claim.RecoveryCause)
 	if err == pgx.ErrNoRows {
 		return PublicShadowClaim{}, false, nil
 	}

@@ -52,6 +52,14 @@ higher claim epoch, an increased durable checkpoint count, and a recovered
 the separate kill-during-finalize scenario; do not replace the shadow restart
 with `SIGKILL` and call the resulting lease expiry a checkpoint recovery.
 
+The later `database_restart_and_outbox_recovery` drill reuses that checkpointed
+`PAUSED` session. Database loss locks entries immediately. After the old
+30-second lease expires, only a session with disabled entries, checkpoint and
+snapshot evidence, and no uncertain order, reservation, or execution-plan state
+may be reclaimed. The same session must return `PAUSED` under a higher fencing
+epoch; it is never armed automatically. Any running, uncheckpointed, or unsafe
+session expires terminally, and the drill fails.
+
 Invoke `make operational-readiness-formal` from the exact clean release build.
 The runner refuses a dirty/mismatched build, failed preflight, incomplete
 declared load, mutable image tags, an existing run ID, stale sample revisions,

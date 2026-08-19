@@ -106,6 +106,13 @@ Active, cancel-pending, unknown, or recovery-required simulated orders keep thei
 
 These are acceptance targets, not evidence until measured drills pass.
 
+A database interruption does not make a shadow session safe merely because the
+process reconnects. The expired lease is recoverable only when the durable row
+was already paused with entries disabled, checkpoint and account-snapshot
+evidence exist, and no active/quarantined reservation, nonterminal/uncertain
+order, or incomplete execution plan exists. Recovery advances the fencing epoch
+and remains paused; otherwise expiry is terminal.
+
 ## Required evidence
 
 Tests inject process termination at every critical persistence boundary, duplicate/out-of-order events, partial fills, corrupt checkpoints, database loss, disk full, lease loss, stale-token writes, book gaps, clock drift, and SSE cursor expiry. Evidence must prove no duplicate simulated order/fill, lost committed journal fact, negative balance, unsafe reservation release, unbalanced journal, stale decision, or automatic unpause.

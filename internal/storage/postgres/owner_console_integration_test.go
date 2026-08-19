@@ -738,8 +738,47 @@ func assertPublicShadowRuntimeEvidence(
 		claim.SlippageModelID != "slippage-v1" || claim.GapModelID != "gap-v1" {
 		t.Fatalf("shadow runtime claim = %#v %t %v", claim, found, err)
 	}
-	if err = runtimeStore.Fail(ctx, claim.ID, "qualification_complete"); err != nil {
+	checkpoint := PublicShadowCheckpoint{InputOrdinal: 1, CursorLogicalTime: 1,
+		Canonical: json.RawMessage(`{"state":"paused","entries_enabled":false}`)}
+	if err = runtimeStore.Checkpoint(ctx, claim, checkpoint); err != nil {
+		t.Fatalf("shadow recovery checkpoint failed: %v", err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE shadow_sessions SET claim_expires_at=$2 WHERE id=$1`,
+		claim.ID, clock.Now().UTC.Add(-time.Second)); err != nil {
 		t.Fatal(err)
+	}
+	recovered, found, err := runtimeStore.Claim(ctx)
+	if err != nil || !found || recovered.ID != claim.ID || !recovered.Recovery ||
+		recovered.RecoveryCause != "shadow_lease_recovery_pending" || recovered.ClaimEpoch <= claim.ClaimEpoch {
+		t.Fatalf("safe expired shadow lease recovery = %#v %t %v", recovered, found, err)
+	}
+	var recoveredState, recoveredFailure string
+	var recoveredEntries bool
+	if err = pool.QueryRow(ctx, `SELECT state,entries_enabled,coalesce(failure_code,'')
+	      FROM shadow_sessions WHERE id=$1`, recovered.ID).
+		Scan(&recoveredState, &recoveredEntries, &recoveredFailure); err != nil ||
+		recoveredState != "PAUSED" || recoveredEntries || recoveredFailure != "" {
+		t.Fatalf("recovered shadow posture=%s/%t/%s error=%v",
+			recoveredState, recoveredEntries, recoveredFailure, err)
+	}
+	claim = recovered
+	if _, err = pool.Exec(ctx, `INSERT INTO reservations(id,account_id,asset_symbol,quantity,state,
+	      fencing_token,revision,created_at,updated_at,remaining_quantity)
+	      VALUES($1,$2,'USDT',1,'active',$3,1,$4,$4,1)`,
+		"reservation-expired-lease-owner_console", claim.AccountID, claim.ClaimEpoch, clock.Now().UTC); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE shadow_sessions SET claim_expires_at=$2 WHERE id=$1`,
+		claim.ID, clock.Now().UTC.Add(-time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if unsafe, unsafeFound, unsafeErr := runtimeStore.Claim(ctx); unsafeErr != nil || unsafeFound {
+		t.Fatalf("unsafe expired lease was reclaimed: %#v %t %v", unsafe, unsafeFound, unsafeErr)
+	}
+	if err = pool.QueryRow(ctx, `SELECT state,coalesce(failure_code,'') FROM shadow_sessions WHERE id=$1`, claim.ID).
+		Scan(&recoveredState, &recoveredFailure); err != nil || recoveredState != "FAILED" ||
+		recoveredFailure != "shadow_lease_expired" {
+		t.Fatalf("unsafe expired shadow posture=%s/%s error=%v", recoveredState, recoveredFailure, err)
 	}
 	projection, err := store.Shadow(ctx, claim.ID)
 	if err != nil || projection.RunId == nil || *projection.RunId != claim.ID ||

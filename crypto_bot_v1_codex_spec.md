@@ -3781,6 +3781,19 @@ drill failure is persisted and evaluated during the run rather than deferred
 to day seven. Terminal cleanup detaches the shared observer before sealing a
 checksum manifest so a completed workspace receives no later observer writes.
 
+The scheduled database-restart drill may recover the same shadow workload only
+after its lease expires and only when the durable session was already `PAUSED`
+with entries disabled, a verified checkpoint and account snapshot exist, and
+there are no active or quarantined reservations, nonterminal or uncertain
+orders, or incomplete/recovery-required execution plans. Recovery retains the
+old lease tuple until an atomic claim advances its fencing epoch, restores the
+checkpoint, clears the pending recovery marker, and remains `PAUSED`; it never
+automatically enables entries. A `RUNNING`, uncheckpointed, unsafe, canceled,
+or otherwise ineligible expired lease remains a terminal shadow failure. The
+drill must prove the same session ID, increased claim epoch, disabled entries,
+unchanged-or-increased checkpoint count, and no terminal failure marker within
+the bounded recovery window.
+
 Acceptance: numeric SLOs, resource bounds, RPO/RTO, disaster restore, graceful lifecycle, and incident rollback criteria pass on the recorded reference server.
 
 ### Phase D6: V1 readiness and safety certification

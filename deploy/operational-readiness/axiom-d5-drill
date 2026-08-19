@@ -323,15 +323,54 @@ prior_revision="$(jq -r .source_revision "${workspace}/sample.json")"
       drill_phase=database_recovery
       before="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -Atqc \
         "SELECT version || ':' || name || ':' || checksum FROM schema_migrations ORDER BY version" | sha256sum | cut -d' ' -f1)"
+	  database_shadow_before="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -AtF '|' -c \
+	    "SELECT id,state,entries_enabled,coalesce(claim_epoch,0),
+	       (SELECT count(*) FROM run_checkpoints WHERE run_id=shadow_sessions.run_id)
+	       FROM shadow_sessions WHERE state='PAUSED' AND NOT entries_enabled
+	       ORDER BY created_at DESC LIMIT 1")"
+	  test -n "${database_shadow_before}"
+	  IFS='|' read -r database_shadow_id database_shadow_state database_shadow_entries \
+	    database_shadow_epoch database_shadow_checkpoints <<<"${database_shadow_before}"
+	  test "${database_shadow_state}" = PAUSED
+	  test "${database_shadow_entries}" = f
+	  test "${database_shadow_checkpoints}" -gt 0
       docker restart --time 30 axiom-postgres-1 >/dev/null
       wait_healthy postgres
       for service in api recorder engine-shadow backtest-worker binance-sandbox-engine bybit-sandbox-engine operational-readiness-observer; do
         wait_healthy "${service}"
       done
+	  database_recovery_deadline=$(( $(date +%s) + 120 ))
+	  database_shadow_after=''
+	  while (( $(date +%s) <= database_recovery_deadline )); do
+	    database_shadow_after="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -AtF '|' -c \
+	      "SELECT state,entries_enabled,coalesce(claim_epoch,0),coalesce(failure_code,''),
+	         (SELECT count(*) FROM run_checkpoints WHERE run_id=shadow_sessions.run_id)
+	         FROM shadow_sessions WHERE id='${database_shadow_id}'")"
+	    IFS='|' read -r database_shadow_new_state database_shadow_new_entries database_shadow_new_epoch \
+	      database_shadow_failure database_shadow_new_checkpoints <<<"${database_shadow_after}"
+	    if [[ "${database_shadow_new_state}" == PAUSED && "${database_shadow_new_entries}" == f &&
+	          -z "${database_shadow_failure}" ]] &&
+	       (( database_shadow_new_epoch > database_shadow_epoch &&
+	          database_shadow_new_checkpoints >= database_shadow_checkpoints )); then
+	      break
+	    fi
+	    sleep 2
+	  done
+	  test "${database_shadow_new_state}" = PAUSED
+	  test "${database_shadow_new_entries}" = f
+	  test -z "${database_shadow_failure}"
+	  test "${database_shadow_new_epoch}" -gt "${database_shadow_epoch}"
+	  test "${database_shadow_new_checkpoints}" -ge "${database_shadow_checkpoints}"
+	  database_shadow_unsafe="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -Atqc \
+	    "SELECT count(*) FROM shadow_sessions WHERE entries_enabled OR state='RUNNING'")"
+	  test "${database_shadow_unsafe}" -eq 0
       after="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -Atqc \
         "SELECT version || ':' || name || ':' || checksum FROM schema_migrations ORDER BY version" | sha256sum | cut -d' ' -f1)"
       test "${before}" = "${after}"
-      printf 'migration_identity_before=%s\nmigration_identity_after=%s\n' "${before}" "${after}"
+	  printf 'migration_identity_before=%s\nmigration_identity_after=%s\nsession_id=%s\nclaim_epoch_before=%s\nclaim_epoch_after=%s\ncheckpoints_before=%s\ncheckpoints_after=%s\nentries_enabled=%s\n' \
+	    "${before}" "${after}" "${database_shadow_id}" "${database_shadow_epoch}" \
+	    "${database_shadow_new_epoch}" "${database_shadow_checkpoints}" \
+	    "${database_shadow_new_checkpoints}" "${database_shadow_new_entries}"
       ;;
     high_disk_watermark_heavy_job_rejection)
       drill_phase=high_disk

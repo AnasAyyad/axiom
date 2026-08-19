@@ -26,10 +26,10 @@ func TestShadowRoleActivatesOnlyNormalRiskAndFlushesStop(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	claim := postgresstore.PublicShadowClaim{ID: "shadow-owner_console"}
-	if work.controlClaim(ctx, claim, session, cancel) {
+	if work.controlClaim(ctx, claim, session, cancel) != shadowClaimContinue {
 		t.Fatal("normal activation terminated session")
 	}
-	if !work.controlClaim(ctx, claim, session, cancel) {
+	if work.controlClaim(ctx, claim, session, cancel) != shadowClaimStopRequested {
 		t.Fatal("stop request did not terminate session")
 	}
 	work.finishClaim("shadow-owner_console", session, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -49,7 +49,7 @@ func TestShadowRoleDoesNotActivatePausedSessionAtHighPressure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if work.controlClaim(context.Background(), postgresstore.PublicShadowClaim{ID: "shadow-owner_console"}, session, func() {}) ||
+	if work.controlClaim(context.Background(), postgresstore.PublicShadowClaim{ID: "shadow-owner_console"}, session, func() {}) != shadowClaimContinue ||
 		store.activations != 0 || session.entries {
 		t.Fatalf("high pressure resumed paused session: store=%#v session=%#v", store, session)
 	}
@@ -67,7 +67,7 @@ func TestShadowRoleKeepsRecoveredSessionPaused(t *testing.T) {
 		t.Fatal(err)
 	}
 	claim := postgresstore.PublicShadowClaim{ID: "shadow-recovered", Recovery: true}
-	if work.controlClaim(context.Background(), claim, session, func() {}) || store.activations != 0 || session.entries {
+	if work.controlClaim(context.Background(), claim, session, func() {}) != shadowClaimContinue || store.activations != 0 || session.entries {
 		t.Fatalf("recovered session left paused hold: store=%#v session=%#v", store, session)
 	}
 }
@@ -111,6 +111,33 @@ func TestShadowRoleGracefulShutdownCheckpointsBeforeLeaseRelease(t *testing.T) {
 	}
 }
 
+func TestShadowRoleLeaseLossLocksWithoutUnsafeStopFinalization(t *testing.T) {
+	store := &shadowStoreStub{renewErr: errors.New("database unavailable")}
+	session := &shadowSessionStub{entries: true, started: make(chan struct{})}
+	work, err := newShadowRoleWork(store, func(context.Context, postgresstore.PublicShadowClaim) (shadowSession, error) {
+		return session, nil
+	}, time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		work.runClaim(context.Background(), postgresstore.PublicShadowClaim{ID: "shadow-lease-loss", ClaimEpoch: 11},
+			slog.New(slog.NewTextHandler(io.Discard, nil)))
+		close(done)
+	}()
+	<-session.started
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("lease-loss shutdown did not complete")
+	}
+	if session.entries || session.flushed || session.checkpointed || store.completions != 0 ||
+		store.failures != 0 || store.releases != 0 {
+		t.Fatalf("lease loss attempted an unsafe terminal transition: store=%#v session=%#v", store, session)
+	}
+}
+
 type shadowStoreStub struct {
 	mutex         sync.Mutex
 	postures      []postgresstore.PublicShadowPosture
@@ -120,12 +147,13 @@ type shadowStoreStub struct {
 	completions   int
 	failures      int
 	failureReason string
+	renewErr      error
 }
 
 func (*shadowStoreStub) Claim(context.Context) (postgresstore.PublicShadowClaim, bool, error) {
 	return postgresstore.PublicShadowClaim{}, false, nil
 }
-func (*shadowStoreStub) Renew(context.Context, string) error { return nil }
+func (store *shadowStoreStub) Renew(context.Context, string) error { return store.renewErr }
 func (store *shadowStoreStub) Posture(context.Context, string) (postgresstore.PublicShadowPosture, error) {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()

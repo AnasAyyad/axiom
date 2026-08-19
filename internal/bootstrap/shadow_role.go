@@ -30,6 +30,14 @@ type shadowSession interface {
 
 type shadowSessionFactory func(context.Context, postgresstore.PublicShadowClaim) (shadowSession, error)
 
+type shadowClaimControl uint8
+
+const (
+	shadowClaimContinue shadowClaimControl = iota
+	shadowClaimStopRequested
+	shadowClaimLeaseLost
+)
+
 type shadowRoleWork struct {
 	store     shadowRuntimeStore
 	factory   shadowSessionFactory
@@ -82,8 +90,19 @@ func (work *shadowRoleWork) Run(ctx context.Context, logger *slog.Logger) error 
 }
 
 func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.PublicShadowClaim, logger *slog.Logger) {
+	if claim.Recovery {
+		reason := claim.RecoveryCause
+		if reason == "" {
+			reason = "graceful_restart"
+		}
+		logger.Info("shadow recovery claimed", "event_code", "shadow_recovery_claimed",
+			"session_id", claim.ID, "claim_epoch", claim.ClaimEpoch, "recovery_reason", reason,
+			"entries_enabled", false)
+	}
 	session, err := work.factory(ctx, claim)
 	if err != nil {
+		logger.Warn("shadow composition failed", "event_code", "shadow_composition_failed",
+			"session_id", claim.ID, "claim_epoch", claim.ClaimEpoch)
 		_ = work.store.Fail(ctx, claim.ID, "shadow_composition_failed")
 		return
 	}
@@ -107,9 +126,17 @@ func (work *shadowRoleWork) runClaim(ctx context.Context, claim postgresstore.Pu
 			}
 			return
 		case <-ticker.C:
-			if work.controlClaim(ctx, claim, session, cancel) {
+			switch work.controlClaim(ctx, claim, session, cancel) {
+			case shadowClaimStopRequested:
 				<-result
 				work.finishClaim(claim.ID, session, logger)
+				return
+			case shadowClaimLeaseLost:
+				logger.Warn("shadow lease lost; entries locked pending fenced recovery",
+					"event_code", "shadow_lease_lost_locked", "session_id", claim.ID,
+					"claim_epoch", claim.ClaimEpoch, "entries_enabled", false,
+					"recovery_action", "await_expiry_and_reclaim_if_safe")
+				<-result
 				return
 			}
 		case <-ctx.Done():
@@ -144,23 +171,23 @@ func (work *shadowRoleWork) handoffRestart(claim postgresstore.PublicShadowClaim
 }
 
 func (work *shadowRoleWork) controlClaim(ctx context.Context, claim postgresstore.PublicShadowClaim, session shadowSession,
-	cancel context.CancelFunc) bool {
+	cancel context.CancelFunc) shadowClaimControl {
 	id := claim.ID
 	if err := work.store.Renew(ctx, id); err != nil {
 		session.SetEntriesEnabled(false)
 		cancel()
-		return true
+		return shadowClaimLeaseLost
 	}
 	posture, err := work.store.Posture(ctx, id)
 	if err != nil {
 		session.SetEntriesEnabled(false)
-		return false
+		return shadowClaimContinue
 	}
 	switch {
 	case posture.State == "CANCEL_REQUESTED":
 		session.SetEntriesEnabled(false)
 		cancel()
-		return true
+		return shadowClaimStopRequested
 	case posture.StoragePressure == "CRITICAL":
 		session.SetEntriesEnabled(false)
 		if posture.State == "RUNNING" {
@@ -176,7 +203,7 @@ func (work *shadowRoleWork) controlClaim(ctx context.Context, claim postgresstor
 	case posture.State != "RUNNING":
 		session.SetEntriesEnabled(false)
 	}
-	return false
+	return shadowClaimContinue
 }
 
 func (work *shadowRoleWork) finishClaim(id string, session shadowSession, logger *slog.Logger) {

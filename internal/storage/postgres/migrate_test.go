@@ -1007,6 +1007,28 @@ func TestShadowGracefulRestartMigrationKeepsHandoffFenced(t *testing.T) {
 	})
 }
 
+func TestShadowExpiredLeaseRecoveryMigrationIsStrictlyFailClosed(t *testing.T) {
+	migrations, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recoveryMigration := migrationForVersion(migrations, "000060")
+	if recoveryMigration.SQL == "" {
+		t.Fatal("shadow expired-lease recovery migration is missing")
+	}
+	assertMigrationContains(t, recoveryMigration, "shadow expired lease recovery", []string{
+		"old.state='paused'",
+		"not old.entries_enabled",
+		"shadow_lease_recovery_pending",
+		"exists (select 1 from run_checkpoints",
+		"exists (select 1 from account_snapshots",
+		"not exists (select 1 from orders",
+		"not exists (select 1 from reservations",
+		"not exists (select 1 from execution_plans",
+		"new.claim_epoch=old.claim_epoch",
+	})
+}
+
 func migrationForVersion(migrations []Migration, version string) Migration {
 	for _, migration := range migrations {
 		if migration.Version == version {

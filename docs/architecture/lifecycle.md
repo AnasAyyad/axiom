@@ -127,6 +127,14 @@ At the 60-second deadline, the process must terminate rather than hang indefinit
 
 Where critical persistence is still available, the runtime records an unclean-shutdown/incident fact and last verified checkpoint before the deadline. If persistence is unavailable, absence of a clean marker and lease expiry force the next startup through full locked recovery. A repeated termination signal may request immediate exit, but it cannot cause an unfenced write or false clean marker.
 
+For public shadow sessions, loss of the PostgreSQL lease disables entries and
+stops the in-process session without attempting a terminal stop transaction
+through the unavailable database. After expiry, automatic fenced recovery is
+limited to an already-paused, entries-disabled session with a durable checkpoint
+and snapshot and no uncertain execution state. The next claim advances the
+epoch and holds the recovered session paused. All other expired shadow leases
+fail terminally.
+
 ## Failure-triggered lifecycle
 
 - Lease/fence or critical database durability loss: immediately lock, stop entries, make unready, preserve uncertain reservations, and shut down/recover.
