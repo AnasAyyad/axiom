@@ -18,13 +18,17 @@ readonly lifecycle=${workspace}/controller-lifecycle.jsonl
 readonly lock=${workspace}/controller-lifecycle.lock
 
 verify_chain() {
-  local expected_sequence=1 prior='' line sequence linked declared calculated
-  [[ ! -e ${lifecycle} || -s ${lifecycle} ]] || return 1
+  local expected_sequence=1 prior='' line sequence linked declared canonical calculated
+  if [[ ! -e ${lifecycle} ]]; then
+    return 0
+  fi
+  [[ -s ${lifecycle} ]] || return 1
   while IFS= read -r line; do
     sequence=$(jq -er '.sequence' <<<"${line}") || return 1
     linked=$(jq -r '.prior_event_hash // ""' <<<"${line}") || return 1
     declared=$(jq -er '.event_hash | select(test("^[0-9a-f]{64}$"))' <<<"${line}") || return 1
-    calculated=$(jq -c 'del(.event_hash)' <<<"${line}" | sha256sum | cut -d' ' -f1)
+    canonical=$(jq -c 'del(.event_hash)' <<<"${line}") || return 1
+    calculated=$(printf '%s' "${canonical}" | sha256sum | cut -d' ' -f1)
     [[ ${sequence} == "${expected_sequence}" && ${linked} == "${prior}" && ${declared} == "${calculated}" ]] || return 1
     prior=${declared}
     expected_sequence=$((expected_sequence + 1))

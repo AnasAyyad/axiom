@@ -1,5 +1,15 @@
-import { readFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const read = (path) => readFileSync(path, "utf8");
 const requireTokens = (path, tokens) => {
@@ -170,6 +180,78 @@ requireTokens("deploy/operational-readiness/axiom-d5-controller-event", [
   "verify_chain",
   "prior_event_hash",
 ]);
+
+const controllerEventSource = read(
+  "deploy/operational-readiness/axiom-d5-controller-event",
+);
+const controllerEventTestRoot = mkdtempSync(
+  join(tmpdir(), "axiom-d5-controller-event-"),
+);
+try {
+  const testReadinessRoot = join(controllerEventTestRoot, "readiness");
+  const testWorkspace = join(
+    testReadinessRoot,
+    "formal",
+    "d5-formal-test-19700101t000000z",
+  );
+  const testProgram = join(controllerEventTestRoot, "axiom-d5-controller-event");
+  mkdirSync(testWorkspace, { recursive: true });
+  writeFileSync(
+    testProgram,
+    controllerEventSource.replaceAll(
+      "/srv/axiom-data/operational-readiness",
+      testReadinessRoot,
+    ),
+  );
+  chmodSync(testProgram, 0o700);
+
+  for (const args of [
+    ["workspace_created", "start", "RUNNING"],
+    ["inputs_bound", "start", "RUNNING"],
+  ]) {
+    const result = spawnSync(testProgram, [testWorkspace, ...args], {
+      encoding: "utf8",
+    });
+    if (result.status !== 0) {
+      const trace = spawnSync(
+        "bash",
+        ["-x", testProgram, testWorkspace, ...args],
+        { encoding: "utf8" },
+      );
+      throw new Error(
+        `controller lifecycle append failed with status ${result.status}: ${trace.stderr.trim()}`,
+      );
+    }
+  }
+
+  const lifecycle = readFileSync(
+    join(testWorkspace, "controller-lifecycle.jsonl"),
+    "utf8",
+  )
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  if (
+    lifecycle.length !== 2 ||
+    lifecycle[0].sequence !== 1 ||
+    "prior_event_hash" in lifecycle[0] ||
+    lifecycle[1].sequence !== 2 ||
+    lifecycle[1].prior_event_hash !== lifecycle[0].event_hash
+  ) {
+    throw new Error("controller lifecycle first append or hash link is invalid");
+  }
+  for (const event of lifecycle) {
+    const { event_hash: declaredHash, ...withoutHash } = event;
+    const calculatedHash = createHash("sha256")
+      .update(JSON.stringify(withoutHash))
+      .digest("hex");
+    if (declaredHash !== calculatedHash) {
+      throw new Error("controller lifecycle event hash is invalid");
+    }
+  }
+} finally {
+  rmSync(controllerEventTestRoot, { recursive: true, force: true });
+}
 requireTokens("internal/qualification/operationalreadiness/checks.go", [
   "axiom.operational_readiness.preflight-report.v2",
   'PreflightProfileStrict PreflightProfile = "strict"',
