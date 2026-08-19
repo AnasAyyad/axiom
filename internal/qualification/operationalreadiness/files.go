@@ -27,6 +27,7 @@ func (source FilePreflight) Check(context.Context) (Preflight, error) {
 // FileProbe reads the latest atomic live sample document each interval.
 type FileProbe struct {
 	Path         string
+	StatusPath   string
 	mutex        sync.Mutex
 	lastRevision uint64
 }
@@ -36,14 +37,37 @@ func (source *FileProbe) Observe(_ context.Context, _ uint64, observedAt time.Ti
 	source.mutex.Lock()
 	defer source.mutex.Unlock()
 	var sample Sample
-	if readStrictJSON(source.Path, &sample) != nil || sample.SourceRevision <= source.lastRevision ||
-		sample.ObservedAt.IsZero() || observedAt.Sub(sample.ObservedAt.UTC()) > 2*time.Minute ||
-		sample.ObservedAt.After(observedAt.Add(5*time.Second)) {
-		return Sample{}, fmt.Errorf("operational_readiness_sample_source_invalid")
+	if err := readStrictJSON(source.Path, &sample); err != nil {
+		cause := source.latestCause()
+		return Sample{}, &ProbeFailure{Reason: "sample_file_unavailable", SourceCause: cause,
+			Retryable: os.IsNotExist(err) && retryableCause(cause)}
+	}
+	if sample.SourceRevision == 0 || sample.ObservedAt.IsZero() || sample.ObservedAt.After(observedAt.Add(5*time.Second)) {
+		return Sample{}, &ProbeFailure{Reason: "sample_invalid", SourceCause: source.latestCause(), Retryable: false}
+	}
+	if sample.SourceRevision <= source.lastRevision {
+		cause := source.latestCause()
+		return Sample{}, &ProbeFailure{Reason: "revision_not_advanced", SourceCause: cause, Retryable: retryableCause(cause)}
+	}
+	if observedAt.Sub(sample.ObservedAt.UTC()) > 2*time.Minute {
+		cause := source.latestCause()
+		return Sample{}, &ProbeFailure{Reason: "sample_stale", SourceCause: cause, Retryable: retryableCause(cause)}
 	}
 	source.lastRevision = sample.SourceRevision
 	sample.Ordinal, sample.ObservedAt, sample.PriorSampleHash, sample.SampleHash = 0, time.Time{}, "", ""
 	return sample, nil
+}
+
+func retryableCause(cause SourceFailure) bool {
+	return cause.Reason == "" || cause.Retryable
+}
+
+func (source *FileProbe) latestCause() SourceFailure {
+	status, err := readObserverStatus(source.StatusPath)
+	if err != nil || status.LastFailure == nil {
+		return SourceFailure{}
+	}
+	return *status.LastFailure
 }
 
 // FileFaultSource reads terminal drill outcomes written by the approved orchestrator.

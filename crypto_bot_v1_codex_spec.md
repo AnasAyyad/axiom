@@ -2905,7 +2905,7 @@ The reference server profile must be recorded before performance certification. 
 | Raw recorder RPO | <= configured flush interval or an explicit dataset gap |
 | V1A soak | >= 72 continuous hours |
 | V1D readiness soak | >= 7 continuous days |
-| Sustained memory behavior | bounded by configured limit with no positive leak trend after warm-up |
+| Sustained memory behavior | bounded by configured limit; after a one-hour warm-up, each required service's first and final one-hour heap low-watermarks must not rise by both >5% and >8 MiB |
 | Backup cadence / database RPO | daily / <= 24 h initially |
 | Tested restore RTO | <= 4 h initially |
 | Accessibility | WCAG 2.2 AA for critical workflows |
@@ -3761,6 +3761,25 @@ verdict. A failed run is terminal: it cannot reset its clock, weaken thresholds,
 hide a waiver, or be converted into a pass. Smoke evidence is always marked
 non-qualifying. B2 market-data and C6 sandbox verdicts remain independent and
 are not replaced by D5.
+
+The live observer records every acquisition attempt in a redacted append-only,
+hash-chained lifecycle: fixed source, stage, role, reason, retryability,
+consecutive/cumulative failure counts, recovery count, outage duration, and
+last-success time. Raw errors, URLs, payloads, database text, and credentials
+are forbidden. The controller separately hash-chains startup, preflight,
+runner, drill, terminal cleanup, observer detachment, and evidence-seal events.
+Every accepted sample binds the observer lifecycle head and cumulative
+failure/recovery counters.
+
+A retryable live-observation interruption may delay acquisition of the same
+sample for at most two minutes, polled every two seconds, while the seven-day
+clock continues without reset or extension. A clean acquisition must still
+pass every sample gate. Non-retryable input/evidence errors, malformed data,
+revision regression, a two-minute timeout, stale accepted evidence, failed or
+late drills, or any safety/integrity breach remain immediately terminal. A
+drill failure is persisted and evaluated during the run rather than deferred
+to day seven. Terminal cleanup detaches the shared observer before sealing a
+checksum manifest so a completed workspace receives no later observer writes.
 
 Acceptance: numeric SLOs, resource bounds, RPO/RTO, disaster restore, graceful lifecycle, and incident rollback criteria pass on the recorded reference server.
 

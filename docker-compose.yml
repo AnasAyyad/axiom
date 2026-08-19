@@ -679,6 +679,8 @@ services:
       DB_PASSWORD_FILE: /run/secrets/postgres_operational_readiness_password
       DB_SSL_MODE: ${DB_SSL_MODE:-disable}
       AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE: /var/lib/axiom/operational-readiness/sample.json
+      AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE: /var/lib/axiom/operational-readiness/observer-status.json
+      AXIOM_OPERATIONAL_READINESS_OBSERVER_LIFECYCLE_FILE: /var/lib/axiom/operational-readiness/observer-lifecycle.jsonl
       AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE: /var/lib/axiom/operational-readiness/drill-observation.json
       AXIOM_OPERATIONAL_READINESS_OBSERVER_INTERVAL: ${AXIOM_OPERATIONAL_READINESS_OBSERVER_INTERVAL:-15s}
       AXIOM_OPERATIONAL_READINESS_OBSERVER_WINDOW: ${AXIOM_OPERATIONAL_READINESS_OBSERVER_WINDOW:-1h}

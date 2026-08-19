@@ -17,7 +17,7 @@ PLAN_FILE ?= /home/anas/.codex/attachments/7085c3d9-bb74-4587-8af7-85d8e499faf1/
 .PHONY: owner-experience-contract-qualify owner-experience-frontend-qualify owner-experience-browser-qualify owner-experience-security-qualify owner-experience
 .PHONY: run-lab-contract-qualify run-lab-api-qualify run-lab-postgres-qualify run-lab-frontend-qualify run-lab-browser-qualify run-lab-security-qualify run-lab
 .PHONY: operational-evidence-contract-qualify operational-evidence-api-qualify operational-evidence-postgres-qualify operational-evidence-frontend-qualify operational-evidence-browser-qualify operational-evidence-security-qualify operational-evidence
-.PHONY: operational-readiness-model-qualify operational-readiness-observer-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-preflight-check operational-readiness-preflight-vienna-rehearsal operational-readiness-formal operational-readiness
+.PHONY: operational-readiness-model-qualify operational-readiness-observer-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-controller-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify operational-readiness-preflight-check operational-readiness-preflight-vienna-rehearsal operational-readiness-formal operational-readiness
 .PHONY: evaluation-campaign-postgres-qualify
 .PHONY: release-certification-model-qualify release-certification-traceability-qualify release-certification-security-qualify release-certification-formal release-certify
 
@@ -435,6 +435,17 @@ operational-readiness-hardening-qualify: ## Validate operational readiness Compo
 	@$(NODE) scripts/check-operational-readiness-boundary.mjs
 	@scripts/check-compose.sh
 
+operational-readiness-controller-qualify: ## Validate the versioned D5 controller, drill, status, and lifecycle scripts.
+	@bash -n deploy/operational-readiness/axiom-d5-start \
+		deploy/operational-readiness/axiom-d5-drill \
+		deploy/operational-readiness/axiom-d5-status \
+		deploy/operational-readiness/axiom-d5-controller-event
+	@test -x deploy/operational-readiness/axiom-d5-start
+	@test -x deploy/operational-readiness/axiom-d5-drill
+	@test -x deploy/operational-readiness/axiom-d5-status
+	@test -x deploy/operational-readiness/axiom-d5-controller-event
+	@$(NODE) scripts/check-operational-readiness-boundary.mjs
+
 operational-readiness-chaos-qualify: ## Exercise terminal failure, no-replace evidence, races, restart, and kill-point models.
 	@$(GO) test ./internal/qualification/operationalreadiness ./internal/backup ./internal/storage/pressure \
 		./internal/execution ./internal/reconciliation ./internal/sandbox -count=1
@@ -455,6 +466,7 @@ operational-readiness-preflight-check: ## MANUAL: validate exact operational-rea
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE is required" >&2; exit 1; }
 	@test -z "$$(git status --porcelain)" || { echo "operational readiness preflight requires a clean exact source" >&2; exit 1; }
 	@case "$${AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE:-strict}" in strict|vienna_rehearsal) ;; *) echo "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE is invalid" >&2; exit 1 ;; esac
@@ -471,12 +483,13 @@ operational-readiness-formal: ## MANUAL: run the default-off exact seven-day ope
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE is required" >&2; exit 1; }
+	@test -n "$(AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE is required" >&2; exit 1; }
 	@test -n "$(AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE)" || { echo "AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE is required" >&2; exit 1; }
 	@test -z "$$(git status --porcelain)" || { echo "formal operational readiness requires a clean exact source" >&2; exit 1; }
 	@AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK=0 AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE=strict $(GO) run -ldflags "-X axiom/internal/buildinfo.Commit=$$(git rev-parse HEAD) -X axiom/internal/buildinfo.Dirty=false" ./cmd/operational-readiness
 
-operational-readiness: operational-readiness-model-qualify operational-readiness-observer-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify ## Pass local operational readiness implementation gates; the reference-server seven-day verdict remains separate.
+operational-readiness: operational-readiness-model-qualify operational-readiness-observer-qualify operational-readiness-backup-qualify operational-readiness-postgres-qualify operational-readiness-hardening-qualify operational-readiness-controller-qualify operational-readiness-chaos-qualify operational-readiness-smoke operational-readiness-security-qualify ## Pass local operational readiness implementation gates; the reference-server seven-day verdict remains separate.
 
 release-certification-model-qualify: ## Exercise exact-identity, signature, expiry, tamper, duplicate, and fail-closed certification rules.
 	@$(GO) test ./internal/certification ./cmd/release-certify -count=1

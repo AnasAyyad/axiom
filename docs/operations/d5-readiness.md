@@ -131,9 +131,31 @@ reject every deferred final-host check.
 
 The approved observer atomically replaces the bounded live-sample JSON before
 each interval. The runner independently appends and fsyncs that observation to
-`samples.jsonl`; revision regression or staleness is terminal. Execute only the
-checked-in fault schedule. Do not restart, resume, reset the clock, waive a
-failure, or edit thresholds.
+`samples.jsonl`. A transient source-readiness interruption may delay one sample:
+the runner retries the same acquisition every two seconds for at most two
+minutes while the seven-day clock continues. Recovery does not reset or extend
+the clock. A non-retryable source failure, malformed evidence, revision
+regression, two-minute acquisition timeout, stale accepted sample, failed or
+late drill, or any safety/integrity threshold remains terminal.
+
+The runner must not infer that an unavailable sample means the application is
+down. The observer records the exact fixed-cardinality source, stage, role,
+reason, retryability, attempt number, consecutive failure count, duration, and
+last-success timestamp in `observer-status.json` and the append-only,
+hash-chained `observer-lifecycle.jsonl`. Raw errors, URLs, payloads, database
+text, and credentials are forbidden. `controller-lifecycle.jsonl` separately
+records startup, immutable input binding, strict preflight, runner start, drill
+start/pass/failure, terminal verdict, observer detachment, and evidence sealing.
+Together with `samples.jsonl`, these files provide start-to-terminal causality
+without relying on a generic container-health guess.
+
+Execute only the checked-in fault schedule. Do not restart, resume, reset the clock,
+waive a failure, or edit thresholds. A drill command failure immediately
+writes terminal failed evidence; the runner does not wait until day seven to
+discover it. After a terminal verdict, the cleanup guard restores the shared
+observer to the normal readiness path, stops remaining timers, and writes
+`evidence-manifest.sha256`. A run workspace must not receive further observer
+writes after that seal.
 
 At high disk pressure, verify new labs, reports, and exports are rejected while
 journal/audit writes continue. At critical pressure, verify recorder final
@@ -149,3 +171,12 @@ the full formal duration. `SMOKE_PASSED` always has `qualified=false`.
 A failed or interrupted run remains failed. Open an incident, preserve the run
 directory under an evidence hold, fix through a reviewed PR, build new exact
 artifacts, repeat preflight, and start a new run ID. D5 never replaces B2 or C6.
+The failed `d5-formal-65901b54-20260818t065654z` run remains disqualified and
+must not be resumed, edited, or relabelled by this recovery policy.
+
+Memory qualification is per required service, not an aggregate first/last RSS
+comparison. After a one-hour warm-up, compare each service's heap-allocation
+low-watermark in the first one-hour window with its low-watermark in the final
+one-hour window. A service fails only when the final baseline rises by both
+more than five percent and more than 8 MiB. Missing service/window samples and
+hard aggregate or per-service memory-limit breaches still fail closed.

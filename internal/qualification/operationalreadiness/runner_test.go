@@ -63,6 +63,76 @@ func TestRunnerFailsOnCorrectnessDefectAndCannotQualify(t *testing.T) {
 	}
 }
 
+func TestRunnerWaitsForBoundedObserverRecoveryWithoutResettingClock(t *testing.T) {
+	configuration := testConfig(t)
+	clock := &testClock{now: time.Date(2026, 8, 4, 12, 0, 1, 0, time.UTC)}
+	probe := &recoveringProbe{failuresRemaining: 2}
+	runner := Runner{Clock: clock, Preflight: staticPreflight{testPreflight(clock.now.Add(-time.Second))},
+		Probe: probe, Faults: staticFaults{events: passedFaults(configuration, clock.now)}, Store: &memoryStore{}}
+	evidence, err := runner.Run(context.Background(), configuration)
+	if err != nil || evidence.State != StateSmokePassed || evidence.Qualified || probe.calls < 3 ||
+		evidence.ObservedDurationSeconds < int64(configuration.Duration.Seconds()) {
+		t.Fatalf("evidence=%+v error=%v calls=%d", evidence, err, probe.calls)
+	}
+}
+
+func TestRunnerFailsWithExactSourceCauseAfterRecoveryBudget(t *testing.T) {
+	configuration := testConfig(t)
+	clock := &testClock{now: time.Date(2026, 8, 4, 12, 0, 1, 0, time.UTC)}
+	probe := &recoveringProbe{failuresRemaining: 1 << 20}
+	runner := Runner{Clock: clock, Preflight: staticPreflight{testPreflight(clock.now.Add(-time.Second))},
+		Probe: probe, Faults: staticFaults{}, Store: &memoryStore{}}
+	evidence, err := runner.Run(context.Background(), configuration)
+	if err == nil || evidence.State != StateFailed || len(evidence.Failures) != 1 {
+		t.Fatalf("evidence=%+v error=%v", evidence, err)
+	}
+	failure := evidence.Failures[0]
+	if failure.Reason != "sample_unavailable" || failure.CauseCode != "revision_not_advanced" ||
+		failure.Source != "runtime" || failure.Stage != "health" || failure.Role != "recorder" ||
+		evidence.ObservedDurationSeconds != int64(sampleAcquisitionTimeout.Seconds()) {
+		t.Fatalf("unexpected terminal failure: %+v", failure)
+	}
+}
+
+func TestSampleAcquisitionRecoveryBoundary(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		failures int
+		wantPass bool
+	}{
+		{name: "last retry before deadline", failures: 59, wantPass: true},
+		{name: "recovery exactly at deadline", failures: 60, wantPass: true},
+		{name: "deadline exceeded", failures: 61, wantPass: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			clock := &testClock{now: time.Date(2026, 8, 4, 12, 0, 1, 0, time.UTC)}
+			probe := &recoveringProbe{failuresRemaining: test.failures}
+			runner := Runner{Clock: clock, Probe: probe}
+			_, err, aborted := runner.acquireSample(context.Background(), 1, clock.now)
+			if (err == nil) != test.wantPass || aborted {
+				t.Fatalf("failures=%d pass=%t error=%v aborted=%t calls=%d elapsed=%s",
+					test.failures, test.wantPass, err, aborted, probe.calls,
+					clock.now.Sub(time.Date(2026, 8, 4, 12, 0, 1, 0, time.UTC)))
+			}
+		})
+	}
+}
+
+func TestMemoryTrendUsesPostWarmupPerServiceWindows(t *testing.T) {
+	started := time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC)
+	stable := memoryTrendEvidence(started, "", 0)
+	evaluateMemory(&stable)
+	if len(stable.Failures) != 0 || len(stable.MemoryTrends) != len(requiredRuntimeMetricRoles) {
+		t.Fatalf("stable memory failed: %+v", stable)
+	}
+	leaking := memoryTrendEvidence(started, "recorder", 24<<20)
+	evaluateMemory(&leaking)
+	if len(leaking.Failures) != 1 || leaking.Failures[0].Reason != "memory_leak" ||
+		leaking.Failures[0].Role != "recorder" {
+		t.Fatalf("leak was not attributed: %+v", leaking)
+	}
+}
+
 func TestRunnerRejectsFaultEvidenceFromAnotherRun(t *testing.T) {
 	configuration := testConfig(t)
 	clock := &testClock{now: time.Date(2026, 8, 4, 12, 0, 1, 0, time.UTC)}
@@ -172,20 +242,68 @@ type safeProbe struct {
 	mutate   func(*Sample)
 }
 
+type recoveringProbe struct {
+	failuresRemaining int
+	calls             int
+	safe              safeProbe
+}
+
+func (probe *recoveringProbe) Observe(ctx context.Context, ordinal uint64, at time.Time) (Sample, error) {
+	probe.calls++
+	if probe.failuresRemaining > 0 {
+		probe.failuresRemaining--
+		return Sample{}, &ProbeFailure{Reason: "revision_not_advanced", Retryable: true,
+			SourceCause: SourceFailure{Source: "runtime", Stage: "health", Role: "recorder",
+				Reason: "not_ready", Retryable: true}}
+	}
+	return probe.safe.Observe(ctx, ordinal, at)
+}
+
 func (probe *safeProbe) Observe(_ context.Context, _ uint64, _ time.Time) (Sample, error) {
 	probe.revision++
 	digest := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	sample := Sample{SourceRevision: probe.revision, DatabaseEvidenceHash: digest, RuntimeEvidenceHash: digest,
-		DrillEvidenceHash: digest, DecodeBookP99Millis: 10, StrategyRiskP99Millis: 25,
+		DrillEvidenceHash: digest, ObserverLifecycleHash: digest, ObserverAttempt: probe.revision,
+		DecodeBookP99Millis: 10, StrategyRiskP99Millis: 25,
 		ResyncP95Millis: 15_000, CriticalAlertMillis: 5_000, ExternalAlertP95Millis: 60_000,
 		GracefulShutdownMillis: 60_000, ShadowRecoveryMillis: 300_000, SandboxRecoveryMillis: 600_000,
-		DatabaseCommitRPOZero: true, RecorderWithinFlushRPO: true, ResidentMemoryBytes: 100 << 20,
-		MemoryLimitBytes: 512 << 20, DiskLevel: "NORMAL", HeavyJobsRejectedAtHigh: true,
+		DatabaseCommitRPOZero: true, RecorderWithinFlushRPO: true, ResidentMemoryBytes: 6 * (100 << 20),
+		MemoryLimitBytes: 6 * (512 << 20), ServiceMemory: testServiceMemory(100<<20, 20<<20, 512<<20),
+		DiskLevel: "NORMAL", HeavyJobsRejectedAtHigh: true,
 		RecordingPausedAtCritical: true, JournalAuditWritable: true, AllDeclaredLoadHealthy: true}
 	if probe.mutate != nil {
 		probe.mutate(&sample)
 	}
 	return sample, nil
+}
+
+func testServiceMemory(resident, heap, limit uint64) []ServiceMemory {
+	result := make([]ServiceMemory, 0, len(requiredRuntimeMetricRoles))
+	for _, role := range requiredRuntimeMetricRoles {
+		result = append(result, ServiceMemory{Role: role, ResidentMemoryBytes: resident,
+			HeapAllocBytes: heap, MemoryLimitBytes: limit})
+	}
+	return result
+}
+
+func memoryTrendEvidence(started time.Time, leakingRole string, dailyGrowth uint64) Evidence {
+	evidence := Evidence{Identity: Identity{RunID: "memory-trend"}, StartedAt: started,
+		EndedAt: started.Add(FormalDuration), RequiredDurationSeconds: int64(FormalDuration.Seconds()),
+		ObservedDurationSeconds: int64(FormalDuration.Seconds())}
+	for at := started; !at.After(evidence.EndedAt); at = at.Add(10 * time.Minute) {
+		elapsedDays := uint64(at.Sub(started) / (24 * time.Hour))
+		serviceMemory := make([]ServiceMemory, 0, len(requiredRuntimeMetricRoles))
+		for _, role := range requiredRuntimeMetricRoles {
+			heap := uint64(100<<20) + uint64((at.Sub(started)/(10*time.Minute))%6)*(2<<20)
+			if role == leakingRole {
+				heap += elapsedDays * dailyGrowth
+			}
+			serviceMemory = append(serviceMemory, ServiceMemory{Role: role,
+				ResidentMemoryBytes: heap + (20 << 20), HeapAllocBytes: heap, MemoryLimitBytes: 512 << 20})
+		}
+		evidence.Samples = append(evidence.Samples, Sample{ObservedAt: at, ServiceMemory: serviceMemory})
+	}
+	return evidence
 }
 
 type staticFaults struct{ events []FaultEvent }

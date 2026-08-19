@@ -186,7 +186,10 @@ func sampleFailureReasons(sample Sample) []string {
 	}{
 		{!shaPattern.MatchString(sample.DatabaseEvidenceHash) ||
 			!shaPattern.MatchString(sample.RuntimeEvidenceHash) ||
-			!shaPattern.MatchString(sample.DrillEvidenceHash), "sample_source_evidence_invalid"},
+			!shaPattern.MatchString(sample.DrillEvidenceHash) ||
+			!shaPattern.MatchString(sample.ObserverLifecycleHash) ||
+			sample.ObserverAttempt == 0 || sample.ObserverRecoveryCount > sample.ObserverFailureCount ||
+			!validServiceMemory(sample), "sample_source_evidence_invalid"},
 		{sample.StaleDecisions > 0, "stale_decision"},
 		{sample.UninvalidatedGaps > 0, "uninvalidated_gap"},
 		{sample.DuplicateOrders > 0, "duplicate_order"},
@@ -207,6 +210,28 @@ func sampleFailureReasons(sample Sample) []string {
 		{sample.ProhibitedCapabilityObserved, "prohibited_capability"},
 	}
 	return failedReasons(checks)
+}
+
+func validServiceMemory(sample Sample) bool {
+	if len(sample.ServiceMemory) != len(requiredRuntimeMetricRoles) {
+		return false
+	}
+	wanted := make(map[string]bool, len(requiredRuntimeMetricRoles))
+	for _, role := range requiredRuntimeMetricRoles {
+		wanted[role] = true
+	}
+	var resident, limit uint64
+	for _, memory := range sample.ServiceMemory {
+		if !wanted[memory.Role] || memory.ResidentMemoryBytes == 0 || memory.HeapAllocBytes == 0 ||
+			memory.MemoryLimitBytes == 0 || resident > ^uint64(0)-memory.ResidentMemoryBytes ||
+			limit > ^uint64(0)-memory.MemoryLimitBytes {
+			return false
+		}
+		delete(wanted, memory.Role)
+		resident += memory.ResidentMemoryBytes
+		limit += memory.MemoryLimitBytes
+	}
+	return len(wanted) == 0 && resident == sample.ResidentMemoryBytes && limit == sample.MemoryLimitBytes
 }
 
 func failedReasons(checks []struct {

@@ -754,6 +754,15 @@ without all exact identity and live-evidence inputs. Follow
 reference server has not been selected by repository configuration, so local
 success cannot pass the formal gate.
 
+The server-side D5 programs are versioned under `deploy/operational-readiness/`:
+`axiom-d5-start`, `axiom-d5-drill`, `axiom-d5-status`, and
+`axiom-d5-controller-event`. Install those exact executable files from the
+clean deployed commit; do not maintain untracked server-only variants. Run
+`make operational-readiness-controller-qualify` before installation. Each run
+copies and hashes its controller set into its own workspace. The observer and
+controller write separate redacted, hash-chained lifecycle streams; terminal
+cleanup detaches the shared observer and seals an evidence checksum manifest.
+
 ## 7. Automated strategy evaluation rollout after C6
 
 This rollout is deliberately deferred. Do not inspect, stop, or replace any C6

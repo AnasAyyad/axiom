@@ -34,13 +34,23 @@ type DatabaseTelemetry struct {
 
 // RuntimeTelemetry contains live, credential-free service and metrics facts.
 type RuntimeTelemetry struct {
-	ObservedAt             time.Time `json:"observed_at"`
-	DecodeBookP99Millis    uint64    `json:"decode_book_p99_ms"`
-	StrategyRiskP99Millis  uint64    `json:"strategy_risk_p99_ms"`
-	ResyncP95Millis        uint64    `json:"resync_p95_ms"`
-	ResidentMemoryBytes    uint64    `json:"resident_memory_bytes"`
-	MemoryLimitBytes       uint64    `json:"memory_limit_bytes"`
-	AllDeclaredLoadHealthy bool      `json:"all_declared_load_healthy"`
+	ObservedAt             time.Time       `json:"observed_at"`
+	DecodeBookP99Millis    uint64          `json:"decode_book_p99_ms"`
+	StrategyRiskP99Millis  uint64          `json:"strategy_risk_p99_ms"`
+	ResyncP95Millis        uint64          `json:"resync_p95_ms"`
+	ResidentMemoryBytes    uint64          `json:"resident_memory_bytes"`
+	MemoryLimitBytes       uint64          `json:"memory_limit_bytes"`
+	AllDeclaredLoadHealthy bool            `json:"all_declared_load_healthy"`
+	ServiceMemory          []ServiceMemory `json:"service_memory"`
+}
+
+// ServiceMemory preserves fixed-role memory evidence so a noisy aggregate
+// cannot be mistaken for a sustained leak in one process.
+type ServiceMemory struct {
+	Role                string `json:"role"`
+	ResidentMemoryBytes uint64 `json:"resident_memory_bytes"`
+	HeapAllocBytes      uint64 `json:"heap_alloc_bytes"`
+	MemoryLimitBytes    uint64 `json:"memory_limit_bytes"`
 }
 
 // DrillObservation is produced by the separately controlled rehearsal/fault
@@ -88,35 +98,59 @@ type LiveObserver struct {
 func (observer LiveObserver) Observe(ctx context.Context, revision uint64, observedAt time.Time) (Sample, error) {
 	if observer.Database == nil || observer.Runtime == nil || observer.Drill == nil ||
 		observer.Window <= 0 || observer.Window > 24*time.Hour || revision == 0 || observedAt.IsZero() {
-		return Sample{}, fmt.Errorf("operational_readiness_live_observer_invalid")
+		return Sample{}, sourceFailure("observer", "configuration", "", "configuration_invalid", false)
 	}
 	observedAt = observedAt.UTC()
 	database, err := observer.Database.Observe(ctx, observedAt.Add(-observer.Window), observedAt)
-	if err != nil || !freshSource(database.ObservedAt, observedAt, 2*time.Minute) ||
-		!freshSource(database.DiskObservedAt, observedAt, 2*time.Minute) {
-		return Sample{}, fmt.Errorf("operational_readiness_database_telemetry_unavailable")
+	if err != nil {
+		if _, ok := SourceFailureDetails(err); ok {
+			return Sample{}, err
+		}
+		return Sample{}, sourceFailure("database", "observation", "", "unavailable", true)
+	}
+	if !freshSource(database.ObservedAt, observedAt, 2*time.Minute) {
+		return Sample{}, sourceFailure("database", "freshness", "", "observation_stale", true)
+	}
+	if !freshSource(database.DiskObservedAt, observedAt, 2*time.Minute) {
+		return Sample{}, sourceFailure("database", "storage_pressure", "", "observation_stale", true)
 	}
 	runtime, err := observer.Runtime.Observe(ctx, observedAt)
-	if err != nil || !freshSource(runtime.ObservedAt, observedAt, 30*time.Second) ||
-		runtime.MemoryLimitBytes == 0 {
-		return Sample{}, fmt.Errorf("operational_readiness_runtime_telemetry_unavailable")
+	if err != nil {
+		if _, ok := SourceFailureDetails(err); ok {
+			return Sample{}, err
+		}
+		return Sample{}, sourceFailure("runtime", "observation", "", "unavailable", true)
+	}
+	if !freshSource(runtime.ObservedAt, observedAt, 30*time.Second) {
+		return Sample{}, sourceFailure("runtime", "freshness", "", "observation_stale", true)
+	}
+	if runtime.MemoryLimitBytes == 0 || len(runtime.ServiceMemory) != len(requiredRuntimeMetricRoles) {
+		return Sample{}, sourceFailure("runtime", "metrics", "", "memory_evidence_incomplete", false)
 	}
 	drill, err := observer.Drill.Observe(observedAt)
-	if err != nil || drill.SchemaVersion != DrillObservationSchema ||
-		!freshSource(drill.ObservedAt, observedAt, MaximumDrillAge) {
-		return Sample{}, fmt.Errorf("operational_readiness_drill_telemetry_unavailable")
+	if err != nil {
+		if _, ok := SourceFailureDetails(err); ok {
+			return Sample{}, err
+		}
+		return Sample{}, sourceFailure("drill", "observation", "", "unavailable", true)
+	}
+	if drill.SchemaVersion != DrillObservationSchema {
+		return Sample{}, sourceFailure("drill", "schema", "", "schema_invalid", false)
+	}
+	if !freshSource(drill.ObservedAt, observedAt, MaximumDrillAge) {
+		return Sample{}, sourceFailure("drill", "freshness", "", "observation_stale", true)
 	}
 	databaseHash, err := evidenceDigest(database)
 	if err != nil {
-		return Sample{}, fmt.Errorf("operational_readiness_database_telemetry_unavailable")
+		return Sample{}, sourceFailure("database", "evidence_hash", "", "encode_failed", false)
 	}
 	runtimeHash, err := evidenceDigest(runtime)
 	if err != nil {
-		return Sample{}, fmt.Errorf("operational_readiness_runtime_telemetry_unavailable")
+		return Sample{}, sourceFailure("runtime", "evidence_hash", "", "encode_failed", false)
 	}
 	drillHash, err := evidenceDigest(drill)
 	if err != nil {
-		return Sample{}, fmt.Errorf("operational_readiness_drill_telemetry_unavailable")
+		return Sample{}, sourceFailure("drill", "evidence_hash", "", "encode_failed", false)
 	}
 	return Sample{
 		ObservedAt: observedAt, SourceRevision: revision, DatabaseEvidenceHash: databaseHash,
@@ -132,7 +166,8 @@ func (observer LiveObserver) Observe(ctx context.Context, revision uint64, obser
 		SandboxRecoveryMillis: drill.SandboxRecoveryMillis,
 		DatabaseCommitRPOZero: drill.DatabaseCommitRPOZero, RecorderWithinFlushRPO: drill.RecorderWithinFlushRPO,
 		ResidentMemoryBytes: runtime.ResidentMemoryBytes, MemoryLimitBytes: runtime.MemoryLimitBytes,
-		DiskLevel: database.DiskLevel, HeavyJobsRejectedAtHigh: drill.HeavyJobsRejectedAtHigh,
+		ServiceMemory: runtime.ServiceMemory,
+		DiskLevel:     database.DiskLevel, HeavyJobsRejectedAtHigh: drill.HeavyJobsRejectedAtHigh,
 		RecordingPausedAtCritical:    drill.RecordingPausedAtCritical,
 		JournalAuditWritable:         drill.JournalAuditWritable,
 		AllDeclaredLoadHealthy:       runtime.AllDeclaredLoadHealthy && drill.DeclaredLoadExercised,
@@ -163,7 +198,7 @@ type FileDrillObservation struct{ Path string }
 func (source FileDrillObservation) Observe(time.Time) (DrillObservation, error) {
 	var value DrillObservation
 	if readStrictJSON(source.Path, &value) != nil {
-		return DrillObservation{}, fmt.Errorf("operational_readiness_drill_observation_invalid")
+		return DrillObservation{}, sourceFailure("drill", "file_read", "", "input_invalid", true)
 	}
 	value.ObservedAt = value.ObservedAt.UTC()
 	return value, nil

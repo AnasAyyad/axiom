@@ -35,6 +35,8 @@ const compose = requireTokens("docker-compose.yml", [
   "operational-readiness-observer:",
   "POSTGRES_OPERATIONAL_READINESS_USER",
   "AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE",
+  "AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE",
+  "AXIOM_OPERATIONAL_READINESS_OBSERVER_LIFECYCLE_FILE",
 ]);
 if (compose.includes("backup_data:")) {
   throw new Error(
@@ -136,6 +138,8 @@ requireTokens("cmd/operational-readiness-observer/main.go", [
   "PostgresTelemetrySource",
   "HTTPRuntimeTelemetrySource",
   "postgres_operational_readiness_password",
+  "observation_failed",
+  "source_recovered",
 ]);
 requireTokens("cmd/operational-readiness/main.go", [
   "AXIOM_OPERATIONAL_READINESS_ENABLED",
@@ -144,6 +148,27 @@ requireTokens("cmd/operational-readiness/main.go", [
   "PreflightProfileViennaRehearsal",
   "formal build identity mismatch",
   "AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE",
+]);
+requireTokens("deploy/operational-readiness/axiom-d5-start", [
+  "observer-status.json",
+  "observer-lifecycle.jsonl",
+  "controller-programs.sha256",
+  "formal_runner_started",
+]);
+requireTokens("deploy/operational-readiness/axiom-d5-drill", [
+  "drill_failed",
+  "observer_detached",
+  "evidence-manifest.sha256",
+]);
+requireTokens("deploy/operational-readiness/axiom-d5-status", [
+  "expected_timer_count",
+  "Latest interruption",
+  "Terminal failure details",
+  "verify_lifecycle_chain",
+]);
+requireTokens("deploy/operational-readiness/axiom-d5-controller-event", [
+  "verify_chain",
+  "prior_event_hash",
 ]);
 requireTokens("internal/qualification/operationalreadiness/checks.go", [
   "axiom.operational_readiness.preflight-report.v2",

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -48,6 +49,11 @@ type Runner struct {
 	Store     Store
 }
 
+const (
+	sampleAcquisitionTimeout = 2 * time.Minute
+	sampleAcquisitionRetry   = 2 * time.Second
+)
+
 // Run performs fail-closed preflight before starting the clock, then creates a
 // single non-resumable evidence chain. Any failure is terminal.
 func (runner Runner) Run(ctx context.Context, configuration Config) (Evidence, error) {
@@ -82,9 +88,14 @@ func (runner Runner) collect(ctx context.Context, configuration Config, evidence
 	for {
 		ordinal++
 		observedAt := runner.Clock.Now()
-		sample, err := runner.Probe.Observe(ctx, ordinal, observedAt)
+		sample, err, aborted := runner.acquireSample(ctx, ordinal, observedAt)
+		observedAt = runner.Clock.Now()
 		if err != nil {
-			appendFailure(evidence, "sample_unavailable", observedAt)
+			if aborted {
+				appendFailure(evidence, "operator_abort", observedAt)
+			} else {
+				appendProbeFailure(evidence, err, observedAt)
+			}
 			break
 		}
 		sample.Ordinal, sample.ObservedAt = ordinal, observedAt
@@ -103,12 +114,84 @@ func (runner Runner) collect(ctx context.Context, configuration Config, evidence
 		}
 		evidence.Samples = append(evidence.Samples, sample)
 		evaluateSample(evidence, sample)
+		if len(evidence.Failures) == 0 {
+			runner.evaluateFaultProgress(ctx, configuration, evidence, observedAt)
+		}
 		if len(evidence.Failures) > 0 || observedAt.Sub(evidence.StartedAt).Truncate(time.Second) >= configuration.Duration {
 			break
 		}
 		if err = runner.Clock.Wait(ctx, configuration.SampleInterval); err != nil {
 			appendFailure(evidence, "operator_abort", runner.Clock.Now())
 			break
+		}
+	}
+}
+
+func (runner Runner) evaluateFaultProgress(
+	ctx context.Context,
+	configuration Config,
+	evidence *Evidence,
+	observedAt time.Time,
+) {
+	events, err := runner.Faults.Events(ctx, configuration.Identity.RunID)
+	if err != nil {
+		appendFailureWithCause(evidence, "evidence_failure", "fault_evidence_unavailable",
+			SourceFailure{Source: "drill", Stage: "evidence_read"}, observedAt)
+		return
+	}
+	evidence.Faults = events
+	passed := make(map[string]bool, len(events))
+	expected := make(map[string]FaultSpec, len(configuration.FaultSchedule.Faults))
+	for _, spec := range configuration.FaultSchedule.Faults {
+		expected[spec.Scenario] = spec
+	}
+	for _, event := range events {
+		spec, known := expected[event.Scenario]
+		due := evidence.StartedAt.Add(time.Duration(spec.OffsetSeconds) * time.Second)
+		if !known || event.RunID != configuration.Identity.RunID || passed[event.Scenario] || event.State != "passed" ||
+			!shaPattern.MatchString(event.EvidenceHash) || event.OccurredAt.IsZero() ||
+			event.OccurredAt.Before(due) || event.OccurredAt.After(due.Add(15*time.Minute)) {
+			appendFailureWithCause(evidence, "fault_schedule_incomplete", "drill_evidence_invalid",
+				SourceFailure{Source: "drill", Stage: "schedule", Role: event.Scenario}, observedAt)
+			return
+		}
+		passed[event.Scenario] = true
+	}
+	for _, spec := range configuration.FaultSchedule.Faults {
+		deadline := evidence.StartedAt.Add(time.Duration(spec.OffsetSeconds)*time.Second + 15*time.Minute)
+		if observedAt.After(deadline) && !passed[spec.Scenario] {
+			appendFailureWithCause(evidence, "fault_schedule_incomplete", "drill_deadline_missed",
+				SourceFailure{Source: "drill", Stage: "schedule", Role: spec.Scenario}, observedAt)
+			return
+		}
+	}
+}
+
+func (runner Runner) acquireSample(
+	ctx context.Context,
+	ordinal uint64,
+	firstAttempt time.Time,
+) (Sample, error, bool) {
+	deadline := firstAttempt.Add(sampleAcquisitionTimeout)
+	for {
+		sample, err := runner.Probe.Observe(ctx, ordinal, runner.Clock.Now())
+		if err == nil {
+			return sample, nil, false
+		}
+		failure, retryable := probeFailureDetails(err)
+		if !retryable || !failure.Retryable || !runner.Clock.Now().Before(deadline) {
+			return Sample{}, err, false
+		}
+		remaining := deadline.Sub(runner.Clock.Now())
+		wait := sampleAcquisitionRetry
+		if remaining < wait {
+			wait = remaining
+		}
+		if wait <= 0 {
+			return Sample{}, err, false
+		}
+		if waitErr := runner.Clock.Wait(ctx, wait); waitErr != nil {
+			return Sample{}, waitErr, true
 		}
 	}
 }
@@ -121,8 +204,10 @@ func (runner Runner) finish(ctx context.Context, configuration Config, evidence 
 		appendFailure(&evidence, "evidence_failure", evidence.EndedAt)
 	}
 	evidence.Faults = faults
-	evaluateFaults(&evidence)
-	evaluateMemory(&evidence)
+	if evidence.ObservedDurationSeconds >= evidence.RequiredDurationSeconds && len(evidence.Failures) == 0 {
+		evaluateFaults(&evidence)
+		evaluateMemory(&evidence)
+	}
 	finalizeVerdict(&evidence, configuration)
 	if err = sealEvidence(configuration.SigningKey, &evidence); err != nil {
 		return Evidence{}, err
@@ -176,15 +261,62 @@ func evaluateFaults(evidence *Evidence) {
 }
 
 func evaluateMemory(evidence *Evidence) {
-	if len(evidence.Samples) < 2 {
+	const (
+		warmup = time.Hour
+		window = time.Hour
+	)
+	if evidence.EndedAt.Sub(evidence.StartedAt) < warmup+2*window {
 		return
 	}
-	first := evidence.Samples[0].ResidentMemoryBytes
-	last := evidence.Samples[len(evidence.Samples)-1].ResidentMemoryBytes
-	const tolerance = uint64(64 * 1024 * 1024)
-	if last > first+tolerance && last > first+first/10 {
-		appendFailure(evidence, "memory_leak", evidence.EndedAt)
+	firstStart, firstEnd := evidence.StartedAt.Add(warmup), evidence.StartedAt.Add(warmup+window)
+	lastStart := evidence.EndedAt.Add(-window)
+	for _, role := range requiredRuntimeMetricRoles {
+		firstValues := serviceHeapValues(evidence.Samples, role, firstStart, firstEnd)
+		lastValues := serviceHeapValues(evidence.Samples, role, lastStart, evidence.EndedAt.Add(time.Nanosecond))
+		if len(firstValues) == 0 || len(lastValues) == 0 {
+			appendFailureWithCause(evidence, "sample_source_evidence_invalid", "memory_window_incomplete",
+				SourceFailure{Source: "runtime", Stage: "memory_trend", Role: role}, evidence.EndedAt)
+			continue
+		}
+		first, last := lowWatermark(firstValues), lowWatermark(lastValues)
+		delta := int64(last) - int64(first)
+		positive := last > first+(8<<20) && last > first+first/20
+		evidence.MemoryTrends = append(evidence.MemoryTrends, MemoryTrend{Role: role,
+			WarmupSeconds: uint64(warmup.Seconds()), WindowSeconds: uint64(window.Seconds()),
+			FirstWindowSamples: uint64(len(firstValues)), LastWindowSamples: uint64(len(lastValues)),
+			FirstHeapBaselineBytes: first, LastHeapBaselineBytes: last, HeapDeltaBytes: delta,
+			PositiveLeakTrend: positive})
+		if positive {
+			appendFailureWithCause(evidence, "memory_leak", "post_warmup_heap_trend",
+				SourceFailure{Source: "runtime", Stage: "memory_trend", Role: role}, evidence.EndedAt)
+		}
 	}
+}
+
+func serviceHeapValues(samples []Sample, role string, start, end time.Time) []uint64 {
+	values := []uint64{}
+	for _, sample := range samples {
+		if sample.ObservedAt.Before(start) || !sample.ObservedAt.Before(end) {
+			continue
+		}
+		for _, memory := range sample.ServiceMemory {
+			if memory.Role == role {
+				values = append(values, memory.HeapAllocBytes)
+				break
+			}
+		}
+	}
+	return values
+}
+
+func lowWatermark(values []uint64) uint64 {
+	sorted := append([]uint64(nil), values...)
+	sort.Slice(sorted, func(left, right int) bool { return sorted[left] < sorted[right] })
+	index := len(sorted) / 10
+	if index >= len(sorted) {
+		index = len(sorted) - 1
+	}
+	return sorted[index]
 }
 
 func finalizeVerdict(evidence *Evidence, configuration Config) {
@@ -200,17 +332,39 @@ func finalizeVerdict(evidence *Evidence, configuration Config) {
 }
 
 func appendFailure(evidence *Evidence, reason string, occurredAt time.Time) {
+	appendFailureWithCause(evidence, reason, "", SourceFailure{}, occurredAt)
+}
+
+func appendProbeFailure(evidence *Evidence, err error, occurredAt time.Time) {
+	failure, ok := probeFailureDetails(err)
+	if !ok {
+		appendFailureWithCause(evidence, "sample_unavailable", "probe_unclassified", SourceFailure{}, occurredAt)
+		return
+	}
+	appendFailureWithCause(evidence, "sample_unavailable", failure.Reason, failure.SourceCause, occurredAt)
+}
+
+func appendFailureWithCause(
+	evidence *Evidence,
+	reason string,
+	causeCode string,
+	source SourceFailure,
+	occurredAt time.Time,
+) {
 	if !validFailureReason(reason) {
 		reason = "evidence_failure"
+		causeCode, source = "", SourceFailure{}
 	}
 	for _, existing := range evidence.Failures {
 		if existing.Reason == reason {
 			return
 		}
 	}
-	payload := reason + "\x1f" + occurredAt.Format(time.RFC3339Nano) + "\x1f" + evidence.Identity.RunID
+	payload := reason + "\x1f" + causeCode + "\x1f" + source.Source + "\x1f" + source.Stage + "\x1f" +
+		source.Role + "\x1f" + occurredAt.Format(time.RFC3339Nano) + "\x1f" + evidence.Identity.RunID
 	digest := sha256.Sum256([]byte(payload))
-	evidence.Failures = append(evidence.Failures, Failure{Reason: reason, OccurredAt: occurredAt,
+	evidence.Failures = append(evidence.Failures, Failure{Reason: reason, CauseCode: causeCode,
+		Source: source.Source, Stage: source.Stage, Role: source.Role, OccurredAt: occurredAt,
 		EvidenceHash: hex.EncodeToString(digest[:])})
 }
 

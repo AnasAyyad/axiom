@@ -152,40 +152,46 @@ type Config struct {
 
 // Sample is one bounded all-subsystem observation in the authenticated chain.
 type Sample struct {
-	Ordinal                      uint64    `json:"ordinal"`
-	ObservedAt                   time.Time `json:"observed_at"`
-	SourceRevision               uint64    `json:"source_revision"`
-	DatabaseEvidenceHash         string    `json:"database_evidence_hash"`
-	RuntimeEvidenceHash          string    `json:"runtime_evidence_hash"`
-	DrillEvidenceHash            string    `json:"drill_evidence_hash"`
-	PriorSampleHash              string    `json:"prior_sample_hash,omitempty"`
-	SampleHash                   string    `json:"sample_hash"`
-	StaleDecisions               uint64    `json:"stale_decisions"`
-	UninvalidatedGaps            uint64    `json:"uninvalidated_gaps"`
-	DuplicateOrders              uint64    `json:"duplicate_orders"`
-	LostFills                    uint64    `json:"lost_fills"`
-	DoublePostedFills            uint64    `json:"double_posted_fills"`
-	UnbalancedJournals           uint64    `json:"unbalanced_journals"`
-	ReplayMismatches             uint64    `json:"replay_mismatches"`
-	DecodeBookP99Millis          uint64    `json:"decode_book_p99_ms"`
-	StrategyRiskP99Millis        uint64    `json:"strategy_risk_p99_ms"`
-	ResyncP95Millis              uint64    `json:"resync_p95_ms"`
-	CriticalAlertMillis          uint64    `json:"critical_alert_ms"`
-	ExternalAlertP95Millis       uint64    `json:"external_alert_p95_ms"`
-	GracefulShutdownMillis       uint64    `json:"graceful_shutdown_ms"`
-	ShadowRecoveryMillis         uint64    `json:"shadow_recovery_ms"`
-	SandboxRecoveryMillis        uint64    `json:"sandbox_recovery_ms"`
-	DatabaseCommitRPOZero        bool      `json:"database_commit_rpo_zero"`
-	RecorderWithinFlushRPO       bool      `json:"recorder_within_flush_rpo"`
-	ResidentMemoryBytes          uint64    `json:"resident_memory_bytes"`
-	MemoryLimitBytes             uint64    `json:"memory_limit_bytes"`
-	DiskLevel                    string    `json:"disk_level"`
-	HeavyJobsRejectedAtHigh      bool      `json:"heavy_jobs_rejected_at_high"`
-	RecordingPausedAtCritical    bool      `json:"recording_paused_at_critical"`
-	JournalAuditWritable         bool      `json:"journal_audit_writable"`
-	AllDeclaredLoadHealthy       bool      `json:"all_declared_load_healthy"`
-	ProductionTargetObserved     bool      `json:"production_target_observed"`
-	ProhibitedCapabilityObserved bool      `json:"prohibited_capability_observed"`
+	Ordinal                      uint64          `json:"ordinal"`
+	ObservedAt                   time.Time       `json:"observed_at"`
+	SourceRevision               uint64          `json:"source_revision"`
+	DatabaseEvidenceHash         string          `json:"database_evidence_hash"`
+	RuntimeEvidenceHash          string          `json:"runtime_evidence_hash"`
+	DrillEvidenceHash            string          `json:"drill_evidence_hash"`
+	ObserverLifecycleHash        string          `json:"observer_lifecycle_hash"`
+	ObserverAttempt              uint64          `json:"observer_attempt"`
+	ObserverFailureCount         uint64          `json:"observer_failure_count"`
+	ObserverRecoveryCount        uint64          `json:"observer_recovery_count"`
+	ObserverLastOutageMillis     uint64          `json:"observer_last_outage_ms,omitempty"`
+	PriorSampleHash              string          `json:"prior_sample_hash,omitempty"`
+	SampleHash                   string          `json:"sample_hash"`
+	StaleDecisions               uint64          `json:"stale_decisions"`
+	UninvalidatedGaps            uint64          `json:"uninvalidated_gaps"`
+	DuplicateOrders              uint64          `json:"duplicate_orders"`
+	LostFills                    uint64          `json:"lost_fills"`
+	DoublePostedFills            uint64          `json:"double_posted_fills"`
+	UnbalancedJournals           uint64          `json:"unbalanced_journals"`
+	ReplayMismatches             uint64          `json:"replay_mismatches"`
+	DecodeBookP99Millis          uint64          `json:"decode_book_p99_ms"`
+	StrategyRiskP99Millis        uint64          `json:"strategy_risk_p99_ms"`
+	ResyncP95Millis              uint64          `json:"resync_p95_ms"`
+	CriticalAlertMillis          uint64          `json:"critical_alert_ms"`
+	ExternalAlertP95Millis       uint64          `json:"external_alert_p95_ms"`
+	GracefulShutdownMillis       uint64          `json:"graceful_shutdown_ms"`
+	ShadowRecoveryMillis         uint64          `json:"shadow_recovery_ms"`
+	SandboxRecoveryMillis        uint64          `json:"sandbox_recovery_ms"`
+	DatabaseCommitRPOZero        bool            `json:"database_commit_rpo_zero"`
+	RecorderWithinFlushRPO       bool            `json:"recorder_within_flush_rpo"`
+	ResidentMemoryBytes          uint64          `json:"resident_memory_bytes"`
+	MemoryLimitBytes             uint64          `json:"memory_limit_bytes"`
+	ServiceMemory                []ServiceMemory `json:"service_memory"`
+	DiskLevel                    string          `json:"disk_level"`
+	HeavyJobsRejectedAtHigh      bool            `json:"heavy_jobs_rejected_at_high"`
+	RecordingPausedAtCritical    bool            `json:"recording_paused_at_critical"`
+	JournalAuditWritable         bool            `json:"journal_audit_writable"`
+	AllDeclaredLoadHealthy       bool            `json:"all_declared_load_healthy"`
+	ProductionTargetObserved     bool            `json:"production_target_observed"`
+	ProhibitedCapabilityObserved bool            `json:"prohibited_capability_observed"`
 }
 
 // FaultEvent records one terminal orchestrator drill outcome.
@@ -200,8 +206,26 @@ type FaultEvent struct {
 // Failure records one stable terminal failure reason and evidence identity.
 type Failure struct {
 	Reason       string    `json:"reason"`
+	CauseCode    string    `json:"cause_code,omitempty"`
+	Source       string    `json:"source,omitempty"`
+	Stage        string    `json:"stage,omitempty"`
+	Role         string    `json:"role,omitempty"`
 	OccurredAt   time.Time `json:"occurred_at"`
 	EvidenceHash string    `json:"evidence_hash"`
+}
+
+// MemoryTrend records the post-warm-up, per-service low-watermark comparison
+// used for the sustained-memory verdict.
+type MemoryTrend struct {
+	Role                   string `json:"role"`
+	WarmupSeconds          uint64 `json:"warmup_seconds"`
+	WindowSeconds          uint64 `json:"window_seconds"`
+	FirstWindowSamples     uint64 `json:"first_window_samples"`
+	LastWindowSamples      uint64 `json:"last_window_samples"`
+	FirstHeapBaselineBytes uint64 `json:"first_heap_baseline_bytes"`
+	LastHeapBaselineBytes  uint64 `json:"last_heap_baseline_bytes"`
+	HeapDeltaBytes         int64  `json:"heap_delta_bytes"`
+	PositiveLeakTrend      bool   `json:"positive_leak_trend"`
 }
 
 // Evidence is the immutable authenticated operational readiness terminal verdict.
@@ -221,6 +245,7 @@ type Evidence struct {
 	Samples                 []Sample      `json:"samples"`
 	Faults                  []FaultEvent  `json:"faults"`
 	Failures                []Failure     `json:"failures"`
+	MemoryTrends            []MemoryTrend `json:"memory_trends"`
 	EvidenceHash            string        `json:"evidence_hash"`
 	SigningKeyFingerprint   string        `json:"signing_key_fingerprint"`
 	Signature               string        `json:"signature"`

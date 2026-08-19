@@ -85,6 +85,15 @@ disk growth, memory after warm-up, clock drift, database latency, alert state,
 and every pause/lock. Restarting the observation window after an unexplained
 failure does not erase the failure; it creates an incident and new evidence run.
 
+For D5, the sustained-memory decision is made independently for API, recorder,
+shadow engine, backtest worker, Binance sandbox engine, and Bybit sandbox
+engine. After a one-hour warm-up, the 10th-percentile heap allocation in the
+first one-hour window is compared with the same low-watermark in the final
+one-hour window. A positive trend requires both a rise greater than five percent
+and a rise greater than 8 MiB. This filters ordinary GC phase alignment without
+hiding a sustained service-specific increase. Missing windows and configured
+RSS-limit breaches remain terminal.
+
 For A7, `internal/qualification` fixes the declared load to BTC/USDT and
 ETH/USDT depth-at-100-ms, public trades, and 4-hour candle streams, with
 5,000-level snapshots, 1,000 published levels, an 8,192-event collector queue,

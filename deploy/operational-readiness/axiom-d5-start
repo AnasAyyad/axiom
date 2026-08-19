@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+umask 0027
+
+readonly release=/opt/axiom-release
+readonly readiness=/srv/axiom-data/operational-readiness
+readonly go_image=sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+readonly signing_key=/etc/axiom/d5/preflight-signing-key
+
+cd "${release}"
+readonly source_sha="$(git rev-parse HEAD)"
+readonly source_short="${source_sha:0:8}"
+readonly drill_program="${release}/deploy/operational-readiness/axiom-d5-drill"
+readonly event_program="${release}/deploy/operational-readiness/axiom-d5-controller-event"
+readonly start_program="$(readlink -f "$0")"
+readonly status_program="${release}/deploy/operational-readiness/axiom-d5-status"
+test "$(git rev-parse HEAD)" = "${source_sha}"
+test -z "$(git status --porcelain)"
+test "$(timedatectl show -p NTPSynchronized --value)" = yes
+test -s "${signing_key}"
+test -x "${drill_program}"
+test -x "${event_program}"
+! systemctl list-units --all --plain --no-legend 'axiom-d5-formal-*' | grep -q .
+! docker ps -a --format '{{.Names}}' | grep -q '^axiom-d5-formal-'
+
+readonly template_root="$(find "${readiness}/rehearsal-${source_short}" -maxdepth 1 -type d -name 'strict-preflight-*' -print0 | xargs -0 -r ls -1dt | head -1)"
+test -n "${template_root}"
+jq -e '.ready == true and .preflight_passed == true and .sample_passed == true and .formal_clock_started == false' \
+  "${template_root}/preflight-report.json" >/dev/null
+
+readonly compact_now="$(date -u +%Y%m%dt%H%M%Sz | tr '[:upper:]' '[:lower:]')"
+readonly run_id="d5-formal-${source_short}-${compact_now}"
+readonly workspace="${readiness}/formal/${run_id}"
+readonly evidence_root=/evidence/evidence
+readonly host_evidence_root="${workspace}/evidence"
+readonly unit="axiom-d5-formal-${source_short}-${compact_now}"
+readonly container="${unit}"
+formal_started=false
+start_phase=workspace_create
+fail_closed_start() {
+  local status=$?
+  if (( status != 0 )); then
+    if [[ "${formal_started}" == true ]]; then
+      systemctl stop "${unit}.service" >/dev/null 2>&1 || true
+    fi
+    if [[ -d "${workspace}" ]]; then
+      if [[ -x "${workspace}/controller/axiom-d5-controller-event" ]]; then
+        "${workspace}/controller/axiom-d5-controller-event" "${workspace}" start_failed "${start_phase}" FAILED controller_command_failed || true
+      fi
+      printf 'start_failed_at=%s\nformal_started=%s\nexit_status=%s\nphase=%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${formal_started}" "${status}" \
+        "${start_phase}" \
+        > "${workspace}/start-failure.log"
+      chmod 0440 "${workspace}/start-failure.log"
+    fi
+  fi
+  exit "${status}"
+}
+trap fail_closed_start EXIT
+install -d -m 0750 "${workspace}" "${host_evidence_root}" "${workspace}/drills"
+chown 10001:70 "${workspace}"
+install -d -o root -g root -m 0750 "${workspace}/controller"
+install -o root -g root -m 0550 "${drill_program}" "${workspace}/controller/axiom-d5-drill"
+install -o root -g root -m 0500 "${start_program}" "${workspace}/controller/axiom-d5-start"
+install -o root -g root -m 0550 "${status_program}" "${workspace}/controller/axiom-d5-status"
+install -o root -g root -m 0550 "${event_program}" "${workspace}/controller/axiom-d5-controller-event"
+readonly run_drill_program="${workspace}/controller/axiom-d5-drill"
+readonly run_event_program="${workspace}/controller/axiom-d5-controller-event"
+"${run_event_program}" "${workspace}" workspace_created start RUNNING
+
+start_phase=input_binding
+readonly recorder_container="$(docker compose --env-file .env --profile '*' ps -q recorder)"
+readonly market_root="$(docker inspect "${recorder_container}" | jq -er '.[0].Mounts[] | select(.Destination == "/var/lib/axiom/market-data") | .Source')"
+find "${market_root}" -type f -printf '%P\n' | sort > "${workspace}/dataset-inventory.txt"
+readonly dataset_identity="$(sha256sum "${workspace}/dataset-inventory.txt" | cut -d' ' -f1)"
+readonly configuration_hash="$(docker compose --env-file .env --profile operational-readiness --profile observability --profile edge config | sha256sum | cut -d' ' -f1)"
+readonly now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+readonly latest_backup="$(find /srv/axiom-remote-backup -maxdepth 1 -type f -name 'axiom-*.manifest.json' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+test -n "${latest_backup}"
+readonly backup_age="$(( $(date -u +%s) - $(stat -c %Y "${latest_backup}") ))"
+test "${backup_age}" -lt 86400
+readonly clock_offset_ms="$(chronyc tracking | awk '/System time/{value=$4; if (value < 0) value=-value; printf "%.0f", value*1000}')"
+test "${clock_offset_ms}" -le 100
+
+jq --arg run_id "${run_id}" --arg source_sha "${source_sha}" \
+  --arg configuration_hash "${configuration_hash}" --arg dataset_identity "${dataset_identity}" \
+  --arg evidence_root "${evidence_root}" \
+  '.identity.run_id=$run_id | .identity.source_sha=$source_sha | .identity.source_dirty=false |
+   .identity.configuration_hash=$configuration_hash | .identity.dataset_identity=$dataset_identity |
+   .evidence_root=$evidence_root' "${template_root}/run.json" > "${workspace}/run.json"
+
+jq --arg checked_at "${now}" --argjson backup_age "${backup_age}" --argjson clock_offset "${clock_offset_ms}" \
+  '.checked_at=$checked_at | .backup_age_seconds=$backup_age | .clock_offset_ms=$clock_offset' \
+  "${template_root}/preflight.json" > "${workspace}/preflight.json"
+jq --arg observed_at "${now}" '.observed_at=$observed_at' \
+  "${template_root}/drill-observation.json" > "${workspace}/drill-observation.json"
+printf '[]\n' > "${workspace}/fault-evidence.json"
+
+chown 10001:70 "${workspace}/drill-observation.json"
+chmod 0440 "${workspace}/run.json" "${workspace}/preflight.json" \
+  "${workspace}/drill-observation.json" "${workspace}/fault-evidence.json"
+chmod 0440 "${workspace}/dataset-inventory.txt"
+sync "${workspace}/run.json" "${workspace}/preflight.json" \
+  "${workspace}/drill-observation.json" "${workspace}/fault-evidence.json"
+"${run_event_program}" "${workspace}" inputs_bound start RUNNING
+
+start_phase=observer_start
+"${run_event_program}" "${workspace}" observer_starting observer RUNNING
+OPERATIONAL_READINESS_HOST_PATH="${workspace}" \
+  docker compose --env-file .env --profile operational-readiness up -d --no-deps --force-recreate operational-readiness-observer
+for _ in $(seq 1 60); do
+  if test -s "${workspace}/sample.json" && \
+    test "$(docker inspect -f '{{.State.Health.Status}}' axiom-operational-readiness-observer-1)" = healthy; then
+    break
+  fi
+  sleep 2
+done
+test -s "${workspace}/sample.json"
+test -s "${workspace}/observer-status.json"
+test -s "${workspace}/observer-lifecycle.jsonl"
+test "$(docker inspect -f '{{.State.Health.Status}}' axiom-operational-readiness-observer-1)" = healthy
+test "$(docker inspect axiom-operational-readiness-observer-1 | jq -r '.[0].Mounts[] | select(.Destination == "/var/lib/axiom/operational-readiness") | .Source')" = "${workspace}"
+"${run_event_program}" "${workspace}" observer_ready observer PASSED
+
+start_phase=strict_preflight
+docker run --rm \
+  -v "${release}:/src:ro" -v "${workspace}:/evidence:ro" \
+  -v "${signing_key}:/signing-key:ro" \
+  -v axiom_d5_go_mod:/go/pkg/mod -v axiom_d5_go_build:/root/.cache/go-build \
+  -w /src \
+  -e AXIOM_OPERATIONAL_READINESS_ENABLED=1 -e AXIOM_OPERATIONAL_READINESS_MODE=formal \
+  -e AXIOM_OPERATIONAL_READINESS_RUN_FILE=/evidence/run.json \
+  -e AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE=/src/deploy/config/operational-readiness-test-manifest-v1.json \
+  -e AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE=/src/deploy/config/operational-readiness-fault-schedule-v1.json \
+  -e AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE=/evidence/preflight.json \
+  -e AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE=/evidence/sample.json \
+  -e AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE=/evidence/observer-status.json \
+  -e AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE=/signing-key \
+  -e AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK=1 \
+  -e AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE=strict \
+  "${go_image}" /usr/local/go/bin/go run \
+    -ldflags "-X axiom/internal/buildinfo.Commit=${source_sha} -X axiom/internal/buildinfo.Dirty=false" \
+    ./cmd/operational-readiness > "${workspace}/preflight-report.json" \
+    2> "${workspace}/preflight-report.stderr.log"
+jq -e '.ready == true and .preflight_passed == true and .sample_passed == true and .formal_clock_started == false and .qualified == false' \
+  "${workspace}/preflight-report.json" >/dev/null
+chmod 0440 "${workspace}/sample.json" "${workspace}/observer-status.json" \
+  "${workspace}/preflight-report.json" "${workspace}/preflight-report.stderr.log"
+"${run_event_program}" "${workspace}" strict_preflight_passed preflight PASSED
+
+start_phase=controller_seal
+docker run --rm -v "${release}:/src:ro" -v "${workspace}:/evidence" \
+  -v axiom_d5_go_mod:/go/pkg/mod -v axiom_d5_go_build:/root/.cache/go-build \
+  -w /src "${go_image}" /usr/local/go/bin/go build -trimpath \
+  -ldflags "-X axiom/internal/buildinfo.Commit=${source_sha} -X axiom/internal/buildinfo.Dirty=false" \
+  -o /evidence/controller/operational-readiness ./cmd/operational-readiness
+chmod 0550 "${workspace}/controller/operational-readiness"
+
+sha256sum "${workspace}/controller/operational-readiness" \
+  "${workspace}/controller/axiom-d5-drill" \
+  "${workspace}/controller/axiom-d5-start" "${workspace}/controller/axiom-d5-status" \
+  "${workspace}/controller/axiom-d5-controller-event" \
+  > "${workspace}/controller-programs.sha256"
+readonly controller_manifest_hash="$(sha256sum "${workspace}/controller-programs.sha256" | cut -d' ' -f1)"
+printf 'controller_manifest_sha256=%s\n' "${controller_manifest_hash}" > "${workspace}/controller-manifest.log"
+chmod 0440 "${workspace}/controller-programs.sha256" "${workspace}/controller-manifest.log"
+sync "${workspace}"
+
+start_phase=formal_runner_start
+"${run_event_program}" "${workspace}" formal_runner_starting runner RUNNING
+systemd-run --unit="${unit}" --description="Axiom formal D5 ${run_id}" \
+  --property=Type=exec --property=Restart=no --property=TimeoutStopSec=45 \
+  /usr/bin/docker run --rm --name "${container}" \
+    -v "${release}:/src:ro" -v "${workspace}:/evidence" \
+    -v "${signing_key}:/signing-key:ro" \
+    -w /src \
+    -e AXIOM_OPERATIONAL_READINESS_ENABLED=1 -e AXIOM_OPERATIONAL_READINESS_MODE=formal \
+    -e AXIOM_OPERATIONAL_READINESS_RUN_FILE=/evidence/run.json \
+    -e AXIOM_OPERATIONAL_READINESS_TEST_MANIFEST_FILE=/src/deploy/config/operational-readiness-test-manifest-v1.json \
+    -e AXIOM_OPERATIONAL_READINESS_FAULT_SCHEDULE_FILE=/src/deploy/config/operational-readiness-fault-schedule-v1.json \
+    -e AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE=/evidence/preflight.json \
+    -e AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE=/evidence/sample.json \
+    -e AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE=/evidence/observer-status.json \
+    -e AXIOM_OPERATIONAL_READINESS_FAULT_EVIDENCE_FILE=/evidence/fault-evidence.json \
+    -e AXIOM_OPERATIONAL_READINESS_SIGNING_KEY_FILE=/signing-key \
+    -e AXIOM_OPERATIONAL_READINESS_PREFLIGHT_CHECK=0 \
+    -e AXIOM_OPERATIONAL_READINESS_PREFLIGHT_PROFILE=strict \
+    "${go_image}" /evidence/controller/operational-readiness >/dev/null
+formal_started=true
+
+for _ in $(seq 1 120); do
+  test -s "${host_evidence_root}/${run_id}/start.json" && break
+  sleep 1
+done
+readonly start_file="${host_evidence_root}/${run_id}/start.json"
+test -s "${start_file}"
+readonly started_at="$(jq -r .started_at "${start_file}")"
+readonly started_epoch="$(date -u -d "${started_at}" +%s)"
+"${run_event_program}" "${workspace}" formal_runner_started runner RUNNING
+
+start_phase=drill_schedule
+index=0
+while IFS=$'\t' read -r scenario offset; do
+  index=$((index + 1))
+  due_epoch=$((started_epoch + offset))
+  due="$(date -u -d "@${due_epoch}" '+%Y-%m-%d %H:%M:%S UTC')"
+  timer_unit="axiom-d5-drill-$(printf '%02d' "${index}")-${source_short}-${compact_now}"
+  systemd-run --unit="${timer_unit}" --description="Axiom D5 ${scenario}" \
+    --on-calendar="${due}" --timer-property=Persistent=false \
+    "${run_drill_program}" "${workspace}" "${scenario}" >/dev/null
+  printf '%02d\t%s\t%s\t%s\n' "${index}" "${scenario}" "${offset}" "${due}" >> "${workspace}/timer-schedule.tsv"
+done < <(jq -r '.faults[] | [.scenario,.offset_seconds] | @tsv' deploy/config/operational-readiness-fault-schedule-v1.json)
+chmod 0440 "${workspace}/timer-schedule.tsv"
+sync "${workspace}/timer-schedule.tsv"
+
+readonly guard_unit="${unit}-drill-guard"
+systemd-run --unit="${guard_unit}" --description="Axiom D5 terminal drill cleanup ${run_id}" \
+  --property=Type=exec --property=Restart=no \
+  "${run_drill_program}" "${workspace}" cleanup >/dev/null
+
+systemctl is-active --quiet "${unit}.service"
+systemctl is-active --quiet "${guard_unit}.service"
+test "$(systemctl show "${unit}.service" -p NRestarts --value)" = 0
+test "$(systemctl list-timers --all --plain --no-legend "axiom-d5-drill-*-${source_short}-${compact_now}.timer" | wc -l)" -eq 7
+"${run_event_program}" "${workspace}" drills_scheduled drills RUNNING
+
+start_phase=run_pointer
+cat > "${readiness}/active-formal-run.json.tmp" <<EOF
+{
+  "run_id": "${run_id}",
+  "source_sha": "${source_sha}",
+  "workspace": "${workspace}",
+  "unit": "${unit}.service",
+  "started_at": "${started_at}",
+  "expected_end_at": "$(date -u -d "@$((started_epoch + 604800))" +%Y-%m-%dT%H:%M:%SZ)",
+  "state": "RUNNING"
+}
+EOF
+chmod 0440 "${readiness}/active-formal-run.json.tmp"
+sync "${readiness}/active-formal-run.json.tmp"
+mv "${readiness}/active-formal-run.json.tmp" "${readiness}/active-formal-run.json"
+install -o root -g root -m 0440 "${readiness}/active-formal-run.json" \
+  "${workspace}/controller/run-pointer.json"
+sync "${readiness}"
+sync "${workspace}/controller/run-pointer.json"
+"${run_event_program}" "${workspace}" run_pointer_written start PASSED
+trap - EXIT
+
+printf 'run_id=%s\nworkspace=%s\nunit=%s.service\nstarted_at=%s\nexpected_end_at=%s\n' \
+  "${run_id}" "${workspace}" "${unit}" "${started_at}" \
+  "$(date -u -d "@$((started_epoch + 604800))" +%Y-%m-%dT%H:%M:%SZ)"
+systemctl list-timers --all --plain --no-pager "axiom-d5-drill-*-${source_short}-${compact_now}.timer"

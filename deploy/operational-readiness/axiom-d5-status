@@ -1,0 +1,544 @@
+#!/usr/bin/env bash
+set -uo pipefail
+IFS=$'\n\t'
+
+readonly READINESS_ROOT=/srv/axiom-data/operational-readiness
+readonly RELEASE_ROOT=/opt/axiom-release
+readonly DEFAULT_ACTIVE_FILE=${READINESS_ROOT}/active-formal-run.json
+
+script_path="$(readlink -f "$0")"
+script_dir="$(dirname "${script_path}")"
+bound_workspace="$(dirname "${script_dir}")"
+if [[ "$(basename "${script_dir}")" == controller && -s "${bound_workspace}/controller/run-pointer.json" ]]; then
+  readonly ACTIVE_FILE=${bound_workspace}/controller/run-pointer.json
+else
+  readonly ACTIVE_FILE=${DEFAULT_ACTIVE_FILE}
+fi
+
+WATCH_SECONDS=0
+COLOR_MODE=auto
+
+usage() {
+  cat <<'EOF'
+Usage: axiom-d5-status [--watch [SECONDS]] [--no-color] [--help]
+
+Show a read-only dashboard for the active formal D5 run. A copy sealed inside a
+run workspace automatically stays bound to that run.
+
+  --watch [SECONDS]  Refresh continuously; default interval is 30 seconds.
+  --no-color         Disable ANSI colors. NO_COLOR=1 also disables colors.
+  --help             Show this help.
+
+Examples:
+  axiom-d5-status
+  axiom-d5-status --watch 15
+  NO_COLOR=1 axiom-d5-status | tee d5-status.log
+EOF
+}
+
+while (($#)); do
+  case "$1" in
+    --watch)
+      WATCH_SECONDS=30
+      if [[ ${2:-} =~ ^[0-9]+$ ]]; then
+        WATCH_SECONDS="$2"
+        shift
+      fi
+      ;;
+    --no-color)
+      COLOR_MODE=never
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if ((WATCH_SECONDS > 0 && WATCH_SECONDS < 5)); then
+  printf 'Watch interval must be at least 5 seconds.\n' >&2
+  exit 2
+fi
+
+if [[ "${COLOR_MODE}" == auto && -t 1 && -z ${NO_COLOR:-} && ${TERM:-dumb} != dumb ]]; then
+  readonly RESET=$'\033[0m'
+  readonly BOLD=$'\033[1m'
+  readonly DIM=$'\033[2m'
+  readonly RED=$'\033[31m'
+  readonly GREEN=$'\033[32m'
+  readonly YELLOW=$'\033[33m'
+  readonly BLUE=$'\033[34m'
+  readonly CYAN=$'\033[36m'
+else
+  readonly RESET='' BOLD='' DIM='' RED='' GREEN='' YELLOW='' BLUE='' CYAN=''
+fi
+
+human_duration() {
+  local value=${1:-0} days hours minutes seconds result=''
+  ((value < 0)) && value=0
+  days=$((value / 86400))
+  hours=$(((value % 86400) / 3600))
+  minutes=$(((value % 3600) / 60))
+  seconds=$((value % 60))
+  ((days > 0)) && result+="${days}d "
+  ((hours > 0 || days > 0)) && result+="${hours}h "
+  ((minutes > 0 || hours > 0 || days > 0)) && result+="${minutes}m "
+  result+="${seconds}s"
+  printf '%s' "${result}"
+}
+
+human_bytes() {
+  if command -v numfmt >/dev/null 2>&1; then
+    numfmt --to=iec-i --suffix=B "${1:-0}" 2>/dev/null || printf '%sB' "${1:-0}"
+  else
+    printf '%sB' "${1:-0}"
+  fi
+}
+
+short_time() {
+  date -u -d "$1" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || printf '%s' "$1"
+}
+
+label_for_scenario() {
+  case "$1" in
+    public_collector_disconnect_and_gap_recovery) printf 'Collector disconnect and recovery' ;;
+    recorder_kill_during_segment_finalize) printf 'Recorder kill during finalize' ;;
+    shadow_worker_restart_and_checkpoint_recovery) printf 'Shadow restart and checkpoint recovery' ;;
+    database_restart_and_outbox_recovery) printf 'Database restart and outbox recovery' ;;
+    high_disk_watermark_heavy_job_rejection) printf 'High-disk heavy-job rejection' ;;
+    critical_disk_watermark_safe_pause) printf 'Critical-disk safe pause' ;;
+    encrypted_backup_clean_restore) printf 'Encrypted backup and clean restore' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+rule() {
+  printf '%s%s%s\n' "${DIM}" '----------------------------------------------------------------------------' "${RESET}"
+}
+
+section() {
+  printf '\n%s%s%s\n' "${BOLD}${CYAN}" "$1" "${RESET}"
+  rule
+}
+
+kv() {
+  printf '  %-23s %s\n' "$1" "$2"
+}
+
+ok_text() { printf '%sOK%s' "${GREEN}" "${RESET}"; }
+warn_text() { printf '%sWARN%s' "${YELLOW}" "${RESET}"; }
+bad_text() { printf '%sFAIL%s' "${RED}" "${RESET}"; }
+
+verify_lifecycle_chain() {
+  local path=$1 expected_sequence=1 prior='' line sequence linked declared calculated
+  [[ -s ${path} ]] || return 1
+  while IFS= read -r line; do
+    jq -e . >/dev/null 2>&1 <<<"${line}" || return 1
+    sequence=$(jq -er '.sequence' <<<"${line}") || return 1
+    linked=$(jq -r '.prior_event_hash // ""' <<<"${line}") || return 1
+    declared=$(jq -er '.event_hash | select(test("^[0-9a-f]{64}$"))' <<<"${line}") || return 1
+    if [[ $(jq -r '.schema_version' <<<"${line}") == axiom.operational_readiness.observer-lifecycle.v1 ]]; then
+      calculated=$(jq -c '.event_hash=""' <<<"${line}" | sha256sum | cut -d' ' -f1)
+    else
+      calculated=$(jq -c 'del(.event_hash)' <<<"${line}" | sha256sum | cut -d' ' -f1)
+    fi
+    [[ ${sequence} == "${expected_sequence}" && ${linked} == "${prior}" && ${declared} == "${calculated}" ]] || return 1
+    prior=${declared}
+    expected_sequence=$((expected_sequence + 1))
+  done < "${path}"
+}
+
+render() {
+  local now_epoch now_utc run_id workspace unit started_at expected_end_at source_sha app_image config_hash
+  local start_epoch end_epoch clock_epoch terminal_epoch terminal_time elapsed remaining progress filled empty bar
+  local runner_state runner_substate runner_pid restarts verdict_file verdict_state qualified
+  local sample_file sample_count sample_age sample_epoch chain_ok source_revision
+  local observer_health api_ready services_running services_unhealthy clock_sync clock_offset
+  local disk_available disk_use backup_mounted backup_age latest_backup evidence_size preflight_ready controller_ok
+  local faults_total faults_completed faults_failed timer_suffix timer_count expected_timer_count next_name next_due next_remaining
+  local observer_status_file observer_lifecycle_file controller_lifecycle_file observer_last_success observer_failures
+  local observer_failure_count observer_recovery_count observer_last_outage
+  local observer_reason observer_source observer_stage observer_role observer_attempt_failures observer_recoveries
+  local observer_chain_ok controller_chain_ok
+  local observer_last_failure_event observer_interruption_state
+  local memory memory_limit zero_ok load_ok prod_seen prohibited_seen
+  local stale gaps duplicates lost_fills double_fills journals replay
+  local decode_p99 risk_p99 resync_p95 alert_ms external_alert_ms
+  local shadow_recovery sandbox_recovery disk_level
+  local database_rpo recorder_rpo heavy_rejected recording_paused journal_writable
+  local issue_count=0
+  local -a issues=()
+
+  now_epoch=$(date -u +%s)
+  now_utc=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+  if [[ ! -s "${ACTIVE_FILE}" ]] || ! jq -e . "${ACTIVE_FILE}" >/dev/null 2>&1; then
+    printf '%s%sD5 STATUS: NO ACTIVE RUN%s\n' "${BOLD}" "${RED}" "${RESET}"
+    printf 'No valid active-run pointer exists at %s.\n' "${ACTIVE_FILE}"
+    return 2
+  fi
+
+  run_id=$(jq -r '.run_id // empty' "${ACTIVE_FILE}")
+  workspace=$(jq -r '.workspace // empty' "${ACTIVE_FILE}")
+  unit=$(jq -r '.unit // empty' "${ACTIVE_FILE}")
+  started_at=$(jq -r '.started_at // empty' "${ACTIVE_FILE}")
+  expected_end_at=$(jq -r '.expected_end_at // empty' "${ACTIVE_FILE}")
+  source_sha=$(jq -r '.source_sha // empty' "${ACTIVE_FILE}")
+  app_image=$(jq -r '.identity.image_digests.app // "unknown"' "${workspace}/run.json" 2>/dev/null || printf 'unknown')
+  config_hash=$(jq -r '.identity.configuration_hash // "unknown"' "${workspace}/run.json" 2>/dev/null || printf 'unknown')
+  sample_file="${workspace}/evidence/${run_id}/samples.jsonl"
+  verdict_file="${workspace}/evidence/${run_id}/verdict.json"
+
+  verdict_state=pending
+  qualified=false
+  clock_epoch=${now_epoch}
+  if [[ -s "${verdict_file}" ]]; then
+    verdict_state=$(jq -r '.state // "unknown"' "${verdict_file}" 2>/dev/null || printf 'invalid')
+    qualified=$(jq -r '.qualified // false' "${verdict_file}" 2>/dev/null || printf 'false')
+    terminal_time=$(jq -r '.ended_at // empty' "${verdict_file}" 2>/dev/null || true)
+    terminal_epoch=$(date -u -d "${terminal_time}" +%s 2>/dev/null || printf '0')
+    ((terminal_epoch > 0)) && clock_epoch=${terminal_epoch}
+  fi
+
+  start_epoch=$(date -u -d "${started_at}" +%s 2>/dev/null || printf '0')
+  end_epoch=$(date -u -d "${expected_end_at}" +%s 2>/dev/null || printf '0')
+  elapsed=$((clock_epoch - start_epoch))
+  if [[ ${verdict_state} == pending ]]; then
+    remaining=$((end_epoch - now_epoch))
+  else
+    remaining=0
+  fi
+  ((elapsed < 0)) && elapsed=0
+  ((remaining < 0)) && remaining=0
+  if ((end_epoch > start_epoch)); then
+    progress=$((elapsed * 10000 / (end_epoch - start_epoch)))
+  else
+    progress=0
+  fi
+  ((progress > 10000)) && progress=10000
+  filled=$((progress * 32 / 10000))
+  empty=$((32 - filled))
+  printf -v bar '%*s' "${filled}" ''
+  bar=${bar// /#}
+  printf -v empty_bar '%*s' "${empty}" ''
+  empty_bar=${empty_bar// /-}
+  bar+="${empty_bar}"
+
+  runner_state=$(systemctl is-active "${unit}" 2>/dev/null || true)
+  runner_substate=$(systemctl show "${unit}" -p SubState --value 2>/dev/null || printf 'unknown')
+  runner_pid=$(systemctl show "${unit}" -p MainPID --value 2>/dev/null || printf '0')
+  restarts=$(systemctl show "${unit}" -p NRestarts --value 2>/dev/null || printf 'unknown')
+  [[ -z ${restarts} ]] && restarts=unknown
+
+  sample_count=0
+  sample_age=-1
+  chain_ok=true
+  source_revision=0
+  latest='{}'
+  if [[ -s "${sample_file}" ]]; then
+    sample_count=$(wc -l < "${sample_file}")
+    latest=$(tail -1 "${sample_file}")
+    sample_time=$(jq -r '.observed_at // empty' <<<"${latest}")
+    sample_epoch=$(date -u -d "${sample_time}" +%s 2>/dev/null || printf '0')
+    sample_age=$((now_epoch - sample_epoch))
+    source_revision=$(jq -r '.source_revision // 0' <<<"${latest}")
+    chain_ok=$(jq -s '
+      length > 0 and
+      . as $all | all(range(0; length); . as $index | $all[$index] as $sample |
+        ($sample.ordinal == $index + 1) and
+        ($sample.sample_hash | test("^[0-9a-f]{64}$")) and
+        (if $index == 0 then ($sample.prior_sample_hash // "") == ""
+         else $sample.prior_sample_hash == $all[$index-1].sample_hash and
+              $sample.source_revision > $all[$index-1].source_revision end))
+    ' "${sample_file}" 2>/dev/null || printf 'false')
+  fi
+
+  stale=$(jq -r '.stale_decisions // -1' <<<"${latest}")
+  gaps=$(jq -r '.uninvalidated_gaps // -1' <<<"${latest}")
+  duplicates=$(jq -r '.duplicate_orders // -1' <<<"${latest}")
+  lost_fills=$(jq -r '.lost_fills // -1' <<<"${latest}")
+  double_fills=$(jq -r '.double_posted_fills // -1' <<<"${latest}")
+  journals=$(jq -r '.unbalanced_journals // -1' <<<"${latest}")
+  replay=$(jq -r '.replay_mismatches // -1' <<<"${latest}")
+  load_ok=$(jq -r '.all_declared_load_healthy // false' <<<"${latest}")
+  prod_seen=$(jq -r 'if has("production_target_observed") then .production_target_observed else true end' <<<"${latest}")
+  prohibited_seen=$(jq -r 'if has("prohibited_capability_observed") then .prohibited_capability_observed else true end' <<<"${latest}")
+  memory=$(jq -r '.resident_memory_bytes // 0' <<<"${latest}")
+  memory_limit=$(jq -r '.memory_limit_bytes // 0' <<<"${latest}")
+  decode_p99=$(jq -r '.decode_book_p99_ms // 0' <<<"${latest}")
+  risk_p99=$(jq -r '.strategy_risk_p99_ms // 0' <<<"${latest}")
+  resync_p95=$(jq -r '.resync_p95_ms // 0' <<<"${latest}")
+  alert_ms=$(jq -r '.critical_alert_ms // 0' <<<"${latest}")
+  external_alert_ms=$(jq -r '.external_alert_p95_ms // 0' <<<"${latest}")
+  shadow_recovery=$(jq -r '.shadow_recovery_ms // 0' <<<"${latest}")
+  sandbox_recovery=$(jq -r '.sandbox_recovery_ms // 0' <<<"${latest}")
+  disk_level=$(jq -r '.disk_level // "unknown"' <<<"${latest}")
+  database_rpo=$(jq -r '.database_commit_rpo_zero // false' <<<"${latest}")
+  recorder_rpo=$(jq -r '.recorder_within_flush_rpo // false' <<<"${latest}")
+  heavy_rejected=$(jq -r '.heavy_jobs_rejected_at_high // false' <<<"${latest}")
+  recording_paused=$(jq -r '.recording_paused_at_critical // false' <<<"${latest}")
+  journal_writable=$(jq -r '.journal_audit_writable // false' <<<"${latest}")
+  if [[ ${stale} == 0 && ${gaps} == 0 && ${duplicates} == 0 && ${lost_fills} == 0 && \
+        ${double_fills} == 0 && ${journals} == 0 && ${replay} == 0 ]]; then
+    zero_ok=true
+  else
+    zero_ok=false
+  fi
+
+  observer_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+    axiom-operational-readiness-observer-1 2>/dev/null || printf 'missing')
+  if curl --fail --silent --max-time 5 https://axiom-upcloud.duckdns.org/health/ready >/dev/null 2>&1; then
+    api_ready=true
+  else
+    api_ready=false
+  fi
+  compose_json=$(cd "${RELEASE_ROOT}" && docker compose --env-file .env --profile '*' ps --format json 2>/dev/null || true)
+  if [[ -n ${compose_json} ]]; then
+    services_running=$(jq -s 'length' <<<"${compose_json}")
+    services_unhealthy=$(jq -s '[.[] | select(.State != "running" or (.Health != "" and .Health != "healthy"))] | length' <<<"${compose_json}")
+  else
+    services_running=0
+    services_unhealthy=1
+  fi
+  clock_sync=$(timedatectl show -p NTPSynchronized --value 2>/dev/null || printf 'unknown')
+  clock_offset=$(chronyc tracking 2>/dev/null | awk '/System time/{value=$4; if(value<0)value=-value; printf "%.3f", value*1000}' || printf 'unknown')
+  disk_available=$(df --output=avail -B1 /srv/axiom-data 2>/dev/null | tail -1 | tr -d ' ')
+  disk_use=$(df --output=pcent /srv/axiom-data 2>/dev/null | tail -1 | tr -d ' ')
+  mountpoint -q /srv/axiom-remote-backup 2>/dev/null && backup_mounted=true || backup_mounted=false
+  latest_backup=$(find /srv/axiom-data/s3fs-cache/axiom-backup-1 -maxdepth 1 -type f -name 'axiom-*.manifest.json' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+  if [[ -n ${latest_backup} ]]; then
+    backup_age=$((now_epoch - $(stat -c %Y "${latest_backup}" 2>/dev/null || printf '0')))
+  else
+    backup_age=-1
+  fi
+  evidence_size=$(du -sh "${workspace}/evidence/${run_id}" 2>/dev/null | awk '{print $1}' || printf 'unknown')
+  preflight_ready=$(jq -r '.ready // false' "${workspace}/preflight-report.json" 2>/dev/null || printf 'false')
+  if sha256sum -c "${workspace}/controller-programs.sha256" >/dev/null 2>&1; then
+    controller_ok=true
+  else
+    controller_ok=false
+  fi
+  faults_total=$(wc -l < "${workspace}/timer-schedule.tsv" 2>/dev/null || printf '0')
+  faults_completed=$(jq '[.[] | select(.state == "passed")] | length' "${workspace}/fault-evidence.json" 2>/dev/null || printf '0')
+  faults_failed=$(jq '[.[] | select(.state != "passed")] | length' "${workspace}/fault-evidence.json" 2>/dev/null || printf '0')
+  expected_timer_count=$((faults_total - faults_completed - faults_failed))
+  ((expected_timer_count < 0)) && expected_timer_count=0
+  timer_suffix=${run_id#d5-formal-}
+  timer_count=$(systemctl list-timers --all --output=json 2>/dev/null | \
+    jq --arg suffix "${timer_suffix}" '[.[].unit | select(startswith("axiom-d5-drill-") and contains($suffix))] | length' 2>/dev/null || printf '0')
+
+  observer_status_file="${workspace}/observer-status.json"
+  observer_lifecycle_file="${workspace}/observer-lifecycle.jsonl"
+  controller_lifecycle_file="${workspace}/controller-lifecycle.jsonl"
+  observer_last_success=$(jq -r '.last_success_at // "never"' "${observer_status_file}" 2>/dev/null || printf 'unavailable')
+  observer_failures=$(jq -r '.consecutive_failures // 0' "${observer_status_file}" 2>/dev/null || printf 'unknown')
+  observer_failure_count=$(jq -r '.failure_count // 0' "${observer_status_file}" 2>/dev/null || printf 'unknown')
+  observer_recovery_count=$(jq -r '.recovery_count // 0' "${observer_status_file}" 2>/dev/null || printf 'unknown')
+  observer_last_outage=$(jq -r '.last_outage_ms // 0' "${observer_status_file}" 2>/dev/null || printf 'unknown')
+  observer_reason=$(jq -r '.last_failure.reason // "none"' "${observer_status_file}" 2>/dev/null || printf 'unavailable')
+  observer_source=$(jq -r '.last_failure.source // "none"' "${observer_status_file}" 2>/dev/null || printf 'unavailable')
+  observer_stage=$(jq -r '.last_failure.stage // "none"' "${observer_status_file}" 2>/dev/null || printf 'unavailable')
+  observer_role=$(jq -r '.last_failure.role // "none"' "${observer_status_file}" 2>/dev/null || printf 'unavailable')
+  observer_attempt_failures=$(jq -s '[.[] | select(.event == "observation_failed")] | length' "${observer_lifecycle_file}" 2>/dev/null || printf '0')
+  observer_recoveries=$(jq -s '[.[] | select(.event == "source_recovered")] | length' "${observer_lifecycle_file}" 2>/dev/null || printf '0')
+  observer_interruption_state=none
+  if [[ ${observer_reason} != none ]]; then
+    observer_interruption_state=active
+  elif ((observer_attempt_failures > 0)); then
+    observer_last_failure_event=$(jq -sc '[.[] | select(.event == "observation_failed")][-1] // {}' "${observer_lifecycle_file}" 2>/dev/null || printf '{}')
+    observer_reason=$(jq -r '.reason // "unknown"' <<<"${observer_last_failure_event}")
+    observer_source=$(jq -r '.source // "unknown"' <<<"${observer_last_failure_event}")
+    observer_stage=$(jq -r '.stage // "unknown"' <<<"${observer_last_failure_event}")
+    observer_role=$(jq -r '.role // "none"' <<<"${observer_last_failure_event}")
+    observer_interruption_state=recovered
+  fi
+  verify_lifecycle_chain "${observer_lifecycle_file}" && observer_chain_ok=true || observer_chain_ok=false
+  verify_lifecycle_chain "${controller_lifecycle_file}" && controller_chain_ok=true || controller_chain_ok=false
+
+  [[ ${runner_state} == active || (${verdict_state} == PASSED && ${qualified} == true) ]] || issues+=("Formal runner is ${runner_state}/${runner_substate}.")
+  [[ ${restarts} == 0 ]] || issues+=("Runner restart count is ${restarts}; formal D5 requires zero.")
+  [[ ${observer_health} == healthy ]] || issues+=("Telemetry observer is ${observer_health}.")
+  [[ ${api_ready} == true ]] || issues+=("Public API readiness check failed.")
+  ((sample_age >= 0 && sample_age <= 120)) || issues+=("Latest formal sample is stale or unavailable (${sample_age}s).")
+  [[ ${chain_ok} == true ]] || issues+=("Formal sample hash chain is invalid.")
+  [[ ${zero_ok} == true ]] || issues+=("A zero-tolerance counter is nonzero.")
+  [[ ${load_ok} == true ]] || issues+=("Declared-load health is not fully green.")
+  [[ ${prod_seen} == false && ${prohibited_seen} == false ]] || issues+=("A prohibited or production target was observed.")
+  [[ ${services_unhealthy} == 0 ]] || issues+=("${services_unhealthy} Compose service(s) are unhealthy.")
+  [[ ${clock_sync} == yes ]] || issues+=("System clock is not synchronized.")
+  [[ ${backup_mounted} == true ]] || issues+=("Remote backup mount is unavailable.")
+  ((backup_age >= 0 && backup_age < 86400)) || issues+=("Newest remote backup is missing or older than 24 hours.")
+  [[ ${preflight_ready} == true ]] || issues+=("Bound strict preflight is not green.")
+  [[ ${controller_ok} == true ]] || issues+=("Sealed controller hash verification failed.")
+  [[ ${observer_chain_ok} == true ]] || issues+=("Observer lifecycle hash chain is missing or invalid.")
+  [[ ${controller_chain_ok} == true ]] || issues+=("Controller lifecycle hash chain is missing or invalid.")
+  if [[ ${verdict_state} == pending && ${timer_count} != "${expected_timer_count}" ]]; then
+    issues+=("Expected ${expected_timer_count} pending drill timer(s) from the bound schedule; found ${timer_count}.")
+  fi
+  ((faults_failed == 0)) || issues+=("${faults_failed} scheduled drill(s) recorded terminal failure evidence.")
+  while IFS=$'\t' read -r _ scenario _ due_text; do
+    [[ -z ${scenario:-} ]] && continue
+    event_state=$(jq -r --arg scenario "${scenario}" '.[] | select(.scenario == $scenario) | .state' "${workspace}/fault-evidence.json" 2>/dev/null | tail -1)
+    due_epoch=$(date -u -d "${due_text}" +%s 2>/dev/null || printf '0')
+    if [[ -z ${event_state} ]] && ((now_epoch > due_epoch + 900)); then
+      issues+=("Drill $(label_for_scenario "${scenario}") is overdue.")
+    fi
+  done < "${workspace}/timer-schedule.tsv"
+
+  next_name='None'
+  next_due='-'
+  next_remaining=0
+
+  printf '%s%sAXIOM D5 FORMAL READINESS%s  %s\n' "${BOLD}" "${BLUE}" "${RESET}" "${DIM}${now_utc}${RESET}"
+  rule
+  if [[ ${verdict_state} == PASSED && ${qualified} == true ]]; then
+    printf '  Overall: %s%sPASSED / QUALIFIED%s\n' "${BOLD}" "${GREEN}" "${RESET}"
+  elif [[ ${verdict_state} != pending ]]; then
+    printf '  Overall: %s%s%s / NOT QUALIFIED%s\n' "${BOLD}" "${RED}" "${verdict_state}" "${RESET}"
+  elif ((${#issues[@]} == 0)); then
+    printf '  Overall: %s%sRUNNING / HEALTHY%s\n' "${BOLD}" "${GREEN}" "${RESET}"
+  else
+    printf '  Overall: %s%sATTENTION REQUIRED%s\n' "${BOLD}" "${YELLOW}" "${RESET}"
+  fi
+  printf '  Qualification: %snot decided until the final seven-day verdict%s\n' "${DIM}" "${RESET}"
+  printf '  Progress: %s[%s]%s %6.2f%%\n' "${CYAN}" "${bar}" "${RESET}" "$(awk -v p="${progress}" 'BEGIN{printf "%.2f",p/100}')"
+  kv 'Elapsed' "$(human_duration "${elapsed}")"
+  kv 'Remaining' "$(human_duration "${remaining}")"
+  kv 'Expected finish' "$(short_time "${expected_end_at}")"
+
+  section 'Run identity'
+  kv 'Run ID' "${BOLD}${run_id}${RESET}"
+  kv 'Source commit' "${source_sha}"
+  kv 'Application image' "${app_image}"
+  kv 'Configuration hash' "${config_hash}"
+  kv 'Runner service' "${unit}"
+  kv 'Started' "$(short_time "${started_at}")"
+  kv 'Verdict' "${verdict_state} (qualified=${qualified})"
+
+  section 'Live health'
+  kv 'Formal runner' "$([[ ${runner_state} == active ]] && ok_text || bad_text)  ${runner_state}/${runner_substate}, PID ${runner_pid}, restarts ${restarts}"
+  kv 'Telemetry observer' "$([[ ${observer_health} == healthy ]] && ok_text || bad_text)  ${observer_health}"
+  kv 'Observer last success' "$(short_time "${observer_last_success}")"
+  kv 'Observer interruptions' "active-failures=${observer_failures}, failures=${observer_failure_count}/${observer_attempt_failures}, recoveries=${observer_recovery_count}/${observer_recoveries}, last-outage=${observer_last_outage}ms"
+  if [[ ${observer_interruption_state} != none ]]; then
+    kv 'Latest interruption' "state=${observer_interruption_state}, source=${observer_source}, stage=${observer_stage}, role=${observer_role}, reason=${observer_reason}"
+  fi
+  kv 'API and services' "$([[ ${api_ready} == true && ${services_unhealthy} == 0 ]] && ok_text || bad_text)  API=${api_ready}, running=${services_running}, unhealthy=${services_unhealthy}"
+  kv 'Clock' "$([[ ${clock_sync} == yes ]] && ok_text || bad_text)  synchronized=${clock_sync}, offset=${clock_offset}ms"
+  kv 'Storage' "$([[ ${backup_mounted} == true ]] && ok_text || bad_text)  disk=${disk_use} used, free=$(human_bytes "${disk_available:-0}"), remote-backup=${backup_mounted}"
+  kv 'Newest backup' "$([[ ${backup_age} -ge 0 && ${backup_age} -lt 86400 ]] && ok_text || warn_text)  age=$(human_duration "${backup_age}")"
+
+  section 'Formal sample chain and safety'
+  kv 'Samples captured' "${sample_count} (latest source revision ${source_revision})"
+  kv 'Latest sample age' "$([[ ${sample_age} -ge 0 && ${sample_age} -le 120 ]] && ok_text || bad_text)  ${sample_age}s"
+  kv 'Hash-chain link' "$([[ ${chain_ok} == true ]] && ok_text || bad_text)  valid=${chain_ok}"
+  kv 'Declared full load' "$([[ ${load_ok} == true ]] && ok_text || bad_text)  healthy=${load_ok}"
+  kv 'Zero-tolerance' "$([[ ${zero_ok} == true ]] && ok_text || bad_text)  stale=${stale}, gaps=${gaps}, duplicate-orders=${duplicates}, lost-fills=${lost_fills}, double-fills=${double_fills}, unbalanced=${journals}, replay=${replay}"
+  kv 'Forbidden targets' "$([[ ${prod_seen} == false && ${prohibited_seen} == false ]] && ok_text || bad_text)  production=${prod_seen}, prohibited=${prohibited_seen}"
+  kv 'Memory' "$(human_bytes "${memory}") / $(human_bytes "${memory_limit}")"
+  kv 'Disk posture' "${disk_level}"
+  kv 'RPO evidence' "$([[ ${database_rpo} == true && ${recorder_rpo} == true ]] && ok_text || bad_text)  database-zero=${database_rpo}, recorder-flush=${recorder_rpo}"
+  kv 'Pressure controls' "$([[ ${heavy_rejected} == true && ${recording_paused} == true && ${journal_writable} == true ]] && ok_text || bad_text)  high-reject=${heavy_rejected}, critical-pause=${recording_paused}, journal-writable=${journal_writable}"
+
+  section 'Latency and recovery evidence'
+  kv 'Book decode p99' "${decode_p99} ms"
+  kv 'Strategy/risk p99' "${risk_p99} ms"
+  kv 'Resynchronization p95' "${resync_p95} ms"
+  kv 'Critical alert' "${alert_ms} ms in-app; ${external_alert_ms} ms external p95"
+  kv 'Recovery' "shadow=${shadow_recovery} ms; sandbox=${sandbox_recovery} ms"
+
+  section 'Scheduled fault drills'
+  printf '  %-3s %-42s %-12s %s\n' '#' 'Drill' 'State' 'Due (UTC)'
+  printf '  %-3s %-42s %-12s %s\n' '---' '------------------------------------------' '------------' '-------------------'
+  while IFS=$'\t' read -r index scenario offset due_text; do
+    [[ -z ${scenario:-} ]] && continue
+    event_state=$(jq -r --arg scenario "${scenario}" '.[] | select(.scenario == $scenario) | .state' "${workspace}/fault-evidence.json" 2>/dev/null | tail -1)
+    due_epoch=$(date -u -d "${due_text}" +%s 2>/dev/null || printf '0')
+    if [[ ${event_state} == passed ]]; then
+      display_state="${GREEN}PASSED${RESET}"
+    elif [[ -n ${event_state} ]]; then
+      display_state="${RED}${event_state^^}${RESET}"
+    elif ((now_epoch > due_epoch + 900)); then
+      display_state="${RED}OVERDUE${RESET}"
+    elif ((now_epoch >= due_epoch)); then
+      display_state="${YELLOW}RUNNING${RESET}"
+    else
+      display_state="${BLUE}SCHEDULED${RESET}"
+      if [[ ${next_name} == None ]]; then
+        next_name=$(label_for_scenario "${scenario}")
+        next_due=${due_text}
+        next_remaining=$((due_epoch - now_epoch))
+      fi
+    fi
+    printf '  %-3s %-42s %-22b %s\n' "${index}" "$(label_for_scenario "${scenario}")" "${display_state}" "${due_text}"
+  done < "${workspace}/timer-schedule.tsv"
+  kv 'Drill evidence' "passed=${faults_completed}/${faults_total}, failed=${faults_failed}, pending-timers=${timer_count}/${expected_timer_count}"
+  if [[ ${next_name} != None ]]; then
+    kv 'Next drill' "${BOLD}${next_name}${RESET} in $(human_duration "${next_remaining}")"
+  fi
+
+  section 'Evidence integrity and locations'
+  kv 'Strict preflight' "$([[ ${preflight_ready} == true ]] && ok_text || bad_text)  ready=${preflight_ready}"
+  kv 'Controller hashes' "$([[ ${controller_ok} == true ]] && ok_text || bad_text)  verified=${controller_ok}"
+  kv 'Lifecycle chains' "$([[ ${observer_chain_ok} == true && ${controller_chain_ok} == true ]] && ok_text || bad_text)  observer=${observer_chain_ok}, controller=${controller_chain_ok}"
+  kv 'Evidence size' "${evidence_size}"
+  kv 'Workspace' "${workspace}"
+  kv 'Sample chain' "${sample_file}"
+  kv 'Fault evidence' "${workspace}/fault-evidence.json"
+  kv 'Observer lifecycle' "${observer_lifecycle_file}"
+  kv 'Controller lifecycle' "${controller_lifecycle_file}"
+  kv 'Final verdict' "${verdict_file}"
+
+  if [[ -s "${verdict_file}" && ${verdict_state} != pending ]]; then
+    section 'Terminal failure details'
+    if jq -e '.failures | length > 0' "${verdict_file}" >/dev/null 2>&1; then
+      jq -r '.failures[] | "  - reason=\(.reason) cause=\(.cause_code // \"none\") source=\(.source // \"none\") stage=\(.stage // \"none\") role=\(.role // \"none\") detail=\(.detail // \"none\")"' "${verdict_file}"
+    else
+      printf '  No terminal failure records are present.\n'
+    fi
+  fi
+
+  section 'Summary and next action'
+  issue_count=${#issues[@]}
+  if ((issue_count == 0)); then
+    printf '  %s%sNo current failures detected.%s The run is collecting evidence normally.\n' "${BOLD}" "${GREEN}" "${RESET}"
+    if [[ ${next_name} != None ]]; then
+      printf '  Next automatic drill: %s at %s (%s remaining).\n' \
+        "${next_name}" "${next_due}" "$(human_duration "${next_remaining}")"
+    elif [[ ${verdict_state} == pending ]]; then
+      printf '  All scheduled drills have evidence; waiting for the seven-day clock.\n'
+    fi
+  else
+    printf '  %s%s%d issue(s) need attention:%s\n' "${BOLD}" "${RED}" "${issue_count}" "${RESET}"
+    for issue in "${issues[@]}"; do
+      printf '    %s- %s%s\n' "${RED}" "${issue}" "${RESET}"
+    done
+    printf '  Inspect runner log: journalctl -u %s -n 100 --no-pager\n' "${unit}"
+  fi
+  printf '\n  Snapshot:  %saxiom-d5-status%s\n' "${BOLD}" "${RESET}"
+  printf '  Watch:     %saxiom-d5-status --watch 30%s   (Ctrl+C stops watching only)\n' "${BOLD}" "${RESET}"
+  printf '  Clean log: %sNO_COLOR=1 axiom-d5-status%s\n' "${BOLD}" "${RESET}"
+
+  ((issue_count == 0))
+}
+
+if ((WATCH_SECONDS == 0)); then
+  render
+  exit $?
+fi
+
+trap 'printf "\n"; exit 0' INT TERM
+while true; do
+  if [[ -t 1 ]]; then
+    printf '\033[2J\033[H'
+  fi
+  render || true
+  printf '\n%sRefreshing every %ss; press Ctrl+C to stop watching.%s\n' "${DIM}" "${WATCH_SECONDS}" "${RESET}"
+  sleep "${WATCH_SECONDS}"
+done

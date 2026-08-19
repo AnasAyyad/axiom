@@ -19,6 +19,8 @@ type settings struct {
 	healthcheck bool
 	once        bool
 	output      string
+	status      string
+	lifecycle   string
 	drill       string
 	interval    time.Duration
 	window      time.Duration
@@ -42,19 +44,35 @@ func run(ctx context.Context, arguments []string) error {
 		return err
 	}
 	if configuration.healthcheck {
-		if _, err = (&operationalReadiness.FileProbe{Path: configuration.output}).Observe(
+		if _, err = (&operationalReadiness.FileProbe{Path: configuration.output, StatusPath: configuration.status}).Observe(
 			ctx, 0, time.Now().UTC(),
 		); err != nil {
 			return fmt.Errorf("observer_sample_unhealthy")
 		}
 		return nil
 	}
+	lifecycle, err := openObserverLifecycle(configuration.lifecycle)
+	if err != nil {
+		return err
+	}
+	defer lifecycle.close()
+	startedAt := time.Now().UTC()
+	if err = lifecycle.emit(observerLifecycleEvent{OccurredAt: startedAt, Event: "observer_started"}); err != nil {
+		return err
+	}
+	defer func() {
+		_ = lifecycle.emit(observerLifecycleEvent{OccurredAt: time.Now().UTC(), Event: "observer_stopped"})
+	}()
 	pool, err := postgresstore.Open(ctx, configuration.database)
 	if err != nil {
+		_ = lifecycle.emit(observerLifecycleEvent{OccurredAt: time.Now().UTC(), Event: "startup_failed",
+			Source: "database", Stage: "connection_open", Reason: "unavailable", Retryable: true})
 		return fmt.Errorf("observer_database_unavailable")
 	}
 	defer pool.Close()
 	if err = pool.Ping(ctx); err != nil {
+		_ = lifecycle.emit(observerLifecycleEvent{OccurredAt: time.Now().UTC(), Event: "startup_failed",
+			Source: "database", Stage: "connection_ping", Reason: "unavailable", Retryable: true})
 		return fmt.Errorf("observer_database_unavailable")
 	}
 	observer := operationalReadiness.LiveObserver{
@@ -69,19 +87,91 @@ func run(ctx context.Context, arguments []string) error {
 	if err != nil {
 		return err
 	}
+	var attempt, consecutiveFailures, failureCount, recoveryCount, lastOutageMillis uint64
+	var lastSuccessAt time.Time
+	var outageStartedAt time.Time
+	var lastFailure operationalReadiness.SourceFailure
 	for {
+		attempt++
 		observedAt := time.Now().UTC()
+		attemptStarted := time.Now()
+		if err = lifecycle.emit(observerLifecycleEvent{OccurredAt: observedAt, Event: "observation_started",
+			Attempt: attempt, SourceRevision: revision, ConsecutiveFailures: consecutiveFailures,
+			LastSuccessAt: lastSuccessAt}); err != nil {
+			return err
+		}
 		sample, observeErr := observer.Observe(ctx, revision, observedAt)
 		if observeErr == nil {
+			if consecutiveFailures > 0 {
+				recoveryCount++
+				lastOutageMillis = uint64(time.Since(outageStartedAt).Milliseconds())
+				if err = lifecycle.emit(observerLifecycleEvent{OccurredAt: time.Now().UTC(), Event: "source_recovered",
+					Attempt: attempt, SourceRevision: revision, ConsecutiveFailures: consecutiveFailures,
+					Source: lastFailure.Source, Stage: lastFailure.Stage, Role: lastFailure.Role, Reason: lastFailure.Reason,
+					DurationMillis: lastOutageMillis, LastSuccessAt: lastSuccessAt}); err != nil {
+					return err
+				}
+			}
+			if err = lifecycle.emit(observerLifecycleEvent{OccurredAt: time.Now().UTC(), Event: "observation_succeeded",
+				Attempt: attempt, SourceRevision: revision,
+				DurationMillis: uint64(time.Since(attemptStarted).Milliseconds())}); err != nil {
+				return err
+			}
+			sample.ObserverLifecycleHash = lifecycle.headHash
+			sample.ObserverAttempt = attempt
+			sample.ObserverFailureCount = failureCount
+			sample.ObserverRecoveryCount = recoveryCount
+			sample.ObserverLastOutageMillis = lastOutageMillis
 			observeErr = operationalReadiness.WriteLiveSample(configuration.output, sample)
 		}
 		if observeErr == nil {
-			_, _ = fmt.Fprintf(os.Stdout, "sample_revision=%d observed_at=%s\n", revision, observedAt.Format(time.RFC3339))
+			lastSuccessAt = observedAt
+			consecutiveFailures = 0
+			if err = lifecycle.emit(observerLifecycleEvent{OccurredAt: time.Now().UTC(), Event: "sample_published",
+				Attempt: attempt, SourceRevision: revision,
+				DurationMillis: uint64(time.Since(attemptStarted).Milliseconds()), LastSuccessAt: lastSuccessAt}); err != nil {
+				return err
+			}
+			if err = operationalReadiness.WriteObserverStatus(configuration.status, operationalReadiness.ObserverStatus{
+				SchemaVersion: operationalReadiness.ObserverStatusSchema, UpdatedAt: time.Now().UTC(),
+				LastAttemptAt: observedAt, LastSuccessAt: lastSuccessAt, PublishedRevision: revision,
+				Attempt: attempt, FailureCount: failureCount, RecoveryCount: recoveryCount,
+				LastOutageMillis: lastOutageMillis, LifecycleHeadHash: lifecycle.headHash,
+			}); err != nil {
+				return err
+			}
 			revision++
-		} else if configuration.once {
-			return observeErr
 		} else {
-			_, _ = fmt.Fprintln(os.Stderr, "operational_readiness_observer: sample_source_unavailable")
+			consecutiveFailures++
+			failureCount++
+			if consecutiveFailures == 1 {
+				outageStartedAt = observedAt
+			}
+			failure, known := operationalReadiness.SourceFailureDetails(observeErr)
+			if !known {
+				failure = operationalReadiness.SourceFailure{Source: "observer", Stage: "sample_write",
+					Reason: "write_failed", Retryable: false}
+			}
+			lastFailure = failure
+			if err = lifecycle.emit(observerLifecycleEvent{OccurredAt: time.Now().UTC(), Event: "observation_failed",
+				Attempt: attempt, SourceRevision: revision, Source: failure.Source, Stage: failure.Stage,
+				Role: failure.Role, Reason: failure.Reason, Retryable: failure.Retryable,
+				ConsecutiveFailures: consecutiveFailures,
+				DurationMillis:      uint64(time.Since(attemptStarted).Milliseconds()), LastSuccessAt: lastSuccessAt}); err != nil {
+				return err
+			}
+			if err = operationalReadiness.WriteObserverStatus(configuration.status, operationalReadiness.ObserverStatus{
+				SchemaVersion: operationalReadiness.ObserverStatusSchema, UpdatedAt: time.Now().UTC(),
+				LastAttemptAt: observedAt, LastSuccessAt: lastSuccessAt, PublishedRevision: revision - 1,
+				Attempt: attempt, ConsecutiveFailures: consecutiveFailures,
+				FailureCount: failureCount, RecoveryCount: recoveryCount, LastOutageMillis: lastOutageMillis, LastFailure: &failure,
+				LifecycleHeadHash: lifecycle.headHash,
+			}); err != nil {
+				return err
+			}
+			if configuration.once || !failure.Retryable {
+				return observeErr
+			}
 		}
 		if configuration.once {
 			return nil
@@ -117,9 +207,11 @@ func loadSettings(arguments []string) (settings, error) {
 	}
 	configuration := settings{
 		healthcheck: *healthcheck, once: *once,
-		output:   os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE"),
-		drill:    os.Getenv("AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE"),
-		interval: interval, window: window,
+		output:    os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE"),
+		status:    os.Getenv("AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE"),
+		lifecycle: os.Getenv("AXIOM_OPERATIONAL_READINESS_OBSERVER_LIFECYCLE_FILE"),
+		drill:     os.Getenv("AXIOM_OPERATIONAL_READINESS_DRILL_OBSERVATION_FILE"),
+		interval:  interval, window: window,
 		database: config.Database{
 			Host: environment("DB_HOST", "postgres"), Port: uint16(port), Name: environment("DB_NAME", "axiom"),
 			User:         environment("DB_USER", "axiom_operational_readiness"),
@@ -129,7 +221,7 @@ func loadSettings(arguments []string) (settings, error) {
 			StatementTimeout: 10 * time.Second,
 		},
 	}
-	if configuration.output == "" || configuration.drill == "" {
+	if configuration.output == "" || configuration.status == "" || configuration.lifecycle == "" || configuration.drill == "" {
 		return settings{}, fmt.Errorf("observer_file_configuration_invalid")
 	}
 	configuration.metrics, err = metricTargets()

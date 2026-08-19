@@ -39,7 +39,7 @@ type HTTPRuntimeTelemetrySource struct {
 
 func (source HTTPRuntimeTelemetrySource) Observe(ctx context.Context, observedAt time.Time) (RuntimeTelemetry, error) {
 	if observedAt.IsZero() || validateRuntimeTargets(source.MetricTargets, source.HealthTargets) != nil {
-		return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_runtime_source_invalid")
+		return RuntimeTelemetry{}, sourceFailure("runtime", "configuration", "", "configuration_invalid", false)
 	}
 	client := source.Client
 	if client == nil {
@@ -50,60 +50,69 @@ func (source HTTPRuntimeTelemetrySource) Observe(ctx context.Context, observedAt
 	result := RuntimeTelemetry{ObservedAt: observedAt.UTC(), AllDeclaredLoadHealthy: true}
 	for _, target := range source.HealthTargets {
 		body, err := readBoundedHTTP(ctx, client, target.URL)
-		if err != nil || (isApplicationRuntimeRole(target.Role) && !strings.Contains(string(body), `"status":"ready"`)) {
-			return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_runtime_health_unavailable")
+		if err != nil {
+			return RuntimeTelemetry{}, sourceFailure("runtime", "health", target.Role, "endpoint_unavailable", true)
+		}
+		if isApplicationRuntimeRole(target.Role) && !strings.Contains(string(body), `"status":"ready"`) {
+			return RuntimeTelemetry{}, sourceFailure("runtime", "health", target.Role, "not_ready", true)
 		}
 	}
 	var collectorObservedAt, strategyObservedAt time.Time
 	for _, target := range source.MetricTargets {
 		body, err := readBoundedHTTP(ctx, client, target.URL)
 		if err != nil {
-			return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_runtime_metrics_unavailable")
+			return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "endpoint_unavailable", true)
 		}
 		memory, found := prometheusMetric(body, "process_resident_memory_bytes", "")
-		if !found {
-			return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_runtime_metrics_unavailable")
+		heap, heapFound := prometheusMetric(body, "go_memstats_heap_alloc_bytes", "")
+		if !found || !heapFound {
+			return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "required_metric_missing", true)
 		}
 		memoryBytes, err := boundedMetricUint64(memory)
+		heapBytes, heapErr := boundedMetricUint64(heap)
 		if err != nil || math.MaxUint64-result.ResidentMemoryBytes < memoryBytes ||
-			math.MaxUint64-result.MemoryLimitBytes < target.MemoryLimitBytes {
-			return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_runtime_metrics_invalid")
+			heapErr != nil || math.MaxUint64-result.MemoryLimitBytes < target.MemoryLimitBytes {
+			return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "metric_value_invalid", false)
 		}
 		result.ResidentMemoryBytes += memoryBytes
 		result.MemoryLimitBytes += target.MemoryLimitBytes
 		if memoryBytes > target.MemoryLimitBytes {
 			result.AllDeclaredLoadHealthy = false
 		}
+		result.ServiceMemory = append(result.ServiceMemory, ServiceMemory{Role: target.Role,
+			ResidentMemoryBytes: memoryBytes, HeapAllocBytes: heapBytes, MemoryLimitBytes: target.MemoryLimitBytes})
 		switch target.Role {
 		case "recorder":
 			decode, decodeFound := prometheusMetric(body, "axiom_operational_readiness_decode_book_p99_milliseconds", "")
 			resync, resyncFound := prometheusMetric(body, "axiom_operational_readiness_resync_p95_milliseconds", "")
 			marker, markerFound := prometheusMetric(body, "axiom_operational_readiness_telemetry_observed_unixtime", `component="collector"`)
 			if !decodeFound || !resyncFound || !markerFound {
-				return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_collector_metrics_unavailable")
+				return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "collector_metric_missing", true)
 			}
 			if result.DecodeBookP99Millis, err = boundedMetricUint64(decode); err != nil {
-				return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_collector_metrics_invalid")
+				return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "collector_metric_invalid", false)
 			}
 			if result.ResyncP95Millis, err = boundedMetricUint64(resync); err != nil {
-				return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_collector_metrics_invalid")
+				return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "collector_metric_invalid", false)
 			}
 			collectorObservedAt = metricTime(marker)
 		case "engine-shadow":
 			strategy, strategyFound := prometheusMetric(body, "axiom_operational_readiness_strategy_risk_p99_milliseconds", "")
 			marker, markerFound := prometheusMetric(body, "axiom_operational_readiness_telemetry_observed_unixtime", `component="strategy_risk"`)
 			if !strategyFound || !markerFound {
-				return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_strategy_metrics_unavailable")
+				return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "strategy_metric_missing", true)
 			}
 			if result.StrategyRiskP99Millis, err = boundedMetricUint64(strategy); err != nil {
-				return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_strategy_metrics_invalid")
+				return RuntimeTelemetry{}, sourceFailure("runtime", "metrics", target.Role, "strategy_metric_invalid", false)
 			}
 			strategyObservedAt = metricTime(marker)
 		}
 	}
-	if !freshSource(collectorObservedAt, observedAt.UTC(), 30*time.Second) ||
-		!freshSource(strategyObservedAt, observedAt.UTC(), 30*time.Second) {
-		return RuntimeTelemetry{}, fmt.Errorf("operational_readiness_runtime_metrics_stale")
+	if !freshSource(collectorObservedAt, observedAt.UTC(), 30*time.Second) {
+		return RuntimeTelemetry{}, sourceFailure("runtime", "freshness", "recorder", "collector_marker_stale", true)
+	}
+	if !freshSource(strategyObservedAt, observedAt.UTC(), 30*time.Second) {
+		return RuntimeTelemetry{}, sourceFailure("runtime", "freshness", "engine-shadow", "strategy_marker_stale", true)
 	}
 	return result, nil
 }

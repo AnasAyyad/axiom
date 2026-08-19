@@ -1,0 +1,382 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+umask 0027
+
+readonly workspace="${1:?workspace required}"
+readonly scenario="${2:?scenario required}"
+readonly release=/opt/axiom-release
+readonly schedule=${release}/deploy/config/operational-readiness-fault-schedule-v1.json
+readonly go_image=sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+readonly postgres_image=docker.io/library/postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+readonly controller_dir="$(dirname "$(readlink -f "$0")")"
+readonly event_program="${controller_dir}/axiom-d5-controller-event"
+
+test -d "${workspace}"
+if [[ "${scenario}" == validate ]]; then
+  test "$(jq '.faults | length' "${schedule}")" -eq 7
+  docker image inspect "${go_image}" >/dev/null
+  docker image inspect "${postgres_image}" >/dev/null
+  mountpoint -q /srv/axiom-remote-backup
+  cd "${release}"
+  test -z "$(git status --porcelain)"
+  for service in postgres api recorder engine-shadow backtest-worker binance-sandbox-engine bybit-sandbox-engine operational-readiness-observer; do
+    test -n "$(docker compose --env-file .env --profile '*' ps -q "${service}")"
+  done
+  docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -Atqc \
+    "SELECT count(*) FROM shadow_sessions WHERE entries_enabled OR state='RUNNING'" | grep -Fxq 0
+  printf 'formal_d5_drill_controller_validation=passed\n'
+  exit 0
+fi
+test -f "${workspace}/run.json"
+readonly run_id="$(jq -r .identity.run_id "${workspace}/run.json")"
+readonly verdict_file="${workspace}/evidence/${run_id}/verdict.json"
+if [[ "${scenario}" == cleanup ]]; then
+  readonly timer_suffix="${run_id#d5-formal-}"
+  readonly runner_unit="axiom-d5-formal-${timer_suffix}.service"
+  while [[ ! -s "${verdict_file}" ]] && systemctl is-active --quiet "${runner_unit}"; do
+    sleep 15
+  done
+  test -s "${verdict_file}"
+  systemctl stop "axiom-d5-drill-*-${timer_suffix}.timer" >/dev/null 2>&1 || true
+  "${event_program}" "${workspace}" terminal_verdict_recorded cleanup RUNNING
+
+  # Detach the shared observer before sealing the run. Otherwise it keeps
+  # mutating sample/status/lifecycle files after the terminal verdict.
+  cd "${release}"
+  OPERATIONAL_READINESS_HOST_PATH=/srv/axiom-data/operational-readiness \
+    docker compose --env-file .env --profile operational-readiness up -d --no-deps \
+      --force-recreate operational-readiness-observer >/dev/null
+  for _ in $(seq 1 60); do
+    observer_mount="$(docker inspect axiom-operational-readiness-observer-1 2>/dev/null | \
+      jq -r '.[0].Mounts[] | select(.Destination == "/var/lib/axiom/operational-readiness") | .Source')"
+    observer_health="$(docker inspect -f '{{.State.Health.Status}}' axiom-operational-readiness-observer-1 2>/dev/null || true)"
+    if [[ "${observer_mount}" == /srv/axiom-data/operational-readiness && "${observer_health}" == healthy ]]; then
+      break
+    fi
+    sleep 2
+  done
+  test "${observer_mount}" = /srv/axiom-data/operational-readiness
+  test "${observer_health}" = healthy
+
+  "${event_program}" "${workspace}" observer_detached cleanup RUNNING
+  "${event_program}" "${workspace}" terminal_cleanup cleanup PASSED
+  find "${workspace}" -xdev -type f ! -name 'evidence-manifest.sha256' -print0 | \
+    sort -z | xargs -0 sha256sum > "${workspace}/evidence-manifest.sha256"
+  chmod 0440 "${workspace}/evidence-manifest.sha256" \
+    "${workspace}/observer-status.json" "${workspace}/observer-lifecycle.jsonl" \
+    "${workspace}/controller-lifecycle.jsonl"
+  sync "${workspace}"
+  printf 'run_id=%s terminal_cleanup=complete observer_detached=true evidence_manifest=%s\n' \
+    "${run_id}" "${workspace}/evidence-manifest.sha256"
+  exit 0
+fi
+test ! -e "${verdict_file}"
+test -f "${workspace}/evidence/${run_id}/start.json"
+test "$(cd "${release}" && git rev-parse HEAD)" = "$(jq -r .identity.source_sha "${workspace}/run.json")"
+test -z "$(cd "${release}" && git status --porcelain)"
+
+readonly start_file="${workspace}/evidence/${run_id}/start.json"
+readonly started_at="$(jq -r .started_at "${start_file}")"
+readonly offset="$(jq -er --arg scenario "${scenario}" '.faults[] | select(.scenario == $scenario) | .offset_seconds' "${schedule}")"
+readonly due_epoch="$(( $(date -u -d "${started_at}" +%s) + offset ))"
+readonly now_epoch="$(date -u +%s)"
+test "${now_epoch}" -ge "${due_epoch}"
+test "${now_epoch}" -le "$(( due_epoch + 900 ))"
+# systemd calendar timers fire at whole-second precision while start.json keeps
+# nanoseconds. Stay strictly after the scheduled instant before measuring.
+sleep 2
+test ! -e "${verdict_file}"
+
+install -d -m 0750 "${workspace}/drills"
+readonly log="${workspace}/drills/${scenario}.log"
+readonly temporary_log="${log}.tmp"
+test ! -e "${log}"
+test ! -e "${temporary_log}"
+
+drill_phase=precheck
+drill_complete=false
+record_failed_drill() {
+  local status=$?
+  if (( status != 0 )) && [[ "${drill_complete}" != true ]]; then
+    local failed_log="${workspace}/drills/${scenario}.failed.log"
+    local occurred_at evidence_hash events events_tmp
+    if [[ -e "${temporary_log}" ]]; then
+      chmod 0440 "${temporary_log}" || true
+      sync "${temporary_log}" || true
+      mv "${temporary_log}" "${failed_log}" || true
+    else
+      printf 'run_id=%s\nscenario=%s\nfailed_at=%s\nphase=%s\nexit_status=%s\n' \
+        "${run_id}" "${scenario}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${drill_phase}" "${status}" \
+        > "${failed_log}"
+      chmod 0440 "${failed_log}" || true
+      sync "${failed_log}" || true
+    fi
+    occurred_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    evidence_hash="$(sha256sum "${failed_log}" | cut -d' ' -f1)"
+    events="${workspace}/fault-evidence.json"
+    events_tmp="${events}.tmp"
+    if jq -e --arg scenario "${scenario}" 'all(.[]; .scenario != $scenario)' "${events}" >/dev/null 2>&1; then
+      jq --arg run_id "${run_id}" --arg scenario "${scenario}" --arg occurred_at "${occurred_at}" \
+        --arg evidence_hash "${evidence_hash}" \
+        '. + [{run_id:$run_id,scenario:$scenario,state:"failed",occurred_at:$occurred_at,evidence_hash:$evidence_hash}]' \
+        "${events}" > "${events_tmp}" && chmod 0440 "${events_tmp}" && sync "${events_tmp}" && mv "${events_tmp}" "${events}"
+    fi
+    "${event_program}" "${workspace}" drill_failed "${drill_phase}" FAILED drill_command_failed "${scenario}" || true
+    sync "${workspace}" || true
+  fi
+  exit "${status}"
+}
+trap record_failed_drill EXIT
+"${event_program}" "${workspace}" drill_started "${drill_phase}" RUNNING '' "${scenario}"
+
+cd "${release}"
+
+service_container() {
+  docker compose --env-file .env --profile '*' ps -q "$1"
+}
+
+wait_healthy() {
+  local service="$1"
+  local deadline=$(( $(date +%s) + 120 ))
+  local container state
+  while (( $(date +%s) <= deadline )); do
+    container="$(service_container "${service}")"
+    if [[ -n "${container}" ]]; then
+      state="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${container}")"
+      if [[ "${state}" == healthy || "${state}" == running ]]; then
+        return 0
+      fi
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+refresh_drill_observation() {
+  local observed_at temporary
+  observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  temporary="${workspace}/drill-observation.json.tmp"
+  jq --arg observed_at "${observed_at}" '.observed_at=$observed_at' \
+    "${workspace}/drill-observation.json" > "${temporary}"
+  chown 10001:70 "${temporary}"
+  chmod 0440 "${temporary}"
+  sync "${temporary}"
+  mv "${temporary}" "${workspace}/drill-observation.json"
+}
+
+wait_fresh_safe_sample() {
+  local prior_revision="$1"
+  local deadline=$(( $(date +%s) + 120 ))
+  while (( $(date +%s) <= deadline )); do
+    if jq -e --argjson prior "${prior_revision}" '
+      .source_revision > $prior and
+      .stale_decisions == 0 and .uninvalidated_gaps == 0 and
+      .duplicate_orders == 0 and .lost_fills == 0 and
+      .double_posted_fills == 0 and .unbalanced_journals == 0 and
+      .replay_mismatches == 0 and .all_declared_load_healthy == true and
+      .production_target_observed == false and .prohibited_capability_observed == false
+    ' "${workspace}/sample.json" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+run_isolated_operational_readiness_postgres_test() {
+  local suffix network container database
+  suffix="$(printf '%s' "${run_id}-${scenario}" | tr -cd 'a-zA-Z0-9' | tail -c 40 | tr '[:upper:]' '[:lower:]')"
+  network="axiom-d5-${suffix}"
+  container="axiom-d5-pg-${suffix}"
+  database="drill_operational_readiness_test"
+  docker network create "${network}" >/dev/null
+  docker run -d --name "${container}" --network "${network}" \
+    -e POSTGRES_HOST_AUTH_METHOD=trust "${postgres_image}" >/dev/null
+  local ready=false
+  for _ in $(seq 1 60); do
+    if docker exec "${container}" pg_isready -U postgres >/dev/null 2>&1; then
+      ready=true
+      break
+    fi
+    sleep 1
+  done
+  test "${ready}" = true
+  docker exec "${container}" createdb -U postgres "${database}"
+  docker run --rm --network "${network}" \
+    -v "${release}:/src:ro" -v axiom_d5_go_mod:/go/pkg/mod \
+    -v axiom_d5_go_build:/root/.cache/go-build -w /src \
+    -e "AXIOM_OPERATIONAL_READINESS_TEST_DSN=postgres://postgres@${container}/${database}?sslmode=disable" \
+    -e AXIOM_OPERATIONAL_READINESS_UPGRADE_TEST_DSN= \
+    "${go_image}" /usr/local/go/bin/go test ./internal/storage/postgres \
+    -run '^TestOperationalReadinessPostgresOperationalReadinessQualification$' -count=1 -v
+  docker stop -t 10 "${container}" >/dev/null
+  docker rm "${container}" >/dev/null
+  docker network rm "${network}" >/dev/null
+}
+
+backup_clean_restore() {
+  local recorder market_root restore_root backup_output backup_name manifest
+  local container volume secret_file core_network
+  recorder="$(service_container recorder)"
+  market_root="$(docker inspect "${recorder}" | jq -er '.[0].Mounts[] | select(.Destination == "/var/lib/axiom/market-data") | .Source')"
+  restore_root="${workspace}/restored-market-data"
+  install -d -m 0750 "${restore_root}"
+  docker compose --env-file .env stop -t 60 recorder
+  backup_output="$(docker compose --env-file .env --profile backup run --rm --no-deps backup create)"
+  printf '%s\n' "${backup_output}"
+  backup_name="$(printf '%s\n' "${backup_output}" | sed -n 's/.*backup_complete name=\([^ ]*\).*/\1/p' | tail -1)"
+  test -n "${backup_name}"
+  cp -a "${market_root}/." "${restore_root}/"
+  docker compose --env-file .env --profile operational-readiness up -d --no-deps recorder
+  wait_healthy recorder
+  manifest="/backups/${backup_name}.manifest.json"
+  container="axiom-d5-restore-${run_id:0:20}"
+  volume="axiom-d5-restore-${run_id:0:20}"
+  core_network="$(docker inspect "$(service_container postgres)" | jq -er '.[0].NetworkSettings.Networks | keys[] | select(endswith("_core"))')"
+  secret_file="$(realpath .secrets/postgres_migrator_password)"
+  docker volume create "${volume}" >/dev/null
+  docker run -d --name "${container}" --network "${core_network}" \
+    -e POSTGRES_USER=axiom_migrator -e POSTGRES_DB=axiom \
+    -e POSTGRES_PASSWORD_FILE=/run/secrets/postgres_migrator_password \
+    -v "${secret_file}:/run/secrets/postgres_migrator_password:ro" \
+    -v "${volume}:/var/lib/postgresql" "${postgres_image}" >/dev/null
+  local ready=false
+  for _ in $(seq 1 60); do
+    if docker exec "${container}" pg_isready -U axiom_migrator -d axiom >/dev/null 2>&1; then
+      ready=true
+      break
+    fi
+    sleep 1
+  done
+  test "${ready}" = true
+  BACKUP_RESTORE_MARKET_DATA_HOST_PATH="${restore_root}" \
+    docker compose --env-file .env --profile restore run --rm --no-deps \
+      -e "DB_HOST=${container}" -e DB_NAME=axiom -e DB_USER=axiom_migrator \
+      -e "BACKUP_RESTORE_MANIFEST=${manifest}" restore restore
+  docker stop -t 10 "${container}" >/dev/null
+  docker rm "${container}" >/dev/null
+  docker volume rm "${volume}" >/dev/null
+}
+
+prior_revision="$(jq -r .source_revision "${workspace}/sample.json")"
+{
+  printf 'run_id=%s\nscenario=%s\nstarted_at=%s\ndue_at=%s\n' \
+    "${run_id}" "${scenario}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(date -u -d "@${due_epoch}" +%Y-%m-%dT%H:%M:%SZ)"
+  case "${scenario}" in
+    public_collector_disconnect_and_gap_recovery)
+      drill_phase=collector_disconnect
+      recorder="$(service_container recorder)"
+      network="$(docker inspect "${recorder}" | jq -er '.[0].NetworkSettings.Networks | keys[] | select(contains("exchange_egress"))')"
+      docker network disconnect "${network}" "${recorder}"
+      sleep 3
+      docker network connect "${network}" "${recorder}"
+      wait_healthy recorder
+      ;;
+    recorder_kill_during_segment_finalize)
+      drill_phase=recorder_recovery
+      recorder="$(service_container recorder)"
+      market_root="$(docker inspect "${recorder}" | jq -er '.[0].Mounts[] | select(.Destination == "/var/lib/axiom/market-data") | .Source')"
+      find "${market_root}" -type f -print0 | sort -z | xargs -0 sha256sum > "${workspace}/drills/recorder-before.sha256"
+      docker kill --signal KILL "${recorder}" >/dev/null
+      docker compose --env-file .env --profile operational-readiness up -d --no-deps recorder
+      wait_healthy recorder
+      sha256sum -c "${workspace}/drills/recorder-before.sha256" >/dev/null
+      ;;
+    shadow_worker_restart_and_checkpoint_recovery)
+      drill_phase=shadow_recovery
+      shadow="$(service_container engine-shadow)"
+	  recovery_before="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -AtF '|' -c \
+	    "SELECT id,coalesce(claim_epoch,0),(SELECT count(*) FROM run_checkpoints WHERE run_id=shadow_sessions.run_id)
+	       FROM shadow_sessions WHERE state IN ('PAUSED','RUNNING') ORDER BY created_at DESC LIMIT 1")"
+	  test -n "${recovery_before}"
+	  IFS='|' read -r recovery_id recovery_epoch recovery_checkpoints <<<"${recovery_before}"
+	  docker compose --env-file .env stop -t 60 engine-shadow
+      docker compose --env-file .env --profile operational-readiness up -d --no-deps engine-shadow
+      wait_healthy engine-shadow
+	  recovery_deadline=$(( $(date +%s) + 120 ))
+	  recovery_after=''
+	  while (( $(date +%s) <= recovery_deadline )); do
+	    recovery_after="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -AtF '|' -c \
+	      "SELECT state,entries_enabled,coalesce(claim_epoch,0),
+	         (SELECT count(*) FROM run_checkpoints WHERE run_id=shadow_sessions.run_id)
+	         FROM shadow_sessions WHERE id='${recovery_id}'")"
+	    IFS='|' read -r recovery_state recovery_entries recovery_new_epoch recovery_new_checkpoints <<<"${recovery_after}"
+	    if [[ "${recovery_state}" == PAUSED && "${recovery_entries}" == f ]] &&
+	       (( recovery_new_epoch > recovery_epoch && recovery_new_checkpoints > recovery_checkpoints )); then
+	      break
+	    fi
+	    sleep 2
+	  done
+	  test "${recovery_state}" = PAUSED
+	  test "${recovery_entries}" = f
+	  test "${recovery_new_epoch}" -gt "${recovery_epoch}"
+	  test "${recovery_new_checkpoints}" -gt "${recovery_checkpoints}"
+      unsafe="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -Atqc \
+        "SELECT count(*) FROM shadow_sessions WHERE entries_enabled OR state='RUNNING'")"
+      test "${unsafe}" -eq 0
+	  printf 'session_id=%s\nclaim_epoch_before=%s\nclaim_epoch_after=%s\ncheckpoints_before=%s\ncheckpoints_after=%s\n' \
+	    "${recovery_id}" "${recovery_epoch}" "${recovery_new_epoch}" \
+	    "${recovery_checkpoints}" "${recovery_new_checkpoints}"
+      ;;
+    database_restart_and_outbox_recovery)
+      drill_phase=database_recovery
+      before="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -Atqc \
+        "SELECT version || ':' || name || ':' || checksum FROM schema_migrations ORDER BY version" | sha256sum | cut -d' ' -f1)"
+      docker restart --time 30 axiom-postgres-1 >/dev/null
+      wait_healthy postgres
+      for service in api recorder engine-shadow backtest-worker binance-sandbox-engine bybit-sandbox-engine operational-readiness-observer; do
+        wait_healthy "${service}"
+      done
+      after="$(docker exec axiom-postgres-1 psql -U axiom_owner -d axiom -Atqc \
+        "SELECT version || ':' || name || ':' || checksum FROM schema_migrations ORDER BY version" | sha256sum | cut -d' ' -f1)"
+      test "${before}" = "${after}"
+      printf 'migration_identity_before=%s\nmigration_identity_after=%s\n' "${before}" "${after}"
+      ;;
+    high_disk_watermark_heavy_job_rejection)
+      drill_phase=high_disk
+      run_isolated_operational_readiness_postgres_test
+      ;;
+    critical_disk_watermark_safe_pause)
+      drill_phase=critical_disk
+      docker run --rm -v "${release}:/src:ro" -v axiom_d5_go_mod:/go/pkg/mod \
+        -v axiom_d5_go_build:/root/.cache/go-build -w /src "${go_image}" \
+        /usr/local/go/bin/go test ./internal/bootstrap \
+        -run '^TestRecorderStoragePressureFailsClosedAtCritical$' -count=1 -v
+      ;;
+    encrypted_backup_clean_restore)
+      drill_phase=backup_restore
+      backup_clean_restore
+      ;;
+    *)
+      printf 'unknown scenario\n' >&2
+      exit 2
+      ;;
+  esac
+  drill_phase=evidence_refresh
+  refresh_drill_observation
+  wait_fresh_safe_sample "${prior_revision}"
+  printf 'completed_at=%s\nresult=passed\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "${temporary_log}" 2>&1
+
+chmod 0440 "${temporary_log}"
+sync "${temporary_log}"
+mv "${temporary_log}" "${log}"
+readonly occurred_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+readonly evidence_hash="$(sha256sum "${log}" | cut -d' ' -f1)"
+readonly events="${workspace}/fault-evidence.json"
+readonly events_tmp="${events}.tmp"
+jq -e --arg scenario "${scenario}" 'all(.[]; .scenario != $scenario)' "${events}" >/dev/null
+jq --arg run_id "${run_id}" --arg scenario "${scenario}" --arg occurred_at "${occurred_at}" \
+  --arg evidence_hash "${evidence_hash}" \
+  '. + [{run_id:$run_id,scenario:$scenario,state:"passed",occurred_at:$occurred_at,evidence_hash:$evidence_hash}]' \
+  "${events}" > "${events_tmp}"
+chmod 0440 "${events_tmp}"
+sync "${events_tmp}"
+mv "${events_tmp}" "${events}"
+sync "${workspace}"
+drill_complete=true
+"${event_program}" "${workspace}" drill_passed complete PASSED '' "${scenario}"
+trap - EXIT
+printf 'scenario=%s state=passed occurred_at=%s evidence_hash=%s\n' \
+  "${scenario}" "${occurred_at}" "${evidence_hash}"

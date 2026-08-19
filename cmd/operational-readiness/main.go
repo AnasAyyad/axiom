@@ -52,8 +52,13 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	observerStatusPath := os.Getenv("AXIOM_OPERATIONAL_READINESS_OBSERVER_STATUS_FILE")
+	if observerStatusPath == "" {
+		return fmt.Errorf("operational readiness observer status file is required")
+	}
 	preflightSource := operationalReadiness.FilePreflight{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_PREFLIGHT_FILE")}
-	probe := &operationalReadiness.FileProbe{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE")}
+	probe := &operationalReadiness.FileProbe{Path: os.Getenv("AXIOM_OPERATIONAL_READINESS_SAMPLE_FILE"),
+		StatusPath: observerStatusPath}
 	preflightCheck, err := preflightCheckEnabled()
 	if err != nil {
 		return err

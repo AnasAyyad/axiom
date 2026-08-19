@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+umask 0027
+
+if [[ $# -lt 4 || $# -gt 6 ]]; then
+  echo 'usage: axiom-d5-controller-event WORKSPACE EVENT PHASE STATE [REASON] [SCENARIO]' >&2
+  exit 2
+fi
+
+readonly workspace=$1
+readonly event=$2
+readonly phase=$3
+readonly state=$4
+readonly reason=${5:-}
+readonly scenario=${6:-}
+readonly lifecycle=${workspace}/controller-lifecycle.jsonl
+readonly lock=${workspace}/controller-lifecycle.lock
+
+verify_chain() {
+  local expected_sequence=1 prior='' line sequence linked declared calculated
+  [[ ! -e ${lifecycle} || -s ${lifecycle} ]] || return 1
+  while IFS= read -r line; do
+    sequence=$(jq -er '.sequence' <<<"${line}") || return 1
+    linked=$(jq -r '.prior_event_hash // ""' <<<"${line}") || return 1
+    declared=$(jq -er '.event_hash | select(test("^[0-9a-f]{64}$"))' <<<"${line}") || return 1
+    calculated=$(jq -c 'del(.event_hash)' <<<"${line}" | sha256sum | cut -d' ' -f1)
+    [[ ${sequence} == "${expected_sequence}" && ${linked} == "${prior}" && ${declared} == "${calculated}" ]] || return 1
+    prior=${declared}
+    expected_sequence=$((expected_sequence + 1))
+  done < "${lifecycle}"
+}
+
+[[ ${workspace} == /srv/axiom-data/operational-readiness/formal/d5-formal-* ]]
+[[ ${event} =~ ^[a-z0-9_]+$ ]]
+[[ ${phase} =~ ^[a-z0-9_]+$ ]]
+[[ ${state} =~ ^[A-Z_]+$ ]]
+[[ -z ${reason} || ${reason} =~ ^[a-z0-9_]+$ ]]
+[[ -z ${scenario} || ${scenario} =~ ^[a-z0-9_]+$ ]]
+
+exec 9>"${lock}"
+flock -x 9
+verify_chain
+
+sequence=1
+prior_hash=''
+if [[ -s ${lifecycle} ]]; then
+  readonly prior_event="$(tail -1 "${lifecycle}")"
+  sequence="$(( $(jq -er '.sequence' <<<"${prior_event}") + 1 ))"
+  prior_hash="$(jq -er '.event_hash | select(test("^[0-9a-f]{64}$"))' <<<"${prior_event}")"
+fi
+
+readonly occurred_at="$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)"
+readonly event_without_hash="$(jq -cn \
+  --argjson sequence "${sequence}" --arg occurred_at "${occurred_at}" \
+  --arg event "${event}" --arg phase "${phase}" --arg state "${state}" \
+  --arg reason "${reason}" --arg scenario "${scenario}" --arg prior "${prior_hash}" '
+  {schema_version:"axiom.operational_readiness.controller-lifecycle.v1",sequence:$sequence,
+   occurred_at:$occurred_at,event:$event,phase:$phase,state:$state,
+   reason:(if $reason=="" then null else $reason end),
+   scenario:(if $scenario=="" then null else $scenario end),
+   prior_event_hash:(if $prior=="" then null else $prior end)}
+  | with_entries(select(.value != null))')"
+readonly event_hash="$(printf '%s' "${event_without_hash}" | sha256sum | cut -d' ' -f1)"
+jq -c --arg event_hash "${event_hash}" '. + {event_hash:$event_hash}' \
+  <<<"${event_without_hash}" >> "${lifecycle}"
+chmod 0640 "${lifecycle}"
+sync "${lifecycle}"
