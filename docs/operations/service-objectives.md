@@ -46,6 +46,11 @@ later successful run cannot offset a safety or integrity violation.
 | Test/demo restart/reconciliation readiness RTO | Not applicable in V1A; `<= 10 min` when introduced in V1C |
 | Tested clean restore RTO | `<= 4 h` initially |
 
+Book-age expiry rejects decisions without classifying a quiet instrument as a
+transport outage. Reconnect/resynchronization measurements begin only from an
+actual stream, heartbeat, sequence, invalid-event, or queue failure. This keeps
+quiet books fail-closed without consuming the shared REST snapshot budget.
+
 All durations use a monotonic clock. Persisted detection, start, transition, and
 completion timestamps use UTC. “Ready” means dependencies, configuration,
 ownership, recovery, journal, required books, and data quality pass; it does not

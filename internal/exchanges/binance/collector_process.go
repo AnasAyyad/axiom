@@ -203,11 +203,13 @@ func (collector *InstrumentCollector) runHealthy(
 				return outcome
 			}
 		case <-timers.stale.C:
-			if collector.book.MarkStale(collector.source.MonotonicOffset(),
-				uint64(collector.config.MaximumBookAge.Nanoseconds())) != nil {
-				return generationFailure(collector.pauseOutcome(ctx, connectionID, generation,
-					collector.book.View().Sequence(), reconnectStaleBook), "stale_check", "book_stale", nil)
-			}
+			// Book age and transport health are independent facts. A quiet spot book
+			// remains ineligible through View.Eligible and HealthSnapshot, but silence
+			// alone does not prove a stream fault and must not consume REST snapshot
+			// budget. Stream errors, sequence gaps, invalid events, and queue failures
+			// continue to invalidate the generation and reconnect fail closed.
+			_ = collector.book.View().Eligible(collector.source.MonotonicOffset(),
+				collector.config.MaximumBookAge)
 		case result := <-events:
 			if outcome, failed := collector.healthyEventOutcome(ctx, result, len(events), connectionID, generation); failed {
 				return outcome

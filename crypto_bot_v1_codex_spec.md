@@ -2910,6 +2910,13 @@ The reference server profile must be recorded before performance certification. 
 | Tested restore RTO | <= 4 h initially |
 | Accessibility | WCAG 2.2 AA for critical workflows |
 
+Book age and transport health are separate fail-closed facts. A book beyond its
+configured age is ineligible for every strategy and order decision, but quiet
+market data alone does not prove that its public stream failed and must not
+force a REST snapshot loop. Stream errors, failed heartbeats, sequence gaps,
+invalid events, and bounded-queue failures invalidate the generation and use
+the normal reconnect and resynchronization path.
+
 Prometheus labels must remain bounded. Exchange, instrument, strategy family, mode, state, and reason-code enums are acceptable; order IDs, decision IDs, client IDs, user IDs, file paths, raw URLs, and arbitrary error text are not metric labels.
 
 ---

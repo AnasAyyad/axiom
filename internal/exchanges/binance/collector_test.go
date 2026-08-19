@@ -51,6 +51,39 @@ func TestInstrumentCollectorBridgesSnapshotAndPublishesImmutableView(t *testing.
 	}
 }
 
+func TestQuietBookExpiresWithoutForcingSnapshotReconnect(t *testing.T) {
+	instrument := approvedBTC(t)
+	clock := &domain.SystemClock{}
+	source := newCollectorSource(t, instrument, clock, 101)
+	config := testCollectorConfig(instrument)
+	config.MaximumBookAge = 5 * time.Millisecond
+	config.StaleCheckEvery = time.Millisecond
+	collector, err := NewInstrumentCollector(config, source, &collectorRecorder{}, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- collector.Run(ctx) }()
+	waitFor(t, func() bool {
+		view, viewErr := collector.Views().Book(collectorExchange, instrument)
+		return viewErr == nil && view.Version() != 0 && view.Health() == marketdata.HealthHealthy
+	})
+	source.offset.Add(uint64((config.MaximumBookAge + time.Millisecond).Nanoseconds()))
+	waitFor(t, func() bool { return !collector.HealthSnapshot().BookEligible })
+	time.Sleep(10 * config.StaleCheckEvery)
+	view, viewErr := collector.Views().Book(collectorExchange, instrument)
+	if viewErr != nil || view.Health() != marketdata.HealthHealthy ||
+		source.generation.Load() != 1 || collector.Stats().Reconnects != 0 {
+		t.Fatalf("quiet book forced reconnect: view=%s generation=%d stats=%#v error=%v",
+			view.Health(), source.generation.Load(), collector.Stats(), viewErr)
+	}
+	cancel()
+	if err = <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func assertCollectorCommittedView(
 	t *testing.T,
 	collector *InstrumentCollector,

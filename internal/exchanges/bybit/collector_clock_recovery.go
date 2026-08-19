@@ -133,17 +133,18 @@ func (collector *InstrumentCollector) heartbeatOutcome(
 }
 
 func (collector *InstrumentCollector) staleOutcome(
-	ctx context.Context,
-	stream ObservedStream,
-	reachedHealthy bool,
+	_ context.Context,
+	_ ObservedStream,
+	_ bool,
 ) (generationOutcome, bool) {
-	if collector.book.View().Version() == 0 ||
-		collector.book.MarkStale(collector.source.MonotonicOffset(),
-			uint64(collector.config.MaximumBookAge.Nanoseconds())) == nil {
-		return generationOutcome{}, false
-	}
-	return collector.failedGeneration(ctx, stream, reachedHealthy,
-		reconnectStaleBook, "stale_book", "book_stale", nil), true
+	// A quiet book is ineligible by age, but age alone is not evidence that the
+	// heartbeat-protected stream failed. Keeping the generation connected avoids
+	// a false reconnect/snapshot loop while every strategy still rejects the old
+	// view. Heartbeat, stream, sequence, queue, and event failures retain their
+	// existing fail-closed reconnect paths.
+	_ = collector.book.View().Eligible(collector.source.MonotonicOffset(),
+		collector.config.MaximumBookAge)
+	return generationOutcome{}, false
 }
 
 func (collector *InstrumentCollector) queueOverflowOutcome(
