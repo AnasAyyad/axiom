@@ -174,7 +174,7 @@ requireTokens("deploy/operational-readiness/axiom-d5-status", [
   "expected_timer_count",
   "Latest interruption",
   "Terminal failure details",
-  "verify_lifecycle_chain",
+  "verify_evidence_chain",
 ]);
 requireTokens("deploy/operational-readiness/axiom-d5-controller-event", [
   "verify_chain",

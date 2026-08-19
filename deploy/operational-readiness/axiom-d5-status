@@ -135,48 +135,68 @@ ok_text() { printf '%sOK%s' "${GREEN}" "${RESET}"; }
 warn_text() { printf '%sWARN%s' "${YELLOW}" "${RESET}"; }
 bad_text() { printf '%sFAIL%s' "${RED}" "${RESET}"; }
 
-verify_lifecycle_chain() {
-  local path=$1 expected_sequence=1 prior='' line sequence linked declared canonical calculated
+verify_evidence_chain() {
+  local kind=$1 path=$2 run_id=${3:-}
   [[ -s ${path} ]] || return 1
-  while IFS= read -r line; do
-    jq -e . >/dev/null 2>&1 <<<"${line}" || return 1
-    sequence=$(jq -er '.sequence' <<<"${line}") || return 1
-    linked=$(jq -r '.prior_event_hash // ""' <<<"${line}") || return 1
-    declared=$(jq -er '.event_hash | select(test("^[0-9a-f]{64}$"))' <<<"${line}") || return 1
-    if [[ $(jq -r '.schema_version' <<<"${line}") == axiom.operational_readiness.observer-lifecycle.v1 ]]; then
-      canonical=$(jq -c '.event_hash=""' <<<"${line}") || return 1
-    else
-      canonical=$(jq -c 'del(.event_hash)' <<<"${line}") || return 1
-    fi
-    calculated=$(printf '%s' "${canonical}" | sha256sum | cut -d' ' -f1)
-    [[ ${sequence} == "${expected_sequence}" && ${linked} == "${prior}" && ${declared} == "${calculated}" ]] || return 1
-    prior=${declared}
-    expected_sequence=$((expected_sequence + 1))
-  done < "${path}"
-}
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "${kind}" "${path}" "${run_id}" <<'PY'
+import hashlib
+import json
+import re
+import sys
 
-verify_sample_chain() {
-  local path=$1 run_id=$2 expected_ordinal=1 prior='' previous_revision=0
-  local line ordinal revision linked declared canonical calculated
-  [[ -s ${path} ]] || return 1
-  while IFS= read -r line; do
-    jq -e . >/dev/null 2>&1 <<<"${line}" || return 1
-    ordinal=$(jq -er '.ordinal' <<<"${line}") || return 1
-    revision=$(jq -er '.source_revision' <<<"${line}") || return 1
-    linked=$(jq -r '.prior_sample_hash // ""' <<<"${line}") || return 1
-    declared=$(jq -er '.sample_hash | select(test("^[0-9a-f]{64}$"))' <<<"${line}") || return 1
-    canonical=$(jq -c --arg run_id "${run_id}" \
-      '.sample_hash="" | {run_id:$run_id,sample:.}' <<<"${line}") || return 1
-    calculated=$(printf '%s' "${canonical}" | sha256sum | cut -d' ' -f1)
-    [[ ${ordinal} == "${expected_ordinal}" && ${linked} == "${prior}" && \
-       ${declared} == "${calculated}" ]] || return 1
-    if ((expected_ordinal > 1 && revision <= previous_revision)); then
-      return 1
-    fi
-    prior=${declared}
-    previous_revision=${revision}
-    expected_ordinal=$((expected_ordinal + 1))
-  done < "${path}"
+kind, path, run_id = sys.argv[1:]
+hex_digest = re.compile(r"^[0-9a-f]{64}$")
+prior = ""
+expected = 1
+previous_revision = 0
+
+with open(path, encoding="utf-8") as stream:
+    found = False
+    for raw_line in stream:
+        found = True
+        record = json.loads(raw_line)
+        declared = record.get("sample_hash" if kind == "sample" else "event_hash", "")
+        if not isinstance(declared, str) or not hex_digest.fullmatch(declared):
+            raise SystemExit(1)
+
+        if kind == "sample":
+            ordinal = record.get("ordinal")
+            revision = record.get("source_revision")
+            linked = record.get("prior_sample_hash", "")
+            if ordinal != expected or linked != prior:
+                raise SystemExit(1)
+            if expected > 1 and (not isinstance(revision, int) or revision <= previous_revision):
+                raise SystemExit(1)
+            record["sample_hash"] = ""
+            canonical = {"run_id": run_id, "sample": record}
+            previous_revision = revision
+        else:
+            sequence = record.get("sequence")
+            linked = record.get("prior_event_hash", "")
+            if sequence != expected or linked != prior:
+                raise SystemExit(1)
+            if record.get("schema_version") == "axiom.operational_readiness.observer-lifecycle.v1":
+                record["event_hash"] = ""
+            elif record.get("schema_version") == "axiom.operational_readiness.controller-lifecycle.v1":
+                del record["event_hash"]
+            else:
+                raise SystemExit(1)
+            canonical = record
+
+        encoded = json.dumps(
+            canonical,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        if hashlib.sha256(encoded).hexdigest() != declared:
+            raise SystemExit(1)
+        prior = declared
+        expected += 1
+
+if not found:
+    raise SystemExit(1)
+PY
 }
 
 render() {
@@ -273,7 +293,7 @@ render() {
     sample_epoch=$(date -u -d "${sample_time}" +%s 2>/dev/null || printf '0')
     sample_age=$((now_epoch - sample_epoch))
     source_revision=$(jq -r '.source_revision // 0' <<<"${latest}")
-    verify_sample_chain "${sample_file}" "${run_id}" && chain_ok=true || chain_ok=false
+    verify_evidence_chain sample "${sample_file}" "${run_id}" && chain_ok=true || chain_ok=false
   fi
 
   stale=$(jq -r '.stale_decisions // -1' <<<"${latest}")
@@ -375,8 +395,8 @@ render() {
     observer_role=$(jq -r '.role // "none"' <<<"${observer_last_failure_event}")
     observer_interruption_state=recovered
   fi
-  verify_lifecycle_chain "${observer_lifecycle_file}" && observer_chain_ok=true || observer_chain_ok=false
-  verify_lifecycle_chain "${controller_lifecycle_file}" && controller_chain_ok=true || controller_chain_ok=false
+  verify_evidence_chain lifecycle "${observer_lifecycle_file}" && observer_chain_ok=true || observer_chain_ok=false
+  verify_evidence_chain lifecycle "${controller_lifecycle_file}" && controller_chain_ok=true || controller_chain_ok=false
 
   [[ ${runner_state} == active || (${verdict_state} == PASSED && ${qualified} == true) ]] || issues+=("Formal runner is ${runner_state}/${runner_substate}.")
   [[ ${restarts} == 0 ]] || issues+=("Runner restart count is ${restarts}; formal D5 requires zero.")
